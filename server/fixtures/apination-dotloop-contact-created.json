@@ -1,0 +1,8 @@
+{
+  "id": "evt_fixture_contact_created",
+  "eventType": "contact.created",
+  "channel": "contact_created_or_updated",
+  "contactName": "Frank Longbottom",
+  "contactEmail": "frank.l@aurors.org",
+  "contactPhone": "555-0144"
+}

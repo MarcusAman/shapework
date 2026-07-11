@@ -1,0 +1,44 @@
+{
+  "summary": {
+    "finalRecommendation": "ready_for_controlled_pilot_manual_first",
+    "launchBlockerCount": 0,
+    "highPriorityCount": 2,
+    "mediumPriorityCount": 2,
+    "lowPriorityCount": 0,
+    "polishCount": 0
+  },
+  "issues": [
+    {
+      "id": "BACKLOG-PERSIST-001",
+      "title": "Supabase Database Storage Driver Unimplemented",
+      "severity": "high",
+      "category": "persistence",
+      "description": "The 'database' storage driver checks for env variables but fallback-maps all models to in-memory collections, causing complete data loss on server restarts.",
+      "recommendedFix": "Create Supabase DB clients inside repositories.ts and map memory query filters to Supabase query builders."
+    },
+    {
+      "id": "BACKLOG-AUTH-001",
+      "title": "Plaintext Bearer Tokens Lack Cryptographic Verification",
+      "severity": "high",
+      "category": "auth",
+      "description": "Bearer tokens are read directly as string IDs or emails without JWT public-key signature verification, allowing token spoofing in self-serve contexts.",
+      "recommendedFix": "Integrate Firebase Auth SDK or verify JWT tokens using verifyIdToken routines."
+    },
+    {
+      "id": "BACKLOG-INTEG-001",
+      "title": "Third-Party Connectors Operate in Mock-Only Mode",
+      "severity": "medium",
+      "category": "integration",
+      "description": "Salesforce, QuickBooks, SkySlope, and Twilio connectors simulate event signal triggers but do not bind to outbound REST endpoints.",
+      "recommendedFix": "Configure active OAuth routers and REST clients for each connector card."
+    },
+    {
+      "id": "BACKLOG-PERSIST-002",
+      "title": "Local Storage Suffers Write Bottleneck Risks",
+      "severity": "medium",
+      "category": "persistence",
+      "description": "STORAGE_DRIVER=local serialize-saves the entire DB structure to a single db.json file on every state change, exposing the system to IO blocks under high load.",
+      "recommendedFix": "Migrate data storage to relational schemas or document collections."
+    }
+  ]
+}

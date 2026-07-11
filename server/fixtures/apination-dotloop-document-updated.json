@@ -1,0 +1,10 @@
+{
+  "id": "evt_fixture_document_updated",
+  "eventType": "document.updated",
+  "channel": "document_created_or_updated",
+  "loopId": "dl_loop_901",
+  "loopName": "204 Birch Lane",
+  "documentName": "Buyer_Agency_Agreement.pdf",
+  "documentStatus": "SIGNED",
+  "updated_at": "2026-06-29T15:00:00Z"
+}

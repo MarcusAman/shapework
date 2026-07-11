@@ -1,0 +1,11 @@
+{
+  "id": "evt_fixture_participant_added",
+  "eventType": "participant.added",
+  "channel": "participant_created_or_updated",
+  "loopId": "dl_loop_901",
+  "loopName": "204 Birch Lane",
+  "participantName": "Alice Longbottom",
+  "participantRole": "Buyer Agent",
+  "participantEmail": "alice.l@aurors.org",
+  "participantPhone": "555-0199"
+}

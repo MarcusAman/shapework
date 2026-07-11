@@ -1,0 +1,45 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+:root {
+  --app-bg: #F5F5F0;             /* Warm ivory / soft limestone */
+  --surface: #ffffff;
+  --surface-muted: #FAF9F6;
+  --surface-subtle: #ECEBE6;
+  --sidebar-bg: #052D28;          /* Deep evergreen / hunter green */
+  --border-soft: #DAD9D3;
+  --border-medium: #C3C2BC;
+  --text-primary: #052D28;        /* Primary text: Deep evergreen */
+  --text-secondary: #005A50;      /* Accent text: Rich teal / peacock green */
+  --text-tertiary: #757D74;
+  --brand-primary: #052D28;       /* Primary brand: Deep evergreen */
+  --brand-primary-hover: #03201c;
+  --brand-soft: #EAF4F2;          /* Accent color / pale mint */
+  --risk-red: #b42318;
+  --risk-red-soft: #fff1f0;
+  --warning: #b7791f;
+  --warning-soft: #fff8e6;
+  --success: #005A50;             /* Success: Rich teal / peacock green */
+  --success-soft: #EAF4F2;
+  --info: #315f7c;
+  --info-soft: #edf5fa;
+  --shadow-card: 0 1px 2px rgba(5, 45, 40, 0.04), 0 10px 30px rgba(5, 45, 40, 0.05);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  /* Backward Compatibility Mappings */
+  --brand-900: var(--brand-primary);
+  --brand-800: var(--brand-primary-hover);
+  --brand-700: #03201c;
+  --brand-100: var(--brand-soft);
+  --accent-blue: var(--info);
+  --accent-amber: var(--warning);
+  --accent-red: var(--risk-red);
+  --accent-green: var(--success);
+  --shadow-soft: var(--shadow-card);
+  --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}

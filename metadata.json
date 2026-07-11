@@ -1,0 +1,6 @@
+{
+  "name": "shapework.",
+  "description": "The AI Operations Employee for Real Estate Brokerages.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,1 @@
+/opt/homebrew/Cellar/postgresql@15/15.18/bin/postgres "-D" "/Users/marcusaman/Downloads/shapework (2)/data/pg_data" "-p" "5432"

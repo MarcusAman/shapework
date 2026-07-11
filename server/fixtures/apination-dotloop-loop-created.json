@@ -1,0 +1,12 @@
+{
+  "id": "evt_fixture_loop_created",
+  "eventType": "loop.created",
+  "channel": "loop_created_or_updated",
+  "loopId": "dl_loop_901",
+  "loopName": "204 Birch Lane",
+  "loopStatus": "Pre-Listing",
+  "transactionType": "Listing",
+  "created_at": "2026-06-29T12:00:00Z",
+  "clientName": "James Potter",
+  "clientEmail": "james.potter@hogwarts.edu"
+}

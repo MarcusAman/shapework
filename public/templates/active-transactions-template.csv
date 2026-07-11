@@ -1,0 +1,4 @@
+property,client_name,side,stage,closing_date,expected_commission
+456 Oak Avenue,Jane Smith,buyer,contract_to_close,2026-07-15,15000
+789 Maple Drive,Robert Johnson,seller,closing_prep,2026-07-20,9500
+123 Pine Street,John Doe,buyer,contract_to_close,,12000

@@ -1,0 +1,402 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@import "./styles/tokens.css";
+@import "./styles/app.css";
+@import "./styles/components.css";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: var(--font-sans);
+
+  /* Custom Color Palette - Premium Warm/Cool Minimalist Real Estate Operations */
+  --color-canvas: var(--app-bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-border-subtle: var(--border-soft);
+  --color-border-strong: var(--border-medium);
+  --color-brand-900: var(--brand-primary);
+  --color-brand-800: var(--brand-primary-hover);
+  --color-brand-700: #3e604f;
+  --color-brand-100: var(--brand-soft);
+  
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-soft: var(--brand-soft);
+  
+  --color-brand-green: var(--brand-primary);
+  --color-brand-green-hover: var(--brand-primary-hover);
+  --color-brand-green-soft: var(--brand-soft);
+  
+  --color-accent-blue: var(--info);
+  --color-accent-blue-hover: var(--info);
+  --color-accent-blue-soft: var(--info-soft);
+
+  /* Semantic Statuses */
+  --color-status-healthy: var(--success);
+  --color-status-healthy-soft: var(--success-soft);
+  --color-status-attention: var(--warning);
+  --color-status-attention-soft: var(--warning-soft);
+  --color-status-atrisk: var(--risk-red);
+  --color-status-atrisk-soft: var(--risk-red-soft);
+}
+
+@layer base {
+  body {
+    background-color: var(--app-bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideLeft {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-left {
+  animation: slideLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-left,
+  .animate-slide-up,
+  .animate-scale-in,
+  .alert-card,
+  .sync-dot,
+  * {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@property --light-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes askNestBorderRotator {
+  to {
+    --light-angle: 360deg;
+  }
+}
+
+/* Outer wrapper for positioning and listening state triggers */
+.ask-nest-input-outer {
+  position: relative;
+  border-radius: 32px;
+  isolation: isolate;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --light-duration: 5s;
+  --glow-opacity: 0.35;
+}
+
+/* Main stable inner input container with clean glass surface */
+.ask-nest-input-inner {
+  position: relative;
+  z-index: 2;
+  border-radius: 30px;
+  background: linear-gradient(145deg, rgba(246, 247, 241, 0.16), rgba(246, 247, 241, 0.06)) !important;
+  border: 1px solid rgba(246, 247, 241, 0.12) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.28), inset 1px 1px 0 rgba(255, 255, 255, 0.14) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ask-nest-input-outer:focus-within .ask-nest-input-inner {
+  border-color: rgba(0, 99, 92, 0.3) !important;
+  box-shadow: 0 0 20px rgba(0, 99, 92, 0.15), 0 30px 80px rgba(0, 0, 0, 0.32), inset 1px 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Layered border track strictly outside the input box */
+.ask-nest-input-border-run {
+  position: absolute;
+  inset: 0;
+  border-radius: 32px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Moving light trace around the boundary only, masked from center */
+.ask-nest-input-border-run::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--light-angle, 0deg),
+    transparent 0deg,
+    transparent 120deg,
+    rgba(0, 99, 92, 0.4) 180deg,
+    #00635C 240deg,
+    #D0D6BB 300deg,
+    #F6F7F1 340deg,
+    transparent 360deg
+  );
+  animation: askNestBorderRotator var(--light-duration) linear infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1.5px;
+  transition: padding 0.3s ease;
+}
+
+/* Soft outer background glow */
+.ask-nest-input-border-run::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 40px;
+  background: conic-gradient(
+    from var(--light-angle, 0deg),
+    transparent 0deg,
+    transparent 120deg,
+    rgba(0, 99, 92, 0.2) 180deg,
+    rgba(0, 99, 92, 0.6) 240deg,
+    rgba(208, 214, 187, 0.6) 300deg,
+    rgba(246, 247, 241, 0.5) 340deg,
+    transparent 360deg
+  );
+  z-index: -1;
+  filter: blur(14px);
+  opacity: var(--glow-opacity);
+  pointer-events: none;
+  animation: askNestBorderRotator var(--light-duration) linear infinite;
+  transition: opacity 0.3s ease;
+}
+
+/* State modifiers */
+.ask-nest-input-outer:focus-within {
+  --light-duration: 3.8s;
+  --glow-opacity: 0.65;
+}
+
+.ask-nest-input-outer:hover {
+  --glow-opacity: 0.5;
+}
+
+.ask-nest-input-outer.is-listening {
+  --light-duration: 2.8s;
+  --glow-opacity: 0.85;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-nest-input-border-run::before,
+  .ask-nest-input-border-run::after {
+    animation: none !important;
+  }
+  .ask-nest-input-border-run::before {
+    background: linear-gradient(135deg, #00635C, #D0D6BB) !important;
+  }
+  .ask-nest-input-border-run::after {
+    display: none;
+  }
+}
+
+/* Scoped Internal Dashboard Theme overrides - Match /app Dark Forest Green Glassmorphism exactly */
+.internal-theme {
+  --sw-bg: #01362D;             /* Forest Green */
+  --sw-bg-soft: rgba(246, 247, 241, 0.075); /* Dark translucent glass base */
+  --sw-surface: rgba(246, 247, 241, 0.08);  /* Translucent white glass */
+  --sw-card: rgba(246, 247, 241, 0.08);     /* Translucent white glass */
+
+  --text-primary: #F6F7F1 !important;     /* Mist */
+  --text-secondary: #D0D6BB !important;   /* Pistachio secondary text */
+  --text-tertiary: rgba(246, 247, 241, 0.6) !important;    /* Soft Muted Mist */
+
+  --border-soft: rgba(246, 247, 241, 0.14) !important;      /* Thin translucent border */
+  --border-medium: rgba(208, 214, 187, 0.3) !important;    /* Strong Pistachio border */
+
+  --app-bg: #01362D !important;
+  --surface: rgba(246, 247, 241, 0.08) !important;
+  --surface-muted: rgba(246, 247, 241, 0.08) !important;
+  --surface-subtle: rgba(246, 247, 241, 0.075) !important;
+
+  /* Accent Branding: Nest Emerald & Forest Green */
+  --brand-primary: #01362D !important;
+  --brand-primary-hover: #00635C !important;
+  --brand-soft: #D0D6BB !important;
+
+  --success: #00635C !important;
+  --success-soft: rgba(0, 99, 92, 0.12) !important;
+  --warning: #D0D6BB !important;
+  --warning-soft: rgba(208, 214, 187, 0.12) !important;
+  --risk-red: #D96B5F !important;
+  --risk-red-soft: rgba(217, 107, 95, 0.12) !important;
+
+  background-color: var(--app-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.internal-theme .bg-white {
+  background-color: rgba(246, 247, 241, 0.08) !important;
+}
+
+.internal-theme .bg-stone-50 {
+  background-color: rgba(246, 247, 241, 0.075) !important;
+}
+
+.internal-theme .bg-stone-100 {
+  background-color: rgba(246, 247, 241, 0.075) !important;
+}
+
+.internal-theme .border-stone-100,
+.internal-theme .border-stone-150,
+.internal-theme .border-stone-200 {
+  border-color: rgba(246, 247, 241, 0.14) !important;
+}
+
+.internal-theme .text-stone-900 {
+  color: #F6F7F1 !important;
+}
+
+.internal-theme .text-stone-850,
+.internal-theme .text-stone-800,
+.internal-theme .text-stone-700 {
+  color: #D0D6BB !important;
+}
+
+.internal-theme .text-stone-650,
+.internal-theme .text-stone-600,
+.internal-theme .text-stone-500 {
+  color: rgba(246, 247, 241, 0.6) !important;
+}
+
+.internal-theme .text-stone-400 {
+  color: rgba(246, 247, 241, 0.40) !important;
+}
+
+/* ==============================================================
+   VISUAL ORG MAP WORKSPACE OVERRIDES
+   ============================================================== */
+body:has(.visual-org-map-workspace) main {
+  padding: 0 !important;
+  overflow: hidden !important;
+  max-width: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+body:has(.visual-org-map-workspace) main > div {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.visual-org-map-workspace {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+}
+
+.visual-org-map-workspace > div {
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.visual-org-map-header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 40 !important;
+  flex-shrink: 0 !important;
+  background: rgba(1, 54, 45, 0.92) !important;
+  backdrop-filter: blur(18px) !important;
+  border-bottom: 1px solid rgba(246, 247, 241, 0.12) !important;
+}
+
+.visual-org-map-toolbar {
+  position: sticky !important;
+  top: 73px !important;
+  z-index: 39 !important;
+  flex-shrink: 0 !important;
+  background: rgba(1, 54, 45, 0.88) !important;
+  backdrop-filter: blur(18px) !important;
+  border-bottom: 1px solid rgba(246, 247, 241, 0.10) !important;
+}
+
+.visual-org-map-canvas-shell {
+  flex: 1 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+
+

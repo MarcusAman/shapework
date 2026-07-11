@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "finalRecommendation": "ready_for_controlled_pilot_with_warnings",
+    "launchBlockerCount": 0,
+    "highPriorityCount": 0,
+    "mediumPriorityCount": 0,
+    "lowPriorityCount": 2
+  },
+  "issues": [
+    {
+      "id": "AUDIT-001",
+      "title": "Subtab bar wraps on narrow views",
+      "severity": "polish",
+      "category": "navigation",
+      "screen": "Settings switcher",
+      "component": "src/routes/appRoutes.tsx",
+      "expected": "Horizontal scrolling sub-tab navigation on narrow screens",
+      "actual": "Tab list wraps vertically causing header layout shift",
+      "recommendedFix": "Apply overflow-x-auto to the tab containers style sheet",
+      "acceptanceCriteria": "Nav items render in a single scrollable row on responsive view"
+    },
+    {
+      "id": "AUDIT-002",
+      "title": "No keyboard exit handle on detail drawer",
+      "severity": "low",
+      "category": "ux",
+      "screen": "Work Queue Drawer",
+      "component": "src/components/layout/WorkQueue.tsx",
+      "expected": "Pressing ESC closes the active drawer",
+      "actual": "Must manually click close button or overlay to close",
+      "recommendedFix": "Attach global keydown event listener on ESC key",
+      "acceptanceCriteria": "Active drawer closes on ESC press"
+    }
+  ]
+}

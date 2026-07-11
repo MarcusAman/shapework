@@ -1,0 +1,12 @@
+{
+  "id": "evt_fixture_loop_updated",
+  "eventType": "loop.updated",
+  "channel": "loop_created_or_updated",
+  "loopId": "dl_loop_901",
+  "loopName": "204 Birch Lane",
+  "loopStatus": "Under Contract",
+  "transactionType": "Purchase",
+  "updated_at": "2026-06-29T14:30:00Z",
+  "expectedClosingDate": "2026-07-28",
+  "revenue": 14500
+}

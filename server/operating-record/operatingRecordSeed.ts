@@ -1,0 +1,445 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { 
+  OperatingRecord, 
+  BrokerageResponsibilityDetail, 
+  OperatingOpportunity, 
+  QuickWin, 
+  BuildSprint 
+} from '../../src/types/operatingRecord';
+
+export const seedOperatingRecord: OperatingRecord = {
+  id: 'rec_nest_realty',
+  workspaceId: 'nest-realty-demo',
+  businessName: 'Nest Realty Richmond',
+  vertical: 'real_estate_brokerage',
+  status: 'active',
+  currentStateMapId: 'map_nest_current',
+  opportunityRegisterId: 'opp_nest_register',
+  roleMapId: 'role_nest_map',
+  workflowMapIds: ['wf_marketing_desk', 'wf_owner_shield', 'wf_closing_tracker', 'wf_intake_guard', 'wf_compliance_guard'],
+  systemMapIds: ['sys_rechat', 'sys_dotloop', 'sys_quickbooks', 'sys_gdrive'],
+  routingPolicyId: 'pol_nest_routing',
+  approvalPolicyId: 'pol_nest_approval',
+  auditPolicyId: 'pol_nest_audit',
+  quickWinIds: ['qw_1', 'qw_2'],
+  buildSprintIds: ['bs_1'],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  teamSize: 25,
+  w2Count: 3,
+  agentCount: 22,
+  primaryCustomerType: 'Residential Real Estate Sales & Leasing',
+  ownerGoal: 'Clarify roles and responsibilities, remove owner from daily low-value operations, increase transaction capacity, and audit team output.',
+  oneThingToFix: 'Late compliance documents uploaded right at closing, and bottlenecked marketing request follow-ups.',
+  currentLaunchMode: 'manual_first',
+  toolStack: {
+    'CRM / Sales': ['Rechat', 'Follow Up Boss'],
+    'Transaction Management': ['Dotloop', 'API Nation'],
+    'Marketing': ['Rechat Design Center', 'Google Drive', 'Canva'],
+    'Accounting': ['QuickBooks Online'],
+    'Internal Communication': ['Slack', 'Gmail'],
+    'File Storage': ['Google Drive'],
+    'Project Management': ['Basecamp']
+  }
+};
+
+export const seedResponsibilities: BrokerageResponsibilityDetail[] = [
+  {
+    id: 'resp_marketing',
+    responsibility: 'agent_marketing',
+    label: 'Agent Marketing Requests',
+    primaryOwnerRole: 'marketing_coordinator',
+    backupOwnerRole: 'operations_lead',
+    sla: '24 Hours',
+    escalationRule: 'Escalate to Operations Lead if uncompleted in 48 hours.',
+    approvalRequired: true,
+    currentPainLevel: 'high',
+    notes: 'Agents send incomplete details via text message and email, requiring multiple rounds of questions.',
+    relatedWorkflow: 'wf_marketing_desk',
+    ownershipStatus: 'bottleneck'
+  },
+  {
+    id: 'resp_onboarding',
+    responsibility: 'agent_onboarding',
+    label: 'Agent Onboarding',
+    primaryOwnerRole: 'operations_lead',
+    backupOwnerRole: 'marketing_coordinator',
+    sla: '48 Hours',
+    escalationRule: 'Escalate to Owner if logins are delayed past hire date.',
+    approvalRequired: true,
+    currentPainLevel: 'low',
+    notes: 'Needs licensing verification check steps formalized.',
+    relatedWorkflow: 'wf_agent_onboarding',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_listing_launch',
+    responsibility: 'listing_launch',
+    label: 'Listing Launch Scheduling',
+    primaryOwnerRole: 'listing_coordinator',
+    backupOwnerRole: 'marketing_coordinator',
+    sla: '24 Hours',
+    escalationRule: 'Escalate to Operations Lead if MLS draft is not active within target live date.',
+    approvalRequired: false,
+    currentPainLevel: 'medium',
+    notes: 'MLS draft needs photographer link checklist validation.',
+    relatedWorkflow: 'wf_listing_launch',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_coordination',
+    responsibility: 'transaction_coordination',
+    label: 'Transaction Intake coordination',
+    primaryOwnerRole: 'transaction_coordinator',
+    backupOwnerRole: 'operations_lead',
+    sla: '12 Hours',
+    escalationRule: 'Escalate to Operations Lead if under-contract loop is not created within 24 hours of signature.',
+    approvalRequired: false,
+    currentPainLevel: 'high',
+    notes: 'Frequently delayed, causing commission details and escrow checks tracking issues.',
+    relatedWorkflow: 'wf_intake_guard',
+    ownershipStatus: 'bottleneck'
+  },
+  {
+    id: 'resp_compliance',
+    responsibility: 'compliance_documents',
+    label: 'Compliance Documents chasing',
+    primaryOwnerRole: 'compliance_partner',
+    backupOwnerRole: 'transaction_coordinator',
+    sla: '24 Hours',
+    escalationRule: 'Escalate to Owner if required documents are missing 3 days before closing.',
+    approvalRequired: true,
+    currentPainLevel: 'high',
+    notes: 'Chasing documents right at closing creates huge TC workload spikes.',
+    relatedWorkflow: 'wf_compliance_guard',
+    ownershipStatus: 'fuzzy'
+  },
+  {
+    id: 'resp_closing_tracker',
+    responsibility: 'closing_tracker',
+    label: 'Closing Tracker updates',
+    primaryOwnerRole: 'transaction_coordinator',
+    backupOwnerRole: 'operations_lead',
+    sla: '48 Hours',
+    escalationRule: 'Escalate to Owner if closing forecast is missing expected commission details.',
+    approvalRequired: false,
+    currentPainLevel: 'medium',
+    notes: 'Closing dates change in Dotloop but spreadsheets are not updated.',
+    relatedWorkflow: 'wf_closing_tracker',
+    ownershipStatus: 'single_point_of_failure'
+  },
+  {
+    id: 'resp_commission',
+    responsibility: 'commission_processing',
+    label: 'Commission Processing',
+    primaryOwnerRole: 'operations_lead',
+    backupOwnerRole: 'owner',
+    sla: '24 Hours',
+    escalationRule: 'Escalate to Owner if funding authorization is delayed past closing day.',
+    approvalRequired: true,
+    currentPainLevel: 'medium',
+    notes: 'Requires compliance folder verification sign-off.',
+    relatedWorkflow: 'wf_closing_tracker',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_cash_flow',
+    responsibility: 'cash_flow_forecast',
+    label: 'Cash Flow Forecasting',
+    primaryOwnerRole: 'owner',
+    backupOwnerRole: 'operations_lead',
+    sla: 'Weekly',
+    escalationRule: 'None',
+    approvalRequired: true,
+    currentPainLevel: 'high',
+    notes: 'Owner does this manually. Needs automatic expected commission rollups.',
+    relatedWorkflow: 'wf_weekly_brief',
+    ownershipStatus: 'bottleneck'
+  },
+  {
+    id: 'resp_signage',
+    responsibility: 'sign_inventory',
+    label: 'Yard Signage & Lockboxes',
+    primaryOwnerRole: 'listing_coordinator',
+    backupOwnerRole: 'facilities',
+    sla: '48 Hours',
+    escalationRule: 'Escalate to Operations Lead if setup is missed.',
+    approvalRequired: false,
+    currentPainLevel: 'medium',
+    notes: 'No inventory tracking. Installer dispatch is done on sticky notes.',
+    relatedWorkflow: 'wf_sign_inventory',
+    ownershipStatus: 'fuzzy'
+  },
+  {
+    id: 'resp_supplies',
+    responsibility: 'office_supplies',
+    label: 'Office Supplies & Readiness',
+    primaryOwnerRole: 'operations_lead',
+    backupOwnerRole: 'facilities',
+    sla: 'Weekly',
+    escalationRule: 'None',
+    approvalRequired: false,
+    currentPainLevel: 'low',
+    notes: 'Includes keeping closing gifts and inspection kits in stock.',
+    relatedWorkflow: 'wf_office_readiness',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_facilities',
+    responsibility: 'facilities',
+    label: 'Office Facilities',
+    primaryOwnerRole: 'operations_lead',
+    backupOwnerRole: 'facilities',
+    sla: '72 Hours',
+    escalationRule: 'None',
+    approvalRequired: false,
+    currentPainLevel: 'low',
+    notes: 'Routine desk/building maintenance tasks.',
+    relatedWorkflow: 'wf_office_readiness',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_events',
+    responsibility: 'events',
+    label: 'Brokerage Events',
+    primaryOwnerRole: 'marketing_coordinator',
+    backupOwnerRole: 'operations_lead',
+    sla: 'Weekly',
+    escalationRule: 'None',
+    approvalRequired: true,
+    currentPainLevel: 'low',
+    notes: 'Coordination for monthly agent training panels.',
+    relatedWorkflow: 'wf_office_readiness',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_escalations',
+    responsibility: 'client_escalation',
+    label: 'Client Escalation Issues',
+    primaryOwnerRole: 'operations_lead',
+    backupOwnerRole: 'owner',
+    sla: '4 Hours',
+    escalationRule: 'Immediate notification to Owner for legal or major financial claims.',
+    approvalRequired: true,
+    currentPainLevel: 'medium',
+    notes: 'Staff need clear boundaries on what client issues they can resolve.',
+    relatedWorkflow: 'wf_owner_shield',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_owner_decisions',
+    responsibility: 'owner_decision',
+    label: 'Owner Decisions & Approvals',
+    primaryOwnerRole: 'owner',
+    backupOwnerRole: 'operations_lead',
+    sla: '12 Hours',
+    escalationRule: 'None',
+    approvalRequired: true,
+    currentPainLevel: 'high',
+    notes: 'Owner is constantly interrupted by routine approvals. Needs Owner Shield filters.',
+    relatedWorkflow: 'wf_owner_shield',
+    ownershipStatus: 'bottleneck'
+  },
+  {
+    id: 'resp_reviews',
+    responsibility: 'review_requests',
+    label: 'Review Requests',
+    primaryOwnerRole: 'marketing_coordinator',
+    backupOwnerRole: 'transaction_coordinator',
+    sla: '24 Hours',
+    escalationRule: 'None',
+    approvalRequired: false,
+    currentPainLevel: 'low',
+    notes: 'Google Review links should be emailed within 24 hours of closing.',
+    relatedWorkflow: 'wf_review_trigger',
+    ownershipStatus: 'clear'
+  },
+  {
+    id: 'resp_vendors',
+    responsibility: 'vendor_management',
+    label: 'Third-Party Vendor Operations',
+    primaryOwnerRole: 'operations_lead',
+    backupOwnerRole: 'owner',
+    sla: '48 Hours',
+    escalationRule: 'None',
+    approvalRequired: true,
+    currentPainLevel: 'low',
+    notes: 'Includes sign installers, cleaners, and printing companies.',
+    relatedWorkflow: 'wf_office_readiness',
+    ownershipStatus: 'clear'
+  }
+];
+
+export const seedOpportunities: OperatingOpportunity[] = [
+  {
+    id: 'opp_roles',
+    workspaceId: 'nest-realty-demo',
+    title: 'Fuzzy Operations Roles',
+    category: 'ownership',
+    severity: 'high',
+    frictionScore: 9,
+    dependencyScore: 8,
+    wasteScore: 7,
+    visibilityScore: 8,
+    readinessScore: 9,
+    impactScore: 9,
+    totalScore: 83,
+    estimatedHoursPerWeek: 6,
+    estimatedAnnualCost: 12000,
+    confidence: 'high',
+    whatIsHappening: 'Operations roles lack defined boundaries. Staff handle tasks reactively, causing issues to fall through the cracks and pulling the owner into routine problems.',
+    hiddenCost: 'Owner spends 15% of their working hours refereeing operations ownership and handling basic supply orders.',
+    recommendedFix: 'Establish a Role responsibilities matrix, escalation rule boundaries, and active routing workflows in shapework.',
+    quickWinCandidate: true,
+    buildSprintCandidate: false,
+    status: 'accepted'
+  },
+  {
+    id: 'opp_marketing_intake',
+    workspaceId: 'nest-realty-demo',
+    title: 'Agent Marketing Request Bottlenecks',
+    category: 'marketing',
+    severity: 'high',
+    frictionScore: 8,
+    dependencyScore: 7,
+    wasteScore: 9,
+    visibilityScore: 9,
+    readinessScore: 8,
+    impactScore: 9,
+    totalScore: 80,
+    estimatedHoursPerWeek: 8,
+    estimatedAnnualCost: 16000,
+    confidence: 'high',
+    whatIsHappening: 'Agents submit marketing flyer and social graphic requests via text or casual email without listing photos, pricing details, or copy drafts.',
+    hiddenCost: 'Marketing director wastes hours chasing agent assets and correcting basic spelling details, causing design delivery delays.',
+    recommendedFix: 'Deploy the Marketing Request Desk intake portal inside shapework. with required validation constraints and self-serve design FAQs.',
+    quickWinCandidate: false,
+    buildSprintCandidate: true,
+    status: 'accepted'
+  },
+  {
+    id: 'opp_closing_tracker',
+    workspaceId: 'nest-realty-demo',
+    title: 'Manual Closing Tracker Sheets',
+    category: 'transaction',
+    severity: 'medium',
+    frictionScore: 7,
+    dependencyScore: 6,
+    wasteScore: 8,
+    visibilityScore: 8,
+    readinessScore: 7,
+    impactScore: 8,
+    totalScore: 72,
+    estimatedHoursPerWeek: 4,
+    estimatedAnnualCost: 8000,
+    confidence: 'high',
+    whatIsHappening: 'Pipeline under-contract transactions, referral split details, and cash flow projections are kept on a manual master spreadsheet.',
+    hiddenCost: 'Finance/cash-flow forecast changes are lagging behind actual closing dates adjustments in CRM portals.',
+    recommendedFix: 'Set up shapework. Pipeline/Closing Tracker with CSV file uploads, parsing expected closing commissions, and warning of data gaps.',
+    quickWinCandidate: false,
+    buildSprintCandidate: true,
+    status: 'accepted'
+  },
+  {
+    id: 'opp_late_compliance',
+    workspaceId: 'nest-realty-demo',
+    title: 'Late Compliance Uploads',
+    category: 'compliance',
+    severity: 'high',
+    frictionScore: 9,
+    dependencyScore: 8,
+    wasteScore: 8,
+    visibilityScore: 9,
+    readinessScore: 8,
+    impactScore: 9,
+    totalScore: 85,
+    estimatedHoursPerWeek: 10,
+    estimatedAnnualCost: 20000,
+    confidence: 'high',
+    whatIsHappening: 'Agents upload transactional agreements and disclosure forms on closing day, creating a frantic compliance check bottleneck for the TC.',
+    hiddenCost: 'Delayed agent payouts, missed commission referral source field entries, and avoidable transaction coordinator crunch work.',
+    recommendedFix: 'Configure Closing Compliance Guard in shapework. enforcing contract milestones (T-14 / T-7 document validations) and automated compliance warning templates.',
+    quickWinCandidate: false,
+    buildSprintCandidate: true,
+    status: 'accepted'
+  }
+];
+
+export const seedQuickWins: QuickWin[] = [
+  {
+    id: 'qw_roles',
+    workspaceId: 'nest-realty-demo',
+    opportunityId: 'opp_roles',
+    title: 'Role responsibilities Map Publication',
+    description: 'Map the primary owners, backups, and SLAs for the 16 core operations responsibilities inside shapework. to clarify ownership.',
+    ownerRole: 'operations_lead',
+    estimatedTimeToImplementHours: 3,
+    expectedImpact: 'Establishes clear boundaries and SLA goals, stopping fuzzy ownership disputes.',
+    implementationSteps: [
+      'Document primary staff assignments',
+      'Set SLA timeframes',
+      'Publish map to shapework. Operating Record'
+    ],
+    requiredTools: ['shapework. Role Map'],
+    status: 'shipped',
+    reusableTemplateCreated: true
+  },
+  {
+    id: 'qw_marketing_form',
+    workspaceId: 'nest-realty-demo',
+    opportunityId: 'opp_marketing_intake',
+    title: 'Marketing request intake Form',
+    description: 'Publish a secure form requiring agents to upload property details, photos, and assets required before a ticket is dispatched.',
+    ownerRole: 'marketing_coordinator',
+    estimatedTimeToImplementHours: 2,
+    expectedImpact: 'Cuts manual intake follow-up loops by over 60%.',
+    implementationSteps: [
+      'Define required input fields',
+      'Create checkoff step for agent templates',
+      'Publish intake form'
+    ],
+    requiredTools: ['shapework. Marketing Desk'],
+    status: 'shipped',
+    reusableTemplateCreated: true
+  }
+];
+
+export const seedBuildSprints: BuildSprint[] = [
+  {
+    id: 'bs_operating_sprint',
+    workspaceId: 'nest-realty-demo',
+    name: 'Brokerage OS Workflows Launch',
+    status: 'in_progress',
+    opportunityIds: ['opp_marketing_intake', 'opp_closing_tracker', 'opp_late_compliance'],
+    workflowTemplateIds: ['wf_marketing_desk', 'wf_closing_tracker', 'wf_compliance_guard'],
+    scopeSummary: 'Implementation and validation of Marketing Request Desk, manual CSV Pipeline Closing Tracker, and Closing Compliance Guard checks.',
+    outOfScope: [
+      'Automated marketing design creation/Canva layout generation',
+      'Automated SMS to clients without internal TC review',
+      'Full bank-ledger sync or commission cash dispatching'
+    ],
+    thirdPartyTools: ['Rechat API', 'Dotloop via API Nation', 'QuickBooks Online'],
+    shapeworkComponents: ['Workflow Evaluator', 'Idempotency Filters', 'Operating Record Engine'],
+    deliverables: [
+      'Marketing intake forms with FAQ deflect widgets',
+      'Closing tracker pipeline dashboard and forecasting cards',
+      'Milestone document checklist audits',
+      'Developer tool retries for background queues'
+    ],
+    assumptions: [
+      'Client staff reviews generated draft emails before sending',
+      'Client uploads valid closing transaction CSV sheets'
+    ],
+    supportTerms: [
+      'Includes 30 days post-launch support and troubleshooting.',
+      'Active workflow templates modifications require new sprint agreement.'
+    ],
+    estimatedFeeRange: '$5,000 - $6,500',
+    startDate: new Date().toISOString(),
+    targetShipDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+  }
+];
