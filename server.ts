@@ -6286,6 +6286,12 @@ app.get('/api/ops/assets/ledger', requireAuth, resolveWorkspaceContext, requireW
   res.json({ success: true, ledger });
 });
 
+// Local development safety guard: reject production project ID in development mode
+const isProdProject = process.env.GOOGLE_CLOUD_PROJECT === 'jupiter-prod-project';
+if ((process.env.NODE_ENV !== 'production' && process.env.APP_MODE !== 'production') && isProdProject) {
+  throw new Error('FATAL: Startup safety guard triggered. Development server cannot run against production project ID (jupiter-prod-project).');
+}
+
 // Startup safety assertions: enforce production mode gates and block test routes in production
 const isProduction = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.GROWTH_TEST_MODE === 'true';
