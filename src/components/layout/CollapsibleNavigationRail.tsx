@@ -168,8 +168,8 @@ export default function CollapsibleNavigationRail({
         {item.tab === 'Workboard' && <span className="sr-only">Workboard</span>}
         
         {item.comingSoon && (!collapsed || isMobileOpen) && (
-          <span className="ml-auto px-1.5 py-0.5 text-[8px] font-bold font-sans uppercase tracking-widest bg-white/10 text-[#D0D6BB]/70 rounded">
-            Soon
+          <span className="ml-auto px-1.5 py-0.5 text-[7px] font-bold font-sans uppercase tracking-wider bg-white/10 text-[#D0D6BB]/70 rounded whitespace-nowrap">
+            Coming Soon
           </span>
         )}
 
@@ -270,26 +270,24 @@ export default function CollapsibleNavigationRail({
 
         {/* Bottom control rail */}
         <div className={`p-3 border-t border-white/5 flex ${collapsed && !isMobileOpen ? 'flex-col items-center' : 'flex-row'} gap-2 overflow-hidden`}>
-          {appMode !== 'production' && (
-            <button
-              onClick={async () => {
-                sessionStorage.removeItem('shapework_demo_access');
-                try {
-                  await fetch('/api/auth/logout', { method: 'POST' });
-                } catch {}
-                window.location.href = '/login';
-              }}
-              className={`flex items-center justify-center text-[#D0D6BB] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0 ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'flex-1 py-1.5'}`}
-              title="Exit Demo Access"
-            >
-              <LogOut className="w-4 h-4 shrink-0" />
-              {(!collapsed || isMobileOpen) && <span className="text-[10px] font-bold uppercase tracking-wider ml-2 truncate">Exit Demo</span>}
-            </button>
-          )}
+          <button
+            onClick={async () => {
+              sessionStorage.removeItem('shapework_demo_access');
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+              } catch {}
+              window.location.href = '/login';
+            }}
+            className={`flex items-center justify-center text-[#D0D6BB] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0 ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'flex-1 py-1.5'}`}
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {(!collapsed || isMobileOpen) && <span className="text-[10px] font-bold uppercase tracking-wider ml-2 truncate">Logout</span>}
+          </button>
           
           <button
             onClick={handleToggle}
-            className={`flex text-[#D0D6BB] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer justify-center items-center shrink-0 ${appMode === 'production' ? 'w-full py-1.5' : (collapsed && !isMobileOpen ? 'w-8 h-8' : 'p-1.5')}`}
+            className={`flex text-[#D0D6BB] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer justify-center items-center shrink-0 ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'p-1.5'}`}
             title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             {collapsed ? <ChevronRight className="w-4 h-4 shrink-0" /> : <ChevronLeft className="w-4 h-4 shrink-0" />}

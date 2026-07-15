@@ -35,21 +35,10 @@ export function getProductProfile(
 ): { experience: ProductExperience; modules: ProductModuleAccess[] } {
   const isWilmington = workspaceId === 'nest-realty-demo' || workspaceId === 'nest-realty-wilmington';
   
-  // 1. Ryan Pilot Profile: Nest Realty Wilmington workspace (for all users inside it)
   if (isWilmington) {
-    const isRestrictedUser = email === 'ryan@nestrealty.com' || email === 'matt@shapework.co' || email === 'adam@shapework.co';
     return {
       experience: 'ryan_pilot',
-      modules: isRestrictedUser ? [
-        {
-          moduleId: 'role_map',
-          name: 'Role & Escalation Map',
-          tab: 'Role Map',
-          icon: Users,
-          visible: true,
-          enabled: true
-        }
-      ] : [
+      modules: [
         {
           moduleId: 'ryan_shield',
           name: 'Ryan Shield',
