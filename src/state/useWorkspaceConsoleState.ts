@@ -32,6 +32,8 @@ export function useWorkspaceConsoleState() {
     if (clean.startsWith('/demo/knowledge')) return 'Knowledge / SOPs';
     if (clean.startsWith('/demo/integrations')) return 'Integrations';
     if (clean.startsWith('/demo/settings')) return 'Settings';
+    if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
+    if (clean.startsWith('/demo/role-map')) return 'Role Map';
     
     // Support legacy sub-page routes for E2E tests
     if (clean.startsWith('/demo/transactions')) return 'Transactions';
@@ -59,6 +61,8 @@ export function useWorkspaceConsoleState() {
       case 'Knowledge / SOPs': return `${prefix}/knowledge`;
       case 'Integrations': return `${prefix}/integrations`;
       case 'Settings': return `${prefix}/settings`;
+      case 'Ryan Shield': return `${prefix}/ryan-shield`;
+      case 'Role Map': return `${prefix}/role-map`;
       case 'Transactions': return `${prefix}/transactions`;
       case 'Compliance': return `${prefix}/compliance`;
       case 'Marketing': return `${prefix}/marketing`;
@@ -85,6 +89,8 @@ export function useWorkspaceConsoleState() {
       if (clean.startsWith('/demo/knowledge')) return 'Knowledge / SOPs';
       if (clean.startsWith('/demo/integrations')) return 'Integrations';
       if (clean.startsWith('/demo/settings')) return 'Settings';
+      if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
+      if (clean.startsWith('/demo/role-map')) return 'Role Map';
       if (clean.startsWith('/demo/transactions')) return 'Transactions';
       if (clean.startsWith('/demo/compliance')) return 'Compliance';
       if (clean.startsWith('/demo/marketing')) return 'Marketing';
@@ -165,6 +171,13 @@ export function useWorkspaceConsoleState() {
   
   const [workspaceId, setWorkspaceIdState] = useState<string>(() => {
     if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const wsParam = params.get('workspace');
+      if (wsParam) {
+        const normalized = wsParam === 'nest-realty-wilmington' ? 'nest-realty-demo' : wsParam;
+        localStorage.setItem('shapework_active_workspace', normalized);
+        return normalized;
+      }
       const saved = localStorage.getItem('shapework_active_workspace');
       if (saved) return saved;
       if (window.location.pathname.startsWith('/app')) return 'nest-realty-demo';
@@ -1492,6 +1505,16 @@ Sarah Jenkins (COO) recommended tasks:
     }
     return null;
   };
+
+  // Redirect restricted users to 'Role Map' on boot if they land on a restricted tab.
+  useEffect(() => {
+    const isRestricted = activeProfile?.email === 'ryan@nestrealty.com' || activeProfile?.email === 'matt@shapework.co' || activeProfile?.email === 'adam@shapework.co';
+    if (isRestricted) {
+      if (currentTab !== 'Role Map') {
+        setCurrentTab('Role Map');
+      }
+    }
+  }, [activeProfile, currentTab, setCurrentTab]);
 
   return {
     appMode, setAppMode,

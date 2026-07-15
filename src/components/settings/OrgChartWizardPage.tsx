@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, User, Plus, Trash2, Check, Play, Share2, FileText, ArrowRight,
   Shield, AlertTriangle, Layers, BookOpen, Link, Settings, Info, Search,
-  ChevronRight, ChevronLeft, HelpCircle, File, Folder, Download, Eye, Sparkles, CheckCircle
+  ChevronRight, ChevronLeft, HelpCircle, File, Folder, Download, Eye, Sparkles, CheckCircle, Printer,
+  MessageSquare, Users, Mail, PenTool, Home, Phone, Calendar, ArrowUp, ArrowDown, Palette, Edit3
 } from 'lucide-react';
 import { 
   orgChartService, OrgPosition, OrgRole, OrgSop, OrgConnection, EscalationPolicy, RoutingMatrixItem, OrgModel, OrgKnowledgeDocument, OrgKnowledgeStatus, OrgKnowledgeSourceType, DEFAULT_KNOWLEDGE_DOCUMENTS, OrgPositionStatus, AvatarCropSettings, OrgLogicNode
@@ -71,8 +72,8 @@ export function OrgAvatar({ name, avatarUrl, avatarCrop, size = 40, className = 
             position: 'absolute',
             left: '50%',
             top: '50%',
-            width: '100%',
-            height: '100%',
+            width: '120%',
+            height: '120%',
             objectFit: 'cover',
             transform: `translate(-50%, -50%) translate(${tx}px, ${ty}px) scale(${crop.scale || 1}) rotate(${crop.rotation || 0}deg)`,
             transformOrigin: 'center center'
@@ -164,8 +165,8 @@ export function AvatarCropEditor({ avatarUrl, name, initialCrop, onSave, onCance
                   position: 'absolute',
                   left: '50%',
                   top: '50%',
-                  width: '100%',
-                  height: '100%',
+                  width: '120%',
+                  height: '120%',
                   objectFit: 'cover',
                   transform: `translate(-50%, -50%) translate(${crop.x || 0}px, ${crop.y || 0}px) scale(${crop.scale || 1}) rotate(${crop.rotation || 0}deg)`,
                   transformOrigin: 'center center'
@@ -329,7 +330,7 @@ interface OrgChartWizardPageProps {
   onClose?: () => void;
   state: any;
   fullPage?: boolean;
-  embeddedTab?: 'visual' | 'guided';
+  embeddedTab?: 'visual' | 'guided' | 'routing';
 }
 
 export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgChartWizardPageProps) {
@@ -352,25 +353,26 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [posStepFilter, setPosStepFilter] = useState<'all' | 'active' | 'open' | 'planned' | 'virtual_ai'>('all');
 
+  type OrgChartTab = 'overview' | 'org_chart' | 'by_position' | 'routing' | 'workflow' | 'escalations' | 'sops_knowledge' | 'connected_tools';
+
   // Tab Navigation State
-  const [activeTab, setActiveTab] = useState<'guided' | 'visual' | 'routing' | 'export'>(() => {
-    if (embeddedTab) return embeddedTab;
+  const [activeTab, setActiveTab] = useState<OrgChartTab>(() => {
+    if (embeddedTab) {
+      if (embeddedTab === 'visual') return 'org_chart';
+      if (embeddedTab === 'routing') return 'routing';
+    }
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const tabParam = searchParams.get('tab');
-      if (tabParam === 'visual' || tabParam === 'guided' || tabParam === 'routing' || tabParam === 'export') {
-        return tabParam as any;
-      }
-      if (window.location.hash === '#export') {
-        return 'export';
-      }
+      if (tabParam) return tabParam as OrgChartTab;
     }
-    return 'guided';
+    return 'org_chart';
   });
 
   useEffect(() => {
     if (embeddedTab) {
-      setActiveTab(embeddedTab);
+      if (embeddedTab === 'visual') setActiveTab('org_chart');
+      else if (embeddedTab === 'routing') setActiveTab('routing');
     }
   }, [embeddedTab]);
 
@@ -378,8 +380,37 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
   const [pan, setPan] = useState({ x: 100, y: 50 });
   const [zoom, setZoom] = useState(1);
   const [activeViewMode, setActiveViewMode] = useState<'org' | 'workflow' | 'position'>('org');
+
+  useEffect(() => {
+    if (activeTab === 'org_chart') {
+      setActiveViewMode('org');
+    } else if (activeTab === 'by_position') {
+      setActiveViewMode('position');
+    } else if (activeTab === 'workflow') {
+      setActiveViewMode('workflow');
+    }
+  }, [activeTab]);
+
   const [selectedElement, setSelectedElement] = useState<{ type: 'position' | 'role' | 'sop' | 'escalation' | 'logic_split' | 'intake_trigger' | 'connection'; id: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRouteId, setSelectedRouteId] = useState<string>('');
+  const [routeSearchQuery, setRouteSearchQuery] = useState('');
+  const [isPostAssignmentExpanded, setIsPostAssignmentExpanded] = useState(false);
+  const [integrationsList, setIntegrationsList] = useState([
+    { name: 'Gmail', status: 'Available to Connect', category: 'Email Intake', uses: 'Reads client and agent email requests to extract transaction updates and operations tickets.', role: 'Operations Team', lastSync: null, icon: Mail },
+    { name: 'Google Calendar', status: 'Available to Connect', category: 'Scheduling', uses: 'Schedules listing launch milestones, photographer bookings, and office reservation slots.', role: 'Operations Director', lastSync: null, icon: Calendar },
+    { name: 'Google Drive', status: 'Available to Connect', category: 'Document Storage', uses: 'Stores transaction documentation, listing launch photos, and compliance audit exports.', role: 'Transaction Coordinator', lastSync: null, icon: Folder },
+    { name: 'Rechat', status: 'Available to Connect', category: 'Marketing CRM', uses: 'Synchronizes agent profiles, contact records, and active property marketing pipelines.', role: 'Marketing Coordinator', lastSync: null, icon: Users },
+    { name: 'Dotloop', status: 'Available to Connect', category: 'Transaction Mgmt', uses: 'Monitors loop status updates, contract documents, signature trails, and closing dates.', role: 'BICs / Compliance', lastSync: null, icon: FileText },
+    { name: 'QuickBooks', status: 'Available to Connect', category: 'Accounting', uses: 'Processes agent invoices, commission payables, bill reimbursements, and office budgets.', role: 'Accounting Lead', lastSync: null, icon: Layers },
+    { name: 'Canva', status: 'Available to Connect', category: 'Brand Templates', uses: 'Synchronizes official marketing templates, brand asset libraries, agent flyer layouts, and brochure coordinates.', role: 'Marketing Coordinator', lastSync: null, icon: Palette },
+    { name: 'Basecamp', status: 'Available to Connect', category: 'Project Mgmt', uses: 'Manages collaborative workflows, staff checklists, and event coordination tasks.', role: 'General Staff', lastSync: null, icon: Sparkles },
+    { name: 'Slack', status: 'Available to Connect', category: 'Communications', uses: 'Sends real-time operations alerts, approval notifications, and agent compliance summaries.', role: 'All Staff', lastSync: null, icon: MessageSquare },
+    { name: 'Microsoft Teams', status: 'Available to Connect', category: 'Communications', uses: 'Provides fallback chat coordination and staff screen sharing links.', role: 'Operations', lastSync: null, icon: MessageSquare },
+    { name: 'SMS / Phone', status: 'Available to Connect', category: 'Notifications', uses: 'Dispatches critical escalation alerts to Ryan Crecelius and urgent compliance notices to agents.', role: 'All Leadership', lastSync: null, icon: Phone },
+    { name: 'AI Voice/Chat Agents', status: 'Available to Connect', category: 'Virtual Assistant', uses: 'Handles inbound voice queries from agents on compliance/closing procedures.', role: 'Virtual Assistant', lastSync: null, icon: Sparkles },
+    { name: 'Brokerage Dashboard', status: 'Available to Connect', category: 'Analytics', uses: 'Aggregates operational metrics, agent support ticket histories, and pipeline bottlenecks.', role: 'Broker Owner', lastSync: null, icon: Layers }
+  ]);
   const [filtersPopoverOpen, setFiltersPopoverOpen] = useState(false);
   const [mapViewMode, setMapViewMode] = useState<'reporting' | 'roles' | 'escalations' | 'sops'>('reporting');
   const [showReportingLines, setShowReportingLines] = useState(true);
@@ -390,8 +421,200 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
   const [showPlannedRoles, setShowPlannedRoles] = useState(true);
   const [showVirtualAi, setShowVirtualAi] = useState(true);
   const [planningMode, setPlanningMode] = useState(false);
+  const [isRoutingModalOpen, setIsRoutingModalOpen] = useState(false);
+  const [routingModalStep, setRoutingModalStep] = useState<1 | 2 | 3 | 4>(1);
+  const [editingRouteData, setEditingRouteData] = useState<RoutingMatrixItem | null>(null);
+  const [isCreatingNewRoute, setIsCreatingNewRoute] = useState(false);
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  const [selectedSopForModal, setSelectedSopForModal] = useState<any>(null);
+  const [sopModalOpen, setSopModalOpen] = useState(false);
+  const [selectedEscalationForModal, setSelectedEscalationForModal] = useState<any>(null);
+  const [escalationModalOpen, setEscalationModalOpen] = useState(false);
+
+  // Real Backend OAuth Integration Sync
+  useEffect(() => {
+    if (activeTab !== 'connected_tools') return;
+
+    const fetchStatuses = async () => {
+      const providers = [
+        { name: 'Gmail', provider: 'google', endpoint: '/api/integrations/google/status' },
+        { name: 'Google Calendar', provider: 'google', endpoint: '/api/integrations/google/status' },
+        { name: 'Google Drive', provider: 'google', endpoint: '/api/integrations/google/status' },
+        { name: 'Rechat', provider: 'rechat', endpoint: '/api/integrations/rechat/status' },
+        { name: 'Dotloop', provider: 'dotloop', endpoint: '/api/integrations/apination/dotloop/status' },
+        { name: 'QuickBooks', provider: 'quickbooks', endpoint: '/api/integrations/quickbooks/status' },
+        { name: 'Basecamp', provider: 'basecamp', endpoint: '/api/integrations/basecamp/status' },
+        { name: 'Slack', provider: 'slack', endpoint: '/api/integrations/slack/status' },
+        { name: 'Canva', provider: 'canva', endpoint: '/api/integrations/canva/status' },
+        { name: 'Microsoft Teams', provider: 'microsoft', endpoint: '/api/integrations/microsoft/status' }
+      ];
+
+      const updatedList = [...integrationsList];
+      let changed = false;
+
+      await Promise.all(providers.map(async (p) => {
+        try {
+          const res = await fetch(`${p.endpoint}?workspaceId=${workspaceId}`, {
+            headers: { 'x-workspace-id': workspaceId }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            
+            let status = 'Available to Connect';
+            if (data.connected || data.status === 'connected' || data.status === 'active' || data.configured === true) {
+              status = 'Connected';
+            } else if (data.status === 'configured') {
+              status = 'Configured';
+            } else if (data.status === 'needs_attention') {
+              status = 'Needs Attention';
+            } else if (data.status === 'offline' || data.status === 'connection_offline') {
+              status = 'Connection Offline';
+            }
+
+            const itemIdx = updatedList.findIndex(item => item.name === p.name);
+            if (itemIdx !== -1 && updatedList[itemIdx].status !== status) {
+              updatedList[itemIdx].status = status;
+              if (status === 'Connected' && data.providerAccountEmail) {
+                updatedList[itemIdx].lastSync = `account: ${data.providerAccountEmail}`;
+              } else if (status === 'Connected') {
+                updatedList[itemIdx].lastSync = 'Active';
+              }
+              changed = true;
+            }
+          }
+        } catch (err) {
+          console.warn(`[Integrations Status] Failed to fetch status for ${p.name}:`, err);
+        }
+      }));
+
+      if (changed) {
+        setIntegrationsList(updatedList);
+      }
+    };
+
+    fetchStatuses();
+  }, [activeTab, workspaceId, integrationsList]);
+
+  const handleConnectTool = async (toolName: string, isConnected: boolean, idx: number) => {
+    const providerMap: Record<string, { provider: string; connectPath: string; disconnectPath: string }> = {
+      'Gmail': { provider: 'google', connectPath: '/api/integrations/google/connect', disconnectPath: '/api/integrations/google/disconnect' },
+      'Google Calendar': { provider: 'google', connectPath: '/api/integrations/google/connect', disconnectPath: '/api/integrations/google/disconnect' },
+      'Google Drive': { provider: 'google', connectPath: '/api/integrations/google/connect', disconnectPath: '/api/integrations/google/disconnect' },
+      'Rechat': { provider: 'rechat', connectPath: '/api/integrations/rechat/oauth/start', disconnectPath: '/api/integrations/rechat/disconnect' },
+      'Dotloop': { provider: 'dotloop', connectPath: '/api/integrations/api-nation/connect', disconnectPath: '/api/integrations/api-nation/disconnect' },
+      'QuickBooks': { provider: 'quickbooks', connectPath: '/api/integrations/quickbooks/connect', disconnectPath: '/api/integrations/quickbooks/disconnect' },
+      'Basecamp': { provider: 'basecamp', connectPath: '/api/integrations/basecamp/connect', disconnectPath: '/api/integrations/basecamp/disconnect' },
+      'Slack': { provider: 'slack', connectPath: '/api/integrations/slack/connect', disconnectPath: '/api/integrations/slack/disconnect' },
+      'Canva': { provider: 'canva', connectPath: '/api/integrations/canva/connect', disconnectPath: '/api/integrations/canva/disconnect' },
+      'Microsoft Teams': { provider: 'microsoft', connectPath: '/api/integrations/microsoft/connect', disconnectPath: '/api/integrations/microsoft/disconnect' }
+    };
+
+    const target = providerMap[toolName];
+    if (!target) {
+      const updated = [...integrationsList];
+      if (isConnected) {
+        updated[idx].status = 'Available to Connect';
+        updated[idx].lastSync = null;
+      } else {
+        updated[idx].status = 'Connected';
+        updated[idx].lastSync = 'Just now';
+      }
+      setIntegrationsList(updated);
+      return;
+    }
+
+    try {
+      if (isConnected) {
+        const res = await fetch(`${target.disconnectPath}?workspaceId=${workspaceId}`, {
+          method: 'POST',
+          headers: {
+            'x-workspace-id': workspaceId,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const updated = [...integrationsList];
+          updated[idx].status = 'Available to Connect';
+          updated[idx].lastSync = null;
+          setIntegrationsList(updated);
+        } else {
+          alert(`Failed to disconnect ${toolName}`);
+        }
+      } else {
+        let connectUrl = '';
+        if (target.provider === 'rechat') {
+          connectUrl = `${target.connectPath}?workspaceId=${workspaceId}`;
+        } else {
+          const res = await fetch(`${target.connectPath}?workspaceId=${workspaceId}`, {
+            headers: { 'x-workspace-id': workspaceId }
+          });
+          if (res.ok) {
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+              window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+              return;
+            }
+            const data = await res.json();
+            connectUrl = data.url;
+          } else {
+            alert(`Failed to initiate connection for ${toolName}`);
+            return;
+          }
+        }
+
+        if (connectUrl) {
+          const width = 600;
+          const height = 600;
+          const left = window.screen.width / 2 - width / 2;
+          const top = window.screen.height / 2 - height / 2;
+          const popup = window.open(
+            connectUrl,
+            'oauth-popup',
+            `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+          );
+
+          const interval = setInterval(async () => {
+            try {
+              const statusEndpoint = target.provider === 'dotloop'
+                ? '/api/integrations/apination/dotloop/status'
+                : `/api/integrations/${target.provider}/status`;
+              const statusRes = await fetch(`${statusEndpoint}?workspaceId=${workspaceId}`, {
+                headers: { 'x-workspace-id': workspaceId }
+              });
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                if (statusData.connected || statusData.status === 'connected') {
+                  popup?.close();
+                  clearInterval(interval);
+                  const updated = [...integrationsList];
+                  updated[idx].status = 'Connected';
+                  if (statusData.providerAccountEmail) {
+                    updated[idx].lastSync = `account: ${statusData.providerAccountEmail}`;
+                  } else {
+                    updated[idx].lastSync = 'Active';
+                  }
+                  setIntegrationsList(updated);
+                }
+              }
+            } catch (pollErr) {
+              console.warn('[OAuth Polling] Error checking connection status:', pollErr);
+            }
+          }, 1500);
+
+          setTimeout(() => {
+            clearInterval(interval);
+          }, 120000);
+        } else {
+          alert(`Could not retrieve OAuth link for ${toolName}`);
+        }
+      }
+    } catch (err: any) {
+      console.error(`[Integrations Connect] Action failed for ${toolName}:`, err);
+      alert(`Action failed: ${err.message}`);
+    }
+  };
 
   const handleFitView = () => {
     // Filter positions based on checkbox filters
@@ -453,8 +676,67 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
     setZoom(newZoom);
   };
 
+  const handlePrintMap = () => {
+    setSelectedElement(null);
+    const visible = model.positions.filter(p => {
+      const status = p.status || 'active';
+      if (status === 'active' && !showActive) return false;
+      if (status === 'open' && !showOpenRoles) return false;
+      if (status === 'planned' && !showPlannedRoles) return false;
+      if (status === 'wanted' && !showPlannedRoles) return false;
+      if (status === 'fractional' && !showActive) return false;
+      if (status === 'outsourced' && !showActive) return false;
+      if (status === 'virtual_ai' && !showVirtualAi) return false;
+      return true;
+    });
+
+    if (visible.length > 0) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+
+      visible.forEach(p => {
+        const x = p.x ?? 100;
+        const y = p.y ?? 100;
+        if (x < minX) minX = x;
+        if (x + 320 > maxX) maxX = x + 320;
+        if (y < minY) minY = y;
+        if (y + 160 > maxY) maxY = y + 160;
+      });
+
+      const boundsWidth = maxX - minX;
+      const boundsHeight = maxY - minY;
+
+      const printWidth = 1100;
+      const printHeight = 750;
+      const padding = 40;
+
+      const zX = (printWidth - padding * 2) / boundsWidth;
+      const zY = (printHeight - padding * 2) / boundsHeight;
+      const printZoom = Math.min(2.0, Math.max(0.4, Math.min(zX, zY)));
+
+      const centerX = minX + boundsWidth / 2;
+      const centerY = minY + boundsHeight / 2;
+      const printPan = {
+        x: printWidth / 2 - centerX * printZoom,
+        y: printHeight / 2 - centerY * printZoom
+      };
+
+      setPan(printPan);
+      setZoom(printZoom);
+    }
+
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        handleFitView();
+      }, 500);
+    }, 150);
+  };
+
   useEffect(() => {
-    if (activeTab === 'visual' && model.positions.length > 0) {
+    if (activeTab === 'org_chart' && model.positions.length > 0) {
       const needsLayout = model.positions.some(
         p => p.x === undefined || p.y === undefined || (p.x === 0 && p.y === 0)
       );
@@ -470,7 +752,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
   // Synchronize coordinates for roles, SOPs, escalations, logic nodes if they don't have them in Workflow mode
   useEffect(() => {
-    if (activeTab === 'visual' && activeViewMode === 'workflow') {
+    if ((activeTab === 'workflow' || (activeTab === 'visual' && activeViewMode === 'workflow')) && model.positions.length > 0) {
       let updated = false;
       const newModel = { ...model };
 
@@ -486,35 +768,51 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
         return ln;
       });
 
-      newModel.sops = newModel.sops.map((sop, idx) => {
+      const sopCountByPos: Record<string, number> = {};
+      const escCountByPos: Record<string, number> = {};
+      const roleCountByPos: Record<string, number> = {};
+
+      newModel.sops = newModel.sops.map((sop) => {
         if (sop.x === undefined || sop.y === undefined || (sop.x === 0 && sop.y === 0)) {
           updated = true;
-          const ownerPos = newModel.positions.find(p => p.id === sop.ownerPositionId);
+          const posId = sop.ownerPositionId || 'pos_ryan';
+          const currentIdx = sopCountByPos[posId] || 0;
+          sopCountByPos[posId] = currentIdx + 1;
+          
+          const ownerPos = newModel.positions.find(p => p.id === posId);
           const px = ownerPos?.x ?? 500;
           const py = ownerPos?.y ?? 300;
-          return { ...sop, x: px + 320, y: py + (idx % 3) * 120 };
+          return { ...sop, x: px + 180, y: py + 120 + currentIdx * 90 };
         }
         return sop;
       });
 
-      newModel.escalationPolicies = newModel.escalationPolicies.map((esc, idx) => {
+      newModel.escalationPolicies = newModel.escalationPolicies.map((esc) => {
         if (esc.x === undefined || esc.y === undefined || (esc.x === 0 && esc.y === 0)) {
           updated = true;
-          const ownerPos = newModel.positions.find(p => p.id === esc.fromPositionId || p.id === esc.escalateToPositionId);
+          const posId = esc.fromPositionId || 'pos_ryan';
+          const currentIdx = escCountByPos[posId] || 0;
+          escCountByPos[posId] = currentIdx + 1;
+
+          const ownerPos = newModel.positions.find(p => p.id === posId);
           const px = ownerPos?.x ?? 500;
           const py = ownerPos?.y ?? 300;
-          return { ...esc, x: px - 320, y: py + (idx % 3) * 120 };
+          return { ...esc, x: px - 180, y: py + 120 + currentIdx * 90 };
         }
         return esc;
       });
 
-      newModel.roles = newModel.roles.map((role, idx) => {
+      newModel.roles = newModel.roles.map((role) => {
         if (role.x === undefined || role.y === undefined || (role.x === 0 && role.y === 0)) {
           updated = true;
-          const ownerPos = newModel.positions.find(p => p.id === role.positionId);
+          const posId = role.positionId || 'pos_ryan';
+          const currentIdx = roleCountByPos[posId] || 0;
+          roleCountByPos[posId] = currentIdx + 1;
+
+          const ownerPos = newModel.positions.find(p => p.id === posId);
           const px = ownerPos?.x ?? 500;
           const py = ownerPos?.y ?? 300;
-          return { ...role, x: px, y: py + 180 + (idx % 2) * 100 };
+          return { ...role, x: px, y: py + 220 + currentIdx * 90 };
         }
         return role;
       });
@@ -838,6 +1136,58 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
           });
         }
       });
+
+      model.escalationPolicies.forEach(policy => {
+        if (policy.fromPositionId) {
+          list.push({
+            id: `esc_conn_from_${policy.id}`,
+            workspaceId,
+            type: 'escalation',
+            fromPositionId: policy.id,
+            toPositionId: policy.fromPositionId,
+            label: 'Escalation Source',
+            sopIds: [],
+            escalationPolicyIds: [policy.id],
+            createdAt: policy.createdAt,
+            updatedAt: policy.updatedAt
+          });
+        }
+        if (policy.escalateToPositionId) {
+          list.push({
+            id: `esc_conn_to_${policy.id}`,
+            workspaceId,
+            type: 'escalation',
+            fromPositionId: policy.id,
+            toPositionId: policy.escalateToPositionId,
+            label: 'Escalates To',
+            sopIds: [],
+            escalationPolicyIds: [policy.id],
+            createdAt: policy.createdAt,
+            updatedAt: policy.updatedAt
+          });
+        }
+      });
+
+      if (model.logicNodes) {
+        model.logicNodes.forEach(node => {
+          if (node.branches) {
+            node.branches.forEach((targetId, bIdx) => {
+              list.push({
+                id: `logic_conn_${node.id}_${targetId}_${bIdx}`,
+                workspaceId,
+                type: 'ownership',
+                fromPositionId: node.id,
+                toPositionId: targetId,
+                label: node.conditions?.[bIdx] || 'Route',
+                sopIds: [],
+                escalationPolicyIds: [],
+                createdAt: node.createdAt,
+                updatedAt: node.updatedAt
+              });
+            });
+          }
+        });
+      }
     }
 
     return list;
@@ -1200,8 +1550,35 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     ) : (
                       <div className="w-[36px] h-[36px] rounded-full bg-white/5 border border-dashed border-white/20 flex items-center justify-center shrink-0 text-xs font-bold">+</div>
                     )}
-                    <div className="space-y-0.5 min-w-0">
-                      <h4 className="text-xs font-bold text-white truncate">{p.name}</h4>
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="flex justify-between items-center gap-1">
+                        <h4 className="text-xs font-bold text-white truncate">{p.name}</h4>
+                        {p.connectedTools && p.connectedTools.length > 0 && (
+                          <div className="flex gap-0.5 shrink-0">
+                            {p.connectedTools.slice(0, 3).map((tool) => {
+                              const toolIcons: Record<string, any> = {
+                                'Gmail': Mail,
+                                'Google Calendar': Calendar,
+                                'Google Drive': Folder,
+                                'Rechat': Users,
+                                'Dotloop': FileText,
+                                'QuickBooks': Layers,
+                                'Basecamp': Sparkles,
+                                'Slack': MessageSquare,
+                                'Canva': Palette,
+                                'Microsoft Teams': MessageSquare
+                              };
+                              const ToolIcon = toolIcons[tool] || Sparkles;
+                              return (
+                                <ToolIcon key={tool} className="w-2.5 h-2.5 text-emerald-400" title={tool} />
+                              );
+                            })}
+                            {p.connectedTools.length > 3 && (
+                              <span className="text-[7px] text-[#D0D6BB]/50 font-mono font-bold">+{p.connectedTools.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <p className="text-[9px] text-[#D0D6BB]/60 truncate font-mono uppercase">{p.title}</p>
                     </div>
                   </button>
@@ -1222,7 +1599,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
               ) : (
                 <div className="w-[72px] h-[72px] rounded-full bg-white/5 border border-dashed border-white/20 flex items-center justify-center shrink-0 shadow-lg text-[#D0D6BB]/40 text-xl font-bold">+</div>
               )}
-              <div className="space-y-1 text-left">
+              <div className="space-y-1.5 text-left">
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-serif font-black tracking-tight text-white">{activePos.name}</h3>
                   <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[8px] font-mono uppercase font-bold">
@@ -1230,9 +1607,37 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                   </span>
                 </div>
                 <p className="text-xs font-mono uppercase text-[#D0D6BB]/70">{activePos.title}</p>
-                <div className="flex items-center gap-4 text-[10px] text-[#D0D6BB]/50 pt-1 font-mono">
+                <div className="flex flex-wrap items-center gap-4 text-[10px] text-[#D0D6BB]/50 pt-1 font-mono">
                   {activePos.department && <span>Dept: <span className="text-[#D0D6BB]">{activePos.department}</span></span>}
                   {activePos.office && <span>Office: <span className="text-[#D0D6BB]">{activePos.office}</span></span>}
+                  {activePos.connectedTools && activePos.connectedTools.length > 0 && (
+                    <div className="flex items-center gap-1.5 border-l border-white/10 pl-4">
+                      <span className="text-[8px] text-[#D0D6BB]/40 uppercase font-bold">Connected Tools:</span>
+                      <div className="flex items-center gap-1">
+                        {activePos.connectedTools.map((tool) => {
+                          const toolIcons: Record<string, any> = {
+                            'Gmail': Mail,
+                            'Google Calendar': Calendar,
+                            'Google Drive': Folder,
+                            'Rechat': Users,
+                            'Dotloop': FileText,
+                            'QuickBooks': Layers,
+                            'Basecamp': Sparkles,
+                            'Slack': MessageSquare,
+                            'Canva': Palette,
+                            'Microsoft Teams': MessageSquare
+                          };
+                          const ToolIcon = toolIcons[tool] || Sparkles;
+                          return (
+                            <span key={tool} className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/10 text-[8px] font-medium leading-none">
+                              <ToolIcon className="w-2.5 h-2.5" />
+                              {tool}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1259,13 +1664,37 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 Responsibilities ({posRoles.length})
               </h4>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {posRoles.map(role => (
-                  <div key={role.id} className="p-3 bg-black/20 border border-white/5 rounded-xl space-y-1">
-                    <h5 className="text-xs font-bold text-white">{role.name}</h5>
-                    <p className="text-[10px] text-[#D0D6BB]/80 leading-relaxed">{role.description}</p>
-                    {role.defaultSla && <div className="text-[8px] font-mono text-teal-400 mt-1 uppercase">SLA Window: {role.defaultSla}</div>}
-                  </div>
-                ))}
+                {posRoles.map(role => {
+                  const roleSops = model.sops.filter(s => role.sopIds?.includes(s.id) || (s.roleId === role.id));
+                  return (
+                    <div key={role.id} className="p-3 bg-black/20 border border-white/5 rounded-xl space-y-1.5 text-left">
+                      <h5 className="text-xs font-bold text-white">{role.name}</h5>
+                      <p className="text-[10px] text-[#D0D6BB]/80 leading-relaxed">{role.description}</p>
+                      {role.defaultSla && <div className="text-[8px] font-mono text-teal-400 mt-1 uppercase leading-none">SLA Window: {role.defaultSla}</div>}
+                      
+                      {roleSops.length > 0 && (
+                        <div className="pt-1.5 border-t border-white/5 space-y-1">
+                          <span className="text-[7.5px] font-mono uppercase text-[#D0D6BB]/40 block font-bold leading-none">Related SOPs:</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {roleSops.map(s => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSopForModal(s);
+                                  setSopModalOpen(true);
+                                }}
+                                className="text-[8.5px] text-emerald-400 font-sans hover:underline cursor-pointer bg-emerald-500/10 border border-emerald-500/15 px-1.5 py-0.5 rounded text-left truncate max-w-[200px]"
+                              >
+                                📋 {s.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {posRoles.length === 0 && (
                   <p className="text-xs text-[#D0D6BB]/40 italic py-4">No responsibilities assigned to this seat.</p>
                 )}
@@ -1280,11 +1709,19 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
               </h4>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {posSops.map(sop => (
-                  <div key={sop.id} className="p-3 bg-black/20 border border-white/5 rounded-xl space-y-1">
-                    <h5 className="text-xs font-bold text-white">{sop.name}</h5>
+                  <button
+                    key={sop.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSopForModal(sop);
+                      setSopModalOpen(true);
+                    }}
+                    className="w-full text-left p-3 bg-black/20 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 rounded-xl space-y-1 transition-all cursor-pointer block"
+                  >
+                    <h5 className="text-xs font-bold text-white hover:underline">{sop.name}</h5>
                     <div className="text-[9px] text-[#D0D6BB] leading-normal"><span className="text-[#D0D6BB]/40 font-mono uppercase">Trigger:</span> {sop.trigger}</div>
-                    <div className="text-[8px] text-green-400 mt-1 font-mono uppercase">Steps Checklist: {sop.steps.length} actions</div>
-                  </div>
+                    <div className="text-[8px] text-green-400 mt-1 font-mono uppercase">Steps Checklist: {sop.steps.length} actions (Click to read)</div>
+                  </button>
                 ))}
                 {posSops.length === 0 && (
                   <p className="text-xs text-[#D0D6BB]/40 italic py-4">No SOP documentation owned by this seat.</p>
@@ -1302,11 +1739,19 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 {posEscalations.map(esc => {
                   const targetName = model.positions.find(p => p.id === esc.escalateToPositionId)?.name || 'Principal Broker';
                   return (
-                    <div key={esc.id} className="p-3 bg-black/20 border border-white/5 rounded-xl space-y-1">
-                      <h5 className="text-xs font-bold text-white">{esc.name}</h5>
+                    <button
+                      key={esc.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEscalationForModal(esc);
+                        setEscalationModalOpen(true);
+                      }}
+                      className="w-full text-left p-3 bg-black/20 hover:bg-amber-500/10 border border-white/5 hover:border-amber-500/30 rounded-xl space-y-1 transition-all cursor-pointer block"
+                    >
+                      <h5 className="text-xs font-bold text-white hover:underline">{esc.name}</h5>
                       <div className="text-[9px] text-[#D0D6BB]"><span className="text-amber-400 font-bold uppercase text-[7px] font-mono pr-1">{esc.urgency}</span> Escalates to: <span className="text-white font-bold">{targetName}</span></div>
                       <div className="text-[8px] text-[#D0D6BB]/60 font-mono uppercase">SLA fallback: {esc.responseWindow}</div>
-                    </div>
+                    </button>
                   );
                 })}
                 {posEscalations.length === 0 && (
@@ -1399,51 +1844,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
   // Right Inspector HUD component
   const renderRightInspector = () => {
     if (!selectedElement) {
-      const totalSeats = model.positions.length;
-      const openSeats = model.positions.filter(p => p.status === 'open').length;
-      const plannedSeats = model.positions.filter(p => p.status === 'planned').length;
-      const aiSeats = model.positions.filter(p => p.status === 'virtual_ai').length;
-
-      return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-5 shrink-0 text-white font-sans overflow-y-auto">
-          <div className="space-y-1.5 border-b border-white/5 pb-4">
-            <h3 className="text-xs font-mono uppercase tracking-wider font-bold text-[#D0D6BB]">Inspector Panel</h3>
-            <p className="text-[10px] text-[#D0D6BB]/50">Select a node or connection on the canvas to configure properties.</p>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#D0D6BB]/70">Workspace Stats</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
-                <span className="text-[9px] text-[#D0D6BB]/60 block uppercase">Total Seats</span>
-                <span className="text-xl font-bold font-serif">{totalSeats}</span>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
-                <span className="text-[9px] text-[#D0D6BB]/60 block uppercase">Vacant Seats</span>
-                <span className="text-xl font-bold font-serif text-rose-400">{openSeats}</span>
-              </div>
-              <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
-                <span className="text-[9px] text-[#D0D6BB]/60 block uppercase">Planned</span>
-                <span className="text-xl font-bold font-serif text-sky-400">{plannedSeats}</span>
-              </div>
-              <div className="p-3 bg-[#10b981]/10 border border-[#10b981]/20 rounded-xl space-y-1">
-                <span className="text-[9px] text-emerald-400 block uppercase">AI Coworkers</span>
-                <span className="text-xl font-bold font-serif text-emerald-300">{aiSeats}</span>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-2.5">
-              <h5 className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#D0D6BB]">Canvas Quick Guide</h5>
-              <ul className="text-[10px] text-[#D0D6BB]/70 space-y-1.5 list-disc pl-4 leading-relaxed">
-                <li>Drag nodes to position them.</li>
-                <li>Single click to inspect details and edit parameters inline.</li>
-                <li>Draw connections by selecting nodes and connecting them.</li>
-                <li>Double click a position, SOP, or escalation card to open the advanced multi-tab settings drawer.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      );
+      return null;
     }
 
     const { type, id } = selectedElement;
@@ -1452,8 +1853,18 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       const pos = model.positions.find(p => p.id === id);
       if (!pos) return null;
 
+      const posRoles = model.roles.filter(r => r.positionId === pos.id || pos.roleIds?.includes(r.id));
+      const posSops = model.sops.filter(s => s.ownerPositionId === pos.id);
+      const posKbs = model.knowledgeDocuments?.filter(d => d.ownerPositionId === pos.id) || [];
+      const backupName = model.positions.find(p => p.id === pos.backupPositionId)?.name || 'None';
+      const backupForPositions = model.positions.filter(p => p.backupPositionId === pos.id);
+      const backupRoles = model.roles.filter(r => r.backupOwnerPositionId === pos.id);
+      const backupSops = model.sops.filter(s => s.backupPositionId === pos.id);
+      const backupRouting = (model.routingMatrix || []).filter(r => r.backupOwnerPositionId === pos.id);
+      const backupPositions = model.positions.filter(p => p.backupPositionId === pos.id);
+
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto">
+        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
           <div className="flex justify-between items-center border-b border-white/5 pb-3">
             <div className="space-y-0.5">
               <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400">Position Node</span>
@@ -1539,6 +1950,93 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 ))}
               </select>
             </div>
+
+            <div className="space-y-1.5 pt-2">
+              <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Calculated Backup</span>
+              <div className="px-3 py-2 bg-black/30 border border-white/5 rounded-lg text-emerald-400 font-bold">
+                {backupName}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2">
+              <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Assigned Roles</span>
+              <div className="space-y-1">
+                {posRoles.map(r => (
+                  <div key={r.id} className="p-2.5 bg-black/20 border border-white/5 rounded-xl text-left">
+                    <div className="font-bold text-teal-300 text-[11px]">{r.name}</div>
+                    <div className="text-[10px] text-[#D0D6BB]/70 mt-0.5 line-clamp-2 leading-relaxed">{r.description}</div>
+                  </div>
+                ))}
+                {posRoles.length === 0 && (
+                  <span className="text-[10px] text-[#D0D6BB]/40 italic block">No roles assigned.</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2">
+              <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">SOPs & Knowledge Bases</span>
+              <div className="space-y-1">
+                {posSops.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSopForModal(s);
+                      setSopModalOpen(true);
+                    }}
+                    className="w-full text-left p-2.5 bg-black/20 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 rounded-xl transition-all cursor-pointer block"
+                  >
+                    <div className="font-bold text-green-300 text-[11px] hover:underline">{s.name}</div>
+                    <div className="text-[9px] text-[#D0D6BB]/60 mt-0.5">Trigger: {s.trigger}</div>
+                    <span className="text-[8px] text-green-400 font-mono block mt-1 uppercase">Click to read document</span>
+                  </button>
+                ))}
+                {posKbs.map(d => (
+                  <div key={d.id} className="p-2.5 bg-black/20 border border-white/5 rounded-xl text-left">
+                    <div className="font-bold text-sky-300 text-[11px]">{d.title}</div>
+                    <div className="text-[9px] text-[#D0D6BB]/65 mt-0.5">File: {d.fileName} ({d.documentType})</div>
+                    {d.aiSummary && <div className="text-[9px] text-[#D0D6BB]/40 mt-1 italic">{d.aiSummary}</div>}
+                  </div>
+                ))}
+                {posSops.length === 0 && posKbs.length === 0 && (
+                  <span className="text-[10px] text-[#D0D6BB]/40 italic block">No SOPs or Knowledge bases documented.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Unified Backup Coverage & Responsibilities */}
+            <div className="space-y-1.5 pt-2 border-t border-white/5">
+              <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400 block font-bold">Backup Coverage</span>
+              <div className="space-y-1.5">
+                {backupPositions.map(bp => (
+                  <div key={bp.id} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
+                    <span className="font-bold text-amber-300">Seat Backup for:</span> <span className="text-white">{bp.name} ({bp.title})</span>
+                  </div>
+                ))}
+                
+                {backupRoles.map(br => (
+                  <div key={br.id} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
+                    <span className="font-bold text-amber-300">Backup for Role:</span> <span className="text-white">{br.name}</span>
+                  </div>
+                ))}
+
+                {backupSops.map(bs => (
+                  <div key={bs.id} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
+                    <span className="font-bold text-amber-300">Backup for SOP:</span> <span className="text-white">{bs.name}</span>
+                  </div>
+                ))}
+
+                {backupRouting.map((br, rIdx) => (
+                  <div key={rIdx} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
+                    <span className="font-bold text-amber-300">Backup for Request:</span> <span className="text-white">{br.category}</span>
+                  </div>
+                ))}
+
+                {backupPositions.length === 0 && backupRoles.length === 0 && backupSops.length === 0 && backupRouting.length === 0 && (
+                  <span className="text-[10px] text-[#D0D6BB]/40 italic block">No backup coverage assigned.</span>
+                )}
+              </div>
+            </div>
             
             <div className="flex gap-2.5 pt-2">
               <button
@@ -1571,7 +2069,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       if (!sop) return null;
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto">
+        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
           <div className="flex justify-between items-center border-b border-white/5 pb-3">
             <div className="space-y-0.5">
               <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400">SOP Node</span>
@@ -1655,7 +2153,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       if (!esc) return null;
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto">
+        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
           <div className="flex justify-between items-center border-b border-white/5 pb-3">
             <div className="space-y-0.5">
               <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400">Escalation Policy</span>
@@ -1753,7 +2251,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       if (!node) return null;
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto">
+        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
           <div className="flex justify-between items-center border-b border-white/5 pb-3">
             <div className="space-y-0.5">
               <span className="text-[9px] font-mono uppercase tracking-wider text-violet-400">{type === 'logic_split' ? 'Logic Split' : 'Intake Trigger'}</span>
@@ -1842,8 +2340,22 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       const conn = getVisualConnections().find(c => c.id === id);
       if (!conn) return null;
 
+      const fromPos = model.positions.find(p => p.id === conn.fromPositionId);
+      const toPos = model.positions.find(p => p.id === conn.toPositionId);
+
+      const getPosDetails = (pos: any) => {
+        if (!pos) return null;
+        const posRoles = model.roles.filter(r => r.positionId === pos.id || pos.roleIds?.includes(r.id));
+        const posSops = model.sops.filter(s => s.ownerPositionId === pos.id);
+        const posKbs = model.knowledgeDocuments?.filter(d => d.ownerPositionId === pos.id) || [];
+        return { pos, roles: posRoles, sops: posSops, kbs: posKbs };
+      };
+
+      const fromDetails = getPosDetails(fromPos);
+      const toDetails = getPosDetails(toPos);
+
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto">
+        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
           <div className="flex justify-between items-center border-b border-white/5 pb-3">
             <div className="space-y-0.5">
               <span className="text-[9px] font-mono uppercase tracking-wider text-[#10b981]">Connection Path</span>
@@ -1885,6 +2397,85 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono"
                 placeholder="24 hours"
               />
+            </div>
+
+            {/* Connected Seats Details Accordion */}
+            <div className="space-y-3.5 border-t border-white/5 pt-3.5">
+              <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-amber-400">Connected Positions</h4>
+              
+              {fromDetails && (
+                <div className="p-3 bg-black/25 border border-white/5 rounded-xl space-y-2">
+                  <div>
+                    <span className="text-[8px] font-mono uppercase text-[#D0D6BB]/50 block">Source / Parent</span>
+                    <strong className="text-white text-xs block">{fromDetails.pos.name}</strong>
+                    <span className="text-[9px] text-[#D0D6BB]/70">{fromDetails.pos.title}</span>
+                  </div>
+                  
+                  {fromDetails.roles.length > 0 && (
+                    <div className="text-[9px] text-[#D0D6BB]/80">
+                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Roles:</span>
+                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
+                        {fromDetails.roles.map(r => <div key={r.id} className="text-teal-300 font-medium truncate">{r.name}</div>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {fromDetails.sops.length > 0 && (
+                    <div className="text-[9px] text-[#D0D6BB]/80">
+                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">SOPs:</span>
+                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
+                        {fromDetails.sops.map(s => <div key={s.id} className="text-green-300 font-medium truncate">{s.name}</div>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {fromDetails.kbs.length > 0 && (
+                    <div className="text-[9px] text-[#D0D6BB]/80">
+                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Knowledge:</span>
+                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
+                        {fromDetails.kbs.map(k => <div key={k.id} className="text-sky-300 font-medium truncate">{k.title}</div>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {toDetails && (
+                <div className="p-3 bg-black/25 border border-white/5 rounded-xl space-y-2">
+                  <div>
+                    <span className="text-[8px] font-mono uppercase text-[#D0D6BB]/50 block">Target / Child</span>
+                    <strong className="text-white text-xs block">{toDetails.pos.name}</strong>
+                    <span className="text-[9px] text-[#D0D6BB]/70">{toDetails.pos.title}</span>
+                  </div>
+                  
+                  {toDetails.roles.length > 0 && (
+                    <div className="text-[9px] text-[#D0D6BB]/80">
+                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Roles:</span>
+                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
+                        {toDetails.roles.map(r => <div key={r.id} className="text-teal-300 font-medium truncate">{r.name}</div>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {toDetails.sops.length > 0 && (
+                    <div className="text-[9px] text-[#D0D6BB]/80">
+                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">SOPs:</span>
+                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
+                        {toDetails.sops.map(s => <div key={s.id} className="text-green-300 font-medium truncate">{s.name}</div>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {toDetails.kbs.length > 0 && (
+                    <div className="text-[9px] text-[#D0D6BB]/80">
+                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Knowledge:</span>
+                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
+                        {toDetails.kbs.map(k => <div key={k.id} className="text-sky-300 font-medium truncate">{k.title}</div>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <button
@@ -1982,14 +2573,13 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
     return (
       <div className="flex-grow flex flex-col min-h-0 text-left relative select-none">
         {/* Toolbar */}
-        <div className="sticky top-[73px] z-10 px-4 py-3 bg-[#012a23]/88 backdrop-blur-md border-b border-white/10 flex flex-wrap items-center justify-between gap-3 font-mono text-[10px] uppercase shrink-0 visual-org-map-toolbar">
+        <div className="sticky top-[73px] z-10 px-3 py-1.5 bg-[#012a23]/92 backdrop-blur-md border-b border-white/10 flex flex-row items-center justify-between gap-1.5 font-mono text-[8px] uppercase shrink-0 visual-org-map-toolbar overflow-x-auto whitespace-nowrap scrollbar-none">
           {/* Left Group */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* View Switcher */}
-            <div className="flex gap-0.5 bg-black/25 p-1 rounded-lg border border-white/5 shrink-0">
+            <div className="flex gap-0.5 bg-black/25 p-0.5 rounded-md border border-white/5 shrink-0">
               {[
                 { mode: 'org', label: 'Org View', icon: Layers },
-                { mode: 'workflow', label: 'Workflow View', icon: Sparkles },
                 { mode: 'position', label: 'Position View', icon: User }
               ].map(({ mode, label, icon: Icon }) => (
                 <button
@@ -1999,22 +2589,22 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     setActiveViewMode(mode as any);
                     setSelectedElement(null);
                   }}
-                  className={`px-2.5 py-1 rounded text-[9px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all cursor-pointer flex items-center gap-0.5 ${
                     activeViewMode === mode
                       ? 'bg-[#00635C] text-white shadow'
                       : 'text-[#D0D6BB]/50 hover:text-white'
                   }`}
                 >
-                  <Icon className="w-3 h-3" />
+                  <Icon className="w-2.5 h-2.5" />
                   {label}
                 </button>
               ))}
             </div>
 
             {/* Templates Selector */}
-            <div className="relative group">
-              <button type="button" className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg font-bold cursor-pointer flex items-center gap-1">
-                Templates <ChevronRight className="w-3 h-3 rotate-90" />
+            <div className="relative group shrink-0">
+              <button type="button" className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-md font-bold cursor-pointer flex items-center gap-0.5 text-[8px]">
+                Templates <ChevronRight className="w-2.5 h-2.5 rotate-90" />
               </button>
               <div className="absolute left-0 mt-1 hidden group-hover:block bg-[#013028] border border-white/15 rounded-xl shadow-2xl overflow-hidden z-30 w-44 font-sans text-xs lowercase">
                 {[
@@ -2028,7 +2618,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     key={tmpl}
                     type="button"
                     onClick={() => applyTemplate(tmpl)}
-                    className="w-full px-4 py-2.5 text-left text-[#D0D6BB] hover:bg-[#00635C] hover:text-white transition-colors"
+                    className="w-full px-4 py-2 text-left text-[#D0D6BB] hover:bg-[#00635C] hover:text-white transition-colors"
                   >
                     {tmpl}
                   </button>
@@ -2041,14 +2631,15 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 <button
                   type="button"
                   onClick={() => openAddDrawer('position')}
-                  className="px-3 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white border border-white/10 rounded-lg font-bold cursor-pointer"
+                  className="px-2 py-1 bg-[#00635C] hover:bg-[#004d47] text-white border border-white/10 rounded-md font-bold cursor-pointer text-[8px]"
                 >
                   + Add Seat
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setConnFrom('');
+                    const defaultFrom = selectedElement && selectedElement.type === 'position' ? selectedElement.id : '';
+                    setConnFrom(defaultFrom);
                     setConnTo('');
                     setConnLabel('');
                     setConnCondition('');
@@ -2059,7 +2650,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     setConnType('reporting');
                     setConnectionDrawerOpen(true);
                   }}
-                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg font-bold cursor-pointer"
+                  className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-md font-bold cursor-pointer text-[8px]"
                 >
                   + Connect
                 </button>
@@ -2067,143 +2658,71 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             )}
           </div>
 
-          {/* Center Group */}
+          {/* Center & Right Combined Group */}
           {activeViewMode !== 'position' && (
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleAutoLayout}
-                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg font-bold cursor-pointer"
-              >
-                Auto Layout
-              </button>
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={handleFitView}
-                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg font-bold cursor-pointer"
+                className="px-2 py-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-md font-bold cursor-pointer text-[8px]"
               >
                 Fit View
               </button>
+              <button
+                type="button"
+                onClick={handlePrintMap}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white border border-white/20 rounded-md font-bold cursor-pointer flex items-center gap-1 text-[8px] print:hidden"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print Map
+              </button>
 
-              <div className="relative">
+              <div className="relative w-28 shrink-0">
                 <input
                   type="text"
                   placeholder="search canvas..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 pl-7 text-[10px] text-white focus:outline-none focus:border-emerald-500 w-36 lowercase"
+                  className="bg-black/30 border border-white/10 rounded-md px-1.5 py-0.5 pl-6 text-[8px] text-white focus:outline-none focus:border-emerald-500 w-full lowercase leading-none"
                 />
-                <Search className="w-3 h-3 text-[#D0D6BB]/50 absolute left-2.5 top-2.5" />
+                <Search className="w-2.5 h-2.5 text-[#D0D6BB]/50 absolute left-1.5 top-1.5" />
               </div>
+
+              {/* Inline Filters */}
+              <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                {[
+                  { label: 'Active', checked: showActive, setter: setShowActive, color: 'accent-emerald-500' },
+                  { label: 'Vacant', checked: showOpenRoles, setter: setShowOpenRoles, color: 'accent-red-500' },
+                  { label: 'Planned Gaps', checked: showPlannedRoles, setter: setShowPlannedRoles, color: 'accent-sky-500' },
+                  { label: 'AI/Virtual', checked: showVirtualAi, setter: setShowVirtualAi, color: 'accent-emerald-400' },
+                  { label: 'Reporting Lines', checked: showReportingLines, setter: setShowReportingLines, color: 'accent-emerald-500' },
+                  { label: 'Escalations', checked: showEscalationLines, setter: setShowEscalationLines, color: 'accent-amber-500' },
+                  { label: 'SOP Links', checked: showSopLines, setter: setShowSopLines, color: 'accent-green-500' }
+                ].map((f, fIdx) => (
+                  <label key={fIdx} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/25 border border-white/5 text-[#D0D6BB] text-[8px] font-mono cursor-pointer hover:bg-white/5 hover:text-white select-none">
+                    <input
+                      type="checkbox"
+                      checked={f.checked}
+                      onChange={() => f.setter(!f.checked)}
+                      className={`rounded ${f.color} bg-black/30 border-white/20 w-2.5 h-2.5`}
+                    />
+                    {f.label}
+                  </label>
+                ))}
+              </div>
+
+              {/* Planning Mode Checkbox */}
+              <label className="flex items-center gap-1 px-2 py-0.5 border border-amber-500/30 bg-amber-500/10 rounded-md text-amber-300 font-bold uppercase tracking-wider text-[8px] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={planningMode}
+                  onChange={(e) => setPlanningMode(e.target.checked)}
+                  className="rounded accent-amber-500 bg-black/30 border-white/20 w-2.5 h-2.5"
+                />
+                Planning Mode
+              </label>
             </div>
           )}
-
-          {/* Right Group */}
-          <div className="flex items-center gap-3">
-            {/* Filters Dropdown */}
-            {activeViewMode !== 'position' && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setFiltersPopoverOpen(!filtersPopoverOpen)}
-                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg font-bold cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>Filters</span>
-                  <ChevronRight className={`w-3 h-3 transition-transform ${filtersPopoverOpen ? 'rotate-90' : ''}`} />
-                </button>
-                
-                {filtersPopoverOpen && (
-                  <div className="absolute right-0 mt-2 bg-[#013028] border border-white/15 rounded-xl shadow-2xl p-4 z-40 w-64 space-y-4 font-sans text-xs lowercase">
-                    <div className="space-y-2 text-left">
-                      <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#D0D6BB]/50">Show Nodes</h4>
-                      <div className="flex flex-col gap-2">
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showActive}
-                            onChange={() => setShowActive(!showActive)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          Active seats
-                        </label>
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showOpenRoles}
-                            onChange={() => setShowOpenRoles(!showOpenRoles)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          Open / vacant seats
-                        </label>
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showPlannedRoles}
-                            onChange={() => setShowPlannedRoles(!showPlannedRoles)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          Planned seats
-                        </label>
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showVirtualAi}
-                            onChange={() => setShowVirtualAi(!showVirtualAi)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          AI / virtual roles
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-left border-t border-white/5 pt-3">
-                      <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#D0D6BB]/50">Show Lines</h4>
-                      <div className="flex flex-col gap-2">
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showReportingLines}
-                            onChange={() => setShowReportingLines(!showReportingLines)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          Reporting lines
-                        </label>
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showEscalationLines}
-                            onChange={() => setShowEscalationLines(!showEscalationLines)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          Escalations
-                        </label>
-                        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={showSopLines}
-                            onChange={() => setShowSopLines(!showSopLines)}
-                            className="rounded accent-emerald-600 bg-black/30 border-white/20"
-                          />
-                          SOP paths
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Planning Mode Toggle */}
-            <label className="flex items-center gap-1.5 cursor-pointer px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold hover:bg-amber-500/20 transition-colors">
-              <input
-                type="checkbox"
-                checked={planningMode}
-                onChange={() => setPlanningMode(!planningMode)}
-                className="rounded accent-amber-500 bg-black/30 border-amber-500/20 cursor-pointer"
-              />
-              Planning Mode
-            </label>
-          </div>
         </div>
 
         {/* Main Workspace Area */}
@@ -2226,7 +2745,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 backgroundSize: '20px 20px'
               }}
               onPointerDown={(e) => {
-                if ((e.target as HTMLElement).closest('.position-card') || (e.target as HTMLElement).closest('.connection-line')) return;
+                if ((e.target as HTMLElement).closest('.canvas-node-card') || (e.target as HTMLElement).closest('.connection-line')) return;
                 setIsPanning(true);
                 setPanStart({ x: e.clientX, y: e.clientY, x_val: pan.x, y_val: pan.y });
               }}
@@ -2260,6 +2779,211 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 }}
               >
                 {/* SVG connection lines */}
+                <style>{`
+                  @media print {
+                    @page {
+                      size: landscape !important;
+                      margin: 0 !important;
+                    }
+                    
+                    body * {
+                      visibility: hidden !important;
+                    }
+                    
+                    .visual-org-map-canvas-shell,
+                    .visual-org-map-canvas-shell * {
+                      visibility: visible !important;
+                    }
+                    
+                    .visual-org-map-canvas-shell {
+                      position: fixed !important;
+                      left: 0 !important;
+                      top: 0 !important;
+                      width: 100vw !important;
+                      height: 100vh !important;
+                      background-color: #ffffff !important;
+                      background-image: none !important;
+                      overflow: visible !important;
+                      border: none !important;
+                      z-index: 99999 !important;
+                    }
+                    
+                    body {
+                      -webkit-print-color-adjust: exact !important;
+                      print-color-adjust: exact !important;
+                      background-color: #ffffff !important;
+                      color: #0f172a !important;
+                    }
+
+                    /* Print-friendly high-contrast seat cards */
+                    .canvas-node-card {
+                      background-color: #ffffff !important;
+                      background: #ffffff !important;
+                      border: 2px solid #0f172a !important;
+                      box-shadow: none !important;
+                    }
+
+                    .canvas-node-card h4,
+                    .canvas-node-card span,
+                    .canvas-node-card div,
+                    .canvas-node-card h5,
+                    .canvas-node-card li {
+                      color: #0f172a !important;
+                    }
+
+                    .canvas-node-card border-b {
+                      border-color: rgba(15, 23, 42, 0.15) !important;
+                    }
+
+                    /* Make connection paths high-contrast */
+                    .connection-line path {
+                      stroke-opacity: 1 !important;
+                    }
+
+                    /* Hide the flowing running neon overlays to save ink */
+                    .flowing-glow-line {
+                      display: none !important;
+                      visibility: hidden !important;
+                    }
+                    
+                    .print-hidden, button, input, .visual-org-map-toolbar, .sticky-mode-switcher {
+                      display: none !important;
+                      visibility: hidden !important;
+                    }
+                  }
+
+                  /* Wilmington Pilot Glow & Flow Animations */
+                  @keyframes ryan-pulse {
+                    0%, 100% {
+                      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3), 0 0 2px rgba(16, 185, 129, 0.1);
+                      border-color: rgba(16, 185, 129, 0.4);
+                    }
+                    50% {
+                      box-shadow: 0 0 22px rgba(16, 185, 129, 0.75), 0 0 8px rgba(16, 185, 129, 0.3);
+                      border-color: rgba(16, 185, 129, 0.8);
+                    }
+                  }
+                  .ryan-node-card {
+                    animation: ryan-pulse 3.5s infinite ease-in-out !important;
+                    border-color: rgba(16, 185, 129, 0.5) !important;
+                  }
+                  
+                  @keyframes running-glow {
+                    to {
+                      stroke-dashoffset: -20;
+                    }
+                  }
+                  .flowing-glow-line {
+                    stroke-dasharray: 6, 14;
+                    animation: running-glow 1.2s linear infinite;
+                  }
+                  
+                  @keyframes border-neon {
+                    0%, 100% { border-color: rgba(16, 185, 129, 0.3); }
+                    50% { border-color: rgba(52, 211, 153, 0.85); }
+                  }
+                  .ai-node-glow {
+                    animation: border-neon 3s infinite ease-in-out;
+                  }
+                  
+                  .canvas-node-card {
+                    transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                  }
+                  .canvas-node-card:hover {
+                    transform: translateY(-4px) scale(1.02) !important;
+                    box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.4), 0 0 15px rgba(16, 185, 129, 0.25) !important;
+                    border-color: rgba(16, 185, 129, 0.5) !important;
+                  }
+                  
+                  @keyframes vacant-pulse {
+                    0%, 100% {
+                      box-shadow: 0 0 6px rgba(239, 68, 68, 0.15), 0 0 1px rgba(239, 68, 68, 0.1);
+                      border-color: rgba(239, 68, 68, 0.25);
+                    }
+                    50% {
+                      box-shadow: 0 0 14px rgba(239, 68, 68, 0.45), 0 0 5px rgba(239, 68, 68, 0.2);
+                      border-color: rgba(239, 68, 68, 0.55);
+                    }
+                  }
+                  .vacant-node-pulse {
+                    animation: vacant-pulse 4s infinite ease-in-out !important;
+                    border-style: dashed !important;
+                  }
+
+                  /* Mobile-responsive styles for the inspector panel */
+                  @media (max-width: 767px) {
+                    .role-map-root-container .inspector-panel-container {
+                      position: fixed !important;
+                      right: 0 !important;
+                      top: 73px !important;
+                      bottom: 0 !important;
+                      z-index: 50 !important;
+                      width: 85% !important;
+                      max-width: 320px !important;
+                      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.6) !important;
+                      border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
+                      background-color: #01201b !important;
+                    }
+                    /* Hide stats inspector on mobile completely */
+                    .role-map-root-container .inspector-stats-panel {
+                      display: none !important;
+                    }
+                  }
+
+                  /* Extra micro-animations */
+                  @keyframes active-btn-pulse {
+                    0%, 100% { box-shadow: 0 0 4px rgba(0, 99, 92, 0.4); }
+                    50% { box-shadow: 0 0 12px rgba(0, 99, 92, 0.8), 0 0 2px rgba(52, 211, 153, 0.4); }
+                  }
+                  .pulse-active-btn {
+                    animation: active-btn-pulse 2.5s infinite ease-in-out;
+                  }
+
+                  @keyframes grid-glow {
+                    0%, 100% { opacity: 0.9; }
+                    50% { opacity: 1; }
+                  }
+                  .visual-org-map-canvas-shell {
+                    animation: grid-glow 6s infinite ease-in-out;
+                  }
+
+                  @keyframes sop-glow {
+                    0%, 100% { background-color: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.15); }
+                    50% { background-color: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.45); }
+                  }
+                  .sop-pulse-tag {
+                    animation: sop-glow 3s infinite ease-in-out;
+                  }
+
+                  /* Redefine Tailwind text sizes for our page wrapper to bump up font size by 2px to 4px */
+                  .role-map-root-container .text-\[6px\] { font-size: 9.5px !important; }
+                  .role-map-root-container .text-\[6\.5px\] { font-size: 10px !important; }
+                  .role-map-root-container .text-\[7px\] { font-size: 10.5px !important; }
+                  .role-map-root-container .text-\[7\.5px\] { font-size: 11px !important; }
+                  .role-map-root-container .text-\[8px\] { font-size: 11.5px !important; }
+                  .role-map-root-container .text-\[8\.5px\] { font-size: 12px !important; }
+                  .role-map-root-container .text-\[9px\] { font-size: 12.5px !important; }
+                  .role-map-root-container .text-\[10px\] { font-size: 13.5px !important; }
+                  .role-map-root-container .text-xs { font-size: 14.5px !important; }
+                  .role-map-root-container .text-sm { font-size: 16.5px !important; }
+                  .role-map-root-container .text-base { font-size: 18.5px !important; }
+                  .role-map-root-container .text-lg { font-size: 20.5px !important; }
+                  .role-map-root-container .text-xl { font-size: 23px !important; }
+                  .role-map-root-container .text-2xl { font-size: 27px !important; }
+                  .role-map-root-container .text-3xl { font-size: 32px !important; }
+                  
+                  /* Ensure inputs and selects also scale up */
+                  .role-map-root-container input,
+                  .role-map-root-container select,
+                  .role-map-root-container textarea,
+                  .role-map-root-container button {
+                    font-size: 13.5px !important;
+                  }
+
+                  .role-map-root-container svg text {
+                    font-size: 11px !important;
+                  }
+                `}</style>
                 <svg className="absolute inset-0 w-full h-full pointer-events-auto">
                   <defs>
                     <marker id="arrow-reporting" markerWidth="8" markerHeight="8" refX="28" refY="4" orient="auto">
@@ -2278,13 +3002,37 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     const toCoords = getNodeCoordinates(conn.toPositionId);
                     if (!fromCoords || !toCoords) return null;
 
-                    const cardWidth = 300;
-                    const cardHeight = 160;
+                    const isWorkflow = activeViewMode === 'workflow';
+                    const fromWidth = isWorkflow ? 240 : 300;
+                    const toWidth = isWorkflow ? 240 : 300;
+                    const fromHeight = isWorkflow ? 100 : 160;
+                    const toHeight = isWorkflow ? 100 : 160;
 
-                    const x1 = fromCoords.x + cardWidth / 2;
-                    const y1 = fromCoords.y + cardHeight / 2;
-                    const x2 = toCoords.x + cardWidth / 2;
-                    const y2 = toCoords.y + cardHeight / 2;
+                    let x1 = fromCoords.x + fromWidth / 2;
+                    let y1 = fromCoords.y;
+                    let x2 = toCoords.x + toWidth / 2;
+                    let y2 = toCoords.y;
+
+                    if (Math.abs(fromCoords.y - toCoords.y) < 50) {
+                      // Horizontally aligned: connect left/right edges
+                      y1 = fromCoords.y + fromHeight / 2;
+                      y2 = toCoords.y + toHeight / 2;
+                      if (fromCoords.x > toCoords.x) {
+                        x1 = fromCoords.x;
+                        x2 = toCoords.x + toWidth;
+                      } else {
+                        x1 = fromCoords.x + fromWidth;
+                        x2 = toCoords.x;
+                      }
+                    } else if (fromCoords.y > toCoords.y) {
+                      // Source is below target: connect from top of source to bottom of target
+                      y1 = fromCoords.y;
+                      y2 = toCoords.y + toHeight;
+                    } else {
+                      // Source is above target: connect from bottom of source to top of target
+                      y1 = fromCoords.y + fromHeight;
+                      y2 = toCoords.y;
+                    }
 
                     const isSelected = selectedElement?.type === 'connection' && selectedElement?.id === conn.id;
 
@@ -2330,6 +3078,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           fill="none"
                           markerEnd={marker}
                           className="transition-all"
+                        />
+                        {/* Flowing running-glow line */}
+                        <path
+                          d={pathD}
+                          stroke={conn.type === 'escalation' ? '#fbbf24' : conn.type === 'sop' ? '#34d399' : '#a7f3d0'}
+                          strokeWidth={isSelected ? 2 : 1.2}
+                          fill="none"
+                          className="flowing-glow-line pointer-events-none opacity-70"
                         />
                         <circle
                           cx={midX}
@@ -2430,7 +3186,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             setDrawerMode('edit');
                             setDrawerOpen(true);
                           }}
-                          className={`absolute position-card w-[300px] bg-[#012620]/90 backdrop-blur-md border rounded-[24px] p-5 flex flex-col gap-3 pointer-events-auto cursor-pointer ${highlightClass}`}
+                          className={`absolute position-card canvas-node-card ${pos.id === 'pos_ryan' ? 'ryan-node-card w-[320px] p-5.5' : 'w-[300px] p-5'} ${status === 'virtual_ai' ? 'ai-node-glow' : ''} ${isFutureRole ? 'vacant-node-pulse' : ''} bg-[#012620]/90 backdrop-blur-md border rounded-[24px] flex flex-col gap-3 pointer-events-auto cursor-pointer ${highlightClass}`}
                           style={{
                             left: `${nodeX}px`,
                             top: `${nodeY}px`,
@@ -2442,7 +3198,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                               if ((e.target as HTMLElement).closest('button')) return;
                               setDraggedNodeId(pos.id);
                               
-                              const canvasBound = e.currentTarget.closest('[onPointerMove]')!.getBoundingClientRect();
+                              const canvasBound = canvasContainerRef.current!.getBoundingClientRect();
                               const mouseX = e.clientX - canvasBound.left;
                               const mouseY = e.clientY - canvasBound.top;
 
@@ -2527,6 +3283,36 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             </div>
                           )}
 
+                          {/* List SOPs owned by this position or its roles */}
+                          {(() => {
+                            const roleIds = posRoles.map(r => r.id);
+                            const posSopsList = model.sops.filter(s => s.ownerPositionId === pos.id || roleIds.includes(s.roleId || ''));
+                            if (posSopsList.length > 0 && !isFutureRole) {
+                              return (
+                                <div className="space-y-1 text-left border-t border-white/5 pt-1.5 mt-0.5">
+                                  <span className="text-[7.5px] font-mono uppercase text-[#D0D6BB]/40 block font-bold leading-none">SOPs & Checklists:</span>
+                                  <div className="flex flex-col gap-0.5 max-h-[52px] overflow-y-auto pr-0.5 pointer-events-auto">
+                                    {posSopsList.map(s => (
+                                      <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedSopForModal(s);
+                                          setSopModalOpen(true);
+                                        }}
+                                        className="text-[8.5px] text-emerald-400 font-sans truncate text-left hover:underline cursor-pointer flex items-center gap-1 w-full bg-transparent border-none p-0 leading-tight"
+                                      >
+                                        📋 <span className="truncate">{s.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+
                           <div className="flex justify-between items-center text-[8px] font-mono text-[#D0D6BB]/40 border-t border-white/5 pt-2">
                             <span>{pos.office || 'Corporate'}</span>
                             <span className="text-emerald-400 font-bold hover:underline cursor-pointer" onClick={() => {
@@ -2560,14 +3346,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             setDrawerMode('edit');
                             setDrawerOpen(true);
                           }}
-                          className={`absolute w-[240px] bg-teal-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : 'border-teal-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
+                          className={`absolute canvas-node-card w-[240px] bg-teal-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : 'border-teal-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
                           style={{ left: `${rx}px`, top: `${ry}px` }}
                         >
                           <div 
                             className="flex justify-between items-center border-b border-teal-500/10 pb-1.5 cursor-grab active:cursor-grabbing"
                             onPointerDown={(e) => {
                               setDraggedNodeId(role.id);
-                              const canvasBound = e.currentTarget.closest('[onPointerMove]')!.getBoundingClientRect();
+                              const canvasBound = canvasContainerRef.current!.getBoundingClientRect();
                               setDragStartOffset({
                                 x: ((e.clientX - canvasBound.left) - pan.x) / zoom - rx,
                                 y: ((e.clientY - canvasBound.top) - pan.y) / zoom - ry
@@ -2608,14 +3394,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             setDrawerMode('edit');
                             setDrawerOpen(true);
                           }}
-                          className={`absolute w-[240px] bg-green-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : 'border-green-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
+                          className={`absolute canvas-node-card w-[240px] bg-green-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : 'border-green-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
                           style={{ left: `${sx}px`, top: `${sy}px` }}
                         >
                           <div 
                             className="flex justify-between items-center border-b border-green-500/10 pb-1.5 cursor-grab active:cursor-grabbing"
                             onPointerDown={(e) => {
                               setDraggedNodeId(sop.id);
-                              const canvasBound = e.currentTarget.closest('[onPointerMove]')!.getBoundingClientRect();
+                              const canvasBound = canvasContainerRef.current!.getBoundingClientRect();
                               setDragStartOffset({
                                 x: ((e.clientX - canvasBound.left) - pan.x) / zoom - sx,
                                 y: ((e.clientY - canvasBound.top) - pan.y) / zoom - sy
@@ -2656,14 +3442,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             setDrawerMode('edit');
                             setDrawerOpen(true);
                           }}
-                          className={`absolute w-[240px] bg-amber-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : 'border-amber-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
+                          className={`absolute canvas-node-card w-[240px] bg-amber-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : 'border-amber-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
                           style={{ left: `${ex}px`, top: `${ey}px` }}
                         >
                           <div 
                             className="flex justify-between items-center border-b border-amber-500/10 pb-1.5 cursor-grab active:cursor-grabbing"
                             onPointerDown={(e) => {
                               setDraggedNodeId(esc.id);
-                              const canvasBound = e.currentTarget.closest('[onPointerMove]')!.getBoundingClientRect();
+                              const canvasBound = canvasContainerRef.current!.getBoundingClientRect();
                               setDragStartOffset({
                                 x: ((e.clientX - canvasBound.left) - pan.x) / zoom - ex,
                                 y: ((e.clientY - canvasBound.top) - pan.y) / zoom - ey
@@ -2699,14 +3485,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                         <div
                           key={node.id}
                           onClick={() => setSelectedElement({ type: node.type as any, id: node.id })}
-                          className={`absolute w-[240px] bg-violet-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : isTrigger ? 'border-cyan-500/30' : 'border-violet-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
+                          className={`absolute canvas-node-card w-[240px] bg-violet-950/20 backdrop-blur-md border ${isSelected ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)] z-20' : isTrigger ? 'border-cyan-500/30' : 'border-violet-500/30'} rounded-xl p-3 flex flex-col gap-2 pointer-events-auto cursor-pointer`}
                           style={{ left: `${lx}px`, top: `${ly}px` }}
                         >
                           <div 
                             className="flex justify-between items-center border-b border-violet-500/10 pb-1.5 cursor-grab active:cursor-grabbing"
                             onPointerDown={(e) => {
                               setDraggedNodeId(node.id);
-                              const canvasBound = e.currentTarget.closest('[onPointerMove]')!.getBoundingClientRect();
+                              const canvasBound = canvasContainerRef.current!.getBoundingClientRect();
                               setDragStartOffset({
                                 x: ((e.clientX - canvasBound.left) - pan.x) / zoom - lx,
                                 y: ((e.clientY - canvasBound.top) - pan.y) / zoom - ly
@@ -2730,7 +3516,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 </div>
 
                 {/* Floating Map Legend */}
-                <div className="absolute bottom-4 right-4 bg-[#012620]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl select-none z-10 text-left space-y-2.5 max-w-[245px]">
+                <div className="absolute print-hidden bottom-4 right-4 bg-[#012620]/95 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl select-none z-10 text-left space-y-2.5 max-w-[245px]">
                   <div>
                     <h5 className="text-[9px] font-mono font-bold uppercase tracking-wider text-white border-b border-white/5 pb-1">Line Connections</h5>
                     <div className="space-y-1.5 font-mono text-[8px] text-[#D0D6BB] mt-1.5">
@@ -2772,7 +3558,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
               {/* Floating Positions Notice Fallback */}
               {visiblePositions.length > 0 && (
-                <div className="absolute bottom-4 left-4 z-10 px-4 py-2 bg-[#012620]/95 backdrop-blur-md border border-white/10 text-[#D0D6BB] text-[10px] font-mono rounded-xl pointer-events-auto shadow-md">
+                <div className="absolute print-hidden bottom-4 left-4 z-10 px-4 py-2 bg-[#012620]/95 backdrop-blur-md border border-white/10 text-[#D0D6BB] text-[10px] font-mono rounded-xl pointer-events-auto shadow-md">
                   Positions loaded but not visible. Click{' '}
                   <button
                     type="button"
@@ -2780,14 +3566,6 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     className="underline font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
                   >
                     Fit View
-                  </button>{' '}
-                  or{' '}
-                  <button
-                    type="button"
-                    onClick={handleAutoLayout}
-                    className="underline font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
-                  >
-                    Auto Layout
                   </button>
                   .
                 </div>
@@ -2872,7 +3650,16 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
     
     // Load docs from backend REST API
     fetch(`/api/org-knowledge?workspaceId=${workspaceId}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error ${res.status}`);
+        }
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Received HTML response instead of JSON (likely expired session)');
+        }
+        return res.json();
+      })
       .then(backendDocs => {
         if (Array.isArray(backendDocs)) {
           const merged = [...(data.knowledgeDocuments || [])];
@@ -2991,6 +3778,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       hiringNotes: data.hiringNotes,
       coverageGap: data.coverageGap,
       roleIds: [],
+      connectedTools: data.connectedTools || [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -3122,12 +3910,32 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
   const handleAddDocSubmit = (newDoc: OrgKnowledgeDocument) => {
     const updated = [...(model.knowledgeDocuments || []), newDoc];
     markChanged({ ...model, knowledgeDocuments: updated });
+    
+    if (newDoc.status === 'processing') {
+      setTimeout(() => {
+        const latestModel = orgChartService.getOrgChart(workspaceId);
+        const processed = (latestModel.knowledgeDocuments || []).map(d =>
+          d.id === newDoc.id ? { ...d, status: 'ready' as const, aiSummary: d.aiSummary || 'Automatically extracted summary details from the processed source.' } : d
+        );
+        markChanged({ ...latestModel, knowledgeDocuments: processed });
+      }, 2000);
+    }
     closeDrawer();
   };
 
   const handleEditDocSubmit = (id: string, updates: Partial<OrgKnowledgeDocument>) => {
     const updated = (model.knowledgeDocuments || []).map(d => d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d);
     markChanged({ ...model, knowledgeDocuments: updated });
+    
+    if (updates.status === 'processing') {
+      setTimeout(() => {
+        const latestModel = orgChartService.getOrgChart(workspaceId);
+        const processed = (latestModel.knowledgeDocuments || []).map(d =>
+          d.id === id ? { ...d, status: 'ready' as const } : d
+        );
+        markChanged({ ...latestModel, knowledgeDocuments: processed });
+      }, 2000);
+    }
     closeDrawer();
   };
 
@@ -3415,10 +4223,10 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
   return (
     <>
-      <div className="w-full h-full flex flex-col bg-[#01362D] text-[#F6F7F1] font-sans relative overflow-hidden border-none shadow-none">
+      <div className="w-full h-full flex flex-col bg-[#01362D] text-[#F6F7F1] font-sans relative overflow-hidden border-none shadow-none role-map-root-container">
       
       {/* --- HEADER ACTIONS --- */}
-      <div className="sticky top-0 z-20 px-6 py-4 border-b border-[rgba(246,247,241,0.12)] bg-[#012620]/88 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4 text-left visual-org-map-header">
+      <div className="px-6 py-4 border-b border-[rgba(246,247,241,0.12)] bg-[#012620]/88 flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4 text-left visual-org-map-header">
         <div className="flex items-center gap-3">
           {(onClose || !embeddedTab) && (
             <button
@@ -3430,9 +4238,9 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             </button>
           )}
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-xs md:text-sm font-serif font-black uppercase tracking-wider text-white">
-                {activeTab === 'visual' ? 'Visual Org Map' : activeTab === 'guided' ? 'Organization Chart Wizard' : 'Org Chart Wizard'}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-xs md:text-sm lg:text-base font-serif font-black uppercase tracking-wider text-white">
+                ROLE & ESCALATION MAP
               </h2>
               <span className="px-2 py-0.5 rounded-full bg-[#00635C]/60 text-[#D0D6BB] text-[8px] font-bold font-mono tracking-wide uppercase border border-white/10">
                 {workspaceName}
@@ -3442,11 +4250,28 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
               ) : (
                 <span className="text-[8px] text-[#D0D6BB]/50 font-mono uppercase tracking-wider">Saved</span>
               )}
+              
+              <div className="flex items-center gap-2.5 border-l border-white/15 pl-2.5 ml-1">
+                <div className="text-[8.5px] font-mono leading-none">
+                  <span className="text-[#D0D6BB]/50 uppercase mr-0.5">Total:</span>
+                  <span className="font-bold text-white">{model.positions.length}</span>
+                </div>
+                <div className="text-[8.5px] font-mono leading-none">
+                  <span className="text-rose-300/60 uppercase mr-0.5">Vacant:</span>
+                  <span className="font-bold text-rose-300">{model.positions.filter(p => p.status === 'open').length}</span>
+                </div>
+                <div className="text-[8.5px] font-mono leading-none">
+                  <span className="text-sky-300/60 uppercase mr-0.5">Planned:</span>
+                  <span className="font-bold text-sky-300">{model.positions.filter(p => p.status === 'planned').length}</span>
+                </div>
+                <div className="text-[8.5px] font-mono leading-none">
+                  <span className="text-emerald-400/60 uppercase mr-0.5">AI:</span>
+                  <span className="font-bold text-emerald-300">{model.positions.filter(p => p.status === 'virtual_ai').length}</span>
+                </div>
+              </div>
             </div>
-            <p className="text-[9px] md:text-[10px] text-[#D0D6BB] font-sans leading-none">
-              {activeTab === 'visual' 
-                ? 'See the operating structure, reporting lines, planned seats, and escalation paths.' 
-                : 'Build the operating model that powers routing, SOPs, staffing plans, and escalations.'}
+            <p className="text-[9.5px] md:text-[10px] text-[#D0D6BB]/85 font-sans leading-none">
+              See who owns each type of work, who provides backup coverage, and when a request should be escalated.
             </p>
           </div>
         </div>
@@ -3482,30 +4307,31 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       </div>
 
       {/* --- STICKY MODE SWITCHER --- */}
-      {!embeddedTab && (
-        <div className="sticky top-0 z-10 px-6 py-3 border-b border-[rgba(246,247,241,0.12)] bg-[#013028]/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-4 select-none shrink-0 text-left">
-          <div className="flex gap-1 bg-black/20 p-1 rounded-xl border border-white/5">
-            {[
-              { id: 'guided', label: 'Guided Builder' },
-              { id: 'visual', label: 'Visual Org Map' },
-              { id: 'routing', label: 'Routing Matrix' },
-              { id: 'export', label: 'Export KB' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === tab.id
-                    ? 'bg-[#00635C] text-white shadow-lg border border-white/10'
-                    : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+      <div className="sticky top-0 z-10 px-5 py-2 border-b border-[rgba(246,247,241,0.12)] bg-[#013028]/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 select-none shrink-0 text-left print:hidden sticky-mode-switcher">
+        <div className="flex gap-0.5 bg-black/20 p-0.5 rounded-lg border border-white/5">
+          {[
+            { id: 'org_chart', label: 'Org Chart' },
+            { id: 'overview', label: 'Overview' },
+            { id: 'by_position', label: 'By Position' },
+            { id: 'routing', label: 'Request Routing' },
+            { id: 'escalations', label: 'Escalations' },
+            { id: 'sops_knowledge', label: 'SOPs & Knowledge' },
+            { id: 'connected_tools', label: 'Connected Tools' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-2.5 py-1 rounded text-[8px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-[#00635C] text-white shadow-lg border border-white/10'
+                  : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
         {/* --- STEPPER PROGRESS BAR & MULTI-COLUMN LAYOUT --- */}
         {activeTab === 'guided' && (
@@ -4727,117 +5553,1658 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       </div>
       )}
 
-        {activeTab === 'visual' && renderVisualOrgMap()}
-
-        {activeTab === 'routing' && (
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 text-left">
-            <div className="w-full max-w-7xl mx-auto space-y-6 bg-black/10 p-6 border border-white/10 rounded-2xl">
-              <div>
-                <span className="text-[10px] font-mono font-bold text-[#D0D6BB]/60 uppercase tracking-widest block">Routing Matrix Mappings</span>
-                <p className="text-xs text-[#D0D6BB] font-sans mt-1">Configure default primary owners, backup owners, and SLAs for specific operational request categories.</p>
+        {activeTab === 'overview' && (
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[#013028]">
+            <div className="max-w-[1200px] mx-auto space-y-6">
+              {/* Header */}
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-serif font-black text-white uppercase tracking-tight">Wilmington Workspace Overview</h3>
+                  <p className="text-xs text-[#D0D6BB]">Operational intelligence, roles, and automated routing parameters.</p>
+                </div>
+                <div className="flex gap-2">
+                  {false && (
+                    <button onClick={() => window.print()} className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-mono font-bold uppercase cursor-pointer flex items-center gap-1.5 print:hidden">
+                      <Printer className="w-3.5 h-3.5" />
+                      Print Model
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="overflow-x-auto border border-white/10 rounded-2xl bg-black/25">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 text-[#D0D6BB] font-mono text-[9px] uppercase">
-                      <th className="p-3">Category</th>
-                      <th className="p-3">Primary Owner</th>
-                      <th className="p-3">Backup Owner</th>
-                      <th className="p-3">SLA</th>
-                      <th className="p-3">Escalation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(model.routingMatrix || []).map((row, idx) => (
-                      <tr key={idx} className="border-b border-white/5 last:border-b-0 hover:bg-white/2">
-                        <td className="p-3 font-semibold text-white">{row.category}</td>
-                        <td className="p-3">
-                          <select
-                            value={row.primaryOwnerPositionId}
-                            onChange={(e) => {
-                              const updated = (model.routingMatrix || []).map((r, i) => i === idx ? { ...r, primaryOwnerPositionId: e.target.value } : r);
-                              markChanged({ ...model, routingMatrix: updated });
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[9px] font-mono text-[#D0D6BB]/50 block uppercase tracking-wider">Total Seats</span>
+                  <span className="text-2xl font-serif font-bold text-white">{model.positions.length}</span>
+                </div>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[9px] font-mono text-[#D0D6BB]/50 block uppercase tracking-wider">Vacant Gaps</span>
+                  <span className="text-2xl font-serif font-bold text-rose-400">{model.positions.filter(p => p.status === 'open').length}</span>
+                </div>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[9px] font-mono text-[#D0D6BB]/50 block uppercase tracking-wider">Active SOPs</span>
+                  <span className="text-2xl font-serif font-bold text-emerald-400">{model.sops.length}</span>
+                </div>
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                  <span className="text-[9px] font-mono text-[#D0D6BB]/50 block uppercase tracking-wider">Escalation Rules</span>
+                  <span className="text-2xl font-serif font-bold text-amber-300">{model.escalationPolicies.length}</span>
+                </div>
+              </div>
+
+              {/* Roster & Backups list */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                  <h4 className="text-xs font-mono uppercase tracking-wider font-bold text-teal-300">Active Roster & Seat Backups</h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(null);
+                      setDrawerType('position');
+                      setDrawerMode('add');
+                      setDrawerOpen(true);
+                    }}
+                    className="px-3 py-1 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg text-[9px] font-mono font-bold uppercase transition-colors cursor-pointer"
+                  >
+                    + Add Team Member
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {model.positions.map(p => {
+                    const backup = model.positions.find(x => x.id === p.backupPositionId);
+                    const roles = model.roles.filter(r => r.positionId === p.id || p.roleIds?.includes(r.id));
+                    const sops = model.sops.filter(s => s.ownerPositionId === p.id);
+                    const kbs = (model.knowledgeDocuments || []).filter(kd => kd.ownerPositionId === p.id || kd.uploadedBy === p.name);
+                    const routing = (model.routingMatrix || []).filter(r => r.primaryOwnerPositionId === p.id);
+
+                    return (
+                      <div key={p.id} className="p-4 bg-black/20 border border-white/5 rounded-xl flex flex-col justify-between gap-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <OrgAvatar name={p.name} avatarUrl={p.avatarUrl} avatarCrop={p.avatarCrop} size={40} className="border border-white/10" />
+                            <div>
+                              <h5 className="text-xs font-bold text-white">{p.name}</h5>
+                              <span className="text-[9px] font-mono text-[#D0D6BB]/60 uppercase block leading-tight">{p.title}</span>
+                              <div className="text-[9px] text-[#D0D6BB]/40 mt-1 space-y-0.5 font-sans leading-none">
+                                {p.email && <div className="truncate max-w-[160px]">{p.email}</div>}
+                                {p.phone && <div>{p.phone}</div>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[8px] font-mono text-[#D0D6BB]/40 block uppercase leading-none">Backup</span>
+                            <span className="text-xs font-semibold text-emerald-300">{backup ? backup.name : '(None)'}</span>
+                          </div>
+                        </div>
+
+                        {/* Roles, SOPs, Knowledge, and Routing Grid */}
+                        <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-white/5 text-[9px]">
+                          <div>
+                            <span className="text-[8px] font-mono text-[#D0D6BB]/35 block uppercase font-bold mb-1">Roles & Routing</span>
+                            <div className="flex flex-wrap gap-1">
+                              {roles.length > 0 ? (
+                                roles.map(r => (
+                                  <span key={r.id} className="px-1.5 py-0.5 bg-teal-500/10 text-teal-300 rounded border border-teal-500/10 font-sans text-[8px]" title={r.description}>
+                                    {r.name}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[#D0D6BB]/35 italic">No roles</span>
+                              )}
+                              {routing.map(r => (
+                                <span key={r.category} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-300 rounded border border-blue-500/10 font-sans text-[8px]" title={`Primary Owner for ${r.category}`}>
+                                  ➔ {r.category}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-mono text-[#D0D6BB]/35 block uppercase font-bold mb-1">SOPs & Knowledge</span>
+                            <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto pr-1">
+                              {sops.map(s => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSopForModal(s);
+                                    setSopModalOpen(true);
+                                  }}
+                                  className="text-[8.5px] text-emerald-400 font-sans truncate text-left hover:underline cursor-pointer bg-transparent border-none p-0 leading-tight w-full"
+                                  title={s.purpose}
+                                >
+                                  📋 {s.name}
+                                </button>
+                              ))}
+                              {kbs.map(k => (
+                                <div key={k.id} className="text-[8px] text-amber-300 font-sans truncate" title={k.fileName}>
+                                  📄 {k.fileName}
+                                </div>
+                              ))}
+                              {sops.length === 0 && kbs.length === 0 && (
+                                <span className="text-[#D0D6BB]/35 italic text-[8px]">No documents</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Connected Tools (OAuth) Roster View */}
+                        {p.connectedTools && p.connectedTools.length > 0 && (
+                          <div className="pt-2.5 border-t border-white/5 space-y-1">
+                            <span className="text-[8px] font-mono text-[#D0D6BB]/35 block uppercase font-bold">Personal Connected Tools (OAuth)</span>
+                            <div className="flex flex-wrap gap-1">
+                              {p.connectedTools.map((tool) => {
+                                const toolIcons: Record<string, any> = {
+                                  'Gmail': Mail,
+                                  'Google Calendar': Calendar,
+                                  'Google Drive': Folder,
+                                  'Rechat': Users,
+                                  'Dotloop': FileText,
+                                  'QuickBooks': Layers,
+                                  'Basecamp': Sparkles,
+                                  'Slack': MessageSquare,
+                                  'Canva': Palette,
+                                  'Microsoft Teams': MessageSquare
+                                };
+                                const ToolIcon = toolIcons[tool] || Sparkles;
+                                return (
+                                  <span key={tool} className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/10 text-[8px] font-sans font-medium">
+                                    <ToolIcon className="w-2.5 h-2.5" />
+                                    {tool}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Roster Actions */}
+                        <div className="flex items-center gap-2 mt-1 border-t border-white/5 pt-2.5 w-full justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(p.id);
+                              setDrawerType('position');
+                              setDrawerMode('edit');
+                              setDrawerOpen(true);
                             }}
-                            className="p-1.5 bg-[#012620] border border-white/10 rounded-lg text-white focus:outline-none text-xs cursor-pointer"
+                            className="text-[9px] font-mono text-[#D0D6BB]/60 hover:text-white transition-colors cursor-pointer"
                           >
-                            {model.positions.map(p => (
-                              <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3">
-                          <select
-                            value={row.backupOwnerPositionId}
-                            onChange={(e) => {
-                              const updated = (model.routingMatrix || []).map((r, i) => i === idx ? { ...r, backupOwnerPositionId: e.target.value } : r);
-                              markChanged({ ...model, routingMatrix: updated });
+                            Edit
+                          </button>
+                          <span className="text-white/10 text-[9px] font-mono">|</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete ${p.name}?`)) {
+                                const newModel = { ...model };
+                                newModel.positions = newModel.positions.filter(pos => pos.id !== p.id);
+                                newModel.connections = newModel.connections.filter(c => c.fromPositionId !== p.id && c.toPositionId !== p.id);
+                                if (newModel.visualConnections) {
+                                  newModel.visualConnections = newModel.visualConnections.filter(c => c.fromPositionId !== p.id && c.toPositionId !== p.id);
+                                }
+                                markChanged(newModel);
+                              }
                             }}
-                            className="p-1.5 bg-[#012620] border border-white/10 rounded-lg text-white focus:outline-none text-xs cursor-pointer"
+                            className="text-[9px] font-mono text-rose-400/80 hover:text-rose-300 transition-colors cursor-pointer"
                           >
-                            {model.positions.map(p => (
-                              <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            value={row.sla}
-                            onChange={(e) => {
-                              const updated = (model.routingMatrix || []).map((r, i) => i === idx ? { ...r, sla: e.target.value } : r);
-                              markChanged({ ...model, routingMatrix: updated });
-                            }}
-                            className="p-1.5 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none text-xs font-mono w-24"
-                          />
-                        </td>
-                        <td className="p-3">
-                          <select
-                            value={row.escalationPolicyId || ''}
-                            onChange={(e) => {
-                              const updated = (model.routingMatrix || []).map((r, i) => i === idx ? { ...r, escalationPolicyId: e.target.value || undefined } : r);
-                              markChanged({ ...model, routingMatrix: updated });
-                            }}
-                            className="p-1.5 bg-[#012620] border border-white/10 rounded-lg text-white focus:outline-none text-xs cursor-pointer"
-                          >
-                            <option value="">None (Standard SLA)</option>
-                            {model.escalationPolicies.map(esc => (
-                              <option key={esc.id} value={esc.id}>{esc.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'export' && (
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 text-left">
-            <div className="w-full max-w-4xl mx-auto bg-black/35 p-6 rounded-3xl border border-white/10 text-xs text-[#D0D6BB] space-y-4">
-              <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                <h3 className="text-xs font-serif font-black text-white uppercase tracking-wider">Exported SOP Knowledge Markdown</h3>
+        {(activeTab === 'org_chart' || activeTab === 'workflow') && renderVisualOrgMap()}
+
+        {activeTab === 'by_position' && renderPositionViewDashboard()}
+
+        {activeTab === 'routing' && (() => {
+          const routingRules = model.routingMatrix || [];
+          const filteredRoutingRules = routingRules.filter(row => 
+            row.category.toLowerCase().includes(routeSearchQuery.toLowerCase()) ||
+            (row.description && row.description.toLowerCase().includes(routeSearchQuery.toLowerCase()))
+          );
+          const activeRouteCategory = selectedRouteId || (filteredRoutingRules[0]?.category || '');
+          const activeRoute = routingRules.find(r => r.category === activeRouteCategory);
+
+          const toolLibraries = [
+            {
+              name: 'Communication',
+              tools: [
+                { name: 'Gmail', icon: Mail, color: 'text-red-400 bg-red-400/10' },
+                { name: 'Slack', icon: MessageSquare, color: 'text-purple-400 bg-purple-400/10' },
+                { name: 'Microsoft Teams', icon: MessageSquare, color: 'text-blue-400 bg-blue-400/10' },
+                { name: 'SMS / Phone', icon: Phone, color: 'text-emerald-400 bg-emerald-400/10' }
+              ]
+            },
+            {
+              name: 'Transactions & Files',
+              tools: [
+                { name: 'Rechat', icon: Home, color: 'text-amber-400 bg-amber-400/10' },
+                { name: 'Dotloop', icon: PenTool, color: 'text-sky-400 bg-sky-400/10' },
+                { name: 'Google Drive', icon: Folder, color: 'text-yellow-400 bg-yellow-400/10' },
+                { name: 'Google Calendar', icon: Calendar, color: 'text-indigo-400 bg-indigo-400/10' },
+                { name: 'Canva', icon: Palette, color: 'text-pink-400 bg-pink-400/10' }
+              ]
+            },
+            {
+              name: 'Operations & AI',
+              tools: [
+                { name: 'AI Voice/Chat Agents', icon: Sparkles, color: 'text-teal-400 bg-teal-400/10' },
+                { name: 'QuickBooks', icon: Settings, color: 'text-green-400 bg-green-400/10' },
+                { name: 'Basecamp', icon: Layers, color: 'text-orange-400 bg-orange-400/10' },
+                { name: 'Brokerage Dashboard', icon: Info, color: 'text-slate-400 bg-slate-400/10' }
+              ]
+            }
+          ];
+
+          const getRecommendedTools = (categoryName: string) => {
+            const cat = categoryName.toLowerCase();
+            if (cat.includes('compliance') || cat.includes('close') || cat.includes('closing') || cat.includes('contract') || cat.includes('legal') || cat.includes('signature')) {
+              return ['Dotloop', 'Google Drive', 'Gmail', 'Brokerage Dashboard'];
+            }
+            if (cat.includes('agent') || cat.includes('question') || cat.includes('support') || cat.includes('help') || cat.includes('chat') || cat.includes('voice')) {
+              return ['AI Voice/Chat Agents', 'Slack', 'Gmail', 'SMS / Phone'];
+            }
+            if (cat.includes('finance') || cat.includes('bill') || cat.includes('commission') || cat.includes('accounting') || cat.includes('audit')) {
+              return ['QuickBooks', 'Google Drive', 'Brokerage Dashboard'];
+            }
+            if (cat.includes('calendar') || cat.includes('schedule') || cat.includes('meeting') || cat.includes('event')) {
+              return ['Google Calendar', 'Gmail', 'Slack', 'Microsoft Teams'];
+            }
+            return ['Gmail', 'Slack', 'Brokerage Dashboard', 'AI Voice/Chat Agents'];
+          };
+
+          const getPlainLanguageSummary = (row: RoutingMatrixItem) => {
+            const primary = model.positions.find(p => p.id === row.primaryOwnerPositionId);
+            const backup = model.positions.find(p => p.id === row.backupOwnerPositionId);
+            const policy = model.escalationPolicies.find(e => e.id === row.escalationPolicyId);
+            const policyTarget = policy ? model.positions.find(p => p.id === policy.escalateToPositionId) : null;
+            
+            return `When a request for ${row.category || '...'} is received, it will be assigned to ${primary ? primary.name : '...'} (${primary ? primary.title : '...'}). If they are unavailable, ${backup ? backup.name : 'No Backup'} acts as backup coverage. The expected response window is ${row.sla || '...'} ${policy ? `, after which it escalates to ${policyTarget ? policyTarget.name : 'escalation policy target'}` : ''}.`;
+          };
+
+          const updateActiveRoute = (updates: Partial<RoutingMatrixItem>) => {
+            if (!activeRoute) return;
+            const updated = routingRules.map(r => r.category === activeRoute.category ? { ...r, ...updates } : r);
+            if (updates.category && updates.category !== activeRoute.category) {
+              setSelectedRouteId(updates.category);
+            }
+            markChanged({ ...model, routingMatrix: updated });
+          };
+
+          const deleteRoute = (categoryToDelete?: string) => {
+            const targetCat = categoryToDelete || activeRoute?.category;
+            if (!targetCat) return;
+            if (confirm(`Are you sure you want to delete the routing rule for "${targetCat}"?`)) {
+              const updated = routingRules.filter(r => r.category !== targetCat);
+              markChanged({ ...model, routingMatrix: updated });
+              if (selectedRouteId === targetCat || !selectedRouteId) {
+                setSelectedRouteId(updated[0]?.category || '');
+              }
+            }
+          };
+
+          return (
+            <div className="flex-1 overflow-y-auto p-6 text-left bg-[#013028] font-sans">
+              <div className="w-full max-w-7xl mx-auto space-y-6">
+                
+                {/* Header area */}
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-serif font-black text-white uppercase tracking-tight">Request Routing</h3>
+                    <p className="text-xs text-[#D0D6BB] font-sans mt-1">Configure default owners, response times, and automated next steps for inbound requests.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingRouteData({
+                        category: `New Category ${model.routingMatrix?.length ? model.routingMatrix.length + 1 : 1}`,
+                        description: '',
+                        exampleRequest: '',
+                        primaryOwnerPositionId: model.positions[0]?.id || '',
+                        backupOwnerPositionId: model.positions[0]?.id || '',
+                        sla: '24 hours',
+                        status: 'draft',
+                        postAssignmentSteps: ['Log intake ticket', 'Notify assignee', 'Monitor response window']
+                      });
+                      setIsCreatingNewRoute(true);
+                      setRoutingModalStep(1);
+                      setIsRoutingModalOpen(true);
+                    }}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 animate-pulse"
+                  >
+                    <Plus className="w-4 h-4" /> Add Routing Rule
+                  </button>
+                </div>
+
+                {/* Two Panel Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                  
+                  {/* Left Panel: Search & List */}
+                  <div className="bg-white/5 border border-white/10 rounded-3xl p-4 space-y-4">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-[#D0D6BB]/50 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        placeholder="Search categories..."
+                        value={routeSearchQuery}
+                        onChange={(e) => setRouteSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-black/25 border border-white/10 rounded-xl text-white text-xs focus:outline-none placeholder-[#D0D6BB]/40"
+                      />
+                    </div>
+
+                    <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+                      {filteredRoutingRules.map((row, idx) => {
+                        const primary = model.positions.find(p => p.id === row.primaryOwnerPositionId);
+                        const isSelected = activeRouteCategory === row.category;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSelectedRouteId(row.category)}
+                            className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer block ${
+                              isSelected
+                                ? 'bg-[#004D47] border-emerald-500/40 text-white shadow-lg'
+                                : 'bg-black/15 border-white/5 hover:border-white/15 text-[#D0D6BB]'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <h4 className="text-xs font-bold font-serif text-white">{row.category}</h4>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase ${
+                                  row.status === 'active' ? 'bg-emerald-500/20 text-emerald-300' :
+                                  row.status === 'draft' ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/50'
+                                }`}>
+                                  {row.status || 'active'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRouteData({ ...row });
+                                    setIsCreatingNewRoute(false);
+                                    setRoutingModalStep(1);
+                                    setIsRoutingModalOpen(true);
+                                  }}
+                                  className="p-1 hover:bg-emerald-500/20 text-[#D0D6BB] hover:text-white rounded transition-all cursor-pointer"
+                                  title="Configure Rule in Wizard"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteRoute(row.category);
+                                  }}
+                                  className="p-1 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded transition-all cursor-pointer"
+                                  title="Delete Routing Rule"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            {row.description && (
+                              <p className="text-[10px] opacity-75 mt-1.5 line-clamp-1">{row.description}</p>
+                            )}
+                            <div className="flex items-center justify-between text-[9px] font-mono opacity-60 mt-3 pt-2.5 border-t border-white/5">
+                              <span>Owner: {primary ? primary.name.split(' ')[0] : 'None'}</span>
+                              <span>Time: {row.sla}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+
+                      {filteredRoutingRules.length === 0 && (
+                        <div className="text-center py-6 text-xs text-[#D0D6BB]/40 font-mono">
+                          No rules found.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Main Panel: Editor Form */}
+                  <div className="lg:col-span-2">
+                    {activeRoute ? (
+                      <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-6">
+                        
+                        {/* Dynamic Plain Language Summary */}
+                        <div className="bg-[#012520] border border-white/10 rounded-2xl p-4 text-xs leading-relaxed text-emerald-300 font-serif italic">
+                          <strong className="text-white block font-sans font-bold uppercase tracking-wider text-[9px] not-italic mb-1 text-emerald-400">Plain-Language Summary:</strong>
+                          "{getPlainLanguageSummary(activeRoute)}"
+                        </div>
+
+                        {/* Step-by-Step Conversational Builder */}
+                        <div className="space-y-6 text-xs font-sans text-left">
+                          
+                          {/* Step 1 */}
+                          <div className="bg-black/20 border border-white/5 rounded-2xl p-5 space-y-4">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[11px] font-mono font-bold text-emerald-400 shrink-0">01</span>
+                              <div>
+                                <h4 className="text-xs font-bold text-white uppercase tracking-wider leading-none">What kind of request is this?</h4>
+                                <p className="text-[9px] text-[#D0D6BB]/50 mt-1">Name this rule and specify what type of messages it handles.</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Rule / Category Name</label>
+                                <input
+                                  type="text"
+                                  value={activeRoute.category}
+                                  onChange={(e) => updateActiveRoute({ category: e.target.value })}
+                                  placeholder="e.g. Compliance Review"
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Active Status</label>
+                                <select
+                                  value={activeRoute.status || 'active'}
+                                  onChange={(e) => updateActiveRoute({ status: e.target.value as any })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  <option value="active">Active (Running)</option>
+                                  <option value="draft">Draft (Saved only)</option>
+                                  <option value="archived">Archived (Inactive)</option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-1 md:col-span-2">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Simple Description</label>
+                                <textarea
+                                  value={activeRoute.description || ''}
+                                  onChange={(e) => updateActiveRoute({ description: e.target.value })}
+                                  rows={2}
+                                  placeholder="What questions or files does this rule handle? (e.g. Questions about commission checks and closing documents)"
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                                />
+                              </div>
+
+                              <div className="space-y-1 md:col-span-2">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Example Message (Intake Example)</label>
+                                <input
+                                  type="text"
+                                  value={activeRoute.exampleRequest || ''}
+                                  onChange={(e) => updateActiveRoute({ exampleRequest: e.target.value })}
+                                  placeholder="e.g. 'How do I submit my closing package for BIC review?'"
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Step 2 */}
+                          <div className="bg-black/20 border border-white/5 rounded-2xl p-5 space-y-4">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[11px] font-mono font-bold text-emerald-400 shrink-0">02</span>
+                              <div>
+                                <h4 className="text-xs font-bold text-white uppercase tracking-wider leading-none">Who is responsible for this?</h4>
+                                <p className="text-[9px] text-[#D0D6BB]/50 mt-1">Assign a primary owner and a backup person to cover if they are busy.</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Primary Owner (First Responder)</label>
+                                <select
+                                  value={activeRoute.primaryOwnerPositionId}
+                                  onChange={(e) => updateActiveRoute({ primaryOwnerPositionId: e.target.value })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  {model.positions.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Backup Owner (Backup Coverage)</label>
+                                <select
+                                  value={activeRoute.backupOwnerPositionId}
+                                  onChange={(e) => updateActiveRoute({ backupOwnerPositionId: e.target.value })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  {model.positions.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Step 3 */}
+                          <div className="bg-black/20 border border-white/5 rounded-2xl p-5 space-y-4">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[11px] font-mono font-bold text-emerald-400 shrink-0">03</span>
+                              <div>
+                                <h4 className="text-xs font-bold text-white uppercase tracking-wider leading-none">Response Speed & Escalation</h4>
+                                <p className="text-[9px] text-[#D0D6BB]/50 mt-1">Define reply expectations and who should step in if things get delayed.</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Expected Reply Speed (SLA)</label>
+                                <input
+                                  type="text"
+                                  value={activeRoute.sla}
+                                  onChange={(e) => updateActiveRoute({ sla: e.target.value })}
+                                  placeholder="e.g. 2 hours, 24 hours"
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Send Alerts To (Notification Channel)</label>
+                                <select
+                                  value={activeRoute.notificationMethod || 'Email & Dashboard'}
+                                  onChange={(e) => updateActiveRoute({ notificationMethod: e.target.value })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  <option value="Email & Dashboard">Email & Dashboard Alert</option>
+                                  <option value="SMS Text Alert">SMS Text Alert</option>
+                                  <option value="Slack Channel Notification">Slack Channel Notification</option>
+                                  <option value="All Methods">All Channels</option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Escalate If Delayed (Response Window)</label>
+                                <input
+                                  type="text"
+                                  value={activeRoute.escalateWhen || ''}
+                                  onChange={(e) => updateActiveRoute({ escalateWhen: e.target.value })}
+                                  placeholder="e.g. If unresolved after 4 hours"
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                                />
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Escalate To (Escalation Path)</label>
+                                <select
+                                  value={activeRoute.escalationPolicyId || ''}
+                                  onChange={(e) => updateActiveRoute({ escalationPolicyId: e.target.value || undefined })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  <option value="">-- No Escalation --</option>
+                                  {model.escalationPolicies.map(esc => (
+                                    <option key={esc.id} value={esc.id}>{esc.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Step 4 */}
+                          <div className="bg-black/20 border border-white/5 rounded-2xl p-5 space-y-4">
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[11px] font-mono font-bold text-emerald-400 shrink-0">04</span>
+                              <div>
+                                <h4 className="text-xs font-bold text-white uppercase tracking-wider leading-none">Link Connected Apps & SOP Checklist</h4>
+                                <p className="text-[9px] text-[#D0D6BB]/50 mt-1">Optionally tie this request category to a connected tool and standard SOP rules.</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Linked Software Tool</label>
+                                <select
+                                  value={activeRoute.toolConnected || ''}
+                                  onChange={(e) => updateActiveRoute({ toolConnected: e.target.value })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  <option value="">-- No Connected Tool --</option>
+                                  {['Gmail', 'Google Calendar', 'Google Drive', 'Rechat', 'Dotloop', 'QuickBooks', 'Canva', 'Basecamp', 'Slack', 'Microsoft Teams', 'SMS / Phone', 'AI Voice/Chat Agents', 'Brokerage Dashboard'].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold text-[#D0D6BB]/70 uppercase font-mono block">Attached SOP Checklist</label>
+                                <select
+                                  value={activeRoute.sopId || ''}
+                                  onChange={(e) => updateActiveRoute({ sopId: e.target.value })}
+                                  className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                                >
+                                  <option value="">-- No SOP Attached --</option>
+                                  {model.sops.map(sop => (
+                                    <option key={sop.id} value={sop.id}>{sop.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Common Tools Library Selector */}
+                              <div className="md:col-span-2 space-y-2 border-t border-white/5 pt-3 mt-1 text-left">
+                                <span className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Or select a tool from your libraries:</span>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  {toolLibraries.map(lib => (
+                                    <div key={lib.name} className="p-2.5 bg-black/15 border border-white/5 rounded-xl space-y-2">
+                                      <span className="text-[8px] font-mono text-[#D0D6BB]/50 uppercase font-bold block leading-none">{lib.name}</span>
+                                      <div className="grid grid-cols-2 gap-1.5">
+                                        {lib.tools.map(tool => {
+                                          const isSelected = activeRoute.toolConnected === tool.name;
+                                          const recommendedList = getRecommendedTools(activeRoute.category);
+                                          const isRecommended = recommendedList.includes(tool.name);
+                                          const ToolIcon = tool.icon;
+                                          
+                                          return (
+                                            <button
+                                              key={tool.name}
+                                              type="button"
+                                              onClick={() => updateActiveRoute({ toolConnected: tool.name })}
+                                              className={`p-2 rounded-lg border text-left flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02] ${
+                                                isSelected
+                                                  ? 'bg-emerald-500/20 border-emerald-500/50 text-white font-bold'
+                                                  : isRecommended
+                                                  ? 'bg-emerald-550/5 border-dashed border-emerald-500/20 text-[#D0D6BB] hover:border-emerald-500/40'
+                                                  : 'bg-transparent border-white/5 text-[#D0D6BB]/60 hover:border-white/15'
+                                              }`}
+                                            >
+                                              <ToolIcon className={`w-3 h-3 shrink-0 ${tool.color.split(' ')[0]}`} />
+                                              <div className="min-w-0">
+                                                <span className="text-[8.5px] block truncate leading-tight font-sans">{tool.name}</span>
+                                                {isRecommended && !isSelected && (
+                                                  <span className="text-[6.5px] text-emerald-400 font-mono uppercase block mt-0.5 leading-none">Suggested</span>
+                                                )}
+                                              </div>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Collapsible: What happens after assignment? */}
+                        <div className="border border-white/10 rounded-2xl overflow-hidden font-sans">
+                          <button
+                            type="button"
+                            onClick={() => setIsPostAssignmentExpanded(!isPostAssignmentExpanded)}
+                            className="w-full p-4 bg-white/5 hover:bg-white/10 flex justify-between items-center text-xs font-bold text-white transition-colors cursor-pointer"
+                          >
+                            <span>What happens after assignment? (Timeline checklist)</span>
+                            <span className="text-[10px] text-[#D0D6BB]/50">{isPostAssignmentExpanded ? 'Collapse' : 'Expand'}</span>
+                          </button>
+                          
+                          {isPostAssignmentExpanded && (
+                            <div className="p-4 bg-black/20 space-y-4 border-t border-white/10">
+                              <div className="space-y-3">
+                                {(activeRoute.postAssignmentSteps || ['Log intake ticket', 'Notify assignee', 'Monitor response window']).map((step, idx, arr) => (
+                                  <div key={idx} className="flex gap-2.5 items-center">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[9px] font-mono font-bold text-emerald-400 shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={step}
+                                      onChange={(e) => {
+                                        const stepsCopy = [...arr];
+                                        stepsCopy[idx] = e.target.value;
+                                        updateActiveRoute({ postAssignmentSteps: stepsCopy });
+                                      }}
+                                      className="flex-1 p-2 bg-black/20 border border-white/10 rounded text-white text-xs"
+                                    />
+                                    <div className="flex gap-1 shrink-0">
+                                      {idx > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const stepsCopy = [...arr];
+                                            const tmp = stepsCopy[idx];
+                                            stepsCopy[idx] = stepsCopy[idx - 1];
+                                            stepsCopy[idx - 1] = tmp;
+                                            updateActiveRoute({ postAssignmentSteps: stepsCopy });
+                                          }}
+                                          className="p-1 text-[#D0D6BB] hover:bg-white/10 rounded cursor-pointer"
+                                        >
+                                          <ArrowUp className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                      {idx < arr.length - 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const stepsCopy = [...arr];
+                                            const tmp = stepsCopy[idx];
+                                            stepsCopy[idx] = stepsCopy[idx + 1];
+                                            stepsCopy[idx + 1] = tmp;
+                                            updateActiveRoute({ postAssignmentSteps: stepsCopy });
+                                          }}
+                                          className="p-1 text-[#D0D6BB] hover:bg-white/10 rounded cursor-pointer"
+                                        >
+                                          <ArrowDown className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const stepsCopy = arr.filter((_, i) => i !== idx);
+                                        updateActiveRoute({ postAssignmentSteps: stepsCopy });
+                                      }}
+                                      className="p-1.5 text-red-300 hover:bg-red-500/10 rounded shrink-0 cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentSteps = activeRoute.postAssignmentSteps || ['Log intake ticket', 'Notify assignee', 'Monitor response window'];
+                                  updateActiveRoute({ postAssignmentSteps: [...currentSteps, 'New tracking action step'] });
+                                }}
+                                className="py-1.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 cursor-pointer transition-colors"
+                              >
+                                + Add Step
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Save & Delete Buttons */}
+                        <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+                          <button
+                            type="button"
+                            onClick={deleteRoute}
+                            className="px-4 py-2 bg-red-900/40 hover:bg-red-900/60 border border-red-500/20 text-red-300 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider cursor-pointer"
+                          >
+                            Delete Rule
+                          </button>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-[#D0D6BB]/50">Changes save automatically</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                alert('All rule modifications have been updated in Firestore.');
+                              }}
+                              className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white border border-white/20 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider cursor-pointer"
+                            >
+                              Save Changes
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    ) : (
+                      <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center text-xs text-[#D0D6BB]/40 font-serif italic">
+                        Select a request category from the left panel to edit its routing configuration, or create a new routing rule.
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Conversational Routing Wizard Modal */}
+              {isRoutingModalOpen && editingRouteData && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                  <div className="bg-[#012a23] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden text-white font-sans">
+                    
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-black/20 shrink-0">
+                      <div>
+                        <span className="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-wider">Step-by-Step Configuration Wizard</span>
+                        <h3 className="text-sm font-serif font-black uppercase text-white tracking-tight mt-0.5">
+                          {isCreatingNewRoute ? 'Create New Routing Rule' : `Configure Routing: ${editingRouteData.category}`}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRoutingModalOpen(false);
+                          setEditingRouteData(null);
+                        }}
+                        className="p-1.5 hover:bg-white/10 rounded-full transition-colors cursor-pointer text-[#D0D6BB] hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Step Tracker Indicator */}
+                    <div className="px-6 py-3 bg-black/10 border-b border-white/5 flex items-center justify-between text-[10px] font-mono shrink-0">
+                      <div className="flex gap-4">
+                        {[
+                          { step: 1, label: '01 Define Request' },
+                          { step: 2, label: '02 Who Handles' },
+                          { step: 3, label: '03 SLA & Speed' },
+                          { step: 4, label: '04 Apps & Checklists' }
+                        ].map(s => (
+                          <div
+                            key={s.step}
+                            className={`flex items-center gap-1.5 ${
+                              routingModalStep === s.step ? 'text-emerald-400 font-bold' :
+                              routingModalStep > s.step ? 'text-[#D0D6BB]/70 line-through font-bold' : 'text-[#D0D6BB]/40 font-bold'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] border ${
+                              routingModalStep === s.step ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold' :
+                              routingModalStep > s.step ? 'border-emerald-500/30 text-emerald-500/70' : 'border-white/10 text-[#D0D6BB]/40'
+                            }`}>
+                              {s.step}
+                            </span>
+                            <span>{s.label.split(' ')[1]}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[#D0D6BB]/60 uppercase">Step {routingModalStep} of 4</span>
+                    </div>
+
+                    {/* Body Scroll Area */}
+                    <div className="p-6 overflow-y-auto flex-1 space-y-5 text-left">
+                      
+                      {/* Step 1: Define Request */}
+                      {routingModalStep === 1 && (
+                        <div className="space-y-4">
+                          <div className="bg-emerald-650/15 border border-emerald-500/20 rounded-2xl p-4 space-y-2.5 text-xs text-[#D0D6BB] leading-relaxed">
+                            <strong className="text-white block uppercase tracking-wider text-[9px] font-mono font-bold text-emerald-400">Step 1: The Request Category (What is the issue?)</strong>
+                            <p>
+                              A <strong>Request Category</strong> is a specific type of question, task, or file that agents submit (like a Commission Check Question or a Listing Agreement review). Defining this lets our system route incoming messages to the right team member automatically.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Rule Name (Category Name)</label>
+                              <input
+                                type="text"
+                                value={editingRouteData.category}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, category: e.target.value })}
+                                placeholder="e.g. Compliance Review"
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Active Status</label>
+                              <select
+                                value={editingRouteData.status || 'active'}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, status: e.target.value as any })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                <option value="active">Active (Running)</option>
+                                <option value="draft">Draft (Saved only)</option>
+                                <option value="archived">Archived (Inactive)</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1 md:col-span-2">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Simple Description</label>
+                              <textarea
+                                value={editingRouteData.description || ''}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, description: e.target.value })}
+                                rows={3}
+                                placeholder="What questions or files does this rule handle? (e.g. Questions about commission checks and closing documents)"
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                              />
+                            </div>
+
+                            <div className="space-y-1 md:col-span-2">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Example Message (Intake Example)</label>
+                              <input
+                                type="text"
+                                value={editingRouteData.exampleRequest || ''}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, exampleRequest: e.target.value })}
+                                placeholder="e.g. 'How do I submit my closing package for BIC review?'"
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 2: Assign Responsibility */}
+                      {routingModalStep === 2 && (
+                        <div className="space-y-4">
+                          <div className="bg-emerald-650/15 border border-emerald-500/20 rounded-2xl p-4 space-y-2.5 text-xs text-[#D0D6BB] leading-relaxed">
+                            <strong className="text-white block uppercase tracking-wider text-[9px] font-mono font-bold text-emerald-400">Step 2: Assign Responsibility (Who handles this?)</strong>
+                            <p>
+                              Assigning a primary and backup owner ensures that every request has a clear first responder, and a designated backup who is automatically authorized to cover if the primary owner is out of office, busy, or on vacation.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Primary Owner (First Responder)</label>
+                              <select
+                                value={editingRouteData.primaryOwnerPositionId}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, primaryOwnerPositionId: e.target.value })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                {model.positions.map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Backup Owner (Backup Coverage)</label>
+                              <select
+                                value={editingRouteData.backupOwnerPositionId}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, backupOwnerPositionId: e.target.value })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                {model.positions.map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 3: Response Speed & Escalation */}
+                      {routingModalStep === 3 && (
+                        <div className="space-y-4">
+                          <div className="bg-emerald-650/15 border border-emerald-500/20 rounded-2xl p-4 space-y-2.5 text-xs text-[#D0D6BB] leading-relaxed">
+                            <strong className="text-white block uppercase tracking-wider text-[9px] font-mono font-bold text-emerald-400">Step 3: Response Speed & Escalation (When should it be answered?)</strong>
+                            <p>
+                              SLA (Service Level Agreement) sets the expectation for how fast the agent should receive a reply. If a request is not answered within this window, the system escalates it to a supervisor or escalation path so that files never get stuck or delayed before critical real estate deadlines.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Expected Reply Speed (SLA)</label>
+                              <input
+                                type="text"
+                                value={editingRouteData.sla}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, sla: e.target.value })}
+                                placeholder="e.g. 2 hours, 24 hours"
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Send Alerts To (Notification Channel)</label>
+                              <select
+                                value={editingRouteData.notificationMethod || 'Email & Dashboard'}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, notificationMethod: e.target.value })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                <option value="Email & Dashboard">Email & Dashboard Alert</option>
+                                <option value="SMS Text Alert">SMS Text Alert</option>
+                                <option value="Slack Channel Notification">Slack Channel Notification</option>
+                                <option value="All Methods">All Channels</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Escalate If Delayed (Response Window)</label>
+                              <input
+                                type="text"
+                                value={editingRouteData.escalateWhen || ''}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, escalateWhen: e.target.value })}
+                                placeholder="e.g. If unresolved after 4 hours"
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Escalate To (Escalation Path)</label>
+                              <select
+                                value={editingRouteData.escalationPolicyId || ''}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, escalationPolicyId: e.target.value || undefined })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                <option value="">-- No Escalation --</option>
+                                {model.escalationPolicies.map(esc => (
+                                  <option key={esc.id} value={esc.id}>{esc.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 4: Integrations & Checklists */}
+                      {routingModalStep === 4 && (
+                        <div className="space-y-4">
+                          <div className="bg-emerald-650/15 border border-emerald-500/20 rounded-2xl p-4 space-y-2.5 text-xs text-[#D0D6BB] leading-relaxed">
+                            <strong className="text-white block uppercase tracking-wider text-[9px] font-mono font-bold text-emerald-400">Step 4: Integrations & Checklists (Optional integrations)</strong>
+                            <p>
+                              Attaching an SOP (Standard Operating Procedure) Checklist provides the assignee with a step-by-step checklist of what actions to take after they are assigned. Connecting software tools allows the system to read files, sync calendars, or post updates to Slack automatically.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Linked Software Tool</label>
+                              <select
+                                value={editingRouteData.toolConnected || ''}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, toolConnected: e.target.value })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                <option value="">-- No Connected Tool --</option>
+                                {['Gmail', 'Google Calendar', 'Google Drive', 'Rechat', 'Dotloop', 'QuickBooks', 'Canva', 'Basecamp', 'Slack', 'Microsoft Teams', 'SMS / Phone', 'AI Voice/Chat Agents', 'Brokerage Dashboard'].map(t => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Attached SOP Checklist</label>
+                              <select
+                                value={editingRouteData.sopId || ''}
+                                onChange={(e) => setEditingRouteData({ ...editingRouteData, sopId: e.target.value })}
+                                className="w-full p-2.5 bg-black/35 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500 text-xs font-sans cursor-pointer"
+                              >
+                                <option value="">-- No SOP Attached --</option>
+                                {model.sops.map(sop => (
+                                  <option key={sop.id} value={sop.id}>{sop.name}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Common Tools Library Selector inside modal */}
+                            <div className="md:col-span-2 space-y-2 border-t border-white/5 pt-3 mt-1 text-left">
+                              <span className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Suggested Tools (Based on your rule name):</span>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                {toolLibraries.map(lib => (
+                                  <div key={lib.name} className="p-2.5 bg-black/15 border border-white/5 rounded-xl space-y-2">
+                                    <span className="text-[8px] font-mono text-[#D0D6BB]/50 uppercase font-bold block leading-none">{lib.name}</span>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                      {lib.tools.map(tool => {
+                                        const isSelected = editingRouteData.toolConnected === tool.name;
+                                        const recommendedList = getRecommendedTools(editingRouteData.category);
+                                        const isRecommended = recommendedList.includes(tool.name);
+                                        const ToolIcon = tool.icon;
+                                        
+                                        return (
+                                          <button
+                                            key={tool.name}
+                                            type="button"
+                                            onClick={() => setEditingRouteData({ ...editingRouteData, toolConnected: tool.name })}
+                                            className={`p-2 rounded-lg border text-left flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02] ${
+                                              isSelected
+                                                ? 'bg-emerald-500/20 border-emerald-500/50 text-white font-bold'
+                                                : isRecommended
+                                                ? 'bg-emerald-550/5 border-dashed border-emerald-500/20 text-[#D0D6BB] hover:border-emerald-500/40'
+                                                : 'bg-transparent border-white/5 text-[#D0D6BB]/60 hover:border-white/15'
+                                            }`}
+                                          >
+                                            <ToolIcon className={`w-3 h-3 shrink-0 ${tool.color.split(' ')[0]}`} />
+                                            <div className="min-w-0">
+                                              <span className="text-[8.5px] block truncate leading-tight font-sans">{tool.name}</span>
+                                              {isRecommended && !isSelected && (
+                                                <span className="text-[6.5px] text-emerald-400 font-mono uppercase block mt-0.5 leading-none font-bold">Suggested</span>
+                                              )}
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="px-6 py-4 border-t border-white/10 bg-black/20 flex justify-between items-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRoutingModalOpen(false);
+                          setEditingRouteData(null);
+                        }}
+                        className="px-4 py-2 border border-white/10 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-[#D0D6BB] hover:text-white hover:bg-white/5 cursor-pointer transition-colors"
+                      >
+                        Cancel
+                      </button>
+
+                      <div className="flex gap-2">
+                        {routingModalStep > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setRoutingModalStep((routingModalStep - 1) as any)}
+                            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-white cursor-pointer transition-colors"
+                          >
+                            Back
+                          </button>
+                        )}
+
+                        {routingModalStep < 4 ? (
+                          <button
+                            type="button"
+                            onClick={() => setRoutingModalStep((routingModalStep + 1) as any)}
+                            className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] border border-white/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-white cursor-pointer transition-colors"
+                          >
+                            Next Step
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Save Changes
+                              const routingRules = model.routingMatrix || [];
+                              let updated;
+                              if (isCreatingNewRoute) {
+                                updated = [...routingRules, editingRouteData];
+                              } else {
+                                updated = routingRules.map(r => r.category === selectedRouteId ? editingRouteData : r);
+                              }
+                              markChanged({ ...model, routingMatrix: updated });
+                              setSelectedRouteId(editingRouteData.category);
+                              setIsRoutingModalOpen(false);
+                              setEditingRouteData(null);
+                            }}
+                            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 border border-white/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-white cursor-pointer transition-colors"
+                          >
+                            Save & Finish
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+            </div>
+          );
+        })()}
+
+        {activeTab === 'escalations' && (
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[#013028]">
+            <div className="max-w-[1000px] mx-auto space-y-6">
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex justify-between items-center">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-serif font-black text-white uppercase tracking-tight">Escalation Policies</h3>
+                  <p className="text-xs text-[#D0D6BB]">Define how tickets and operational delays escalate when response windows are breached.</p>
+                </div>
                 <button
-                  onClick={() => {
-                    const md = orgChartService.exportOrgChartToKnowledgeBase(workspaceId, model, 'all');
-                    navigator.clipboard.writeText(md);
-                    alert("Copied Standard Markdown to Clipboard!");
-                  }}
-                  className="px-3 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white border border-white/25 rounded-xl text-[9px] font-mono font-bold uppercase transition-colors cursor-pointer"
+                  type="button"
+                  onClick={() => openAddDrawer('escalation')}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  Copy to Clipboard
+                  <Plus className="w-4 h-4" /> Add Escalation Policy
                 </button>
               </div>
-              <pre className="whitespace-pre-wrap select-text leading-relaxed font-mono overflow-auto max-h-[50vh] bg-black/40 p-4 rounded-xl border border-white/5">
-                {orgChartService.exportOrgChartToKnowledgeBase(workspaceId, model, 'all')}
-              </pre>
+
+              <div className="space-y-4">
+                {model.escalationPolicies.map(esc => {
+                  const fromPos = model.positions.find(p => p.id === esc.fromPositionId);
+                  const toPos = model.positions.find(p => p.id === esc.escalateToPositionId);
+                  return (
+                    <button
+                      key={esc.id}
+                      type="button"
+                      onClick={() => openEditDrawer('escalation', esc.id)}
+                      className="w-full text-left p-5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-500/50 rounded-2xl transition-all cursor-pointer block space-y-3 font-sans"
+                    >
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold text-white hover:underline">{esc.name}</h4>
+                        <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 text-[8px] font-mono uppercase font-bold">{esc.urgency}</span>
+                      </div>
+                      <div className="text-[11px] text-[#D0D6BB]/80 leading-relaxed"><span className="text-amber-400 font-bold uppercase text-[9px] font-mono pr-1">Trigger:</span> {esc.trigger}</div>
+                      
+                      <div className="flex items-center gap-3 text-[10px] font-mono text-[#D0D6BB]/50 pt-2 border-t border-white/5">
+                        <span>Escalates From: <strong className="text-white">{fromPos ? fromPos.name : 'Unknown'}</strong></span>
+                        <span>➔</span>
+                        <span>Escalates To: <strong className="text-white">{toPos ? toPos.name : 'Unknown'}</strong></span>
+                        <span>•</span>
+                        <span>Expected Response Time: <strong className="text-amber-400">{esc.responseWindow}</strong></span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'sops_knowledge' && (
+          <div className="flex-grow overflow-y-auto p-6 space-y-8 text-left bg-[#013028] font-sans">
+            <div className="max-w-[1000px] mx-auto space-y-6">
+              
+              {/* Header area */}
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                  <h3 className="text-lg font-serif font-black text-white uppercase tracking-tight font-serif">SOPs & Knowledge</h3>
+                  <p className="text-xs text-[#D0D6BB] font-sans mt-1">Manage standard operating checklists, regulatory documentation, and AI-ingested knowledge bases.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openAddDrawer('sop')}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Create SOP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAddDrawer('document')}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Knowledge
+                  </button>
+                </div>
+              </div>
+
+              {/* SECTION 1: SOP CHECKLISTS */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <span className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-widest block">Standard Operating Procedures</span>
+                  <span className="text-[9px] text-[#D0D6BB]/50 font-mono">{model.sops.length} Checklists</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {model.sops.map(sop => {
+                    const owner = model.positions.find(p => p.id === sop.ownerPositionId);
+                    return (
+                      <div
+                        key={sop.id}
+                        className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-3 relative group"
+                      >
+                        <div className="flex justify-between items-start pr-12">
+                          <div>
+                            <h4 
+                              onClick={() => {
+                                setSelectedSopForModal(sop);
+                                setSopModalOpen(true);
+                              }}
+                              className="text-xs font-bold text-white hover:underline hover:text-emerald-300 cursor-pointer transition-colors"
+                            >
+                              {sop.name}
+                            </h4>
+                            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 text-[8px] font-mono uppercase font-bold mt-1 block w-max">{sop.tags?.[0] || 'SOP'}</span>
+                          </div>
+                          
+                          <button
+                            type="button"
+                            onClick={() => openEditDrawer('sop', sop.id)}
+                            className="absolute top-4 right-4 p-1.5 bg-white/5 border border-white/10 hover:border-emerald-500/30 text-white rounded-lg text-[9px] font-mono uppercase tracking-wider transition-all cursor-pointer hover:bg-white/10"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-[#D0D6BB]/70 line-clamp-2 leading-relaxed">{sop.purpose}</p>
+                        <div className="text-[10px] font-mono text-[#D0D6BB]/50 pt-2 border-t border-white/5 flex justify-between">
+                          <span>Owner: <strong className="text-white">{owner ? owner.name : 'Unassigned'}</strong></span>
+                          <span>Checklist: <strong className="text-green-400">{sop.steps?.length || 0} steps</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECTION 2: KNOWLEDGE BASE DOCUMENTS */}
+              <div className="space-y-3 pt-4">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <span className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-widest block">Processed Knowledge Base</span>
+                  <span className="text-[9px] text-[#D0D6BB]/50 font-mono">{(model.knowledgeDocuments || []).length} Documents</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(model.knowledgeDocuments || []).map(doc => {
+                    const owner = model.positions.find(p => p.id === doc.ownerPositionId);
+                    const isProcessing = doc.status === 'processing';
+                    return (
+                      <div
+                        key={doc.id}
+                        className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-3 relative group"
+                      >
+                        <div className="flex justify-between items-start pr-12">
+                          <div>
+                            <h4 
+                              onClick={() => {
+                                if (doc.aiSummary) {
+                                  setSelectedSopForModal({
+                                    name: doc.title,
+                                    purpose: doc.aiSummary,
+                                    trigger: `Source: ${doc.sourceType.toUpperCase()} reference document`,
+                                    steps: doc.url ? [`Destination Link: ${doc.url}`] : [],
+                                    requiredInformation: doc.requestCategories || [],
+                                    tags: doc.tags || []
+                                  });
+                                  setSopModalOpen(true);
+                                } else {
+                                  openEditDrawer('document', doc.id);
+                                }
+                              }}
+                              className="text-xs font-bold text-white hover:underline hover:text-emerald-300 cursor-pointer transition-colors"
+                            >
+                              {doc.title}
+                            </h4>
+                            <div className="flex gap-1.5 items-center mt-1">
+                              <span className="px-2 py-0.5 rounded bg-white/5 text-[#D0D6BB]/60 text-[8px] font-mono uppercase font-bold">{doc.sourceType.toUpperCase()}</span>
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-mono uppercase font-bold flex items-center gap-1 ${
+                                doc.status === 'ready' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                doc.status === 'draft' ? 'bg-white/10 text-white/50 border border-white/5' :
+                                doc.status === 'processing' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' :
+                                doc.status === 'needs_review' ? 'bg-red-500/10 text-red-300 border border-red-500/20' :
+                                'bg-red-500/10 text-red-300'
+                              }`}>
+                                {isProcessing && (
+                                  <span className="w-1.5 h-1.5 rounded-full border border-t-transparent border-amber-400 animate-spin" />
+                                )}
+                                {doc.status}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <button
+                            type="button"
+                            onClick={() => openEditDrawer('document', doc.id)}
+                            className="absolute top-4 right-4 p-1.5 bg-white/5 border border-white/10 hover:border-emerald-500/30 text-white rounded-lg text-[9px] font-mono uppercase tracking-wider transition-all cursor-pointer hover:bg-white/10"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        {doc.aiSummary ? (
+                          <p className="text-[11px] text-[#D0D6BB]/75 line-clamp-2 leading-relaxed italic">"{doc.aiSummary}"</p>
+                        ) : (
+                          <p className="text-[11px] text-[#D0D6BB]/40 leading-relaxed font-mono">No extracted AI summary available yet.</p>
+                        )}
+                        <div className="text-[10px] font-mono text-[#D0D6BB]/50 pt-2 border-t border-white/5 flex justify-between">
+                          <span>Owner: <strong className="text-white">{owner ? owner.name : 'Unassigned'}</strong></span>
+                          <span>Mapped Category: <strong className="text-[#D0D6BB]/80">{doc.requestCategories?.[0] || 'General'}</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'connected_tools' && (
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[#013028] font-sans">
+            <div className="max-w-[1000px] mx-auto space-y-6">
+              
+              {/* Header card with action */}
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                  <h3 className="text-lg font-serif font-black text-white uppercase tracking-tight">Connected Tools</h3>
+                  <p className="text-xs text-[#D0D6BB] font-sans mt-1">Operational integrations connected to the Wilmington brokerage command center.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toolName = prompt('Enter the name of the tool to connect:');
+                    if (!toolName) return;
+                    const role = prompt('Enter the assigned role/team for this tool:', 'Operations Team');
+                    const uses = prompt('What does Shapework use this tool for?', 'Integrates brokerage workflows and automates coordination.');
+                    if (toolName) {
+                      setIntegrationsList([
+                        ...integrationsList,
+                        {
+                          name: toolName,
+                          status: 'Connected',
+                          category: 'Custom Integration',
+                          uses: uses || 'Custom brokerage integration.',
+                          role: role || 'Operations Team',
+                          lastSync: 'Just now',
+                          icon: Sparkles
+                        }
+                      ]);
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Add Connected Tool
+                </button>
+              </div>
+
+              {/* Grid of integration cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {integrationsList.map((tool, idx) => {
+                  const IconComponent = tool.icon;
+                  const isConnected = ['Connected', 'Configured', 'Simulated'].includes(tool.status);
+                  
+                  return (
+                    <div key={idx} className="p-5 bg-white/5 border border-white/10 rounded-2xl flex flex-col justify-between space-y-4 min-h-[220px] transition-all hover:border-white/20">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="p-2 bg-white/5 rounded-xl border border-white/10">
+                            <IconComponent className="w-5 h-5 text-white" />
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full border text-[8px] font-mono uppercase font-bold ${
+                            tool.status === 'Connected' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' :
+                            tool.status === 'Configured' ? 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20' :
+                            tool.status === 'Simulated' ? 'bg-purple-500/15 text-purple-400 border-purple-500/20' :
+                            tool.status === 'Needs Attention' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' :
+                            tool.status === 'Connection Offline' ? 'bg-red-500/15 text-red-400 border-red-500/20' :
+                            'bg-white/5 text-[#D0D6BB]/50 border-white/10'
+                          }`}>
+                            {tool.status}
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-white">{tool.name}</h4>
+                          <span className="text-[9px] font-mono text-[#D0D6BB]/50 uppercase block">{tool.category}</span>
+                        </div>
+                        <p className="text-[10px] text-[#D0D6BB]/75 leading-relaxed line-clamp-3">{tool.uses}</p>
+                      </div>
+
+                      <div className="space-y-3 pt-3 border-t border-white/5">
+                        <div className="flex justify-between items-center text-[9px] font-mono text-[#D0D6BB]/50">
+                          <span>Team: <strong className="text-white">{tool.role}</strong></span>
+                          {tool.lastSync && (
+                            <span>Sync: <strong className="text-emerald-400">{tool.lastSync}</strong></span>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => alert(`Configuring settings for ${tool.name}...`)}
+                            className="flex-1 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[9px] font-mono font-bold uppercase transition-colors cursor-pointer"
+                          >
+                            Configure
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => handleConnectTool(tool.name, isConnected, idx)}
+                            className={`flex-1 py-1.5 border rounded-lg text-[9px] font-mono font-bold uppercase transition-colors cursor-pointer ${
+                              isConnected
+                                ? 'bg-red-500/10 hover:bg-red-500/15 border-red-500/20 text-red-300'
+                                : 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/20 text-emerald-300'
+                            }`}
+                          >
+                            {isConnected ? 'Disconnect' : 'Connect'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
             </div>
           </div>
         )}
 
       </div>
+
+      {sopModalOpen && selectedSopForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 text-left">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setSopModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-[#012a23] border border-white/10 rounded-[28px] p-8 shadow-2xl space-y-6 text-white max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400">Standard Operating Procedure</span>
+                <h3 className="text-lg font-serif font-black text-white">{selectedSopForModal.name}</h3>
+              </div>
+              <button type="button" onClick={() => setSopModalOpen(false)} className="text-[#D0D6BB]/50 hover:text-white cursor-pointer transition-colors p-1 hover:bg-white/5 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-xs font-sans">
+              {selectedSopForModal.purpose && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Purpose</span>
+                  <p className="text-white leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">{selectedSopForModal.purpose}</p>
+                </div>
+              )}
+
+              {selectedSopForModal.trigger && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Intake / Trigger Event</span>
+                  <p className="text-emerald-300 font-mono leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">{selectedSopForModal.trigger}</p>
+                </div>
+              )}
+
+              {selectedSopForModal.steps && selectedSopForModal.steps.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Execution Checklist / Steps</span>
+                  <div className="space-y-2 bg-black/20 p-4 rounded-xl border border-white/5">
+                    {selectedSopForModal.steps.map((step: string, idx: number) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[9px] font-mono font-bold text-emerald-400 shrink-0 mt-0.5">{idx + 1}</span>
+                        <span className="text-[#F6F7F1] leading-relaxed">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedSopForModal.requiredInformation && selectedSopForModal.requiredInformation.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Required Information</span>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSopForModal.requiredInformation.map((info: string, idx: number) => (
+                      <span key={idx} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[#D0D6BB] text-[10px] font-mono">{info}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedSopForModal.output && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Expected Outcome / Output</span>
+                  <p className="text-[#D0D6BB] leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">{selectedSopForModal.output}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="pt-4 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSopModalOpen(false)}
+                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Close Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {escalationModalOpen && selectedEscalationForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 text-left">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setEscalationModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-[#012a23] border border-white/10 rounded-[28px] p-8 shadow-2xl space-y-6 text-white max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400">Escalation Policy & Fallback</span>
+                <h3 className="text-lg font-serif font-black text-white">{selectedEscalationForModal.name}</h3>
+              </div>
+              <button type="button" onClick={() => setEscalationModalOpen(false)} className="text-[#D0D6BB]/50 hover:text-white transition-colors p-1 hover:bg-white/5 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-xs font-sans">
+              {selectedEscalationForModal.trigger && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Trigger Condition</span>
+                  <p className="text-white leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">{selectedEscalationForModal.trigger}</p>
+                </div>
+              )}
+
+              {selectedEscalationForModal.condition && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Logic Rule</span>
+                  <p className="text-amber-300 font-mono leading-relaxed bg-black/20 p-3 rounded-xl border border-white/5">{selectedEscalationForModal.condition}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Urgency / Severity</span>
+                  <span className="inline-block px-3 py-1 bg-red-950/40 border border-red-500/30 rounded-lg text-red-300 font-bold uppercase font-mono">{selectedEscalationForModal.urgency}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">SLA Response Window</span>
+                  <span className="inline-block px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 font-bold font-mono">{selectedEscalationForModal.responseWindow}</span>
+                </div>
+              </div>
+
+              {selectedEscalationForModal.channels && selectedEscalationForModal.channels.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Notification Channels</span>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedEscalationForModal.channels.map((ch: string, idx: number) => (
+                      <span key={idx} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-mono uppercase">{ch}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedEscalationForModal.requiredContext && selectedEscalationForModal.requiredContext.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Required Context for Broker</span>
+                  <div className="space-y-1 bg-black/20 p-3 rounded-xl border border-white/5">
+                    {selectedEscalationForModal.requiredContext.map((ctx: string, idx: number) => (
+                      <div key={idx} className="text-[#D0D6BB]">• {ctx}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedEscalationForModal.recommendedNextAction && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Recommended Broker Action</span>
+                  <p className="text-emerald-300 leading-relaxed bg-emerald-950/20 p-3 rounded-xl border border-emerald-500/30">{selectedEscalationForModal.recommendedNextAction}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="pt-4 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEscalationModalOpen(false)}
+                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Close Policy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- CONTEXTUAL SLIDE DRAWERS --- */}
       {drawerOpen && (
@@ -5038,6 +7405,8 @@ function OrgChartDrawerOverlay({
   const [posBusinessCase, setPosBusinessCase] = useState('');
   const [posHiringNotes, setPosHiringNotes] = useState('');
   const [posCoverageGap, setPosCoverageGap] = useState('');
+  const [posConnectedTools, setPosConnectedTools] = useState<string[]>([]);
+  const [authToolName, setAuthToolName] = useState<string | null>(null);
 
   // B. Local State for Role
   const [roleName, setRoleName] = useState('');
@@ -5052,6 +7421,9 @@ function OrgChartDrawerOverlay({
   const [sopTrigger, setSopTrigger] = useState('');
   const [sopPurpose, setSopPurpose] = useState('');
   const [sopOwner, setSopOwner] = useState('');
+  const [sopBackupOwner, setSopBackupOwner] = useState('');
+  const [sopConnectedTool, setSopConnectedTool] = useState('');
+  const [sopEscalationPolicyId, setSopEscalationPolicyId] = useState('');
   const [sopRoleId, setSopRoleId] = useState('');
   const [sopSteps, setSopSteps] = useState<string[]>(['Step 1']);
   const [sopFields, setSopFields] = useState<string[]>(['Required Parameter']);
@@ -5078,8 +7450,12 @@ function OrgChartDrawerOverlay({
   const [escAction, setEscAction] = useState('');
   const [escSaveToKb, setEscSaveToKb] = useState(true);
 
-  // E. Local State for Document Upload
+  // E. Local State for Document Upload & unified importer
   const [docTitle, setDocTitle] = useState('');
+  const [docSourceType, setDocSourceType] = useState<'pdf' | 'docx' | 'txt' | 'md' | 'url' | 'paste'>('pdf');
+  const [docUrl, setDocUrl] = useState('');
+  const [docPastedText, setDocPastedText] = useState('');
+  const [docRelatedSopId, setDocRelatedSopId] = useState('');
   const [docOwnerPosition, setDocOwnerPosition] = useState('');
   const [docOwnerRole, setDocOwnerRole] = useState('');
   const [docCategories, setDocCategories] = useState<string[]>([]);
@@ -5134,6 +7510,7 @@ function OrgChartDrawerOverlay({
           setPosBusinessCase(item.businessCase || '');
           setPosHiringNotes(item.hiringNotes || '');
           setPosCoverageGap(item.coverageGap || '');
+          setPosConnectedTools((item as any).connectedTools || []);
         }
       } else if (type === 'role') {
         const item = model.roles.find(r => r.id === id);
@@ -5152,6 +7529,9 @@ function OrgChartDrawerOverlay({
           setSopTrigger(item.trigger);
           setSopPurpose(item.purpose || '');
           setSopOwner(item.ownerPositionId);
+          setSopBackupOwner(item.backupPositionId || '');
+          setSopConnectedTool(item.connectedTool || '');
+          setSopEscalationPolicyId(item.escalationPolicyId || '');
           setSopRoleId(item.roleId || '');
           setSopSteps(item.steps || ['Step 1']);
           setSopFields(item.requiredInformation || ['Required Field']);
@@ -5308,6 +7688,171 @@ function OrgChartDrawerOverlay({
     reader.readAsDataURL(file);
   };
 
+  const handleConnectPersonalOAuth = async (toolName: string, isLinked: boolean) => {
+    const googleTools = ['Gmail', 'Google Calendar', 'Google Drive'];
+    
+    if (isLinked) {
+      if (googleTools.includes(toolName)) {
+        try {
+          const res = await fetch(`/api/integrations/google/disconnect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+            method: 'POST',
+            headers: {
+              'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+            }
+          });
+          if (res.ok) {
+            setPosConnectedTools(posConnectedTools.filter(t => !googleTools.includes(t)));
+          } else {
+            alert(`Failed to disconnect ${toolName}`);
+          }
+        } catch (err) {
+          console.error(err);
+          alert(`Disconnect error: ${err}`);
+        }
+      } else if (toolName === 'Canva') {
+        try {
+          const res = await fetch(`/api/integrations/canva/disconnect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+            method: 'POST',
+            headers: {
+              'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+            }
+          });
+          if (res.ok) {
+            setPosConnectedTools(posConnectedTools.filter(t => t !== 'Canva'));
+          } else {
+            alert(`Failed to disconnect Canva`);
+          }
+        } catch (err) {
+          console.error(err);
+          alert(`Disconnect error: ${err}`);
+        }
+      } else {
+        setPosConnectedTools(posConnectedTools.filter(t => t !== toolName));
+      }
+      return;
+    }
+
+    // Connect
+    if (googleTools.includes(toolName)) {
+      try {
+        const res = await fetch(`/api/integrations/google/connect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+          headers: {
+            'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.url) {
+            const width = 600;
+            const height = 600;
+            const left = window.screen.width / 2 - width / 2;
+            const top = window.screen.height / 2 - height / 2;
+            const popup = window.open(
+              data.url,
+              'oauth-popup',
+              `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+            );
+
+            const interval = setInterval(async () => {
+              try {
+                const statusRes = await fetch(`/api/integrations/google/status?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+                  headers: {
+                    'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+                  }
+                });
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.connected || statusData.status === 'connected') {
+                    popup?.close();
+                    clearInterval(interval);
+                    setPosConnectedTools(prev => {
+                      const next = [...prev];
+                      googleTools.forEach(gt => {
+                        if (!next.includes(gt)) next.push(gt);
+                      });
+                      return next;
+                    });
+                  }
+                }
+              } catch (pollErr) {
+                console.warn('[OAuth Polling] Error checking connection status:', pollErr);
+              }
+            }, 1500);
+
+            setTimeout(() => {
+              clearInterval(interval);
+            }, 120000);
+          } else {
+            alert('Could not retrieve Google OAuth login URL.');
+          }
+        } else {
+          alert('Failed to connect to Google OAuth server.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert(`OAuth error: ${err}`);
+      }
+    } else if (toolName === 'Canva') {
+      try {
+        const res = await fetch(`/api/integrations/canva/connect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+          headers: {
+            'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.url) {
+            const width = 600;
+            const height = 600;
+            const left = window.screen.width / 2 - width / 2;
+            const top = window.screen.height / 2 - height / 2;
+            const popup = window.open(
+              data.url,
+              'oauth-popup',
+              `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+            );
+
+            const interval = setInterval(async () => {
+              try {
+                const statusRes = await fetch(`/api/integrations/canva/status?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+                  headers: {
+                    'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+                  }
+                });
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.connected || statusData.status === 'connected') {
+                    popup?.close();
+                    clearInterval(interval);
+                    setPosConnectedTools(prev => {
+                      if (!prev.includes('Canva')) return [...prev, 'Canva'];
+                      return prev;
+                    });
+                  }
+                }
+              } catch (pollErr) {
+                console.warn('[OAuth Polling] Error checking connection status:', pollErr);
+              }
+            }, 1500);
+
+            setTimeout(() => {
+              clearInterval(interval);
+            }, 120000);
+          } else {
+            alert('Could not retrieve Canva OAuth login URL.');
+          }
+        } else {
+          alert('Failed to connect to Canva OAuth server.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert(`OAuth error: ${err}`);
+      }
+    } else {
+      setAuthToolName(toolName);
+    }
+  };
+
   const handleSaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUploadError('');
@@ -5331,7 +7876,8 @@ function OrgChartDrawerOverlay({
         estimatedCost: posEstimatedCost || undefined,
         businessCase: posBusinessCase || undefined,
         hiringNotes: posHiringNotes || undefined,
-        coverageGap: posCoverageGap || undefined
+        coverageGap: posCoverageGap || undefined,
+        connectedTools: posConnectedTools
       });
     } else if (type === 'role') {
       onSubmitRole({
@@ -5348,6 +7894,7 @@ function OrgChartDrawerOverlay({
         trigger: sopTrigger,
         purpose: sopPurpose,
         ownerPositionId: sopOwner,
+        backupPositionId: sopBackupOwner || undefined,
         roleId: sopRoleId || undefined,
         steps: sopSteps,
         requiredInformation: sopFields,
@@ -5359,7 +7906,9 @@ function OrgChartDrawerOverlay({
         status: sopStatus,
         includeInAskNestOps: sopIncludeAsk,
         includeInRetell: sopIncludeRetell,
-        includeInRouting: sopIncludeRouting
+        includeInRouting: sopIncludeRouting,
+        connectedTool: sopConnectedTool || undefined,
+        escalationPolicyId: sopEscalationPolicyId || undefined
       });
     } else if (type === 'escalation') {
       const targetPos = model.positions.find(p => p.id === escTarget);
@@ -5675,6 +8224,67 @@ function OrgChartDrawerOverlay({
                           </button>
                         </div>
                       )}
+                    </div>
+
+                    {/* Personal Connected Tools (OAuth) */}
+                    <div className="space-y-2 pt-3 border-t border-white/10">
+                      <label className="text-[9px] font-bold text-teal-300 uppercase font-mono block tracking-wider">
+                        Personal Connected Tools (OAuth)
+                      </label>
+                      <p className="text-[10px] text-[#D0D6BB]/60 leading-normal mb-2">
+                        Link personal app logins to sync emails, transaction milestones, and chat tasks.
+                      </p>
+
+                      <div className="grid grid-cols-1 gap-2">
+                        {[
+                          { name: 'Gmail', icon: Mail },
+                          { name: 'Google Calendar', icon: Calendar },
+                          { name: 'Google Drive', icon: Folder },
+                          { name: 'Rechat', icon: Users },
+                          { name: 'Dotloop', icon: FileText },
+                          { name: 'QuickBooks', icon: Layers },
+                          { name: 'Canva', icon: Palette },
+                          { name: 'Basecamp', icon: Sparkles },
+                          { name: 'Slack', icon: MessageSquare },
+                          { name: 'Microsoft Teams', icon: MessageSquare }
+                        ].map((t) => {
+                          const Icon = t.icon;
+                          const isLinked = posConnectedTools.includes(t.name);
+
+                          return (
+                            <div key={t.name} className="flex justify-between items-center bg-black/20 border border-white/5 rounded-xl p-2.5 text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1 bg-white/5 border border-white/10 rounded-lg text-white">
+                                  <Icon className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="font-sans text-xs text-white font-medium">{t.name}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className={`px-1.5 py-0.2 rounded font-mono text-[7px] uppercase font-bold border ${
+                                  isLinked 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                    : 'bg-white/5 text-[#D0D6BB]/40 border-white/5'
+                                }`}>
+                                  {isLinked ? 'Linked (OAuth)' : 'Not Connected'}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleConnectPersonalOAuth(t.name, isLinked)}
+                                  className={`px-2 py-1 rounded text-[8px] font-mono font-bold uppercase border transition-all cursor-pointer ${
+                                    isLinked
+                                      ? 'bg-rose-500/10 hover:bg-rose-500/15 border-rose-500/20 text-rose-300'
+                                      : 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/20 text-emerald-300'
+                                  }`}
+                                >
+                                  {isLinked ? 'Disconnect' : 'Connect'}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </>
                 )}
@@ -6072,6 +8682,20 @@ function OrgChartDrawerOverlay({
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Backup Owner Position</label>
+                  <select
+                    value={sopBackupOwner}
+                    onChange={(e) => setSopBackupOwner(e.target.value)}
+                    className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="">-- No Backup Owner --</option>
+                    {model.positions.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Attached Owner Role</label>
                   <select
                     value={sopRoleId}
@@ -6108,6 +8732,34 @@ function OrgChartDrawerOverlay({
                   />
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Related Connected Tool</label>
+                  <select
+                    value={sopConnectedTool}
+                    onChange={(e) => setSopConnectedTool(e.target.value)}
+                    className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="">-- No Related Tool --</option>
+                    {['Gmail', 'Google Calendar', 'Google Drive', 'Rechat', 'Dotloop', 'QuickBooks', 'Basecamp', 'Slack', 'Microsoft Teams', 'SMS / Phone', 'AI Voice/Chat Agents', 'Brokerage Dashboard'].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Related Escalation Policy</label>
+                  <select
+                    value={sopEscalationPolicyId}
+                    onChange={(e) => setSopEscalationPolicyId(e.target.value)}
+                    className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="">-- No Related Escalation Policy --</option>
+                    {model.escalationPolicies.map(esc => (
+                      <option key={esc.id} value={esc.id}>{esc.name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Execution Steps</label>
@@ -6120,7 +8772,7 @@ function OrgChartDrawerOverlay({
                     </button>
                   </div>
                   {sopSteps.map((step, idx) => (
-                    <div key={idx} className="flex gap-1.5">
+                    <div key={idx} className="flex gap-1.5 items-center">
                       <input
                         type="text"
                         value={step}
@@ -6131,10 +8783,44 @@ function OrgChartDrawerOverlay({
                         }}
                         className="flex-1 p-1.5 bg-black/20 border border-white/10 rounded text-white"
                       />
+                      <div className="flex gap-1 shrink-0">
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...sopSteps];
+                              const temp = updated[idx];
+                              updated[idx] = updated[idx - 1];
+                              updated[idx - 1] = temp;
+                              setSopSteps(updated);
+                            }}
+                            className="p-1 text-[#D0D6BB] hover:bg-white/10 rounded cursor-pointer"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {idx < sopSteps.length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...sopSteps];
+                              const temp = updated[idx];
+                              updated[idx] = updated[idx + 1];
+                              updated[idx + 1] = temp;
+                              setSopSteps(updated);
+                            }}
+                            className="p-1 text-[#D0D6BB] hover:bg-white/10 rounded cursor-pointer"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                       <button
                         type="button"
                         onClick={() => setSopSteps(sopSteps.filter((_, i) => i !== idx))}
-                        className="p-1.5 text-red-300 hover:bg-red-500/10 rounded"
+                        className="p-1.5 text-red-300 hover:bg-red-500/10 rounded shrink-0 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -6442,23 +9128,60 @@ function OrgChartDrawerOverlay({
               </div>
             )}
 
-            {/* E. DOCUMENT UPLOAD FIELDS */}
+            {/* E. UNIFIED KNOWLEDGE IMPORTER FIELDS */}
             {type === 'document' && (
               <div className="space-y-4">
-                {mode === 'add' ? (
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Source Type</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'pdf', label: 'PDF File' },
+                      { id: 'docx', label: 'DOCX File' },
+                      { id: 'txt', label: 'TXT File' },
+                      { id: 'md', label: 'Markdown' },
+                      { id: 'url', label: 'Website URL' },
+                      { id: 'paste', label: 'Pasted Text' }
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => {
+                          setDocSourceType(st.id as any);
+                          setDocFileName('');
+                          setDocFileSize(0);
+                          setDocFileContentBase64('');
+                        }}
+                        className={`py-2 px-1 rounded-xl text-[10px] font-mono font-bold uppercase transition-all border cursor-pointer ${
+                          docSourceType === st.id
+                            ? 'bg-[#00635C] text-white border-[#007c73]'
+                            : 'bg-black/25 text-[#D0D6BB]/60 border-white/5 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* File Upload Content */}
+                {['pdf', 'docx', 'txt', 'md'].includes(docSourceType) && mode === 'add' && (
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Upload File</label>
+                    <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Upload {docSourceType.toUpperCase()} File</label>
                     <div className="border-2 border-dashed border-white/15 hover:border-white/30 rounded-2xl p-6 text-center cursor-pointer transition-colors relative bg-black/15">
                       <input 
                         type="file" 
-                        required
-                        accept=".pdf,.doc,.docx,.txt,.md" 
+                        required={!docFileName}
+                        accept={
+                          docSourceType === 'pdf' ? '.pdf' :
+                          docSourceType === 'docx' ? '.docx' :
+                          docSourceType === 'txt' ? '.txt' : '.md'
+                        }
                         onChange={handleFileChange} 
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                       <Eye className="w-8 h-8 text-[#D0D6BB]/40 mx-auto mb-2" />
                       <span className="text-[11px] text-white font-bold block">Drag & Drop or Click to Browse</span>
-                      <span className="text-[9px] text-[#D0D6BB]/50 block mt-1">Accepted: .pdf, .doc, .docx, .txt, .md (Max 10MB)</span>
+                      <span className="text-[9px] text-[#D0D6BB]/50 block mt-1">Accepted: .{docSourceType} (Max 10MB)</span>
                     </div>
                     {docFileName && (
                       <div className="bg-black/20 p-2.5 rounded-xl border border-white/5 text-[9px] font-mono text-emerald-300 flex justify-between items-center">
@@ -6467,18 +9190,63 @@ function OrgChartDrawerOverlay({
                       </div>
                     )}
                   </div>
-                ) : (
+                )}
+
+                {/* URL Content */}
+                {docSourceType === 'url' && (
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Document Title</label>
+                    <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Website URL</label>
                     <input
-                      type="text"
+                      type="url"
                       required
-                      value={docTitle}
-                      onChange={(e) => setDocTitle(e.target.value)}
+                      value={docUrl}
+                      onChange={(e) => setDocUrl(e.target.value)}
+                      placeholder="https://nestrealty.com/operating-standards"
                       className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none"
                     />
                   </div>
                 )}
+
+                {/* Pasted Text Content */}
+                {docSourceType === 'paste' && (
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Pasted Documentation Content</label>
+                    <textarea
+                      required
+                      value={docPastedText}
+                      onChange={(e) => setDocPastedText(e.target.value)}
+                      rows={4}
+                      placeholder="Paste your operational policies, checklist steps, or markdown text here..."
+                      className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none text-xs"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Document Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    placeholder="e.g. Wilmington Commission Standards"
+                    className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Related SOP Checklist</label>
+                  <select
+                    value={docRelatedSopId}
+                    onChange={(e) => setDocRelatedSopId(e.target.value)}
+                    className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white cursor-pointer"
+                  >
+                    <option value="">-- No Related SOP --</option>
+                    {model.sops.map(sop => (
+                      <option key={sop.id} value={sop.id}>{sop.name}</option>
+                    ))}
+                  </select>
+                </div>
 
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Owner Position Seat</label>
@@ -6771,13 +9539,42 @@ function OrgChartDrawerOverlay({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={uploading}
-                className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white border border-white/20 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider cursor-pointer disabled:opacity-50"
-              >
-                {uploading ? 'Processing...' : mode === 'add' ? (type === 'position' ? 'Create position' : type === 'role' ? 'Create role' : 'Add Item') : 'Update Item'}
-              </button>
+              {type === 'document' && mode === 'add' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocStatus('draft');
+                      const btn = document.getElementById('hidden-document-submit-btn');
+                      setTimeout(() => btn?.click(), 50);
+                    }}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white border border-white/15 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider cursor-pointer"
+                  >
+                    Save as Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocStatus('processing');
+                      const btn = document.getElementById('hidden-document-submit-btn');
+                      setTimeout(() => btn?.click(), 50);
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border border-white/20 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider cursor-pointer"
+                  >
+                    Process Document
+                  </button>
+                  {/* Hidden submit trigger */}
+                  <button id="hidden-document-submit-btn" type="submit" className="hidden" />
+                </>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white border border-white/20 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider cursor-pointer disabled:opacity-50"
+                >
+                  {uploading ? 'Processing...' : mode === 'add' ? (type === 'position' ? 'Create position' : type === 'role' ? 'Create role' : type === 'sop' ? 'Save SOP' : type === 'escalation' ? 'Save Policy' : 'Add Item') : 'Save Changes'}
+                </button>
+              )}
             </div>
 
           </form>
@@ -6798,6 +9595,80 @@ function OrgChartDrawerOverlay({
           }}
           onCancel={() => setCropEditorOpen(false)}
         />
+      )}
+
+      {authToolName && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#01251e] border border-emerald-500/30 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+                <h4 className="text-sm font-serif font-black text-white uppercase tracking-tight">Authorize {authToolName}</h4>
+              </div>
+              <button type="button" onClick={() => setAuthToolName(null)} className="text-[#D0D6BB]/50 hover:text-white transition-colors cursor-pointer bg-transparent border-none">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <p className="text-[11px] text-[#D0D6BB]/75 leading-relaxed">
+              Nest Realty Wilmington Command Center requests permission to link <strong>{posName || 'this seat'}</strong> to your personal <strong>{authToolName}</strong> account via secure OAuth.
+            </p>
+
+            <div className="bg-black/20 border border-white/5 rounded-xl p-3 space-y-2 text-[10px] font-mono text-[#D0D6BB]/80">
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <Check className="w-3.5 h-3.5" /> Read / Send Emails & Tasks
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <Check className="w-3.5 h-3.5" /> Synchronize transaction files
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <Check className="w-3.5 h-3.5" /> Write activity and operational logs
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-mono text-[#D0D6BB]/60 uppercase block">Account Email Address</label>
+              <input
+                type="email"
+                required
+                placeholder="username@domain.com"
+                className="w-full p-2 bg-black/25 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:border-emerald-500"
+                id="oauth-email-input"
+                defaultValue={posEmail || ''}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setAuthToolName(null)}
+                className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10px] font-mono font-bold uppercase transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('oauth-email-input') as HTMLInputElement;
+                  const email = input?.value || posEmail || 'user@nestrealty.com';
+                  
+                  if (!posConnectedTools.includes(authToolName)) {
+                    setPosConnectedTools([...posConnectedTools, authToolName]);
+                  }
+                  
+                  if (!posEmail && email) {
+                    setPosEmail(email);
+                  }
+                  
+                  setAuthToolName(null);
+                }}
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-mono font-bold uppercase transition-colors cursor-pointer border-none"
+              >
+                Authorize
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

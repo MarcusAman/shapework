@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { getGoogleConfig } from './googleConfig.js';
-import { generateGoogleOAuthState, validateGoogleOAuthState, exchangeGoogleCode, getGoogleAccessToken, getOAuthClient, googleActiveStates } from './googleOAuth.js';
+import { generateGoogleOAuthState, validateGoogleOAuthState, exchangeGoogleCode, getGoogleAccessToken, getOAuthClient, googleActiveStates, verifyGoogleConnection } from './googleOAuth.js';
 import { syncGoogleWorkspace } from './googleSync.js';
 import { sendGmailEmail } from './gmailClient.js';
 import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission } from '../../auth/auth.js';
@@ -142,14 +142,34 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
         return res.json({ connected: false, status: hasEnv ? 'available_to_connect' : 'missing_env' });
       }
 
-      res.json({
-        connected: conn.status === 'connected',
-        status: conn.status,
-        providerAccountEmail: conn.providerAccountEmail,
-        scopes: conn.scopes,
-        lastSyncedAt: conn.lastSyncedAt,
-        lastError: conn.lastError
-      });
+      // Perform a live verification check!
+      const verification = await verifyGoogleConnection(conn, dbState, () => persistStateCallback(wsId));
+      
+      if (verification.verified) {
+        conn.status = 'connected';
+        delete conn.lastError;
+        await persistStateCallback(wsId);
+
+        res.json({
+          connected: true,
+          status: 'connected',
+          providerAccountEmail: verification.email || conn.providerAccountEmail,
+          scopes: conn.scopes,
+          lastSyncedAt: conn.lastSyncedAt
+        });
+      } else {
+        conn.status = 'expired';
+        conn.lastError = verification.error;
+        await persistStateCallback(wsId);
+
+        res.json({
+          connected: false,
+          status: 'expired',
+          lastError: verification.error,
+          providerAccountEmail: conn.providerAccountEmail,
+          scopes: conn.scopes
+        });
+      }
     } catch (err: any) {
       res.status(500).json({ error: 'Internal Error', message: err.message });
     }

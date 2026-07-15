@@ -55,6 +55,7 @@ import { getGrowthRouter } from './server/integrations/growth/growthRoutes.js';
 import { rechatClient } from './server/integrations/rechat/rechatClient';
 import { getPlannedIntegrationsRouter } from './server/integrations/plannedIntegrationsRouter.js';
 import { getSlackRouter } from './server/integrations/slack/slackRoutes.js';
+import { getCanvaRouter } from './server/integrations/canva/canvaRoutes.js';
 import { triggerNotification } from './server/notifications/notificationRules.js';
 import { getNotificationRouter, registerDevPreviewRoute } from './server/notifications/notificationRoutes.js';
 import { getHeadlessActionRouter } from './server/headless/headlessActionRouter.js';
@@ -1267,28 +1268,9 @@ if (isProductionMode) {
   // Load dev/demo rehearsal seeds
   import('./server/dev/devSeed').then(({ seedDevWorkspace }) => {
     seedDevWorkspace(dbState);
-    // Seed Google Workspace connection initially under dev/demo mode
+    // Seed Google Workspace connection placeholder (as setup_needed, not connected)
     if (!dbState.workspaceIntegrationConnections) {
       dbState.workspaceIntegrationConnections = [];
-    }
-    const googleConnExists = dbState.workspaceIntegrationConnections.some(
-      (c: any) => c.workspaceId === 'nest-realty-demo' && c.provider === 'google_workspace'
-    );
-    if (!googleConnExists) {
-      dbState.workspaceIntegrationConnections.push({
-        id: 'conn_google_nest-realty-demo',
-        workspaceId: 'nest-realty-demo',
-        provider: 'google_workspace',
-        status: 'connected',
-        connectedByUserId: 'usr_owner',
-        connectedAt: new Date().toISOString(),
-        providerAccountId: 'mock_google_id_123',
-        providerAccountEmail: 'mock.user@gmail.com',
-        scopes: ['openid', 'profile', 'email'],
-        encryptedAccessToken: 'dev_plain:Im1vY2tfZ29vZ2xlX2FjY2Vzc190b2tlbl8xMjMi',
-        encryptedRefreshToken: 'dev_plain:Im1vY2tfZ29vZ2xlX3JlZnJlc2hfdG9rZW5fMTIzIg==',
-        accessTokenExpiresAt: new Date(Date.now() + 3600000).toISOString()
-      });
     }
     console.log('Development seed loaded');
   });
@@ -1876,6 +1858,9 @@ app.use('/api/integrations/microsoft', getMicrosoftRouter(dbState, persistState)
 
 // Mount Slack Integration router
 app.use('/api/integrations/slack', getSlackRouter(dbState, persistState));
+
+// Mount Canva Integration router
+app.use('/api/integrations/canva', getCanvaRouter(dbState, persistState));
 
 // Mount Planned Integrations router (stubs)
 app.use('/api/integrations', getPlannedIntegrationsRouter(dbState));

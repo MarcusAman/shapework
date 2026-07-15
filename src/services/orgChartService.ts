@@ -73,6 +73,7 @@ export type OrgSop = {
   purpose?: string;
   trigger: string;
   ownerPositionId: string;
+  backupPositionId?: string;
   roleId?: string;
   steps: string[];
   requiredInformation: string[];
@@ -83,6 +84,8 @@ export type OrgSop = {
   notificationRules?: string;
   escalationNotes?: string;
   requestCategories?: string[];
+  connectedTool?: string;
+  escalationPolicyId?: string;
   status?: OrgKnowledgeStatus;
   includeInAskNestOps?: boolean;
   includeInRetell?: boolean;
@@ -167,7 +170,10 @@ export type OrgKnowledgeStatus =
   | 'draft'
   | 'active'
   | 'needs_review'
-  | 'archived';
+  | 'archived'
+  | 'processing'
+  | 'ready'
+  | 'failed';
 
 export type OrgKnowledgeDocument = {
   id: string;
@@ -233,10 +239,18 @@ export type OrgModel = {
 
 export type RoutingMatrixItem = {
   category: string;
+  description?: string;
+  exampleRequest?: string;
   primaryOwnerPositionId: string;
   backupOwnerPositionId: string;
   sla: string;
   escalationPolicyId?: string;
+  toolConnected?: string;
+  sopId?: string;
+  escalateWhen?: string;
+  notificationMethod?: string;
+  status?: 'active' | 'draft' | 'archived';
+  postAssignmentSteps?: string[];
 };
 
 // Seed defaults
@@ -250,12 +264,14 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     office: 'Wilmington',
     email: 'ryan@nestrealty.com',
     phone: '910-555-0100',
+    backupPositionId: 'pos_bic',
     visibilityLevel: 'leadership',
     roleIds: ['role_recruiting', 'role_coaching', 'role_leadership_escalation'],
-    x: 400,
+    x: 800,
     y: 50,
     avatarUrl: '/org-avatars/ryan.png',
     status: 'active',
+    connectedTools: ['Slack', 'Gmail'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -268,13 +284,15 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     office: 'Wilmington',
     email: 'ann@nestrealty.com',
     phone: '910-555-0101',
-    reportsToPositionId: 'pos_ryan',
+    reportsToPositionId: 'pos_coo',
+    backupPositionId: 'pos_melissa',
     visibilityLevel: 'internal',
     roleIds: ['role_ops', 'role_agent_setup', 'role_signs_lockboxes', 'role_vendors'],
-    x: 150,
-    y: 200,
+    x: 250,
+    y: 400,
     avatarUrl: '/org-avatars/ann.png',
     status: 'active',
+    connectedTools: ['Gmail', 'Basecamp', 'Google Drive'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -287,13 +305,15 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     office: 'Wilmington',
     email: 'james.fort@nestrealty.com',
     phone: '910-555-0102',
-    reportsToPositionId: 'pos_ryan',
+    reportsToPositionId: 'pos_coo',
+    backupPositionId: 'pos_ann',
     visibilityLevel: 'internal',
     roleIds: ['role_closings_pay', 'role_bills_receipts', 'role_commission_status', 'role_tax_prep'],
-    x: 400,
-    y: 200,
+    x: -100,
+    y: 400,
     avatarUrl: '/org-avatars/james.png',
     status: 'active',
+    connectedTools: ['QuickBooks', 'Gmail'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -306,50 +326,58 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     office: 'Wilmington',
     email: 'melissa.gagliardi@nestrealty.com',
     phone: '910-555-0103',
-    reportsToPositionId: 'pos_ryan',
+    reportsToPositionId: 'pos_coo',
+    backupPositionId: 'pos_ann',
     visibilityLevel: 'internal',
     roleIds: ['role_listing_launch', 'role_social_content', 'role_agent_branding', 'role_business_cards'],
-    x: 650,
-    y: 200,
+    x: 600,
+    y: 400,
     avatarUrl: '/org-avatars/melissa.png',
     status: 'active',
+    connectedTools: ['Rechat', 'Gmail'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
   {
     id: 'pos_bic',
     workspaceId: 'nest-realty-demo',
-    name: 'BIC Office',
+    name: 'Jessica Keenan',
     title: 'Broker-in-Charge',
-    department: 'Compliance',
+    department: 'Brokers-in-Charge',
     office: 'Wilmington',
-    email: 'bic@nestrealty.com',
+    email: 'jessica@nestrealty.com',
     phone: '910-555-0104',
     reportsToPositionId: 'pos_ryan',
+    backupPositionId: 'pos_eric',
     visibilityLevel: 'admin',
     roleIds: ['role_agent_support', 'role_compliance', 'role_contract_questions', 'role_risk_sensitive'],
-    x: 900,
-    y: 200,
+    avatarUrl: '/org-avatars/jessica.png',
+    x: 1100,
+    y: 220,
     status: 'active',
+    connectedTools: ['Dotloop', 'Slack', 'Gmail'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
   {
     id: 'pos_eric',
     workspaceId: 'nest-realty-demo',
-    name: 'Eric',
-    title: 'To Be Assigned',
-    department: 'Operations / Support',
+    name: 'Eric Knight',
+    title: 'Broker-in-Charge (Mayfaire)',
+    department: 'Brokers-in-Charge',
     office: 'Wilmington',
     email: 'eric@nestrealty.com',
     phone: '910-555-0105',
     reportsToPositionId: 'pos_ryan',
-    visibilityLevel: 'internal',
-    roleIds: [],
-    x: 1150,
-    y: 200,
-    avatarUrl: '/org-avatars/eric.png',
+    backupPositionId: 'pos_bic',
+    visibilityLevel: 'admin',
+    roleIds: ['role_agent_support', 'role_compliance', 'role_contract_questions', 'role_risk_sensitive'],
+    x: 1450,
+    y: 220,
+    avatarUrl: '/org-avatars/eric2.png',
+    avatarCrop: { x: 0, y: 35, scale: 0.8, rotation: 0, cropShape: 'circle' },
     status: 'active',
+    connectedTools: ['Dotloop', 'Slack', 'Gmail'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -363,8 +391,8 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     reportsToPositionId: 'pos_ryan',
     visibilityLevel: 'internal',
     roleIds: ['role_coo'],
-    x: 275,
-    y: 125,
+    x: 400,
+    y: 220,
     status: 'open',
     priority: 'high',
     coverageGap: 'Operational ownership',
@@ -382,8 +410,8 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     reportsToPositionId: 'pos_coo',
     visibilityLevel: 'internal',
     roleIds: ['role_front_desk'],
-    x: 150,
-    y: 350,
+    x: 950,
+    y: 400,
     status: 'open',
     priority: 'normal',
     coverageGap: 'Front desk guest welcome & lockbox checkouts',
@@ -401,8 +429,8 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     reportsToPositionId: 'pos_melissa',
     visibilityLevel: 'internal',
     roleIds: ['role_va'],
-    x: 650,
-    y: 350,
+    x: 600,
+    y: 580,
     status: 'planned',
     priority: 'normal',
     coverageGap: 'Marketing execution bandwidth support',
@@ -420,8 +448,8 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     reportsToPositionId: 'pos_ann',
     visibilityLevel: 'internal',
     roleIds: ['role_ai_ops'],
-    x: -100,
-    y: 350,
+    x: 250,
+    y: 580,
     status: 'virtual_ai',
     priority: 'normal',
     coverageGap: 'Automated intake triage & knowledge retrieval',
@@ -712,77 +740,140 @@ const DEFAULT_ROLES: OrgRole[] = [
 
 const DEFAULT_SOPS: OrgSop[] = [
   {
-    id: 'sop_new_hire',
+    id: 'sop_leadership_escalation',
     workspaceId: 'nest-realty-demo',
-    name: 'New-hire setup',
-    trigger: 'New agent signs agreement',
-    purpose: 'Get a new agent onboarded and active in key tools.',
-    ownerPositionId: 'pos_ann',
-    roleId: 'role_agent_setup',
-    steps: ['Create GSuite email', 'Add to Slack', 'Order starter business cards'],
-    requiredInformation: ['Agent Name', 'Start Date', 'Email prefix'],
-    output: 'Agent loaded in tools and active.',
-    tags: ['onboarding', 'operations'],
+    name: 'Leadership Escalation',
+    trigger: 'A task is overdue, sensitive, cross-functional, financial, compliance-related, or unresolved.',
+    purpose: 'Ryan should operate from an escalation and visibility layer. Ryan should not be the catch-all for every issue.',
+    ownerPositionId: 'pos_ryan',
+    roleId: 'role_leadership_escalation',
+    steps: [
+      'Shapework flags the issue as leadership-level.',
+      'Ryan receives it in the leadership queue.',
+      'Ryan reviews context, owner, history, and recommended next action.',
+      'Ryan chooses one action: approve, reject, assign, escalate, request more information, or mark resolved.',
+      'Shapework notifies the correct parties.',
+      'The decision is saved in the knowledge base.'
+    ],
+    requiredInformation: ['Task Category', 'Reason for Escalation', 'Current Owner'],
+    output: 'Decision executed and recorded.',
+    tags: ['leadership', 'escalation'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
   {
-    id: 'sop_listing_launch',
+    id: 'sop_bic_compliance',
     workspaceId: 'nest-realty-demo',
-    name: 'Listing launch checklist',
-    trigger: 'Listing agreement fully executed',
-    purpose: 'Prepare MLS data and marketing assets for a new property.',
-    ownerPositionId: 'pos_melissa',
-    roleId: 'role_listing_launch',
-    steps: ['Upload to MLS', 'Order professional photos', 'Schedule social post'],
-    requiredInformation: ['Listing Address', 'Price', 'MLS description'],
-    output: 'Listing live on MLS.',
-    tags: ['marketing', 'listing'],
+    name: 'Agent Compliance or Contract Question',
+    trigger: 'An agent asks about a contract, transaction, client issue, license issue, CE, compliance, disclosure, dispute, or brokerage standard.',
+    purpose: 'BICs own agent support, compliance, contract questions, brokerage standards, CE, licensing, disputes, and transaction-related risks.',
+    ownerPositionId: 'pos_bic',
+    roleId: 'role_compliance',
+    steps: [
+      'Request enters Ask Nest Ops.',
+      'Shapework classifies it as BIC/compliance.',
+      'System collects agent name, office, property address if applicable, transaction stage, deadline, contract/document involved, and urgency level.',
+      'BIC receives the task.',
+      'BIC responds or escalates to Ryan/legal.',
+      'Final response is saved.',
+      'Similar future questions can be suggested by AI for BIC approval.'
+    ],
+    requiredInformation: ['Agent Name', 'Office', 'Property Address', 'Transaction Stage', 'Urgency Level'],
+    output: 'Agent receives guidance, log saved.',
+    tags: ['compliance', 'legal', 'bic'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
   {
-    id: 'sop_commission',
+    id: 'sop_bic_compliance_eric',
     workspaceId: 'nest-realty-demo',
-    name: 'Commission request',
-    trigger: 'Closing package received',
-    purpose: 'Process commission checks for agents post-closing.',
+    name: 'Agent Compliance or Contract Question',
+    trigger: 'An agent asks about a contract, transaction, client issue, license issue, CE, compliance, disclosure, dispute, or brokerage standard.',
+    purpose: 'BICs own agent support, compliance, contract questions, brokerage standards, CE, licensing, disputes, and transaction-related risks.',
+    ownerPositionId: 'pos_eric',
+    roleId: 'role_compliance',
+    steps: [
+      'Request enters Ask Nest Ops.',
+      'Shapework classifies it as BIC/compliance.',
+      'System collects agent name, office, property address if applicable, transaction stage, deadline, contract/document involved, and urgency level.',
+      'BIC receives the task.',
+      'BIC responds or escalates to Ryan/legal.',
+      'Final response is saved.',
+      'Similar future questions can be suggested by AI for BIC approval.'
+    ],
+    requiredInformation: ['Agent Name', 'Office', 'Property Address', 'Transaction Stage', 'Urgency Level'],
+    output: 'Agent receives guidance, log saved.',
+    tags: ['compliance', 'legal', 'bic'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'sop_accounting_request',
+    workspaceId: 'nest-realty-demo',
+    name: 'Commission / Accounting Request',
+    trigger: 'Agent or staff asks about commission, payment timing, invoice, reimbursement, receipt, bill, deposit, check, or tax document.',
+    purpose: 'James owns the financial operations workflow and should not have to answer commission/payment questions manually.',
     ownerPositionId: 'pos_james',
     roleId: 'role_closings_pay',
-    steps: ['Verify commission structure', 'Draft wire instruction', 'Authorize broker check'],
-    requiredInformation: ['Transaction ID', 'Broker amount', 'Settlement statement'],
-    output: 'Commissions paid to agent.',
+    steps: [
+      'Request enters Ask Nest Ops.',
+      'Shapework classifies the request as accounting.',
+      'System collects agent name, property/transaction, closing date, request type, amount if known, required document if applicable, and deadline.',
+      'James receives a complete ticket.',
+      'If information is missing, Shapework asks the requester.',
+      'James updates status.',
+      'Requester receives automated status update.'
+    ],
+    requiredInformation: ['Agent Name', 'Property / Transaction', 'Request Type', 'Closing Date', 'Amount'],
+    output: 'Commission paid or accounting request resolved.',
     tags: ['accounting', 'finance'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
   {
-    id: 'sop_lockbox',
+    id: 'sop_marketing_request',
     workspaceId: 'nest-realty-demo',
-    name: 'Lockbox issue',
-    trigger: 'Agent reports broken shackle',
-    purpose: 'Troubleshoot and replace problematic lockboxes.',
-    ownerPositionId: 'pos_ann',
-    roleId: 'role_signs_lockboxes',
-    steps: ['Lookup lockbox serial', 'Locate master code', 'Issue physical replacement'],
-    requiredInformation: ['Lockbox Serial', 'Property Address'],
-    output: 'Working replacement lockbox assigned.',
-    tags: ['lockbox', 'operations'],
+    name: 'Marketing Request',
+    trigger: 'Agent requests listing marketing, social post, flyer, video help, open house promotion, business cards, sign/rider support, branding, or event marketing.',
+    purpose: 'Melissa owns marketing but should not be buried in unclear requests, missing assets, last-minute asks, or scattered agent communication.',
+    ownerPositionId: 'pos_melissa',
+    roleId: 'role_listing_launch',
+    steps: [
+      'Request enters Ask Nest Ops.',
+      'Shapework classifies it as marketing.',
+      'System collects agent name, office, listing address if applicable, MLS/live date, request type, deadline, assets needed, print or digital format, and approval needs.',
+      'Shapework can generate a first draft (caption, copy, reel script, etc.).',
+      'Melissa reviews, edits, or approves.',
+      'Final asset is delivered.',
+      'Completed request is saved as a reusable template.'
+    ],
+    requiredInformation: ['Agent Name', 'Office', 'Request Type', 'Assets Needed', 'Deadline'],
+    output: 'Marketing asset delivered and reusable template created.',
+    tags: ['marketing', 'branding'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
   {
-    id: 'sop_compliance',
+    id: 'sop_office_ops',
     workspaceId: 'nest-realty-demo',
-    name: 'Compliance question',
-    trigger: 'Agent asks about legal addendum',
-    purpose: 'Verify compliance on customized addendum forms.',
-    ownerPositionId: 'pos_bic',
-    roleId: 'role_compliance',
-    steps: ['Review standard NCREC guidelines', 'Draft custom addendum language', 'Verify broker signature'],
-    requiredInformation: ['Client Name', 'Addendum Type'],
-    output: 'Compliant addendum prepared.',
-    tags: ['compliance', 'legal'],
+    name: 'Office Operations Request',
+    trigger: 'Request relates to room booking, vendor issue, cleaning, supplies, sign/lockbox inventory, event support, maintenance, office space, or general office operations.',
+    purpose: 'Ann owns the operational backbone of the brokerage: office readiness, vendors, supplies, signs, lockboxes, events, facilities, reservations, and physical assets.',
+    ownerPositionId: 'pos_ann',
+    roleId: 'role_ops',
+    steps: [
+      'Request enters Ask Nest Ops.',
+      'Shapework classifies it as operations.',
+      'System collects office location, request type, date needed, urgency, vendor involved if any, and photo/file if applicable.',
+      'Ann receives the task.',
+      'If a vendor is needed, Shapework references the approved vendor list.',
+      'Status is updated.',
+      'Requester is notified.',
+      'Repeated issues are surfaced to Ryan.'
+    ],
+    requiredInformation: ['Office Location', 'Request Type', 'Date Needed', 'Urgency Level'],
+    output: 'Operations request resolved, checklist verified.',
+    tags: ['operations', 'facilities'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -832,6 +923,17 @@ const DEFAULT_CONNECTIONS: OrgConnection[] = [
     escalationPolicyIds: ['esc_compliance_risk'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'con_eric_ryan',
+    workspaceId: 'nest-realty-demo',
+    fromPositionId: 'pos_eric',
+    toPositionId: 'pos_ryan',
+    label: 'Risk & Compliance Escalation',
+    sopIds: [],
+    escalationPolicyIds: ['esc_compliance_risk_eric'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -860,6 +962,23 @@ const DEFAULT_ESCALATIONS: EscalationPolicy[] = [
     trigger: 'Regulatory notice or contract dispute',
     condition: 'if task overdue by 12h or legal risk flag set',
     fromPositionId: 'pos_bic',
+    escalateToPositionId: 'pos_ryan',
+    responseWindow: '1 hour',
+    urgency: 'urgent',
+    channels: ['dashboard', 'slack', 'phone'],
+    requiredContext: ['Notice description', 'Involved agent'],
+    recommendedNextAction: 'Brief the legal counsel and notify BIC',
+    saveToKnowledgeBase: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'esc_compliance_risk_eric',
+    workspaceId: 'nest-realty-demo',
+    name: 'Compliance/legal risk',
+    trigger: 'Regulatory notice or contract dispute',
+    condition: 'if task overdue by 12h or legal risk flag set',
+    fromPositionId: 'pos_eric',
     escalateToPositionId: 'pos_ryan',
     responseWindow: '1 hour',
     urgency: 'urgent',
@@ -1047,7 +1166,7 @@ export const DEFAULT_KNOWLEDGE_DOCUMENTS: OrgKnowledgeDocument[] = [
     fileName: 'compliance_sop.md',
     fileSizeBytes: 95000,
     mimeType: 'text/markdown',
-    uploadedBy: 'BIC Office',
+    uploadedBy: 'Jessica Keenan',
     uploadedAt: new Date().toISOString(),
     aiSummary: 'Process for reviewing contract disclosures and escalations for legal review.',
     extractionStatus: 'extracted',
@@ -1083,6 +1202,34 @@ export const DEFAULT_KNOWLEDGE_DOCUMENTS: OrgKnowledgeDocument[] = [
   }
 ];
 
+const DEFAULT_LOGIC_NODES: OrgLogicNode[] = [
+  {
+    id: 'node_intake',
+    workspaceId: 'nest-realty-demo',
+    type: 'intake_trigger',
+    label: 'Inbound request',
+    description: 'Triggered when client or agent submits a request via email/SMS',
+    branches: ['node_split'],
+    x: 100,
+    y: 700,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'node_split',
+    workspaceId: 'nest-realty-demo',
+    type: 'logic_split',
+    label: 'Request type',
+    description: 'Splits requests based on category and routes to owners',
+    conditions: ['Finance / Closings', 'Marketing / Branding', 'Office / Lockboxes'],
+    branches: ['pos_james', 'pos_melissa', 'pos_ann'],
+    x: 400,
+    y: 700,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 export const orgChartService = {
   getOrgChart(workspaceId: string): OrgModel {
     const key = `org_chart_${workspaceId}`;
@@ -1094,14 +1241,46 @@ export const orgChartService = {
           parsed.knowledgeDocuments = DEFAULT_KNOWLEDGE_DOCUMENTS.filter(d => d.workspaceId === workspaceId);
         }
         if (parsed.positions) {
+          // Detect if we need to migrate reporting hierarchy and positions' coordinates to new defaults
+          const needsMigration = parsed.positions.some((p: any) => 
+            p.id === 'pos_james' && p.reportsToPositionId === 'pos_ryan'
+          ) || parsed.positions.some((p: any) => p.id === 'pos_ryan' && p.x === 400);
+
           parsed.positions = parsed.positions.map((p: any) => {
             const seedPos = DEFAULT_POSITIONS.find(dp => dp.id === p.id);
             const status = p.status || seedPos?.status || 'active';
-            const avatarCrop = p.avatarCrop || { x: 0, y: 0, scale: 1, rotation: 0, cropShape: 'circle' };
-            if (seedPos && !p.avatarUrl) {
-              return { ...p, status, avatarCrop, avatarUrl: seedPos.avatarUrl };
+            let avatarCrop = p.avatarCrop || seedPos?.avatarCrop || { x: 0, y: 0, scale: 1, rotation: 0, cropShape: 'circle' };
+            if (p.id === 'pos_eric') {
+              avatarCrop = { x: 0, y: 35, scale: 0.8, rotation: 0, cropShape: 'circle' };
             }
-            return { ...p, status, avatarCrop };
+            
+            let updated = { ...p, status, avatarCrop };
+            if (seedPos) {
+              if (!p.avatarUrl) {
+                updated.avatarUrl = seedPos.avatarUrl;
+              }
+              if (!p.backupPositionId || p.backupPositionId === '') {
+                updated.backupPositionId = seedPos.backupPositionId;
+              }
+              if (p.id === 'pos_eric') {
+                updated.name = seedPos.name;
+                updated.title = seedPos.title;
+                updated.roleIds = seedPos.roleIds;
+                updated.backupPositionId = seedPos.backupPositionId;
+                updated.visibilityLevel = seedPos.visibilityLevel;
+                updated.avatarUrl = seedPos.avatarUrl;
+              }
+              if (p.id === 'pos_bic') {
+                updated.backupPositionId = seedPos.backupPositionId;
+              }
+            }
+            if (needsMigration && seedPos) {
+              updated.reportsToPositionId = seedPos.reportsToPositionId;
+              updated.x = seedPos.x;
+              updated.y = seedPos.y;
+              updated.department = seedPos.department;
+            }
+            return updated;
           });
           
           const requiredPosIds = ['pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
@@ -1113,6 +1292,26 @@ export const orgChartService = {
               }
             }
           });
+
+          // Ensure Eric's duplicate connections, escalations, and SOPs are present in cached storage
+          if (parsed.connections) {
+            if (!parsed.connections.some((c: any) => c.id === 'con_eric_ryan')) {
+              const seedConn = DEFAULT_CONNECTIONS.find(c => c.id === 'con_eric_ryan');
+              if (seedConn) parsed.connections.push({ ...seedConn });
+            }
+          }
+          if (parsed.escalationPolicies) {
+            if (!parsed.escalationPolicies.some((e: any) => e.id === 'esc_compliance_risk_eric')) {
+              const seedEsc = DEFAULT_ESCALATIONS.find(e => e.id === 'esc_compliance_risk_eric');
+              if (seedEsc) parsed.escalationPolicies.push({ ...seedEsc });
+            }
+          }
+          if (parsed.sops) {
+            if (!parsed.sops.some((s: any) => s.id === 'sop_bic_compliance_eric')) {
+              const seedSop = DEFAULT_SOPS.find(s => s.id === 'sop_bic_compliance_eric');
+              if (seedSop) parsed.sops.push({ ...seedSop });
+            }
+          }
         }
         if (parsed.roles) {
           const requiredRoleIds = ['role_coo', 'role_front_desk', 'role_va', 'role_ai_ops'];
@@ -1126,6 +1325,9 @@ export const orgChartService = {
           });
         }
         parsed.logicNodes = parsed.logicNodes || [];
+        if (parsed.logicNodes.length === 0) {
+          parsed.logicNodes = DEFAULT_LOGIC_NODES.map(ln => ({ ...ln, workspaceId }));
+        }
         return parsed;
       } catch (e) {
         console.error("Failed to parse cached org chart, using defaults", e);
@@ -1144,7 +1346,7 @@ export const orgChartService = {
       escalationPolicies: DEFAULT_ESCALATIONS,
       routingMatrix: DEFAULT_ROUTING_MATRIX,
       knowledgeDocuments: DEFAULT_KNOWLEDGE_DOCUMENTS.filter(d => d.workspaceId === workspaceId),
-      logicNodes: []
+      logicNodes: DEFAULT_LOGIC_NODES.map(ln => ({ ...ln, workspaceId }))
     };
   },
 

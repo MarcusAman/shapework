@@ -38,6 +38,7 @@ import {
   Video
 } from 'lucide-react';
 import { Profile } from '../../types/shapework';
+import { getProductProfile } from '../../config/productProfiles';
 
 interface CollapsibleNavigationRailProps {
   currentTab: string;
@@ -48,6 +49,7 @@ interface CollapsibleNavigationRailProps {
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
   appMode?: string;
+  workspaceId?: string;
 }
 
 export default function CollapsibleNavigationRail({
@@ -58,7 +60,8 @@ export default function CollapsibleNavigationRail({
   activeProfile,
   isMobileOpen,
   setIsMobileOpen,
-  appMode
+  appMode,
+  workspaceId
 }: CollapsibleNavigationRailProps) {
   const [counts, setCounts] = React.useState({ active: 0, approvals: 0 });
 
@@ -84,18 +87,18 @@ export default function CollapsibleNavigationRail({
     return () => clearInterval(interval);
   }, []);
 
-  const primaryNavItems = [
-    { name: 'Command Center', tab: 'Workboard', icon: Brain },
-    { name: 'Requests', tab: 'Work Queue', icon: Inbox, badge: counts.active },
-    { name: 'Approvals', tab: 'Approvals', icon: CheckCircle, badge: counts.approvals },
-    { name: 'Owner Brief', tab: 'Owner Brief', icon: Sparkles },
-    { name: 'Operating Record', tab: 'Operating Record', icon: Layers },
-    { name: 'Assets', tab: 'Physical Assets', icon: FolderOpen },
-    { name: 'Compliance', tab: 'Compliance', icon: Shield },
-    { name: 'Marketing', tab: 'Marketing', icon: FileText },
-    { name: 'Connections', tab: 'My Connections', icon: Link2 },
-    { name: 'Settings', tab: 'Settings', icon: Settings },
-  ];
+  const { modules } = getProductProfile(
+    activeProfile?.email,
+    activeProfile?.role,
+    workspaceId || 'nest-realty-demo'
+  );
+
+  const navItems = modules
+    .filter(m => m.visible)
+    .map(m => ({
+      ...m,
+      badge: m.tab === 'Work Queue' ? counts.active : (m.tab === 'Approvals' ? counts.approvals : undefined)
+    }));
 
   const handleToggle = () => {
     const nextVal = !collapsed;
@@ -108,9 +111,17 @@ export default function CollapsibleNavigationRail({
     setIsMobileOpen(false);
   };
 
-  const renderItem = (item: { name: string; tab: string; icon: React.ComponentType<any>; badge?: number }) => {
+  const renderItem = (item: { 
+    name: string; 
+    tab: string; 
+    icon: React.ComponentType<any>; 
+    badge?: number;
+    enabled: boolean;
+    comingSoon?: boolean;
+  }) => {
     const Icon = item.icon;
-    const isActive = currentTab === item.tab;
+    const isActive = item.enabled && currentTab === item.tab;
+    const isDisabled = !item.enabled;
 
     // Map icon components to custom animation selectors
     let animClass = 'nav-icon-motion';
@@ -124,15 +135,23 @@ export default function CollapsibleNavigationRail({
     else if (Icon === FileText) animClass += ' nav-icon-marketing';
     else if (Icon === Link2) animClass += ' nav-icon-link';
     else if (Icon === Settings) animClass += ' nav-icon-gear';
+    else if (Icon === Users) animClass += ' nav-icon-users';
 
     return (
       <button
         key={item.name}
-        onClick={() => handleNavClick(item.tab)}
+        onClick={() => {
+          if (!isDisabled) {
+            handleNavClick(item.tab);
+          }
+        }}
+        disabled={isDisabled}
         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all group relative nav-item-shell ${
-          isActive
-            ? 'nav-item-active text-white'
-            : 'text-[#F6F7F1]/70 hover:bg-white/5 hover:text-white'
+          isDisabled
+            ? 'opacity-40 cursor-not-allowed text-[#F6F7F1]/40'
+            : isActive
+              ? 'nav-item-active text-white'
+              : 'text-[#F6F7F1]/70 hover:bg-white/5 hover:text-white'
         }`}
         aria-label={
           item.tab === 'Workboard' 
@@ -144,10 +163,16 @@ export default function CollapsibleNavigationRail({
                 : item.name
         }
       >
-        <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 ${animClass} ${isActive ? 'text-white' : 'text-[#F6F7F1]/70 group-hover:text-white'}`} />
+        <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 ${animClass} ${isActive ? 'text-white' : isDisabled ? 'text-[#F6F7F1]/40' : 'text-[#F6F7F1]/70 group-hover:text-white'}`} />
         {(!collapsed || isMobileOpen) && <span className="truncate">{item.name}</span>}
         {item.tab === 'Workboard' && <span className="sr-only">Workboard</span>}
         
+        {item.comingSoon && (!collapsed || isMobileOpen) && (
+          <span className="ml-auto px-1.5 py-0.5 text-[8px] font-bold font-sans uppercase tracking-widest bg-white/10 text-[#D0D6BB]/70 rounded">
+            Soon
+          </span>
+        )}
+
         {item.badge && item.badge > 0 && (!collapsed || isMobileOpen) && (
           <span className={`ml-auto px-2 py-0.5 text-xs font-bold rounded-full ${
             isActive ? 'bg-[var(--sw-green-900)]/15 text-white' : 'bg-white/10 text-white/80'
@@ -162,7 +187,7 @@ export default function CollapsibleNavigationRail({
         {/* Custom CSS tooltips when collapsed */}
         {collapsed && !isMobileOpen && (
           <div className="absolute left-full ml-2 px-2.5 py-1 bg-stone-900 text-white text-[10px] font-bold font-sans uppercase tracking-wider rounded shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 z-50 whitespace-nowrap">
-            {item.name}
+            {item.name} {item.comingSoon ? '(Coming Soon)' : ''}
             {item.badge && item.badge > 0 ? (
               <span className="ml-1.5 px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[9px] font-bold">
                 {item.badge}
@@ -201,7 +226,7 @@ export default function CollapsibleNavigationRail({
 
       {/* Nav List */}
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 overflow-x-hidden">
-        {primaryNavItems.map(renderItem)}
+        {navItems.map(renderItem)}
       </div>
 
       {/* Support Card */}

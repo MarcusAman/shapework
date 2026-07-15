@@ -148,6 +148,7 @@ export default function AppShell({
         isMobileOpen={isMobileOpen}
         setIsMobileOpen={setIsMobileOpen}
         appMode={appMode}
+        workspaceId={workspaceId}
       />
 
       {/* Main viewport */}
@@ -173,13 +174,21 @@ export default function AppShell({
         />
 
         {/* Scrollable View Content */}
-        <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
-          <div className="max-w-[1600px] mx-auto space-y-6">
+        {currentTab === 'Role Map' || currentTab === 'Role & Escalation Map' ? (
+          <div className="flex-1 flex flex-col min-h-0 relative">
             <ErrorBoundary>
               {children}
             </ErrorBoundary>
           </div>
-        </main>
+        ) : (
+          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
+            <div className="max-w-[1600px] mx-auto space-y-6">
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </div>
+          </main>
+        )}
       </div>
 
 

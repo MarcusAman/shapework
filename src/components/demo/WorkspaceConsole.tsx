@@ -218,7 +218,7 @@ export default function WorkspaceConsole() {
         integrations={integrations}
         aiAgents={aiAgents}
       >
-        <div className="flex-1 overflow-auto">
+        <div className="flex-grow flex flex-col min-h-0">
           <ErrorBoundary>
             <CustomerAppRoutes state={state} />
           </ErrorBoundary>

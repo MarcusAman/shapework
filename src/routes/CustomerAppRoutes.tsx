@@ -65,6 +65,12 @@ import NeedsAttentionDeck from '../components/today/NeedsAttentionDeck';
 import NestOpsHub from '../components/brokerage-ops/NestOpsHub';
 import MyConnections from '../components/brokerage-ops/MyConnections';
 import { BrandingPanel, ActionLinksPanel, IntakeLinksPanel, ClientAgentAccessPanel, WebhooksPanel, ExtendedNotificationPanel } from '../components/headless/HeadlessSettings';
+import OrgChartWizardPage from '../components/settings/OrgChartWizardPage';
+import RyanShieldPage from '../components/nest-wilmington/RyanShieldPage';
+import OwnerWeeklyBriefPage from '../components/nest-wilmington/OwnerWeeklyBriefPage';
+import { buildRyanShieldSummary, buildOwnerWeeklyBrief } from '../components/nest-wilmington/adapters';
+import type { ShieldSummaryCard } from '../components/nest-wilmington/adapters';
+
 
 interface CustomerAppRoutesProps {
   state: any;
@@ -1179,6 +1185,439 @@ function OwnerBriefPage({ state }: { state: any }) {
       ) : (
         <WeeklyOwnerBrief state={state} />
       )}
+    </div>
+  );
+}
+
+const formatCurrency = (val: number) => {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+};
+
+function RyanShieldPageWrapper({ state }: { state: any }) {
+  const activeWorkItems = (state.workItems || []).filter(
+    (w: any) => w.status !== 'completed' && w.status !== 'resolved' &&
+    (w.ownerRole === 'owner' || w.approvalRequired === true || w.priority === 'critical' || w.priority === 'owner_worthy')
+  );
+
+  const mappedWorkItems = activeWorkItems.map((w: any) => ({
+    id: w.id,
+    type: w.title || w.type || 'Operational Request',
+    reason: w.recommendedNextAction || w.reason || 'Awaiting principal review.',
+    currentHandler: w.ownerRole ? w.ownerRole.replace(/_/g, ' ') : 'Unassigned',
+    recommendedAction: w.recommendedNextAction || 'Take appropriate action.',
+    responseWindow: w.priority === 'critical' ? '1 hour' : '24 hours',
+    urgency: (w.priority === 'critical' || w.priority === 'urgent' || w.priority === 'owner_worthy') ? 'urgent' : 'high'
+  }));
+
+  const waitingJobs = (state.jobs || []).filter((j: any) => j.status === 'waiting_approval');
+  const mappedJobs = waitingJobs.map((j: any) => ({
+    id: j.id,
+    type: j.workflowName || j.requestText || 'Job Approval',
+    reason: `Task waiting approval: ${j.currentStep || j.requestText || 'Approve execution'}`,
+    currentHandler: j.handler || 'Unassigned',
+    recommendedAction: 'Approve or reject execution of this automated task.',
+    responseWindow: '1 hour',
+    urgency: 'urgent'
+  }));
+
+  const needsRyan = [...mappedWorkItems, ...mappedJobs];
+
+  const protectedRaw = [
+    ...(state.workItems || []).filter((w: any) => w.category === 'interruption_avoided' || w.category === 'deflection' || w.type === 'interruption_avoided' || w.type === 'deflection'),
+    ...(state.ownerBriefItems || []).filter((item: any) => item.category === 'interruption_avoided' || item.category === 'deflection')
+  ];
+  
+  const mappedProtected = protectedRaw.map((item: any) => ({
+    id: item.id,
+    request: item.title || item.requestText || item.description || 'Routine Request',
+    routedTo: item.owner || item.ownerRole || item.assignedTo || 'Operations Team',
+    backup: 'Ryan Crecelius',
+    status: 'handled' as const,
+    timeSaved: item.timeSaved || '~25 min'
+  }));
+
+  const fallbackProtected = [
+    {
+      id: 'pr_fallback_1',
+      request: 'Listing launch for 123 Magnolia St',
+      routedTo: 'Melissa Gagliardi',
+      backup: 'Ryan Crecelius',
+      status: 'handled' as const,
+      timeSaved: '~45 min'
+    },
+    {
+      id: 'pr_fallback_2',
+      request: 'Lockbox replacement — 89 Oleander Dr',
+      routedTo: 'Ann Gunn',
+      backup: 'Ryan Crecelius',
+      status: 'handled' as const,
+      timeSaved: '~20 min'
+    },
+    {
+      id: 'pr_fallback_3',
+      request: 'Commission question — closing March deal',
+      routedTo: 'James Fort',
+      backup: 'Ryan Crecelius',
+      status: 'handled' as const,
+      timeSaved: '~30 min'
+    }
+  ];
+
+  const protectedList = mappedProtected.length > 0 ? mappedProtected : fallbackProtected;
+
+  const requiredRoles = ['operations_lead', 'marketing_coordinator', 'transaction_coordinator', 'compliance_partner'];
+  const vacantRolesKeys = requiredRoles.filter(roleKey => 
+    !(state.profiles || []).some((p: any) => p.role === roleKey && p.status === 'active')
+  );
+
+  const roleLabels: Record<string, string> = {
+    operations_lead: 'Operations Lead',
+    marketing_coordinator: 'Marketing Coordinator',
+    transaction_coordinator: 'Transaction Coordinator',
+    compliance_partner: 'Compliance Partner'
+  };
+
+  const openRoles = vacantRolesKeys.map(roleKey => ({
+    id: `risk_${roleKey}`,
+    role: roleLabels[roleKey] || roleKey,
+    status: 'open' as const,
+    gap: `Operational gaps in ${roleLabels[roleKey] || roleKey} duties.`,
+    coveringToday: 'Ryan Crecelius (backup)',
+    impactOnRyan: 'high' as const
+  }));
+
+  const summary: ShieldSummaryCard[] = [
+    {
+      id: 'needs_ryan',
+      label: 'Needs Ryan',
+      value: needsRyan.length,
+      sub: 'Items requiring principal review',
+      urgency: needsRyan.length > 0 ? 'urgent' : 'ok',
+    },
+    {
+      id: 'routed',
+      label: 'Routed Without Ryan',
+      value: 24 + protectedRaw.length,
+      sub: 'Requests handled by the team this week',
+      urgency: 'ok',
+    },
+    {
+      id: 'missing_info',
+      label: 'Missing Information',
+      value: (state.workItems || []).filter((w: any) => w.status === 'blocked').length,
+      sub: 'Requests waiting on required details',
+      urgency: 'attention',
+    },
+    {
+      id: 'overdue',
+      label: 'Overdue / Stuck',
+      value: (state.workItems || []).filter((w: any) => w.dueDate && new Date(w.dueDate) < new Date() && w.status !== 'completed').length,
+      sub: 'Items past their response window',
+      urgency: 'attention',
+    },
+    {
+      id: 'ownerless',
+      label: 'Ownerless',
+      value: (state.workItems || []).filter((w: any) => !w.ownerRole && w.status !== 'completed').length,
+      sub: 'No handler assigned yet',
+      urgency: 'attention',
+    },
+    {
+      id: 'open_role_risk',
+      label: 'Open Role Risk',
+      value: openRoles.length,
+      sub: `${openRoles.length} unfilled seat${openRoles.length !== 1 ? 's' : ''} creating coverage gaps`,
+      urgency: openRoles.length >= 2 ? 'attention' : 'ok',
+    },
+  ];
+
+  const ryanShieldData = {
+    summary,
+    needsRyan,
+    protected: protectedList,
+    openRoles
+  };
+
+  const handleAction = async (action: string, item: any) => {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (action === 'approve') {
+        const res = await fetch(`/api/work-items/${item.id}/update`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            status: 'completed',
+            userName: state.activeProfile?.name || 'Ryan Crecelius',
+            userRole: state.activeProfile?.role || 'owner'
+          })
+        });
+        if (res.ok) {
+          await state.fetchState();
+        }
+      } else if (action === 'reject') {
+        const res = await fetch(`/api/work-items/${item.id}/update`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            status: 'blocked',
+            userName: state.activeProfile?.name || 'Ryan Crecelius',
+            userRole: state.activeProfile?.role || 'owner'
+          })
+        });
+        if (res.ok) {
+          await state.fetchState();
+        }
+      } else if (action === 'delegate') {
+        const res = await fetch(`/api/work-items/${item.id}/update`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ownerRole: 'operations_lead',
+            userName: state.activeProfile?.name || 'Ryan Crecelius',
+            userRole: state.activeProfile?.role || 'owner'
+          })
+        });
+        if (res.ok) {
+          await state.fetchState();
+        }
+      } else if (action === 'request_info') {
+        const res = await fetch(`/api/work-items/${item.id}/update`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            status: 'blocked',
+            userName: state.activeProfile?.name || 'Ryan Crecelius',
+            userRole: state.activeProfile?.role || 'owner'
+          })
+        });
+        if (res.ok) {
+          await state.fetchState();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to trigger database mutation:', err);
+    }
+  };
+
+  return (
+    <div className="text-[var(--text-primary)]">
+      <RyanShieldPage data={ryanShieldData} onAction={handleAction} />
+    </div>
+  );
+}
+
+function RedesignedOwnerBriefPage({ state }: { state: any }) {
+  const briefData = buildOwnerWeeklyBrief();
+
+  const wsId = state.workspaceId || state.activeWorkspaceId || 'nest-realty-demo';
+  const bcConnection = (state.basecampConnections || []).find(
+    (c: any) => c.workspaceId === wsId && c.status === 'connected'
+  );
+  const bcSignals = (state.basecampSignals || []).filter(
+    (s: any) => s.workspaceId === wsId
+  );
+
+  const overdueTasks = bcSignals.filter((s: any) => s.signalType === 'todo_overdue');
+  const unassignedWork = bcSignals.filter((s: any) => s.signalType === 'todo_unassigned');
+  const ownerMentions = bcSignals.filter((s: any) => s.signalType === 'owner_mentioned');
+  const stuckFollowups = bcSignals.filter((s: any) => 
+    s.signalType === 'task_stuck' || 
+    s.signalType === 'marketing_request_detected' || 
+    s.signalType === 'event_task_detected' || 
+    s.signalType === 'office_issue_detected' || 
+    s.signalType === 'vendor_followup_detected'
+  );
+
+  const googleConn = (state.googleConnections || []).find((c: any) => c.workspaceId === wsId && c.status === 'connected');
+  const msConn = (state.microsoftConnections || []).find((c: any) => c.workspaceId === wsId && c.status === 'connected');
+
+  const syncedEmailsCount = (state.emailMessages || []).filter((m: any) => !m.workspaceId || m.workspaceId === wsId).length;
+  const syncedEventsCount = (state.calendarEvents || []).filter((e: any) => !e.workspaceId || e.workspaceId === wsId).length;
+  const pendingOutboxCount = (state.actionProposals || []).filter((p: any) => p.action_type === 'draft_email' && p.state === 'suggested').length;
+
+  const totalActive = (state.transactions || []).filter((t: any) => t.current_stage !== 'closed');
+  const complianceRisks = (state.jobs || []).filter((j: any) => 
+    j.status !== 'completed' && 
+    (j.workflowKey === 'closing_compliance_risk' || j.workflowKey === 'missing_document' || j.workflowKey === 'compliance_chase')
+  );
+  const filesWaitingOnAgents = (state.jobs || []).filter((j: any) => 
+    j.status === 'blocked' || 
+    (j.requestText || '').toLowerCase().includes('agent')
+  );
+  const marketingBottlenecks = (state.jobs || []).filter((j: any) => 
+    j.status !== 'completed' && 
+    j.workflowKey === 'marketing_request'
+  );
+  const officeIssues = (state.jobs || []).filter((j: any) => 
+    j.status !== 'completed' && 
+    (j.workflowKey === 'office_readiness' || j.workflowKey === 'facilities_issue' || j.workflowKey === 'sign_low_stock')
+  );
+
+  return (
+    <div className="text-[var(--text-primary)] select-text space-y-6">
+      <div className="flex justify-between items-center border-b border-[rgba(23,59,52,0.12)] pb-4 select-none">
+        <div>
+          <h1 className="font-sans font-[650] text-[30px] leading-[1.15] tracking-tight text-[#173B34]">Owner Brief</h1>
+          <p className="font-sans text-xs font-medium text-[#52675F]">Weekly Owner Brief & Shield</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <OwnerWeeklyBriefPage data={briefData} />
+        </div>
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white border border-[var(--border-soft)] rounded-[18px] p-6 space-y-5 shadow-sm text-left">
+            <h4 className="font-serif font-black text-sm uppercase tracking-wider text-[var(--text-primary)]">
+              Integration Telemetry
+            </h4>
+            
+            {/* QuickBooks Financial Insights */}
+            <div>
+              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">QuickBooks Financials (30d)</span>
+              {(() => {
+                const qbConnection = (state.quickbooksConnections || []).find(
+                  (c: any) => c.workspaceId === wsId
+                );
+                if (qbConnection && qbConnection.plSummary) {
+                  return (
+                    <div className="mt-2 space-y-2 text-[10px] text-[var(--text-secondary)]">
+                      <div className="flex justify-between">
+                        <span>Net Income:</span>
+                        <span className={`font-mono font-bold ${qbConnection.plSummary.netIncome >= 0 ? 'text-[var(--accent)] font-bold' : 'text-[var(--danger)] font-bold'}`}>
+                          {formatCurrency(qbConnection.plSummary.netIncome)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Income:</span>
+                        <span className="font-bold text-[var(--text-primary)] font-mono">{formatCurrency(qbConnection.plSummary.totalIncome)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Expenses:</span>
+                        <span className="font-mono text-[var(--text-muted)]">{formatCurrency(qbConnection.plSummary.totalExpenses)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="mt-2 p-2 border border-dashed border-[var(--border-default)] rounded-xl text-center">
+                    <span className="text-[10px] text-[var(--text-secondary)] block">QuickBooks not connected</span>
+                  </div>
+                );
+              })()}
+            </div>
+            
+            {/* QuickBooks Online Signal Audit */}
+            {(() => {
+              const qbSignals = (state.financeSignals || []).filter(
+                (s: any) => s.workspaceId === wsId && s.sourceSystem === 'quickbooks'
+              );
+              if (qbSignals.length === 0) return null;
+              return (
+                <div className="border-t border-[var(--border-default)] pt-3">
+                  <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">QuickBooks Signals</span>
+                  <div className="mt-2 space-y-1.5 max-h-[150px] overflow-y-auto">
+                    {qbSignals.map((sig: any) => (
+                      <div key={sig.id} className="p-2 bg-[var(--surface-secondary)] border border-[var(--border-subtle)] rounded-lg text-[9px] space-y-1 leading-normal text-left">
+                        <div className="flex justify-between items-center font-mono">
+                          <span className={`px-1.5 rounded uppercase font-bold text-[7px] ${
+                            sig.signalType === 'payment_received' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' :
+                            sig.signalType === 'deposit_received' ? 'bg-blue-50 text-blue-750 border border-blue-200/50' :
+                            'bg-amber-50 text-amber-700 border border-amber-200/50'
+                          }`}>
+                            {sig.signalType.replace('_', ' ')}
+                          </span>
+                          <span className="text-[#D0D6BB]">{sig.date}</span>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-primary)] font-medium leading-relaxed">{sig.summary}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {/* Basecamp Audit */}
+            <div className="border-t border-[var(--border-default)] pt-3 text-left">
+              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">Basecamp Telemetry</span>
+              {bcConnection ? (
+                <div className="mt-2 space-y-1.5 text-[10px] text-[var(--text-secondary)]">
+                  <div className="flex justify-between">
+                    <span>Overdue Tasks:</span>
+                    <span className={`font-mono font-bold ${overdueTasks.length > 0 ? 'text-[var(--danger)] font-bold' : ''}`}>{overdueTasks.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Unassigned Work:</span>
+                    <span className="font-mono font-bold text-[var(--text-primary)]">{unassignedWork.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Owner Mentions:</span>
+                    <span className={`font-mono font-bold ${ownerMentions.length > 0 ? 'text-[var(--accent)] font-bold' : ''}`}>{ownerMentions.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Stuck Items:</span>
+                    <span className={`font-mono font-bold ${stuckFollowups.length > 0 ? 'text-[var(--warning)] font-bold' : ''}`}>{stuckFollowups.length}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 p-2 border border-dashed border-[var(--border-default)] rounded-xl text-center">
+                  <span className="text-[10px] text-[var(--text-secondary)] block">Basecamp not connected</span>
+                </div>
+              )}
+            </div>
+
+            {/* Email / Calendar Audit */}
+            <div className="border-t border-[var(--border-default)] pt-3 text-left">
+              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">Communication Audit</span>
+              <div className="mt-2 space-y-1.5 text-[10px] text-[var(--text-secondary)]">
+                <div className="flex justify-between">
+                  <span>Synced Emails:</span>
+                  <span className="font-mono font-bold text-[var(--text-primary)]">{syncedEmailsCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Calendar Events:</span>
+                  <span className="font-mono font-bold text-[var(--text-primary)]">{syncedEventsCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pending Outbox:</span>
+                  <span className={`font-mono font-bold ${pendingOutboxCount > 0 ? 'text-[var(--accent)] font-bold' : ''}`}>{pendingOutboxCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Mail Sync:</span>
+                  <span className="font-mono text-[var(--text-muted)]">{googleConn || msConn ? 'Active' : 'Offline'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Operational Risks */}
+            <div className="border-t border-[var(--border-default)] pt-3 text-left">
+              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">Operations Risks</span>
+              <div className="mt-2 space-y-1.5 text-[10px] text-[var(--text-secondary)]">
+                <div className="flex justify-between">
+                  <span>Active Transactions:</span>
+                  <span className="font-mono font-bold text-[var(--text-primary)]">{totalActive.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Compliance Risks:</span>
+                  <span className={`font-mono font-bold ${complianceRisks.length > 0 ? 'text-[var(--danger)] font-bold' : ''}`}>{complianceRisks.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Waiting on Agents:</span>
+                  <span className="font-mono font-bold text-[var(--text-primary)]">{filesWaitingOnAgents.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Marketing Bottlenecks:</span>
+                  <span className="font-mono font-bold text-[var(--text-primary)]">{marketingBottlenecks.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Office Issues:</span>
+                  <span className={`font-mono font-bold ${officeIssues.length > 0 ? 'text-[var(--warning)] font-bold' : ''}`}>{officeIssues.length}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2885,7 +3324,14 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
         return <PeopleOwnershipPage state={state} />;
       case 'Office':
         return <OfficeSignagePage state={state} />;
+      case 'Ryan Shield':
+        return <RyanShieldPageWrapper state={state} />;
+      case 'Role Map':
+        return <OrgChartWizardPage state={state} embeddedTab="visual" />;
       case 'Owner Brief':
+        if (state.activeProfile?.email === 'ryan@nestrealty.com') {
+          return <RedesignedOwnerBriefPage state={state} />;
+        }
         return <OwnerBriefPage state={state} />;
       case 'Audit':
         return <AuditPage state={state} />;

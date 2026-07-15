@@ -160,3 +160,41 @@ export async function getGoogleAccessToken(
     throw err;
   }
 }
+
+export async function verifyGoogleConnection(
+  connection: WorkspaceIntegrationConnection,
+  dbState: any,
+  saveStateCallback: () => Promise<void>
+): Promise<{ verified: boolean; email?: string; error?: string }> {
+  const isProd = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
+  const isMock = !isProd && (process.env.APP_MODE === 'development' || !process.env.GOOGLE_CLIENT_ID);
+
+  if (isMock) {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      return { 
+        verified: false, 
+        error: 'Unconfigured OAuth credentials: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured in environment variables to authorize Google Workspace.' 
+      };
+    }
+  }
+
+  try {
+    const accessToken = await getGoogleAccessToken(connection, dbState, saveStateCallback);
+
+    const oauth2Client = getOAuthClient();
+    oauth2Client.setCredentials({
+      access_token: accessToken
+    });
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
+
+    if (userInfo.data && userInfo.data.email) {
+      return { verified: true, email: userInfo.data.email };
+    }
+
+    return { verified: false, error: 'Google API UserInfo call succeeded but did not return email.' };
+  } catch (err: any) {
+    console.error('[Google OAuth Verification] Verification failed:', err.message);
+    return { verified: false, error: `Google API verification failed: ${err.message}` };
+  }
+}
