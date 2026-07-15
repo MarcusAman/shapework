@@ -575,6 +575,15 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
           );
 
+          let listener: ((e: MessageEvent) => void) | null = null;
+          
+          const cleanUpListener = () => {
+            if (listener) {
+              window.removeEventListener('message', listener);
+              listener = null;
+            }
+          };
+
           const interval = setInterval(async () => {
             try {
               const statusEndpoint = target.provider === 'dotloop'
@@ -588,6 +597,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 if (statusData.connected || statusData.status === 'connected') {
                   popup?.close();
                   clearInterval(interval);
+                  cleanUpListener();
                   const updated = [...integrationsList];
                   updated[idx].status = 'Connected';
                   if (statusData.providerAccountEmail) {
@@ -603,8 +613,51 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             }
           }, 1500);
 
+          listener = async (event: MessageEvent) => {
+            if (event.origin !== window.location.origin) return;
+            const data = event.data;
+            if (data && data.type === 'SHAPEWORK_GOOGLE_OAUTH_COMPLETE' && data.provider === 'google') {
+              cleanUpListener();
+              clearInterval(interval);
+              popup?.close();
+              
+              if (data.status === 'success') {
+                try {
+                  const statusRes = await fetch(`/api/integrations/google/status?workspaceId=${workspaceId}`, {
+                    headers: { 'x-workspace-id': workspaceId }
+                  });
+                  if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    const updated = [...integrationsList];
+                    const googleCards = ['Gmail', 'Google Calendar', 'Google Drive'];
+                    
+                    googleCards.forEach(name => {
+                      const itemIdx = updated.findIndex(item => item.name === name);
+                      if (itemIdx !== -1) {
+                        updated[itemIdx].status = 'Connected';
+                        if (statusData.providerAccountEmail) {
+                          updated[itemIdx].lastSync = `account: ${statusData.providerAccountEmail}`;
+                        } else {
+                          updated[itemIdx].lastSync = 'Active';
+                        }
+                      }
+                    });
+                    setIntegrationsList(updated);
+                  }
+                } catch (fetchErr) {
+                  console.error('[OAuth PostMessage Status Fetch Failed]', fetchErr);
+                }
+              } else {
+                alert(`Google authentication failed: ${data.error || 'Unknown error'}`);
+              }
+            }
+          };
+
+          window.addEventListener('message', listener);
+
           setTimeout(() => {
             clearInterval(interval);
+            cleanUpListener();
           }, 120000);
         } else {
           alert(`Could not retrieve OAuth link for ${toolName}`);

@@ -161,19 +161,38 @@ export async function getGoogleAccessToken(
   }
 }
 
+export const GOOGLE_WORKSPACE_SCOPES = [
+  'openid',
+  'https://www.googleapis.com/auth/userinfo.profile',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/calendar.events.readonly',
+  'https://www.googleapis.com/auth/drive.readonly'
+];
+
 export async function verifyGoogleConnection(
   connection: WorkspaceIntegrationConnection,
   dbState: any,
   saveStateCallback: () => Promise<void>
-): Promise<{ verified: boolean; email?: string; error?: string }> {
+): Promise<{ 
+  verified: boolean; 
+  email?: string; 
+  error?: string;
+  capabilities: { gmail: boolean; calendar: boolean; drive: boolean };
+  missingPermissions: string[];
+}> {
   const isProd = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
   const isMock = !isProd && (process.env.APP_MODE === 'development' || !process.env.GOOGLE_CLIENT_ID);
+
+  const defaultCaps = { gmail: false, calendar: false, drive: false };
 
   if (isMock) {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
       return { 
         verified: false, 
-        error: 'Unconfigured OAuth credentials: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured in environment variables to authorize Google Workspace.' 
+        error: 'Unconfigured OAuth credentials: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured in environment variables to authorize Google Workspace.',
+        capabilities: defaultCaps,
+        missingPermissions: GOOGLE_WORKSPACE_SCOPES
       };
     }
   }
@@ -188,13 +207,46 @@ export async function verifyGoogleConnection(
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
 
-    if (userInfo.data && userInfo.data.email) {
-      return { verified: true, email: userInfo.data.email };
+    if (!userInfo.data || !userInfo.data.email) {
+      return { 
+        verified: false, 
+        error: 'Google API UserInfo call succeeded but did not return email.',
+        capabilities: defaultCaps,
+        missingPermissions: GOOGLE_WORKSPACE_SCOPES
+      };
     }
 
-    return { verified: false, error: 'Google API UserInfo call succeeded but did not return email.' };
+    const email = userInfo.data.email;
+    const grantedScopes = connection.scopes || [];
+
+    const hasGmail = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/gmail.send' || s === 'https://mail.google.com/');
+    const hasCalendar = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/calendar.events.readonly' || s === 'https://www.googleapis.com/auth/calendar.readonly' || s === 'https://www.googleapis.com/auth/calendar');
+    const hasDrive = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/drive.readonly' || s === 'https://www.googleapis.com/auth/drive.metadata.readonly' || s === 'https://www.googleapis.com/auth/drive');
+
+    const capabilities = {
+      gmail: hasGmail,
+      calendar: hasCalendar,
+      drive: hasDrive
+    };
+
+    const missingPermissions: string[] = [];
+    if (!hasGmail) missingPermissions.push('gmail');
+    if (!hasCalendar) missingPermissions.push('calendar');
+    if (!hasDrive) missingPermissions.push('drive');
+
+    return {
+      verified: true,
+      email,
+      capabilities,
+      missingPermissions
+    };
   } catch (err: any) {
     console.error('[Google OAuth Verification] Verification failed:', err.message);
-    return { verified: false, error: `Google API verification failed: ${err.message}` };
+    return { 
+      verified: false, 
+      error: `Google API verification failed: ${err.message}`,
+      capabilities: defaultCaps,
+      missingPermissions: GOOGLE_WORKSPACE_SCOPES
+    };
   }
 }

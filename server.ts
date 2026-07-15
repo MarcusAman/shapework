@@ -1830,7 +1830,22 @@ app.post('/api/workflows/evaluate', requireAuth, resolveWorkspaceContext, requir
     quickbooksConnections: (dbState.quickbooksConnections || []).filter((c: any) => !c.workspaceId || c.workspaceId === wsId),
     basecampSignals: (dbState.basecampSignals || []).filter((s: any) => !s.workspaceId || s.workspaceId === wsId),
     basecampConnections: (dbState.basecampConnections || []).filter((c: any) => !c.workspaceId || c.workspaceId === wsId),
-    workspaceIntegrationConnections: (dbState.workspaceIntegrationConnections || []).filter((c: any) => !c.workspaceId || c.workspaceId === wsId),
+    workspaceIntegrationConnections: (dbState.workspaceIntegrationConnections || [])
+      .filter((c: any) => !c.workspaceId || c.workspaceId === wsId)
+      .map((c: any) => ({
+        id: c.id,
+        workspaceId: c.workspaceId,
+        provider: c.provider,
+        status: c.status,
+        connectedByUserId: c.connectedByUserId,
+        connectedAt: c.connectedAt,
+        disconnectedAt: c.disconnectedAt,
+        providerAccountId: c.providerAccountId,
+        providerAccountEmail: c.providerAccountEmail,
+        scopes: c.scopes,
+        lastSyncedAt: c.lastSyncedAt,
+        lastError: c.lastError
+      })),
     workspaceCommunicationSignals: (dbState.workspaceCommunicationSignals || []).filter((s: any) => !s.workspaceId || s.workspaceId === wsId),
     externalActionApprovals: (dbState.externalActionApprovals || []).filter((a: any) => !a.workspaceId || a.workspaceId === wsId)
   };
