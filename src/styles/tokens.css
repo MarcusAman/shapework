@@ -4,42 +4,94 @@
  */
 
 :root {
-  --app-bg: #F5F5F0;             /* Warm ivory / soft limestone */
-  --surface: #ffffff;
-  --surface-muted: #FAF9F6;
-  --surface-subtle: #ECEBE6;
-  --sidebar-bg: #052D28;          /* Deep evergreen / hunter green */
-  --border-soft: #DAD9D3;
-  --border-medium: #C3C2BC;
-  --text-primary: #052D28;        /* Primary text: Deep evergreen */
-  --text-secondary: #005A50;      /* Accent text: Rich teal / peacock green */
-  --text-tertiary: #757D74;
-  --brand-primary: #052D28;       /* Primary brand: Deep evergreen */
-  --brand-primary-hover: #03201c;
-  --brand-soft: #EAF4F2;          /* Accent color / pale mint */
-  --risk-red: #b42318;
-  --risk-red-soft: #fff1f0;
-  --warning: #b7791f;
-  --warning-soft: #fff8e6;
-  --success: #005A50;             /* Success: Rich teal / peacock green */
-  --success-soft: #EAF4F2;
-  --info: #315f7c;
-  --info-soft: #edf5fa;
-  --shadow-card: 0 1px 2px rgba(5, 45, 40, 0.04), 0 10px 30px rgba(5, 45, 40, 0.05);
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  /* Base - Forest Green canvas with warm cream text */
+  --sw-bg: #01362D;           /* Forest Green */
+  --sw-bg-soft: rgba(246, 247, 241, 0.075); /* Dark translucent glass base */
+  --sw-surface: rgba(246, 247, 241, 0.08);  /* Translucent white glass */
+  --sw-card: rgba(246, 247, 241, 0.08);     /* Translucent white glass */
+
+  /* Brand Colors */
+  --sw-green-900: #01362D;    /* Forest Green */
+  --sw-green-700: #00635C;    /* Emerald Accent */
+  --sw-green-500: #8CA08E;    /* Moss Green */
+  --sw-mint-100: #D0D6BB;     /* Pistachio */
+
+  /* Accent Colors */
+  --sw-gold-600: #D0D6BB;     /* Pistachio / Soft gold alternative */
+  --sw-amber-500: #D8A755;
+  --sw-coral-500: #D96B5F;
+
+  /* Typography / Text Colors (Calm Warm Contrast) */
+  --sw-text: #F6F7F1;         /* Mist */
+  --sw-muted: #D0D6BB;        /* Pistachio secondary text */
+  --sw-muted-light: rgba(246, 247, 241, 0.6); /* Soft Muted Mist */
+
+  /* System States */
+  --sw-success: #00635C;      /* Emerald */
+  --sw-warning: #D0D6BB;      /* Pistachio/Gold */
+  --sw-risk: #D96B5F;         /* Muted Coral Red */
+  --sw-info: #D0D6BB;
+
+  /* Organic Borders */
+  --sw-border: rgba(246, 247, 241, 0.14); /* Thin translucent mist line */
+  --sw-border-strong: rgba(208, 214, 187, 0.3);
+
+  /* Neumorphic Extrusions on Green base background */
+  --sw-shadow-soft:
+    18px 18px 40px rgba(0, 0, 0, 0.28),
+    -10px -10px 28px rgba(255, 255, 255, 0.035),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.08);
+
+  --sw-shadow-raised:
+    22px 22px 48px rgba(0, 0, 0, 0.32),
+    -12px -12px 32px rgba(255, 255, 255, 0.045),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.12);
+
+  --sw-shadow-inset:
+    inset 8px 8px 18px rgba(0, 0, 0, 0.28),
+    inset -6px -6px 16px rgba(255, 255, 255, 0.04);
+
+  --sw-shadow-focus:
+    0 0 0 3px rgba(0, 99, 92, 0.4);
+
+  /* Rounded Corner Radii */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
 
   /* Backward Compatibility Mappings */
+  --app-bg: var(--sw-bg);
+  --surface: var(--sw-surface);
+  --surface-muted: var(--sw-card);
+  --surface-subtle: var(--sw-bg-soft);
+  --sidebar-bg: var(--sw-green-900);
+  --border-soft: var(--sw-border);
+  --border-medium: var(--sw-border-strong);
+  --text-primary: var(--sw-text);
+  --text-secondary: var(--sw-mint-100);
+  --text-tertiary: var(--sw-muted);
+  --brand-primary: var(--sw-green-900);
+  --brand-primary-hover: var(--sw-green-700);
+  --brand-soft: var(--sw-mint-100);
+  --risk-red: var(--sw-risk);
+  --risk-red-soft: rgba(217, 107, 95, 0.12);
+  --warning: var(--sw-warning);
+  --warning-soft: rgba(208, 214, 187, 0.12);
+  --success: var(--sw-success);
+  --success-soft: rgba(0, 99, 92, 0.12);
+  --info: var(--sw-info);
+  --info-soft: rgba(208, 214, 187, 0.12);
+  --shadow-card: var(--sw-shadow-soft);
+  
   --brand-900: var(--brand-primary);
   --brand-800: var(--brand-primary-hover);
-  --brand-700: #03201c;
+  --brand-700: #004d47;
   --brand-100: var(--brand-soft);
   --accent-blue: var(--info);
   --accent-amber: var(--warning);
   --accent-red: var(--risk-red);
   --accent-green: var(--success);
   --shadow-soft: var(--shadow-card);
-  --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

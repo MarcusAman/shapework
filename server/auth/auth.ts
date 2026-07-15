@@ -96,6 +96,7 @@ export function setWorkspaceUsersResolver(resolver: () => any[]) {
   workspaceUsersResolver = resolver;
 }
 
+// Middleware: Authenticate Session Token
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const APP_MODE = process.env.APP_MODE || 'development';
   
@@ -111,8 +112,6 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   if (!token && authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
   }
-
-  console.log(`[requireAuth] Path: ${req.path}, Cookie Header: ${cookieHeader || 'none'}, Auth Header: ${authHeader || 'none'}, Resolved Token: ${token}`);
 
   if (!token && req.query.token) {
     token = String(req.query.token);
@@ -294,12 +293,4 @@ export function requirePermission(permission: string) {
     }
     next();
   };
-}
-// Middleware: Require Shapework Internal Operator/Developer roles
-export function requireInternal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const allowedRoles = ['admin', 'shapework_admin', 'shapework_operator', 'implementation_lead', 'support_admin', 'developer'];
-  if (!req.authUser || !allowedRoles.includes(req.authUser.role)) {
-    return res.status(403).json({ error: 'Forbidden', message: 'Restricted to shapework administrative and engineering staff.' });
-  }
-  next();
 }

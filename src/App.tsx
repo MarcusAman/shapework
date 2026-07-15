@@ -26,7 +26,6 @@ const PublicForgotPassword = React.lazy(() => import('./components/public/Public
 const PublicResetPassword = React.lazy(() => import('./components/public/PublicResetPassword'));
 const PublicTerms = React.lazy(() => import('./components/public/PublicTerms'));
 const PublicPrivacy = React.lazy(() => import('./components/public/PublicPrivacy'));
-const PublicAssessment = React.lazy(() => import('./components/public/PublicAssessment'));
 import { ClientDealPortal, AgentActionPortal, SmartIntakeLink } from './components/headless/HeadlessPortals';
 
 export default function App() {
@@ -89,9 +88,6 @@ export default function App() {
     } else if (currentPath === '/privacy') {
       title = "Privacy Policy | shapework.";
       desc = "Privacy Policy for shapework.";
-    } else if (currentPath === '/assessment/brokerage-operational-intelligence') {
-      title = "Brokerage Operational Intelligence Assessment | shapework.";
-      desc = "Identify workflow bottlenecks, operational leaks, and AI integration readiness.";
     }
 
     document.title = title;
@@ -247,9 +243,6 @@ export default function App() {
     }
     if (currentPath === '/field-notes' || currentPath.startsWith('/field-notes/')) {
       return <PublicFieldNotes currentPath={currentPath} onNavigate={navigate} />;
-    }
-    if (currentPath === '/assessment/brokerage-operational-intelligence') {
-      return <PublicAssessment onNavigate={navigate} />;
     }
     return <PublicHome onNavigate={navigate} />;
   };

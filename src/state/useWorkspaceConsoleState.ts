@@ -20,32 +20,6 @@ import { apiClient } from '../utils/apiClient';
 
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
-    if (path.startsWith('/internal')) {
-      const sub = path.replace('/internal', '').replace(/^\//, '');
-      if (!sub || sub === 'overview') return 'System Overview';
-      if (sub === 'workspaces') return 'Workspaces';
-      if (sub === 'workspace-detail') return 'Workspace Detail';
-      if (sub === 'integration-health') return 'Integration Health';
-      if (sub === 'webhook-delivery') return 'Webhook Delivery';
-      if (sub === 'notification-diagnostics') return 'Notification Diagnostics';
-      if (sub === 'voice-diagnostics') return 'Voice Provider Diagnostics';
-      if (sub === 'token-registry' || sub === 'action-links') return 'Action Token Registry';
-      if (sub === 'security-audit') return 'Security & Audit';
-      if (sub === 'support-console') return 'Support Console';
-      if (sub === 'feature-flags') return 'Feature Flags';
-      if (sub === 'pilot-readiness') return 'Pilot Readiness';
-      if (sub === 'system-logs') return 'System Logs';
-      if (sub === 'clients') return 'Clients';
-      if (sub === 'market-intelligence') return 'Market Intelligence';
-      if (sub.startsWith('assessments/')) return 'Assessment Detail';
-      if (sub === 'assessments') return 'Assessments';
-      if (sub === 'operational-records') return 'Operational Records';
-      if (sub === 'sop-gaps') return 'SOP Gaps';
-      if (sub === 'workflow-library') return 'Workflow Library';
-      if (sub === 'agent-activity') return 'Agent Activity';
-      if (sub === 'intake-routing') return 'Intake and Routing';
-    }
-
     const clean = path.replace(/^\/app/, '/demo');
     if (clean.startsWith('/demo/nest-ops-hub')) return 'Nest Ops Hub';
     if (clean.startsWith('/demo/my-connections')) return 'My Connections';
@@ -142,15 +116,15 @@ export function useWorkspaceConsoleState() {
 
   const setCurrentTab = useCallback((tab: string) => {
     if (typeof window === 'undefined') return;
+    if (window.location.pathname.startsWith('/internal')) return;
+
+    const nextPath = getPathFromTab(tab);
 
     setCurrentTabState(prev => {
       if (prev === tab) return prev;
       return tab;
     });
 
-    if (window.location.pathname.startsWith('/internal')) return;
-
-    const nextPath = getPathFromTab(tab);
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath);
     }

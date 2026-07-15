@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --exclude src --exclude tests --exclude public --exclude node_modules --exclude dist --exclude vite.config.ts server.ts",
+    "dev": "tsx server.ts",
     "dev:local": "node scripts/start-local-dev.mjs",
     "test:local-routes": "node scripts/check-local-routes.mjs",
     "test:quickbooks": "tsx scripts/verify-quickbooks.ts",

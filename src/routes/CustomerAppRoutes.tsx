@@ -10,7 +10,7 @@ import {
   ShieldAlert, AlertTriangle, UserPlus, CheckSquare, Square, 
   DollarSign, User, Wrench, Plus, ClipboardList, Play, Activity, Cpu,
   X, Phone, Trash2, Brain, Sparkles, AlertCircle, HelpCircle, Loader,
-  Video, Key, ChevronLeft
+  Video, Key
 } from 'lucide-react';
 import MorningBriefing from '../components/command/MorningBriefing';
 import DecisionQueue from '../components/command/DecisionQueue';
@@ -65,8 +65,6 @@ import NeedsAttentionDeck from '../components/today/NeedsAttentionDeck';
 import NestOpsHub from '../components/brokerage-ops/NestOpsHub';
 import MyConnections from '../components/brokerage-ops/MyConnections';
 import { BrandingPanel, ActionLinksPanel, IntakeLinksPanel, ClientAgentAccessPanel, WebhooksPanel, ExtendedNotificationPanel } from '../components/headless/HeadlessSettings';
-import OrgChartWizardPage from '../components/settings/OrgChartWizardPage';
-import { orgChartService } from '../services/orgChartService';
 
 interface CustomerAppRoutesProps {
   state: any;
@@ -1423,32 +1421,11 @@ function NotificationRulesPanel({ state }: { state: any }) {
 }
 
 function CustomerSettingsPage({ state }: { state: any }) {
-  const [orgModel, setOrgModel] = useState<any>(null);
-
-  useEffect(() => {
-    const model = orgChartService.getOrgChart(state.workspaceId || 'nest-realty-demo');
-    setOrgModel(model);
-  }, [state.workspaceId]);
-
   const [settingsTab, setSettingsTab] = useState<
     | 'profile'
     | 'branding'
     | 'preferences'
-    | 'visual-org-map'
-    | 'organization-chart-wizard'
   >('profile');
-
-  if (settingsTab === 'visual-org-map') {
-    return (
-      <div className="settings-workspace-mode visual-org-map-workspace">
-        <OrgChartWizardPage 
-          state={state} 
-          embeddedTab="visual" 
-          onClose={() => setSettingsTab('profile')} 
-        />
-      </div>
-    );
-  }
 
   const settingsGroups = [
     {
@@ -1456,13 +1433,10 @@ function CustomerSettingsPage({ state }: { state: any }) {
       items: [
         { id: 'profile', label: 'Workspace Profile' },
         { id: 'branding', label: 'White-Label Branding' },
-        { id: 'preferences', label: 'Workspace Preferences' },
-        { id: 'visual-org-map', label: 'Visual Org Map' },
-        { id: 'organization-chart-wizard', label: 'Organization Chart Wizard' }
+        { id: 'preferences', label: 'Workspace Preferences' }
       ]
     }
   ];
-
 
   return (
     <div className="space-y-6 text-[#F6F7F1]">
@@ -1524,77 +1498,6 @@ function CustomerSettingsPage({ state }: { state: any }) {
                 </div>
               </div>
               
-              {/* Organization & SOP Structure Card */}
-              <div className="pt-6 border-t border-[rgba(246,247,241,0.12)] space-y-4">
-                <div>
-                  <h4 className="text-xs font-serif font-black text-white uppercase tracking-wider">Organization & SOP Structure</h4>
-                  <p className="text-xs text-[#D0D6BB] mt-1 font-medium font-sans">
-                    Build the org chart, role map, SOP knowledge base, staffing plan, and escalation rules that power Ask Nest Ops routing.
-                  </p>
-                </div>
-
-                {orgModel && (() => {
-                  const activeSeats = orgModel.positions.filter((p: any) => !p.status || p.status === 'active' || p.status === 'fractional' || p.status === 'outsourced').length;
-                  const openSeats = orgModel.positions.filter((p: any) => p.status === 'open' || p.status === 'wanted').length;
-                  const plannedSeats = orgModel.positions.filter((p: any) => p.status === 'planned').length;
-                  const aiSeats = orgModel.positions.filter((p: any) => p.status === 'virtual_ai').length;
-                  const sopsCount = orgModel.sops.length;
-                  const escsCount = orgModel.escalationPolicies.length;
-
-                  return (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3.5 bg-black/20 p-4 border border-white/5 rounded-2xl font-mono text-left my-4">
-                      <div className="space-y-0.5">
-                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Active Seats</span>
-                        <strong className="text-white text-sm font-serif font-black block">{activeSeats} Positions</strong>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Open/Wanted</span>
-                        <strong className="text-amber-400 text-sm font-serif font-black block">{openSeats} Approved Gaps</strong>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Planned</span>
-                        <strong className="text-blue-300 text-sm font-serif font-black block">{plannedSeats} Future Seats</strong>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">AI / Virtual</span>
-                        <strong className="text-emerald-300 text-sm font-serif font-black block">{aiSeats} Cloud Agents</strong>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">SOPs/Docs</span>
-                        <strong className="text-white text-sm font-serif font-black block">{sopsCount} Checklists</strong>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Escalations</span>
-                        <strong className="text-white text-sm font-serif font-black block">{escsCount} Policies</strong>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const isDemo = window.location.pathname.startsWith('/demo');
-                      window.location.assign(isDemo ? '/demo/org-chart-wizard?tab=visual' : '/app/org-chart-wizard?tab=visual');
-                    }}
-                    className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white border border-[rgba(246,247,241,0.18)] shadow-[inset_1px_1px_0_rgba(255,255,255,0.1)] rounded-xl text-xs font-bold font-mono uppercase tracking-wider cursor-pointer transition-colors"
-                  >
-                    Open Visual Org Map
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const isDemo = window.location.pathname.startsWith('/demo');
-                      window.location.assign(isDemo ? '/demo/org-chart-wizard?tab=guided' : '/app/org-chart-wizard?tab=guided');
-                    }}
-                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-[#D0D6BB] border border-white/10 rounded-xl text-xs font-bold font-mono uppercase tracking-wider cursor-pointer transition-colors"
-                  >
-                    Open Organization Chart Wizard
-                  </button>
-                </div>
-              </div>
-
               <div className="pt-6 border-t border-[rgba(246,247,241,0.12)]">
                 <ToolStackMap state={state} />
               </div>
@@ -1673,16 +1576,6 @@ function CustomerSettingsPage({ state }: { state: any }) {
               </div>
             </div>
           )}
-
-
-          {/* visual-org-map tab early returned as full bleed workspace above */}
-
-          {settingsTab === 'organization-chart-wizard' && (
-            <div className="w-full max-w-none flex flex-col relative bg-[#01362D] border border-[rgba(246,247,241,0.12)] rounded-3xl overflow-hidden shadow-2xl" style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}>
-              <OrgChartWizardPage state={state} embeddedTab="guided" onClose={() => setSettingsTab('profile')} />
-            </div>
-          )}
-
         
         {/* Footer links */}
         <div className="mt-8 pt-4 border-t border-[rgba(246,247,241,0.12)] flex items-center justify-center gap-4 text-[10px] text-[#D0D6BB] pb-4 select-none">
@@ -1694,7 +1587,6 @@ function CustomerSettingsPage({ state }: { state: any }) {
         </div>
         </div>
       </div>
-
     </div>
   );
 }
@@ -2727,60 +2619,6 @@ function safeLower(value: unknown): string {
 }
 
 export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
-  const pathname =
-    typeof window !== 'undefined'
-      ? window.location.pathname.replace(/\/+$/, '')
-      : '';
-
-  // Redirect legacy nested settings routes immediately to prevent router collapse
-  if (
-    pathname === '/app/settings/org-chart-wizard' ||
-    pathname.startsWith('/app/settings/org-chart-wizard/')
-  ) {
-    if (typeof window !== 'undefined') {
-      window.location.replace('/app/org-chart-wizard');
-    }
-    return null;
-  }
-
-  if (
-    pathname === '/demo/settings/org-chart-wizard' ||
-    pathname.startsWith('/demo/settings/org-chart-wizard/')
-  ) {
-    if (typeof window !== 'undefined') {
-      window.location.replace('/demo/org-chart-wizard');
-    }
-    return null;
-  }
-
-  const isOrgChartWizardRoute =
-    pathname === '/app/org-chart-wizard' ||
-    pathname.startsWith('/app/org-chart-wizard/') ||
-    pathname === '/demo/org-chart-wizard' ||
-    pathname.startsWith('/demo/org-chart-wizard/');
-
-  if (isOrgChartWizardRoute) {
-    return (
-      <div data-route-sentinel="org-chart-wizard">
-        <OrgChartWizardPage state={state} fullPage />
-      </div>
-    );
-  }
-
-  return <CustomerAppRoutesContent state={state} />;
-}
-
-function CustomerAppRoutesContent({ state }: CustomerAppRoutesProps) {
-  const [currentPath, setCurrentPath] = useState(typeof window !== 'undefined' ? window.location.pathname : '');
-
-  useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
   const { currentTab } = state;
   const [active360Type, setActive360Type] = useState<string | null>(null);
   const [active360Id, setActive360Id] = useState<string | null>(null);
@@ -3059,19 +2897,6 @@ function CustomerAppRoutesContent({ state }: CustomerAppRoutesProps) {
         );
     }
   };
-
-  const isWizardRoute = currentPath.includes('/org-chart-wizard');
-
-  if (isWizardRoute) {
-    return (
-      <OrgChartWizardPage
-        onClose={() => {
-          window.location.assign('/app/settings');
-        }}
-        state={state}
-      />
-    );
-  }
 
   return (
     <>

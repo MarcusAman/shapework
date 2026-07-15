@@ -370,27 +370,6 @@ export async function initDatabaseSchema(pool: pg.Pool) {
     const prodMigrationSql = fs.readFileSync(prodMigrationPath, 'utf8');
     await pool.query(prodMigrationSql);
 
-    // Create assessments table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS assessment_responses (
-        id VARCHAR(100) PRIMARY KEY,
-        brokerage_name VARCHAR(255) NOT NULL,
-        respondent_name VARCHAR(255) NOT NULL,
-        email_address VARCHAR(255) NOT NULL,
-        role VARCHAR(100) NOT NULL,
-        number_of_agents VARCHAR(100) NOT NULL,
-        number_of_office_staff INTEGER DEFAULT 0,
-        number_of_locations INTEGER DEFAULT 0,
-        primary_market VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'in_progress',
-        answers JSONB NOT NULL DEFAULT '{}',
-        scores JSONB DEFAULT '{}',
-        internal_classification JSONB DEFAULT '{}',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
     console.log('[Database] Migrations executed successfully.');
   } catch (err) {
     console.error('[Database] Failed to execute migrations:', err);
@@ -454,8 +433,7 @@ const TABLE_MAPPINGS = [
   { stateKey: 'deliveries', table: 'shapework_deliveries', hasWorkspaceId: true },
   { stateKey: 'outcomes', table: 'shapework_outcomes', hasWorkspaceId: true },
   { stateKey: 'receipts', table: 'shapework_receipts', hasWorkspaceId: true },
-  { stateKey: 'ownerBriefItems', table: 'owner_brief_items', hasWorkspaceId: true },
-  { stateKey: 'assessmentResponses', table: 'assessment_responses', hasWorkspaceId: false }
+  { stateKey: 'ownerBriefItems', table: 'owner_brief_items', hasWorkspaceId: true }
 ];
 
 export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Promise<any> {
