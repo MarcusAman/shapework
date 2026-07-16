@@ -156,21 +156,21 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-4 font-sans select-none text-left">
-      <div className="w-full max-w-sm bg-surface border border-border-soft rounded-3xl p-8 shadow-card space-y-6">
+    <div className="min-h-screen bg-[#01362D] flex flex-col items-center justify-center p-4 font-sans select-none text-left">
+      <div className="w-full max-w-sm bg-[#012822]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl space-y-6">
         
         {/* Header */}
         <div className="space-y-2 text-center">
-          <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto">
-            <Lock className="w-5 h-5 text-brand-primary" />
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mx-auto">
+            <Lock className="w-5 h-5 text-[#D0D6BB]" />
           </div>
-          <h1 className="text-xl font-serif font-bold text-text-primary">
+          <h1 className="text-xl font-serif font-bold text-white">
             shapework.
           </h1>
-          <p className="text-xs text-text-secondary">
+          <p className="text-xs text-[#D0D6BB]">
             {appMode === 'production' ? 'AI Operations Console' : (isDemoPath ? 'AI Operations Command Center Demo' : 'Private Console Access')}
           </p>
-          <div className="p-3.5 bg-stone-50 border border-border-soft rounded-xl text-[10px] text-text-secondary leading-normal text-left font-light">
+          <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl text-[10px] text-white/70 leading-normal text-left font-light">
             {appMode === 'production'
               ? 'Authorized Operator access only. Authenticate with secure email credentials.'
               : (isDemoPath ? 'Private shapework. demo environment. Synthetic data only. Access is limited to approved viewers.' : 'Authorized workspace operator access only. Please enter passcode.')}
@@ -181,7 +181,7 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
           /* Production User Login Form */
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block">
                 Operator Email
               </label>
               <input
@@ -190,13 +190,13 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="operator@brokerage.com"
                 disabled={isVerifying}
-                className="w-full px-3.5 py-2.5 bg-stone-50 border border-border-soft rounded-xl text-xs text-text-primary focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#D0D6BB] focus:ring-1 focus:ring-[#D0D6BB] transition-all disabled:opacity-50"
                 autoFocus
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block">
                 Password
               </label>
               <input
@@ -205,18 +205,18 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 disabled={isVerifying}
-                className="w-full px-3.5 py-2.5 bg-stone-50 border border-border-soft rounded-xl text-xs text-text-primary focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#D0D6BB] focus:ring-1 focus:ring-[#D0D6BB] transition-all disabled:opacity-50"
               />
             </div>
 
             {error && (
-              <p className="text-[11px] text-risk-red font-medium leading-relaxed bg-risk-red-soft px-3 py-2 rounded-lg border border-risk-red/10">
+              <p className="text-[11px] text-[#D96B5F] font-medium leading-relaxed bg-[#D96B5F]/10 px-3 py-2 rounded-lg border border-[#D96B5F]/20">
                 {error}
               </p>
             )}
 
             {serverError && (
-              <p className="text-[11px] text-risk-red font-medium leading-relaxed bg-risk-red-soft px-3 py-2 rounded-lg border border-risk-red/10">
+              <p className="text-[11px] text-[#D96B5F] font-medium leading-relaxed bg-[#D96B5F]/10 px-3 py-2 rounded-lg border border-[#D96B5F]/20">
                 Authentication server is offline or database connection is unconfigured.
               </p>
             )}
@@ -224,21 +224,21 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
             <button
               type="submit"
               disabled={isVerifying}
-              className="w-full py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 bg-[#00635C] hover:bg-[#00524d] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <span>{isVerifying ? 'Authenticating...' : 'Sign In to Console'}</span>
             </button>
           </form>
         ) : serverUnconfigured ? (
-          <div className="p-4 bg-risk-red-soft text-risk-red border border-risk-red/10 rounded-xl text-xs leading-relaxed space-y-2">
+          <div className="p-4 bg-[#D96B5F]/10 text-[#D96B5F] border border-[#D96B5F]/20 rounded-xl text-xs leading-relaxed space-y-2">
             <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px]">
-              <AlertTriangle className="w-4 h-4 text-risk-red" />
+              <AlertTriangle className="w-4 h-4 text-[#D96B5F]" />
               <span>Access Warning</span>
             </div>
-            <p className="font-semibold text-text-primary">
+            <p className="font-semibold text-white">
               Private shapework. console environment. Access passcode is not configured in production.
             </p>
-            <p className="text-[11px] text-text-secondary leading-normal">
+            <p className="text-[11px] text-[#D0D6BB] leading-normal">
               Please contact the system administrator to configure the access passcode server-side environment variables.
             </p>
           </div>
@@ -246,7 +246,7 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
           /* Demo Passcode Form */
           <form onSubmit={handleSubmitPasscode} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider block">
+              <label className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block">
                 Enter Access Passcode
               </label>
               <input
@@ -255,19 +255,19 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
                 onChange={(e) => setPasscode(e.target.value)}
                 placeholder="••••••••"
                 disabled={isVerifying}
-                className="w-full px-3.5 py-2.5 bg-stone-50 border border-border-soft rounded-xl text-xs text-text-primary focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all font-mono disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#D0D6BB] focus:ring-1 focus:ring-[#D0D6BB] transition-all font-mono disabled:opacity-50"
                 autoFocus
               />
             </div>
 
             {error && (
-              <p className="text-[11px] text-risk-red font-medium leading-relaxed bg-risk-red-soft px-3 py-2 rounded-lg border border-risk-red/10">
+              <p className="text-[11px] text-[#D96B5F] font-medium leading-relaxed bg-[#D96B5F]/10 px-3 py-2 rounded-lg border border-[#D96B5F]/20">
                 {error}
               </p>
             )}
 
             {serverError && (
-              <p className="text-[11px] text-risk-red font-medium leading-relaxed bg-risk-red-soft px-3 py-2 rounded-lg border border-risk-red/10">
+              <p className="text-[11px] text-[#D96B5F] font-medium leading-relaxed bg-[#D96B5F]/10 px-3 py-2 rounded-lg border border-[#D96B5F]/20">
                 Unable to verify passcode. The server endpoint is currently offline or unreachable.
               </p>
             )}
@@ -275,7 +275,7 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
             <button
               type="submit"
               disabled={isVerifying}
-              className="w-full py-2.5 bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="w-full py-2.5 bg-[#00635C] hover:bg-[#00524d] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <span>{isVerifying ? 'Verifying...' : 'Access Workspace'}</span>
             </button>
@@ -283,8 +283,8 @@ export default function WorkspaceAccessGate({ children }: WorkspaceAccessGatePro
         )}
 
         {/* Sandbox Notice */}
-        <div className="pt-2 border-t border-border-soft/60">
-          <p className="text-[9px] text-text-tertiary text-center leading-normal">
+        <div className="pt-2 border-t border-white/10">
+          <p className="text-[9px] text-[#D0D6BB]/75 text-center leading-normal">
             {appMode === 'production'
               ? 'shapework. Operations Console · Secure Workspace Environment'
               : (isDemoPath ? 'Nest Realty Demo Workspace · Synthetic Data · No real client data connected · Private demo. Do not distribute without approval.' : 'shapework. Operations Console · Private Workspace Access')}
