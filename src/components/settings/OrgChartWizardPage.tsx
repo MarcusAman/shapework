@@ -7262,6 +7262,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       {/* --- CONTEXTUAL SLIDE DRAWERS --- */}
       {drawerOpen && (
         <OrgChartDrawerOverlay
+          workspaceId={workspaceId}
           type={drawerType!}
           mode={drawerMode}
           id={editingId}
@@ -7432,10 +7433,11 @@ interface DrawerOverlayProps {
   onSubmitDocument: (data: OrgKnowledgeDocument) => void;
   onSubmitLink: (data: OrgKnowledgeDocument) => void;
   preselectedPositionId?: string;
+  workspaceId?: string;
 }
 
 function OrgChartDrawerOverlay({
-  type, mode, id, model, onClose, onSubmitPosition, onUpdatePositionInline, onSubmitRole, onSubmitSop, onSubmitEscalation, onSubmitDocument, onSubmitLink, preselectedPositionId
+  type, mode, id, model, onClose, onSubmitPosition, onUpdatePositionInline, onSubmitRole, onSubmitSop, onSubmitEscalation, onSubmitDocument, onSubmitLink, preselectedPositionId, workspaceId = 'nest-realty-demo'
 }: DrawerOverlayProps) {
 
   // A. Local State for Position
@@ -7747,10 +7749,10 @@ function OrgChartDrawerOverlay({
     if (isLinked) {
       if (googleTools.includes(toolName)) {
         try {
-          const res = await fetch(`/api/integrations/google/disconnect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+          const res = await fetch(`/api/integrations/google/disconnect?workspaceId=${workspaceId}`, {
             method: 'POST',
             headers: {
-              'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+              'x-workspace-id': workspaceId
             }
           });
           if (res.ok) {
@@ -7764,10 +7766,10 @@ function OrgChartDrawerOverlay({
         }
       } else if (toolName === 'Canva') {
         try {
-          const res = await fetch(`/api/integrations/canva/disconnect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+          const res = await fetch(`/api/integrations/canva/disconnect?workspaceId=${workspaceId}`, {
             method: 'POST',
             headers: {
-              'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+              'x-workspace-id': workspaceId
             }
           });
           if (res.ok) {
@@ -7788,9 +7790,9 @@ function OrgChartDrawerOverlay({
     // Connect
     if (googleTools.includes(toolName)) {
       try {
-        const res = await fetch(`/api/integrations/google/connect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+        const res = await fetch(`/api/integrations/google/connect?workspaceId=${workspaceId}`, {
           headers: {
-            'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+            'x-workspace-id': workspaceId
           }
         });
         if (res.ok) {
@@ -7808,9 +7810,9 @@ function OrgChartDrawerOverlay({
 
             const interval = setInterval(async () => {
               try {
-                const statusRes = await fetch(`/api/integrations/google/status?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+                const statusRes = await fetch(`/api/integrations/google/status?workspaceId=${workspaceId}`, {
                   headers: {
-                    'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+                    'x-workspace-id': workspaceId
                   }
                 });
                 if (statusRes.ok) {
@@ -7847,9 +7849,9 @@ function OrgChartDrawerOverlay({
       }
     } else if (toolName === 'Canva') {
       try {
-        const res = await fetch(`/api/integrations/canva/connect?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+        const res = await fetch(`/api/integrations/canva/connect?workspaceId=${workspaceId}`, {
           headers: {
-            'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+            'x-workspace-id': workspaceId
           }
         });
         if (res.ok) {
@@ -7867,9 +7869,9 @@ function OrgChartDrawerOverlay({
 
             const interval = setInterval(async () => {
               try {
-                const statusRes = await fetch(`/api/integrations/canva/status?workspaceId=${model.workspaceId || 'nest-realty-demo'}`, {
+                const statusRes = await fetch(`/api/integrations/canva/status?workspaceId=${workspaceId}`, {
                   headers: {
-                    'x-workspace-id': model.workspaceId || 'nest-realty-demo'
+                    'x-workspace-id': workspaceId
                   }
                 });
                 if (statusRes.ok) {

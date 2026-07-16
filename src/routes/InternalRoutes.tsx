@@ -57,6 +57,7 @@ import PilotLaunchDecisionPanel from '../components/settings/PilotLaunchDecision
 import FirstPilotLaunchPack from '../components/settings/FirstPilotLaunchPack';
 import IntegrationTestConsole from '../components/settings/IntegrationTestConsole';
 import LiveOperationsTimeline from '../components/live/LiveOperationsTimeline';
+import InternalMarketIntelligenceView from '../components/console/InternalMarketIntelligenceView';
 
 interface InternalRoutesProps {
   state: any;
@@ -277,6 +278,15 @@ export default function InternalRoutes({ state }: InternalRoutesProps) {
               </div>
             </div>
           </div>
+        );
+      }
+
+      // ==========================================
+      // 1B. Market Intelligence
+      // ==========================================
+      case 'Market Intelligence': {
+        return (
+          <InternalMarketIntelligenceView onNavigateTab={setCurrentTab} />
         );
       }
 

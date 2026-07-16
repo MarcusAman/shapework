@@ -294,3 +294,13 @@ export function requirePermission(permission: string) {
     next();
   };
 }
+
+// Middleware: Require Shapework Internal Operator/Developer roles
+export function requireInternal(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const allowedEmails = ['marcus@shapework.co', 'matt@shapework.co', 'adam@shapework.co'];
+  const allowedIds = ['usr_marcus', 'usr_matt', 'usr_adam'];
+  if (!req.authUser || (!allowedEmails.includes(req.authUser.email) && !allowedIds.includes(req.authUser.id))) {
+    return res.status(403).json({ error: 'Forbidden', message: 'Restricted to shapework administrative and engineering staff.' });
+  }
+  next();
+}

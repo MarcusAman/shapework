@@ -80,6 +80,7 @@ export default function InternalConsole() {
       else if (sub === 'feature-flags') setCurrentTab('Feature Flags');
       else if (sub === 'pilot-readiness') setCurrentTab('Pilot Readiness');
       else if (sub === 'system-logs') setCurrentTab('System Logs');
+      else if (sub === 'market-intelligence') setCurrentTab('Market Intelligence');
     }
   }, [window.location.pathname]);
 
@@ -87,6 +88,7 @@ export default function InternalConsole() {
     setCurrentTab(tabName);
     let path = '/internal';
     if (tabName === 'System Overview') path = '/internal/overview';
+    else if (tabName === 'Market Intelligence') path = '/internal/market-intelligence';
     else if (tabName === 'Workspaces') path = '/internal/workspaces';
     else if (tabName === 'Workspace Detail') path = '/internal/workspace-detail';
     else if (tabName === 'Integration Health') path = '/internal/integration-health';
@@ -102,8 +104,13 @@ export default function InternalConsole() {
     window.history.pushState({}, '', path);
   };
 
-  const allowedRoles = ['shapework_admin', 'shapework_operator', 'implementation_lead', 'support_admin', 'developer'];
-  
+  const allowedEmails = ['marcus@shapework.co', 'matt@shapework.co', 'adam@shapework.co'];
+  const allowedIds = ['usr_marcus', 'usr_matt', 'usr_adam'];
+  const hasAccess = activeProfile && (
+    allowedEmails.includes(activeProfile.email) ||
+    allowedIds.includes(activeProfile.id)
+  );
+
   React.useEffect(() => {
     if (!state.isLoading && !activeProfile) {
       window.location.href = '/login';
@@ -112,8 +119,9 @@ export default function InternalConsole() {
 
   if (state.isLoading || activeProfile?.id === 'usr_loading') {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
-        Checking internal authorizations...
+      <div className="min-h-screen bg-[#01362D] flex items-center justify-center font-sans text-xs text-[var(--sw-muted)] animate-pulse relative overflow-hidden">
+        <div className="absolute inset-0 nest-layered-bg opacity-30 pointer-events-none" />
+        <div className="relative z-10">Checking internal authorizations...</div>
       </div>
     );
   }
@@ -122,33 +130,35 @@ export default function InternalConsole() {
     return null;
   }
 
-  // 403 Forbidden Screen for Customer roles
-  if (!allowedRoles.includes(activeProfile.role)) {
+  // 403 Forbidden Screen for Restricted profiles
+  if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center font-sans p-6 text-left">
-        <div className="max-w-md w-full bg-white border border-stone-200 rounded-2xl p-8 shadow-xl space-y-6">
-          <div className="w-12 h-12 bg-red-100 text-red-700 rounded-full flex items-center justify-center">
+      <div className="min-h-screen bg-[#01362D] flex items-center justify-center font-sans p-6 text-left relative overflow-hidden">
+        <div className="absolute inset-0 nest-layered-bg opacity-30 pointer-events-none" />
+        
+        <div className="relative z-10 max-w-md w-full bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl p-8 shadow-2xl space-y-6 backdrop-blur-md">
+          <div className="w-12 h-12 bg-rose-500/10 text-rose-300 rounded-full flex items-center justify-center border border-rose-500/25">
             <Lock className="w-6 h-6" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-base font-bold text-text-primary uppercase tracking-wider font-mono">403 Forbidden</h1>
-            <p className="text-xs text-text-secondary leading-relaxed">
+            <h1 className="text-sm font-bold text-[var(--sw-text)] uppercase tracking-wider font-serif">403 Forbidden</h1>
+            <p className="text-xs text-[var(--sw-muted)] leading-relaxed">
               This console is restricted to private shapework delivery engineers and implementation operators.
             </p>
-            <p className="text-[11px] text-text-tertiary leading-normal">
-              Your profile (<strong className="text-text-secondary">{activeProfile?.name || 'Guest'}</strong>) is registered as a customer brokerage role (<strong className="capitalize">{activeProfile?.role?.replace('_', ' ') || 'None'}</strong>).
+            <p className="text-[11px] text-[var(--sw-muted-light)] leading-normal">
+              Your profile (<strong className="text-[var(--sw-text)]">{activeProfile?.name || 'Guest'}</strong>) is registered as a customer brokerage role (<strong className="capitalize">{activeProfile?.role?.replace('_', ' ') || 'None'}</strong>).
             </p>
           </div>
 
           {appMode !== 'production' && (
-            <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl space-y-2">
-              <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-mono block">
+            <div className="p-4 bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-xl space-y-2">
+              <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider font-mono block">
                 Sandbox Identity Switcher (Dev Mode)
               </label>
               <select
                 value={activeProfile?.id || ''}
                 onChange={(e) => handleRoleSwitch(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-semibold focus:outline-none"
+                className="w-full px-3 py-1.5 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] font-semibold focus:outline-none focus:border-emerald-500/50"
               >
                 {profiles.map((p: any) => (
                   <option key={p.id} value={p.id}>
@@ -164,7 +174,7 @@ export default function InternalConsole() {
               onClick={() => {
                 window.location.pathname = '/app';
               }}
-              className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 bg-[var(--sw-green-700)] hover:bg-[var(--sw-green-500)] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer select-none"
             >
               <span>Return to Customer App</span>
               <ArrowRight className="w-4 h-4" />
@@ -178,7 +188,7 @@ export default function InternalConsole() {
   const currentContextProperty = selectedContextItem ? selectedContextItem.property_address?.split(',')[0] : null;
 
   return (
-    <div className="flex h-screen bg-stone-50 overflow-hidden font-sans text-xs text-text-primary">
+    <div className="flex h-screen bg-[#01362D] overflow-hidden font-sans text-xs text-text-primary">
       
       {/* Navigation sidebar */}
       <InternalNavigationRail
@@ -193,9 +203,11 @@ export default function InternalConsole() {
       />
 
       {/* Main viewport */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg">
         {/* Top Header */}
         <TopBar
+          variant="minimal"
+          title={currentTab}
           activeProfile={activeProfile}
           profiles={profiles}
           onSwitchProfile={handleRoleSwitch}

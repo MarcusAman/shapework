@@ -170,6 +170,22 @@ export default function App() {
     );
   }
 
+  const isAssessmentRoute = currentPath.startsWith('/assessment/') || currentPath === '/survey' || currentPath.startsWith('/survey/');
+  if (isAssessmentRoute) {
+    const PublicAssessment = React.lazy(() => import('./components/public/PublicAssessment'));
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-[#01362D] flex items-center justify-center font-sans text-xs text-[#D0D6BB] animate-pulse">
+            Loading assessment...
+          </div>
+        }>
+          <PublicAssessment onNavigate={navigate} />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   const isDemo = currentPath.startsWith('/demo');
   const isApp = currentPath.startsWith('/app') || currentPath.startsWith('/brokerage-ops');
   const isInternal = currentPath.startsWith('/internal');

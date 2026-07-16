@@ -20,6 +20,23 @@ import { apiClient } from '../utils/apiClient';
 
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
+    if (path.startsWith('/internal')) {
+      const sub = path.replace('/internal', '').replace(/^\//, '');
+      if (!sub || sub === 'overview') return 'System Overview';
+      if (sub === 'workspaces') return 'Workspaces';
+      if (sub === 'workspace-detail') return 'Workspace Detail';
+      if (sub === 'integration-health') return 'Integration Health';
+      if (sub === 'webhook-delivery') return 'Webhook Delivery';
+      if (sub === 'notification-diagnostics') return 'Notification Diagnostics';
+      if (sub === 'voice-diagnostics') return 'Voice Provider Diagnostics';
+      if (sub === 'token-registry') return 'Action Token Registry';
+      if (sub === 'security-audit') return 'Security & Audit';
+      if (sub === 'support-console') return 'Support Console';
+      if (sub === 'feature-flags') return 'Feature Flags';
+      if (sub === 'system-logs') return 'System Logs';
+      if (sub === 'market-intelligence') return 'Market Intelligence';
+      return 'System Overview';
+    }
     const clean = path.replace(/^\/app/, '/demo');
     if (clean.startsWith('/demo/nest-ops-hub')) return 'Nest Ops Hub';
     if (clean.startsWith('/demo/my-connections')) return 'My Connections';
@@ -77,7 +94,25 @@ export function useWorkspaceConsoleState() {
 
   const [currentTab, setCurrentTabState] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const clean = window.location.pathname.replace(/^\/app/, '/demo');
+      const path = window.location.pathname;
+      if (path.startsWith('/internal')) {
+        const sub = path.replace('/internal', '').replace(/^\//, '');
+        if (!sub || sub === 'overview') return 'System Overview';
+        if (sub === 'workspaces') return 'Workspaces';
+        if (sub === 'workspace-detail') return 'Workspace Detail';
+        if (sub === 'integration-health') return 'Integration Health';
+        if (sub === 'webhook-delivery') return 'Webhook Delivery';
+        if (sub === 'notification-diagnostics') return 'Notification Diagnostics';
+        if (sub === 'voice-diagnostics') return 'Voice Provider Diagnostics';
+        if (sub === 'token-registry') return 'Action Token Registry';
+        if (sub === 'security-audit') return 'Security & Audit';
+        if (sub === 'support-console') return 'Support Console';
+        if (sub === 'feature-flags') return 'Feature Flags';
+        if (sub === 'system-logs') return 'System Logs';
+        if (sub === 'market-intelligence') return 'Market Intelligence';
+        return 'System Overview';
+      }
+      const clean = path.replace(/^\/app/, '/demo');
       if (clean.startsWith('/demo/nest-ops-hub')) return 'Nest Ops Hub';
       if (clean.startsWith('/demo/my-connections')) return 'My Connections';
       if (clean.startsWith('/demo/command-center')) return 'Workboard';
@@ -122,15 +157,35 @@ export function useWorkspaceConsoleState() {
 
   const setCurrentTab = useCallback((tab: string) => {
     if (typeof window === 'undefined') return;
-    if (window.location.pathname.startsWith('/internal')) return;
-
-    const nextPath = getPathFromTab(tab);
 
     setCurrentTabState(prev => {
       if (prev === tab) return prev;
       return tab;
     });
 
+    if (window.location.pathname.startsWith('/internal')) {
+      let sub = 'overview';
+      if (tab === 'Workspaces') sub = 'workspaces';
+      else if (tab === 'Market Intelligence') sub = 'market-intelligence';
+      else if (tab === 'Workspace Detail') sub = 'workspace-detail';
+      else if (tab === 'Integration Health') sub = 'integration-health';
+      else if (tab === 'Webhook Delivery') sub = 'webhook-delivery';
+      else if (tab === 'Notification Diagnostics') sub = 'notification-diagnostics';
+      else if (tab === 'Voice Provider Diagnostics') sub = 'voice-diagnostics';
+      else if (tab === 'Action Token Registry') sub = 'token-registry';
+      else if (tab === 'Security & Audit') sub = 'security-audit';
+      else if (tab === 'Support Console') sub = 'support-console';
+      else if (tab === 'Feature Flags') sub = 'feature-flags';
+      else if (tab === 'Pilot Readiness') sub = 'pilot-readiness';
+      else if (tab === 'System Logs') sub = 'system-logs';
+      const nextPath = `/internal/${sub}`;
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState({}, '', nextPath);
+      }
+      return;
+    }
+
+    const nextPath = getPathFromTab(tab);
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath);
     }

@@ -107,11 +107,11 @@ export default function InternalResponseDetailView({
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-10 w-24 bg-stone-200 rounded-xl" />
+      <div className="space-y-6 animate-pulse text-left">
+        <div className="h-10 w-32 bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-96 bg-white border border-stone-200 rounded-2xl" />
-          <div className="h-96 bg-white border border-stone-200 rounded-2xl" />
+          <div className="lg:col-span-2 h-96 bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl" />
+          <div className="h-96 bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl" />
         </div>
       </div>
     );
@@ -119,15 +119,15 @@ export default function InternalResponseDetailView({
 
   if (error || !response) {
     return (
-      <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-left space-y-4">
-        <div className="flex items-center gap-2 text-rose-800 font-bold">
-          <AlertTriangle className="w-5 h-5 text-rose-600" />
+      <div className="p-6 bg-rose-950/20 border border-rose-500/30 rounded-xl text-left space-y-4">
+        <div className="flex items-center gap-2 text-rose-300 font-bold">
+          <AlertTriangle className="w-5 h-5 text-rose-400" />
           <span>Error Loading Detail</span>
         </div>
-        <p className="text-xs text-rose-700">{error || 'Response not found.'}</p>
+        <p className="text-xs text-rose-200">{error || 'Response not found.'}</p>
         <button 
           onClick={onBack}
-          className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-bold hover:bg-stone-850 cursor-pointer"
+          className="px-4 py-2 bg-rose-800 text-white rounded-xl text-xs font-bold hover:bg-rose-700 cursor-pointer"
         >
           Return to List
         </button>
@@ -149,7 +149,7 @@ export default function InternalResponseDetailView({
       <div>
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 px-3 py-1.5 border border-stone-200 hover:bg-stone-50 text-stone-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-[var(--sw-border)] bg-white/10 hover:bg-white/15 text-[var(--sw-text)] rounded-xl text-xs font-bold transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Assessments</span>
@@ -163,32 +163,32 @@ export default function InternalResponseDetailView({
         <div className="lg:col-span-2 space-y-6">
           
           {/* Summary profile card */}
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="flex items-start justify-between border-b border-stone-150 pb-3">
+          <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl p-6 shadow-sm space-y-4">
+            <div className="flex items-start justify-between border-b border-[var(--sw-border)] pb-3">
               <div>
-                <h2 className="text-lg font-bold text-stone-950 font-serif leading-snug">{response.brokerageName}</h2>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-stone-500 font-mono mt-1">
+                <h2 className="text-lg font-bold text-[var(--sw-text)] font-serif leading-snug">{response.brokerageName}</h2>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--sw-muted)] font-mono mt-1">
                   <span className="flex items-center gap-1"><Building className="w-3.5 h-3.5" />{response.numberOfAgents} agents</span>
                   <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{response.respondentName} ({response.role})</span>
                   <span>{response.emailAddress}</span>
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest font-mono block">IQ SCORE</span>
-                <span className="text-3xl font-extrabold text-emerald-700 font-mono leading-none block">{scores.overallScore || 0}</span>
+                <span className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-widest font-mono block">IQ SCORE</span>
+                <span className="text-3xl font-extrabold text-emerald-400 font-mono leading-none block">{scores.overallScore || 0}</span>
               </div>
             </div>
 
             {/* Scorecard grids */}
             <div className="space-y-3">
-              <label className="text-[9px] font-bold uppercase tracking-widest font-mono text-stone-400 block">Category index scores</label>
+              <label className="text-[9px] font-bold uppercase tracking-widest font-mono text-[var(--sw-muted)] block">Category index scores</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {scores.categoryScores && Object.entries(scores.categoryScores).map(([cat, val]: any) => (
-                  <div key={cat} className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center space-y-1">
-                    <span className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono leading-none truncate" title={cat}>
+                  <div key={cat} className="bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-xl p-3 text-center space-y-1">
+                    <span className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono leading-none truncate" title={cat}>
                       {cat.replace(/([A-Z])/g, ' $1')}
                     </span>
-                    <span className="text-base font-extrabold text-emerald-750 font-mono block leading-none">{val}/100</span>
+                    <span className="text-base font-extrabold text-emerald-400 font-mono block leading-none">{val}/100</span>
                   </div>
                 ))}
               </div>
@@ -196,84 +196,61 @@ export default function InternalResponseDetailView({
           </div>
 
           {/* Detailed survey question list */}
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm space-y-6">
-            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider font-mono border-b border-stone-150 pb-2">Full Assessment Answers</h3>
+          <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl p-6 shadow-sm space-y-6">
+            <h3 className="font-serif font-bold text-sm text-[var(--sw-text)] border-b border-[var(--sw-border)] pb-2">Full Assessment Answers</h3>
             
             {/* Section 2: Operational Health */}
             <div className="space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 font-mono block">Section 2: Operational health (1-5 frequency rating)</h4>
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 font-mono block">Section 2: Operational health (1-5 frequency rating)</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Leadership pulled into issues:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.pulledIntoIssues || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Work falls through cracks:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.workFallsThroughCracks || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Information silos (text/memory):</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.infoInSilos || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Processes change by person:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.processesChange || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Waiting on approvals:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.waitingOnApprovals || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Repeated operational questions:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.repeatedQuestions || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Agents struggle to locate info:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.struggleFindInfo || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Side conversations workflow:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.sideConversations || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">Bottleneck person:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.bottleneckPerson || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between p-2 border-b border-stone-100">
-                  <span className="text-stone-600">No operating audit records:</span>
-                  <span className="font-bold font-mono text-stone-900">{answers.noOperatingRecord || 'N/A'}</span>
-                </div>
+                {[
+                  { label: 'Leadership pulled into issues', val: answers.pulledIntoIssues },
+                  { label: 'Work falls through cracks', val: answers.workFallsThroughCracks },
+                  { label: 'Information silos (text/memory)', val: answers.infoInSilos },
+                  { label: 'Processes change by person', val: answers.processesChange },
+                  { label: 'Waiting on approvals', val: answers.waitingOnApprovals },
+                  { label: 'Repeated operational questions', val: answers.repeatedQuestions },
+                  { label: 'Agents struggle to locate info', val: answers.struggleFindInfo },
+                  { label: 'Side conversations workflow', val: answers.sideConversations },
+                  { label: 'Bottleneck person', val: answers.bottleneckPerson },
+                  { label: 'No operating audit records', val: answers.noOperatingRecord }
+                ].map((item, idx) => (
+                  <div key={idx} className="flex justify-between p-2 border-b border-[var(--sw-border)]/65">
+                    <span className="text-[var(--sw-muted)]">{item.label}:</span>
+                    <span className="font-bold font-mono text-[var(--sw-text)]">{item.val || 'N/A'}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Section 3: Ownership */}
-            <div className="space-y-3 pt-3 border-t border-stone-100">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 font-mono block">Section 3: Operational ownership & leadership dependencies</h4>
+            <div className="space-y-3 pt-3 border-t border-[var(--sw-border)]/65">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 font-mono block">Section 3: Operational ownership & leadership dependencies</h4>
               <div className="space-y-2.5 text-xs">
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block leading-none mb-1">Weekly Leadership Interruptions</span>
-                  <p className="text-stone-800 leading-relaxed font-sans">{answers.interruptionsParagraph || 'None entered.'}</p>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block leading-none mb-1">Weekly Leadership Interruptions</span>
+                  <p className="text-[var(--sw-text)] leading-relaxed font-sans">{answers.interruptionsParagraph || 'None entered.'}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block leading-none mb-1">Bottleneck Person & Single Point of Failure</span>
-                  <p className="text-stone-800 leading-relaxed font-sans">{answers.singlePersonDependence || 'None entered.'}</p>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block leading-none mb-1">Bottleneck Person & Single Point of Failure</span>
+                  <p className="text-[var(--sw-text)] leading-relaxed font-sans">{answers.singlePersonDependence || 'None entered.'}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block leading-none mb-1">Result of 2-Week Unavailability</span>
-                  <p className="text-stone-850 leading-relaxed font-sans font-semibold">{answers.unavailabilityBreak || 'None entered.'}</p>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block leading-none mb-1">Result of 2-Week Unavailability</span>
+                  <p className="text-[var(--sw-text)] leading-relaxed font-sans font-semibold">{answers.unavailabilityBreak || 'None entered.'}</p>
                 </div>
               </div>
             </div>
 
             {/* Section 4 & 5: Pain Points & Tech */}
-            <div className="space-y-3 pt-3 border-t border-stone-100">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 font-mono block">Section 4 & 5: Friction & Technology Stack</h4>
+            <div className="space-y-3 pt-3 border-t border-[var(--sw-border)]/65">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 font-mono block">Section 4 & 5: Friction & Technology Stack</h4>
               <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1.5">Friction Areas selected</span>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1.5">Friction Areas selected</span>
                   <div className="flex flex-wrap gap-1.5">
                     {answers.frictionAreas?.map((area: string) => (
-                      <span key={area} className="px-2.5 py-1 bg-stone-50 border border-stone-200 rounded-lg text-stone-750 font-bold uppercase text-[9px] font-mono">
+                      <span key={area} className="px-2.5 py-1 bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-lg text-[var(--sw-text)] font-bold uppercase text-[9px] font-mono">
                         {area}
                       </span>
                     ))}
@@ -281,47 +258,47 @@ export default function InternalResponseDetailView({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">Systems Used</span>
-                    <span className="font-semibold text-stone-800">{answers.systemsUsed?.join(', ') || 'None entered'}</span>
+                    <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">Systems Used</span>
+                    <span className="font-semibold text-[var(--sw-text)]">{answers.systemsUsed?.join(', ') || 'None entered'}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">Manual Duplicate Data Entries</span>
-                    <p className="text-stone-800 font-mono text-[10px]">{answers.duplicateDataFlows || 'None'}</p>
+                    <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">Manual Duplicate Data Entries</span>
+                    <p className="text-[var(--sw-text)] font-mono text-[10px]">{answers.duplicateDataFlows || 'None'}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Section 6 & 7: Leadership Load & AI Readiness */}
-            <div className="space-y-3 pt-3 border-t border-stone-100">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 font-mono block">Section 6 & 7: Leadership load & AI Automation state</h4>
+            <div className="space-y-3 pt-3 border-t border-[var(--sw-border)]/65">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 font-mono block">Section 6 & 7: Leadership load & AI Automation state</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">Weekly hours lost to operational fire drills</span>
-                  <span className="font-bold text-stone-900 font-mono">{answers.leadershipHoursLost || '0-5'} hours</span>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">Weekly hours lost to operational fire drills</span>
+                  <span className="font-bold text-[var(--sw-text)] font-mono">{answers.leadershipHoursLost || '0-5'} hours</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">AI/Automation implementation phase</span>
-                  <span className="font-bold text-stone-900 font-mono uppercase">{answers.aiImplemented || 'None'}</span>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">AI/Automation implementation phase</span>
+                  <span className="font-bold text-[var(--sw-text)] font-mono uppercase">{answers.aiImplemented || 'None'}</span>
                 </div>
                 <div className="sm:col-span-2">
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">High potential AI automation workflow target</span>
-                  <p className="text-stone-800 font-sans">{answers.aiTimeSavingWorkflow || 'None listed.'}</p>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">High potential AI automation workflow target</span>
+                  <p className="text-[var(--sw-text)] font-sans">{answers.aiTimeSavingWorkflow || 'None listed.'}</p>
                 </div>
               </div>
             </div>
 
             {/* Section 8 & 9: Growth & Priorities */}
-            <div className="space-y-3 pt-3 border-t border-stone-100">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 font-mono block">Section 8 & 9: Scalability & Strategic Priorities</h4>
+            <div className="space-y-3 pt-3 border-t border-[var(--sw-border)]/65">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 font-mono block">Section 8 & 9: Scalability & Strategic Priorities</h4>
               <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">Strategic Scale Break Point (What breaks if size doubled?)</span>
-                  <p className="text-stone-850 leading-relaxed font-sans font-semibold">{answers.scaleBreakPoints || 'None listed.'}</p>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">Strategic Scale Break Point (What breaks if size doubled?)</span>
+                  <p className="text-[var(--sw-text)] leading-relaxed font-sans font-semibold">{answers.scaleBreakPoints || 'None listed.'}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono text-stone-400 uppercase block mb-1">If Shapework could solve exactly one problem</span>
-                  <p className="text-emerald-800 leading-relaxed font-sans font-bold">{answers.oneSolveThisYear || 'None listed.'}</p>
+                  <span className="text-[10px] font-mono text-[var(--sw-muted)] uppercase block mb-1">If Shapework could solve exactly one problem</span>
+                  <p className="text-emerald-400 leading-relaxed font-sans font-bold">{answers.oneSolveThisYear || 'None listed.'}</p>
                 </div>
               </div>
             </div>
@@ -331,26 +308,26 @@ export default function InternalResponseDetailView({
 
         {/* Right Side: Shapework Classification */}
         <div className="space-y-6">
-          <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider font-mono border-b border-stone-150 pb-2 flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-emerald-650" />
+          <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl p-5 shadow-sm space-y-4">
+            <h3 className="font-serif font-bold text-sm text-[var(--sw-text)] border-b border-[var(--sw-border)] pb-2 flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-[var(--sw-mint-100)]" />
               <span>Shapework Classification</span>
             </h3>
 
             {saveSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-[10px] flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-650" />
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-300 text-[10px] flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Classification updated successfully.</span>
               </div>
             )}
 
             <form onSubmit={handleClassifySubmit} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Assigned Owner</label>
+                <label className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Assigned Owner</label>
                 <select
                   value={classification.assignedOwner}
                   onChange={(e) => handleClassifyChange('assignedOwner', e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs"
+                  className="w-full p-2 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                 >
                   <option value="usr_sarah">Sarah Jenkins</option>
                   <option value="usr_developer">Developer Account</option>
@@ -358,22 +335,22 @@ export default function InternalResponseDetailView({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Triage Status</label>
+                <label className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Triage Status</label>
                 <select
                   value={classification.status}
                   onChange={(e) => handleClassifyChange('status', e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold capitalize"
+                  className="w-full p-2 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] font-semibold capitalize focus:outline-none focus:border-emerald-500/50"
                 >
                   {statusOptions.map(opt => <option key={opt} value={opt}>{opt.replace('_', ' ')}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Primary Pain Category</label>
+                <label className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Primary Pain Category</label>
                 <select
                   value={classification.primaryPainCategory}
                   onChange={(e) => handleClassifyChange('primaryPainCategory', e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs"
+                  className="w-full p-2 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                 >
                   <option value="">Select...</option>
                   {painCategories.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -381,11 +358,11 @@ export default function InternalResponseDetailView({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Secondary Pain Category</label>
+                <label className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Secondary Pain Category</label>
                 <select
                   value={classification.secondaryPainCategory}
                   onChange={(e) => handleClassifyChange('secondaryPainCategory', e.target.value)}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs"
+                  className="w-full p-2 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                 >
                   <option value="">Select...</option>
                   {painCategories.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -394,11 +371,11 @@ export default function InternalResponseDetailView({
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Frequency</label>
+                  <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Frequency</label>
                   <select
                     value={classification.frequency}
                     onChange={(e) => handleClassifyChange('frequency', e.target.value)}
-                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-[11px]"
+                    className="w-full p-1.5 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-[11px] text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                   >
                     <option value="">Select...</option>
                     <option value="Daily">Daily</option>
@@ -407,11 +384,11 @@ export default function InternalResponseDetailView({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Urgency</label>
+                  <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Urgency</label>
                   <select
                     value={classification.urgency}
                     onChange={(e) => handleClassifyChange('urgency', e.target.value)}
-                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-[11px]"
+                    className="w-full p-1.5 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-[11px] text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -422,23 +399,23 @@ export default function InternalResponseDetailView({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Estimated Financial Impact</label>
+                <label className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Estimated Financial Impact</label>
                 <input
                   type="text"
                   value={classification.financialImpact}
                   onChange={(e) => handleClassifyChange('financialImpact', e.target.value)}
                   placeholder="e.g. $10,000/year"
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs"
+                  className="w-full px-3 py-2 bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Willingness to Pay</label>
+                  <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Willingness to Pay</label>
                   <select
                     value={classification.willingnessToPay}
                     onChange={(e) => handleClassifyChange('willingnessToPay', e.target.value)}
-                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-[11px]"
+                    className="w-full p-1.5 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-[11px] text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -446,11 +423,11 @@ export default function InternalResponseDetailView({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Complexity</label>
+                  <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Complexity</label>
                   <select
                     value={classification.implementationComplexity}
                     onChange={(e) => handleClassifyChange('implementationComplexity', e.target.value)}
-                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-[11px]"
+                    className="w-full p-1.5 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-[11px] text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -461,11 +438,11 @@ export default function InternalResponseDetailView({
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Existing Tools</label>
+                  <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Existing Tools</label>
                   <select
                     value={classification.existingToolCoverage}
                     onChange={(e) => handleClassifyChange('existingToolCoverage', e.target.value)}
-                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-[11px]"
+                    className="w-full p-1.5 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-[11px] text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                   >
                     <option value="None">None</option>
                     <option value="Partial">Partial</option>
@@ -473,26 +450,26 @@ export default function InternalResponseDetailView({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Opportunity Score (0-100)</label>
+                  <label className="text-[9px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Opportunity Score (0-100)</label>
                   <input
                     type="number"
                     min="0"
                     max="100"
                     value={classification.productOpportunityScore}
                     onChange={(e) => handleClassifyChange('productOpportunityScore', Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-[11px] font-mono"
+                    className="w-full px-2 py-1.5 bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-xl text-[11px] font-mono text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block font-mono">Internal Operation Notes</label>
+                <label className="text-[10px] font-bold text-[var(--sw-muted)] uppercase tracking-wider block font-mono">Internal Operation Notes</label>
                 <textarea
                   value={classification.notes}
                   onChange={(e) => handleClassifyChange('notes', e.target.value)}
                   placeholder="Record call summaries or custom pilot notes..."
                   rows={4}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:bg-white"
+                  className="w-full px-3 py-2 bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                 />
               </div>
 
@@ -500,7 +477,7 @@ export default function InternalResponseDetailView({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 select-none"
+                  className="w-full py-2.5 bg-[var(--sw-green-700)] hover:bg-[var(--sw-green-500)] text-white rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 select-none"
                 >
                   <Save className="w-4 h-4" />
                   <span>{isSaving ? 'Saving Notes...' : 'Save Classification'}</span>

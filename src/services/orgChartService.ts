@@ -46,6 +46,7 @@ export type OrgPosition = {
   businessCase?: string;
   hiringNotes?: string;
   coverageGap?: string;
+  connectedTools?: string[];
 };
 
 export type OrgRole = {

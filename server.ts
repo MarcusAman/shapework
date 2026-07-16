@@ -68,10 +68,10 @@ import { createOutcomeForStep } from './server/headless/outcomeService.js';
 import { createOwnerBriefItem } from './server/headless/ownerBriefService.js';
 import { loadStateFromStorage, saveStateToStorage, dbPool, storageDriver, dbInitPromise } from './server/persistence/repositories.js';
 import { loadWorkspaceState, saveWorkspaceState, seedDatabaseIfEmpty, ensureSuperAdminsExist } from './server/persistence/dbSync.js';
-import { convertKeysToCamel } from './server/persistence/databaseRepositories.js';
+import { convertKeysToCamel, convertKeysToSnake } from './server/persistence/databaseRepositories.js';
 import { csrfProtection } from './server/auth/csrf.js';
 import { signJwt } from './server/auth/jwt.js';
-import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver } from './server/auth/auth.js';
+import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver, requireInternal } from './server/auth/auth.js';
 import { hashPassword, verifyPassword, loginRateLimiter } from './server/auth/password.js';
 import { sendPasswordResetEmail } from './server/email/emailProvider.js';
 import { createPasswordResetToken, verifyAndConsumePasswordResetToken } from './server/auth/passwordReset.js';
@@ -6286,6 +6286,157 @@ app.get('/api/ops/assets/ledger', requireAuth, resolveWorkspaceContext, requireW
   const workspaceId = req.headers['x-workspace-id'] as string || 'nest-realty-demo';
   const ledger = (dbState.opsAssetLedger || []).filter((l: any) => l.workspaceId === workspaceId);
   res.json({ success: true, ledger });
+});
+
+// Market Intelligence and assessment helper functions & endpoints
+async function getResponsesFromDb() {
+  if (dbPool) {
+    const res = await dbPool.query('SELECT * FROM assessment_responses ORDER BY created_at DESC');
+    return res.rows.map(row => convertKeysToCamel(row));
+  }
+  return dbState.assessmentResponses || [];
+}
+
+async function getResponseByIdFromDb(id: string) {
+  if (dbPool) {
+    const res = await dbPool.query('SELECT * FROM assessment_responses WHERE id = $1', [id]);
+    if (res.rows.length === 0) return null;
+    return convertKeysToCamel(res.rows[0]);
+  }
+  return (dbState.assessmentResponses || []).find((r: any) => r.id === id) || null;
+}
+
+async function saveResponseToDb(resData: any) {
+  if (dbPool) {
+    const q = `
+      INSERT INTO assessment_responses (
+        id, brokerage_name, respondent_name, email_address, role, number_of_agents,
+        number_of_office_staff, number_of_locations, primary_market, status,
+        answers, scores, internal_classification, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      ON CONFLICT (id) DO UPDATE SET
+        brokerage_name = EXCLUDED.brokerage_name,
+        respondent_name = EXCLUDED.respondent_name,
+        email_address = EXCLUDED.email_address,
+        role = EXCLUDED.role,
+        number_of_agents = EXCLUDED.number_of_agents,
+        number_of_office_staff = EXCLUDED.number_of_office_staff,
+        number_of_locations = EXCLUDED.number_of_locations,
+        primary_market = EXCLUDED.primary_market,
+        status = EXCLUDED.status,
+        answers = EXCLUDED.answers,
+        scores = EXCLUDED.scores,
+        internal_classification = EXCLUDED.internal_classification,
+        updated_at = EXCLUDED.updated_at;
+    `;
+    const dbRow = convertKeysToSnake(resData);
+    await dbPool.query(q, [
+      dbRow.id, dbRow.brokerage_name, dbRow.respondent_name, dbRow.email_address, dbRow.role, dbRow.number_of_agents,
+      dbRow.number_of_office_staff, dbRow.number_of_locations, dbRow.primary_market, dbRow.status,
+      dbRow.answers, dbRow.scores, dbRow.internal_classification, dbRow.created_at, dbRow.updated_at
+    ]);
+    return;
+  }
+  
+  if (!dbState.assessmentResponses) dbState.assessmentResponses = [];
+  const idx = dbState.assessmentResponses.findIndex((r: any) => r.id === resData.id);
+  if (idx !== -1) {
+    dbState.assessmentResponses[idx] = resData;
+  } else {
+    dbState.assessmentResponses.push(resData);
+  }
+  persistState();
+}
+
+app.get('/api/assessments', requireAuth, requireInternal, async (req, res) => {
+  try {
+    const list = await getResponsesFromDb();
+    res.json({ success: true, list });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Server Error', message: err.message });
+  }
+});
+
+app.get('/api/assessments/:id', requireAuth, requireInternal, async (req, res) => {
+  try {
+    const response = await getResponseByIdFromDb(req.params.id);
+    if (!response) {
+      return res.status(404).json({ error: 'Not Found', message: 'Response not found.' });
+    }
+    res.json({ success: true, response });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Server Error', message: err.message });
+  }
+});
+
+app.get('/api/market-intelligence', requireAuth, requireInternal, async (req, res) => {
+  try {
+    const list = await getResponsesFromDb();
+    
+    // Calculate aggregate metrics
+    const totalResponses = list.length;
+    const completedResponses = list.filter((r: any) => r.status === 'completed');
+    const completionRate = totalResponses > 0 ? Math.round((completedResponses.length / totalResponses) * 100) : 0;
+    
+    let sumScore = 0;
+    let completedCount = 0;
+    const painPointFrequency: Record<string, number> = {};
+    const underutilizedSystems: Record<string, number> = {};
+    let totalHoursLost = 0;
+
+    list.forEach((r: any) => {
+      if (r.scores && r.scores.overallScore) {
+        sumScore += r.scores.overallScore;
+        completedCount++;
+      }
+
+      const answers = r.answers || {};
+      if (answers.frictionAreas && Array.isArray(answers.frictionAreas)) {
+        answers.frictionAreas.forEach((area: string) => {
+          painPointFrequency[area] = (painPointFrequency[area] || 0) + 1;
+        });
+      }
+
+      if (answers.underutilizedSystem) {
+        const sys = answers.underutilizedSystem.trim();
+        if (sys.length > 0 && sys.length < 30) {
+          underutilizedSystems[sys] = (underutilizedSystems[sys] || 0) + 1;
+        }
+      }
+
+      const hours = answers.leadershipHoursLost || '0-5';
+      if (hours === '0-5') totalHoursLost += 2.5;
+      else if (hours === '6-10') totalHoursLost += 8;
+      else if (hours === '11-20') totalHoursLost += 15;
+      else if (hours === '21-30') totalHoursLost += 25;
+      else if (hours === '30+') totalHoursLost += 35;
+    });
+
+    const averageScore = completedCount > 0 ? Math.round(sumScore / completedCount) : 0;
+
+    // Find top repeated problems
+    const topPainPoints = Object.entries(painPointFrequency)
+      .map(([name, count]) => {
+        const percentage = totalResponses > 0 ? Math.round((count / totalResponses) * 100) : 0;
+        return { name, count, percentage };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    res.json({
+      success: true,
+      metrics: {
+        totalResponses,
+        completedCount: completedResponses.length,
+        completionRate,
+        averageScore,
+        totalHoursLost,
+        topPainPoints,
+        underutilizedSystems: Object.entries(underutilizedSystems).map(([name, count]) => ({ name, count }))
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Server Error', message: err.message });
+  }
 });
 
 // Local development safety guard: reject production project ID in development mode
