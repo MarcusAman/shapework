@@ -1510,7 +1510,8 @@ Sarah Jenkins (COO) recommended tasks:
   useEffect(() => {
     const isRestricted = activeProfile?.email === 'ryan@nestrealty.com' || activeProfile?.email === 'matt@shapework.co' || activeProfile?.email === 'adam@shapework.co';
     if (isRestricted) {
-      if (currentTab !== 'Role Map') {
+      const allowedTabs = ['Role Map', 'Ryan Shield', 'Owner Brief'];
+      if (!allowedTabs.includes(currentTab)) {
         setCurrentTab('Role Map');
       }
     }

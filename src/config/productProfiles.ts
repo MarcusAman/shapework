@@ -36,37 +36,46 @@ export function getProductProfile(
   const isWilmington = workspaceId === 'nest-realty-demo' || workspaceId === 'nest-realty-wilmington';
   
   if (isWilmington) {
-    return {
-      experience: 'ryan_pilot',
-      modules: [
-        {
-          moduleId: 'ryan_shield',
-          name: 'Ryan Shield',
-          tab: 'Ryan Shield',
-          icon: Shield,
-          visible: true,
-          enabled: false,
-          comingSoon: true
-        },
-        {
-          moduleId: 'role_map',
-          name: 'Role & Escalation Map',
-          tab: 'Role Map',
-          icon: Users,
-          visible: true,
-          enabled: true
-        },
-        {
-          moduleId: 'owner_briefing',
-          name: 'Owner Briefing',
-          tab: 'Owner Brief',
-          icon: Sparkles,
-          visible: true,
-          enabled: false,
-          comingSoon: true
-        }
-      ]
-    };
+    const isRestrictedUser = email === 'ryan@nestrealty.com' || email === 'matt@shapework.co' || email === 'adam@shapework.co';
+    if (isRestrictedUser) {
+      return {
+        experience: 'ryan_pilot',
+        modules: [
+          {
+            moduleId: 'ryan_shield',
+            name: 'Ryan Shield',
+            tab: 'Ryan Shield',
+            icon: Shield,
+            visible: true,
+            enabled: true,
+            comingSoon: true
+          },
+          {
+            moduleId: 'role_map',
+            name: 'Role & Escalation Map',
+            tab: 'Role Map',
+            icon: Users,
+            visible: true,
+            enabled: true
+          },
+          {
+            moduleId: 'owner_briefing',
+            name: 'Owner Briefing',
+            tab: 'Owner Brief',
+            icon: Sparkles,
+            visible: true,
+            enabled: true,
+            comingSoon: true
+          }
+        ]
+      };
+    } else {
+      // Non-restricted users (administrators or coordinators) in Wilmington get full customer modules!
+      return {
+        experience: 'full_customer',
+        modules: getFullCustomerModules()
+      };
+    }
   }
 
   // 2. Admin Experience: Platform Administrators or special operator accounts

@@ -1790,7 +1790,8 @@ app.get('/api/db-state', requireAuth, resolveWorkspaceContext, requireWorkspaceM
     deliveries: (dbState.deliveries || []).filter((d: any) => !d.workspaceId || d.workspaceId === wsId),
     outcomes: (dbState.outcomes || []).filter((o: any) => !o.workspaceId || o.workspaceId === wsId),
     receipts: (dbState.receipts || []).filter((r: any) => !r.workspaceId || r.workspaceId === wsId),
-    ownerBriefItems: (dbState.ownerBriefItems || []).filter((o: any) => !o.workspaceId || o.workspaceId === wsId)
+    ownerBriefItems: (dbState.ownerBriefItems || []).filter((o: any) => !o.workspaceId || o.workspaceId === wsId),
+    indexedSops: (dbState.indexedSops || []).filter((s: any) => !s.workspaceId || s.workspaceId === wsId)
   };
 
   res.json(filteredState);
@@ -1847,7 +1848,8 @@ app.post('/api/workflows/evaluate', requireAuth, resolveWorkspaceContext, requir
         lastError: c.lastError
       })),
     workspaceCommunicationSignals: (dbState.workspaceCommunicationSignals || []).filter((s: any) => !s.workspaceId || s.workspaceId === wsId),
-    externalActionApprovals: (dbState.externalActionApprovals || []).filter((a: any) => !a.workspaceId || a.workspaceId === wsId)
+    externalActionApprovals: (dbState.externalActionApprovals || []).filter((a: any) => !a.workspaceId || a.workspaceId === wsId),
+    indexedSops: (dbState.indexedSops || []).filter((s: any) => !s.workspaceId || s.workspaceId === wsId)
   };
 
   res.json({ success: true, dbState: filteredState });

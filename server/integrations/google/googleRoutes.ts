@@ -15,6 +15,7 @@ import {
   GOOGLE_WORKSPACE_SCOPES
 } from './googleOAuth.js';
 import { syncGoogleWorkspace } from './googleSync.js';
+import { syncGmailIntake, syncGoogleDriveSops, inspectGmailAccount } from './googleIntake.js';
 import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, AuthenticatedRequest } from '../../auth/auth.js';
 import { csrfProtection } from '../../auth/csrf.js';
 import { IntegrationStateStore } from '../shared/integrationStateStore.js';
@@ -191,6 +192,25 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
         delete conn.lastError;
         await persistStateCallback(wsId);
 
+        // Perform live mailbox inspection
+        let inspectionInfo = {
+          mailboxType: 'primary',
+          authenticatedEmail: conn.providerAccountEmail || 'AskNestOps@nestrealty.com',
+          notes: 'Authenticated directly as the primary Ask Nest Ops inbox.'
+        };
+
+        try {
+          const accToken = await decryptToken(conn.encryptedAccessToken);
+          const inspectRes = await inspectGmailAccount(accToken);
+          inspectionInfo = {
+            mailboxType: inspectRes.mailboxType,
+            authenticatedEmail: inspectRes.authenticatedEmail,
+            notes: inspectRes.notes
+          };
+        } catch (insErr) {
+          console.warn('[Status] Mailbox configuration inspection warning:', insErr);
+        }
+
         res.json({
           connected: true,
           status: 'connected',
@@ -198,7 +218,8 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
           scopes: conn.scopes,
           lastSyncedAt: conn.lastSyncedAt,
           capabilities: verification.capabilities,
-          missingPermissions: verification.missingPermissions
+          missingPermissions: verification.missingPermissions,
+          mailboxInspection: inspectionInfo
         });
       } else {
         conn.status = 'error';
@@ -256,10 +277,48 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
   router.post('/sync', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, csrfProtection, async (req: AuthenticatedRequest, res: Response) => {
     const wsId = (req as any).workspace?.id || String(req.query.workspaceId || req.headers['x-workspace-id'] || 'nest-realty-demo');
     try {
+      // 1. Sync Calendar & baseline
       await syncGoogleWorkspace(wsId, dbState, () => persistStateCallback(wsId));
-      res.json({ success: true, message: 'Google Workspace synced successfully.' });
+      // 2. Sync Gmail Intake
+      const intakeRes = await syncGmailIntake(wsId, dbState, () => persistStateCallback(wsId));
+      
+      res.json({ 
+        success: true, 
+        message: 'Google Workspace synced successfully.',
+        gmailProcessed: intakeRes.processed,
+        gmailErrors: intakeRes.errors
+      });
     } catch (err: any) {
       res.status(500).json({ error: 'Sync Error', message: err.message });
+    }
+  });
+
+  /**
+   * POST /api/integrations/google/intake
+   * Explicitly triggers Gmail intake.
+   */
+  router.post('/intake', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, csrfProtection, async (req: AuthenticatedRequest, res: Response) => {
+    const wsId = (req as any).workspace?.id || 'nest-realty-demo';
+    try {
+      const result = await syncGmailIntake(wsId, dbState, () => persistStateCallback(wsId));
+      res.json({ success: true, message: `Processed ${result.processed} new messages.`, result });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Intake Error', message: err.message });
+    }
+  });
+
+  /**
+   * POST /api/integrations/google/drive/index
+   * Indexes SOP documents from Google Drive.
+   */
+  router.post('/drive/index', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, csrfProtection, async (req: AuthenticatedRequest, res: Response) => {
+    const wsId = (req as any).workspace?.id || 'nest-realty-demo';
+    const { folderName } = req.body;
+    try {
+      const result = await syncGoogleDriveSops(wsId, folderName || 'SOPs & Guidelines', dbState, () => persistStateCallback(wsId));
+      res.json({ success: true, message: `Indexed ${result.indexed} SOP files successfully.`, result });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Drive Indexing Error', message: err.message });
     }
   });
 
