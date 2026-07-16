@@ -261,7 +261,7 @@ export default function InternalMarketIntelligenceView({
       {/* Survey intake modal */}
       {showSurveyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm select-none overflow-y-auto">
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#F5F5F0] border border-stone-200 rounded-3xl shadow-2xl p-2 select-text">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-[#F5F5F0] border border-stone-200 rounded-3xl shadow-2xl p-2 select-text text-stone-900">
             {/* Close Button */}
             <button
               onClick={() => {
