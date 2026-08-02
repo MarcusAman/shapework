@@ -1739,6 +1739,16 @@ export default function MarketingIntakeConsole({
   useEffect(() => {
     const handleOpenModal = () => setShowSimulateCallModal(true);
     window.addEventListener("open-simulate-marketing-call", handleOpenModal);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const campaignParam = params.get("campaign");
+      if (campaignParam) {
+        setSelectedCampaignId(campaignParam);
+        setActiveTab("campaigns");
+      }
+    }
+
     return () =>
       window.removeEventListener(
         "open-simulate-marketing-call",
@@ -2589,11 +2599,10 @@ export default function MarketingIntakeConsole({
               ]}
               activeJob={activeBuildJob}
               onSelectCampaign={(cId, mode) => {
-                if (cId === "campaign_304_ocean") {
-                  setShowMissingInfoModal(true);
-                  return;
-                }
                 handleSelectCampaign(cId, mode || "review");
+                if (cId === "campaign_304_ocean" && mode === "brief") {
+                  setShowMissingInfoModal(true);
+                }
               }}
               onNewRequest={() => setShowNaturalLanguageChangeModal(true)}
               isOperator={isOperator}
@@ -8496,6 +8505,21 @@ export default function MarketingIntakeConsole({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Development Identity Strip (Hidden in production) */}
+        {(import.meta.env.DEV || process.env.NODE_ENV !== 'production') && (
+          <div
+            data-testid="dev-identity-strip"
+            className="w-full bg-[#062f28] border-t border-[rgba(208,214,187,0.15)] px-6 py-2 flex flex-wrap items-center justify-between text-[11px] font-mono text-[#d0d6bb]/80 shrink-0"
+          >
+            <div className="flex items-center gap-4">
+              <span>requestId: {activeCampaign?.request?.id || 'req_304_ocean_phone'}</span>
+              <span>brandKitVersion: {activeCampaign?.brandKit?.version || '2.1.0'}</span>
+              <span>complianceVersion: {activeCampaign?.compliancePolicySet?.version || '2026.1'}</span>
+            </div>
+            <span className="text-emerald-400 font-bold">Development Mode</span>
           </div>
         )}
       </div>

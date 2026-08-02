@@ -1,303 +1,203 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
-  CheckCircle,
+  CheckCircle2,
   Clock,
-  AlertCircle,
-  Eye,
   ChevronDown,
-  ChevronUp,
-  X,
-  MinusCircle,
-  RefreshCw,
+  ChevronRight,
+  AlertTriangle,
+  FileText,
+  Image,
+  Layers
 } from 'lucide-react';
-import { MarketingGenerationJob, MarketingBuildEvent, MarketingAssetType } from '../../server/media/generationJobStore';
+import { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
+import { getDerivedAssetState } from '../../shared/marketingStateModel';
 
 export interface BuildViewSidecarProps {
-  job: MarketingGenerationJob | null;
-  events: MarketingBuildEvent[];
-  selectedAsset: MarketingAssetType;
-  onSelectAsset: (asset: MarketingAssetType) => void;
-  onHideSidecar: () => void;
-  onSubmitInput: (requirementId: string, input: string) => Promise<void>;
-  onCancelJob: () => Promise<void>;
-  onOpenReviewStudio?: () => void;
+  campaign: ListingMarketingCampaign;
+  job: any;
+  events: any[];
+  selectedAsset: string;
+  onSelectAsset: (assetId: any) => void;
+  onSubmitInterventionInput?: (reqId: string, input: string) => Promise<void>;
 }
 
 export const BuildViewSidecar: React.FC<BuildViewSidecarProps> = ({
+  campaign,
   job,
   events,
   selectedAsset,
   onSelectAsset,
-  onHideSidecar,
-  onSubmitInput,
-  onCancelJob,
-  onOpenReviewStudio,
+  onSubmitInterventionInput,
 }) => {
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showCheckpointsDetails, setShowCheckpointsDetails] = useState(false);
-  const [interventionText, setInterventionText] = useState('Sunday 2:00 - 4:00 PM');
-  const [isSubmittingInput, setIsSubmittingInput] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
-  const completedCount = job?.completedMaterialsCount || 0;
-  const totalCount = job?.totalMaterialsCount || 5;
+  const req = campaign?.request;
+  const requesterName = req?.requestedByName || campaign?.listingSnapshot?.listingAgentName || 'Eric Anderson';
+  const agentName = req?.capturedByAgentName || 'Ava · AI Phone Agent';
 
-  const isCompleted = job?.status === 'completed';
-  const isFailed = job?.status === 'failed';
-  const isWaitingInput = job?.status === 'waiting_for_input';
+  const materialList = [
+    { id: 'flyer', label: 'Property Flyer' },
+    { id: 'carousel', label: 'Social Package' },
+    { id: 'postcard', label: 'Direct Mail Postcard' },
+    { id: 'sign_rider', label: 'Open-House Sign Rider' },
+    { id: 'email', label: 'Email Announcement' },
+  ];
 
-  const assetLabels: Record<MarketingAssetType, string> = {
-    flyer: 'Property flyer',
-    carousel: 'Social package',
-    postcard: 'Direct-mail postcard',
-    sign_rider: 'Open-house sign rider',
-    email: 'Email announcement',
-  };
+  // Calculate ready vs preparing vs waiting
+  const readyMaterials = materialList.filter((m) => {
+    const st = getDerivedAssetState(m.id, campaign, job);
+    return st === 'ready_for_review' || st === 'approved';
+  });
 
-  const handleInterventionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!job?.inputRequired || !interventionText.trim()) return;
-    setIsSubmittingInput(true);
-    try {
-      await onSubmitInput(job.inputRequired.requirementId, interventionText);
-    } finally {
-      setIsSubmittingInput(false);
-    }
-  };
+  const preparingMaterials = materialList.filter((m) => {
+    const st = getDerivedAssetState(m.id, campaign, job);
+    return (st === 'preparing' || st === 'ready_to_prepare') && !readyMaterials.includes(m);
+  });
+
+  const waitingMaterials = materialList.filter(
+    (m) => !readyMaterials.includes(m) && !preparingMaterials.includes(m)
+  );
 
   return (
-    <div
-      role="region"
-      aria-label="Build View Progress Panel"
+    <aside
+      className="bg-[#f6f7f1] border-l border-slate-200 p-5 space-y-6 overflow-y-auto shrink-0 text-left font-sans h-full shadow-inner"
       data-testid="build-view-sidecar"
-      className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.18)] rounded-3xl p-5 shadow-2xl space-y-4 font-sans text-xs text-[#FFFDF8] w-full max-w-sm flex flex-col justify-between text-left"
     >
-      {/* 1. HEADER */}
-      <div className="border-b border-[rgba(208,214,187,0.14)] pb-3 space-y-1.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse shrink-0" />
-            <h3 className="font-serif font-bold text-sm text-[#FFFDF8]" data-testid="build-view-header">
-              {isCompleted
-                ? 'Package prepared'
-                : isFailed
-                ? 'Preparation paused'
-                : isWaitingInput
-                ? 'Needs your attention'
-                : 'Shapework is preparing your package'}
-            </h3>
-          </div>
-
-          <button
-            type="button"
-            onClick={onHideSidecar}
-            title="Hide Build View"
-            className="p-1 text-[rgba(246,247,241,0.6)] hover:text-white rounded-lg transition-colors cursor-pointer"
-          >
-            <MinusCircle className="w-4 h-4" />
-          </button>
+      {/* SIDECAR HEADER */}
+      <div className="space-y-1 border-b border-slate-200 pb-4" data-testid="build-view-header">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#00635c]">
+          <Sparkles className="w-3.5 h-3.5 text-[#00635c]" />
+          <span>Active Preparation</span>
         </div>
-
-        {/* Counter-Based Progress */}
-        <p className="text-[11px] text-[rgba(246,247,241,0.75)] font-medium" data-testid="build-progress-text">
-          {isCompleted
-            ? `${totalCount} of ${totalCount} materials ready`
-            : `${completedCount} of ${totalCount} materials ready`}
-          {job?.campaignRevision ? ` • Rev ${job.campaignRevision}` : ''}
+        <h3 className="text-xl font-serif font-bold text-[#13231e]">
+          Preparing {requesterName}’s request
+        </h3>
+        <p className="text-xs text-[#64716b]">
+          Captured by {agentName} at 9:14 AM
         </p>
       </div>
 
-      {/* 2. USER INTERVENTION CARD */}
-      {isWaitingInput && job?.inputRequired && (
-        <form
-          onSubmit={handleInterventionSubmit}
-          className="p-3.5 bg-amber-500/15 border border-amber-400/30 rounded-2xl space-y-2.5 animate-fade-in"
-        >
-          <div className="flex items-center gap-2 text-amber-200 font-bold text-xs">
-            <AlertCircle className="w-4 h-4 text-amber-300 shrink-0" />
-            <span>Needs your attention</span>
-          </div>
-          <p className="text-[11px] text-amber-100/90 leading-snug">
-            {job.inputRequired.message}
-          </p>
-          <input
-            type="text"
-            value={interventionText}
-            onChange={(e) => setInterventionText(e.target.value)}
-            placeholder="e.g. Sunday 2:00 - 4:00 PM"
-            className="w-full p-2 bg-[#073F35] border border-amber-300/40 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-300"
+      {/* COUNTER-BASED PROGRESS BADGE */}
+      <div className="bg-[#fffdf8] p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+        <div className="flex items-center justify-between text-xs font-bold text-[#13231e]">
+          <span data-testid="build-progress-text">{readyMaterials.length} of 5 materials ready</span>
+          <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full text-[10px]">
+            Rev 1
+          </span>
+        </div>
+        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-[#00635c] transition-all duration-500"
+            style={{ width: `${(readyMaterials.length / 5) * 100}%` }}
           />
-          <button
-            type="submit"
-            disabled={isSubmittingInput}
-            className="w-full py-2 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold rounded-xl text-xs transition-all cursor-pointer shadow-sm"
-          >
-            {isSubmittingInput ? 'Resuming...' : job.inputRequired.actionLabel}
-          </button>
-        </form>
+        </div>
+      </div>
+
+      {/* 1. READY MATERIALS LIST WITH THUMBNAILS */}
+      {readyMaterials.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#64716b] block">
+            Ready to Review ({readyMaterials.length})
+          </span>
+          <div className="space-y-2">
+            {readyMaterials.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onSelectAsset(m.id)}
+                className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                  selectedAsset === m.id
+                    ? 'bg-[#fffdf8] border-[#00635c] shadow-sm'
+                    : 'bg-[#fffdf8]/60 hover:bg-[#fffdf8] border-slate-200'
+                }`}
+              >
+                <div className="w-10 h-10 bg-slate-200 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+                  {m.id === 'flyer' ? (
+                    <img
+                      src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw"
+                      alt="Flyer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FileText className="w-5 h-5 text-slate-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-bold text-xs text-[#13231e] block truncate">{m.label}</span>
+                  <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    Ready to review
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* 3. SIMPLIFIED RESTRAINED MATERIALS LISTING */}
-      <div className="space-y-2.5">
-        <div className="space-y-1.5">
-          {(Object.keys(assetLabels) as MarketingAssetType[]).map((type) => {
-            const statusObj = job?.assetStatuses[type];
-            const status = statusObj?.status || 'waiting';
-            const isReady = status === 'ready_for_preview' || status === 'rendered' || status === 'ready_for_review';
-            const isSelected = selectedAsset === type;
-
-            let badgeText = 'Waiting';
-            if (type === 'flyer' && isReady) {
-              badgeText = 'Ready for human visual review';
-            } else if (isReady) {
-              badgeText = 'Ready to preview';
-            } else if (status === 'rendering' || status === 'preparing') {
-              badgeText = 'Preparing';
-            } else if (status === 'needs_attention') {
-              badgeText = 'Needs attention';
-            }
-
-            return (
+      {/* 2. PREPARING MATERIALS LIST */}
+      {preparingMaterials.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800 block">
+            Actively Preparing ({preparingMaterials.length})
+          </span>
+          <div className="space-y-2">
+            {preparingMaterials.map((m) => (
               <div
-                key={type}
-                className={`w-full px-3 py-2 rounded-xl flex items-center justify-between transition-all ${
-                  isReady
-                    ? isSelected
-                      ? 'bg-[#176457] text-white border border-emerald-400/40'
-                      : 'bg-[#073F35]/70 hover:bg-[#073F35] text-white cursor-pointer'
-                    : 'bg-[#073F35]/30 text-slate-300 opacity-70'
-                }`}
-                onClick={() => isReady && onSelectAsset(type)}
+                key={m.id}
+                className="p-3 bg-[#fffdf8] rounded-xl border border-sky-200 flex items-center gap-3"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  {isReady ? (
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  ) : status === 'rendering' || status === 'preparing' ? (
-                    <RefreshCw className="w-3.5 h-3.5 text-amber-300 animate-spin shrink-0" />
-                  ) : (
-                    <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  )}
-                  <span className="font-medium text-xs truncate">{assetLabels[type]}</span>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0 text-[10px]">
-                  <span className={isReady ? 'text-emerald-300 font-bold' : 'text-slate-400'}>
-                    {badgeText}
-                  </span>
-                  {isReady && <Eye className="w-3 h-3 text-emerald-300" />}
+                <div className="w-4 h-4 rounded-full border-2 border-[#00635c] border-t-transparent animate-spin shrink-0" />
+                <div>
+                  <span className="font-bold text-xs text-[#13231e] block">{m.label}</span>
+                  <span className="text-[10px] text-sky-700 font-medium">Generating layout & copy</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 4. COLLAPSED PREPARATION DETAILS ACCORDION */}
-      <div className="border-t border-[rgba(208,214,187,0.14)] pt-2.5">
-        <button
-          type="button"
-          onClick={() => setShowCheckpointsDetails(!showCheckpointsDetails)}
-          className="w-full flex items-center justify-between text-[11px] text-[rgba(246,247,241,0.65)] hover:text-white font-medium cursor-pointer"
-        >
-          <span>Preparation details</span>
-          {showCheckpointsDetails ? (
-            <ChevronUp className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronDown className="w-3.5 h-3.5" />
-          )}
-        </button>
-
-        {showCheckpointsDetails && (
-          <div className="mt-2 space-y-1.5 text-[11px] text-[rgba(246,247,241,0.8)] animate-fade-in pl-1">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>Listing information verified</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>Approved photography loaded</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>Nest brand requirements applied</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 5. CUSTOMER ACTION FOOTER */}
-      <div className="border-t border-[rgba(208,214,187,0.14)] pt-3 space-y-2">
-        {isCompleted ? (
-          <button
-            type="button"
-            onClick={onOpenReviewStudio}
-            className="w-full py-2.5 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl font-bold transition-all shadow-md border border-emerald-400/30 flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-200" />
-            <span>Review Package</span>
-          </button>
-        ) : (
-          <div className="flex items-center justify-between text-[11px]">
-            <button
-              type="button"
-              onClick={onHideSidecar}
-              className="text-emerald-300 hover:underline font-medium cursor-pointer"
-            >
-              Hide Build View
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowCancelModal(true)}
-              className="text-[rgba(246,247,241,0.5)] hover:text-rose-300 font-medium cursor-pointer"
-            >
-              Cancel Preparation
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* CANCEL CONFIRMATION MODAL */}
-      {showCancelModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
-          <div className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.24)] rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-[#FFFDF8]">
-            <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-              <h4 className="font-serif font-bold text-sm text-[#FFFDF8]">
-                Cancel Package Preparation?
-              </h4>
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                className="text-[rgba(246,247,241,0.6)] hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-xs text-[rgba(246,247,241,0.75)]">
-              This will stop remaining background work. Completed materials ({completedCount} ready) will be preserved.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                className="px-3.5 py-1.5 bg-[#073F35] text-white rounded-xl text-xs font-bold border border-[rgba(208,214,187,0.2)] cursor-pointer"
-              >
-                Continue Preparation
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  setShowCancelModal(false);
-                  await onCancelJob();
-                }}
-                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
-              >
-                Yes, Cancel
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       )}
-    </div>
+
+      {/* 3. WAITING MATERIALS LIST */}
+      {waitingMaterials.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#64716b] block">
+            Waiting ({waitingMaterials.length})
+          </span>
+          <div className="space-y-1.5">
+            {waitingMaterials.map((m) => (
+              <div
+                key={m.id}
+                className="p-2.5 bg-[#fffdf8]/60 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs text-[#64716b]"
+              >
+                <span className="font-medium">{m.label}</span>
+                <span className="text-[10px]">Queued</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* COLLAPSIBLE PREPARATION DETAILS */}
+      <div className="border-t border-slate-200 pt-4">
+        <button
+          type="button"
+          onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+          className="flex items-center justify-between w-full text-xs font-bold text-[#64716b] hover:text-[#13231e] cursor-pointer"
+        >
+          <span>Preparation details</span>
+          {showTechnicalDetails ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+
+        {showTechnicalDetails && (
+          <div className="mt-3 p-3 bg-[#fffdf8] rounded-xl border border-slate-200 text-[11px] text-[#64716b] space-y-1 font-mono">
+            <p>Renderer: HTML5 PDF Engine v2.4</p>
+            <p>Brand Kit: Nest Wilmington v2.1.0</p>
+            <p>Compliance: NCREC v2026.1</p>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 };
