@@ -27,7 +27,7 @@ export const CampaignBriefView: React.FC<CampaignBriefViewProps> = ({
   const channel = req?.channel || 'phone';
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 text-left font-sans animate-fade-in pb-12" data-testid="campaign-brief-view">
+    <div className="w-full max-w-5xl mx-auto space-y-6 text-left font-sans pb-12" data-testid="campaign-brief-view">
       {/* EDITORIAL LIGHT WORKSPACE CONTAINER */}
       <div className="bg-[#fffdf8] border border-[rgba(1,54,45,0.14)] rounded-2xl p-6 md:p-8 shadow-sm space-y-8">
         

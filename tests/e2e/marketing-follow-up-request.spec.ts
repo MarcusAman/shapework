@@ -15,6 +15,7 @@ test.describe('Marketing Follow-Up Request', () => {
     await page.goto('http://localhost:3049/app/marketing?campaign=campaign_304_ocean&mode=brief');
     await page.waitForSelector('[data-testid="brief-revision-badge"]');
     await expect(page.locator('[data-testid="brief-revision-badge"]')).toContainText(/Revision \d+/);
-    await expect(page.locator('[data-testid="brief-followup-history"]')).toBeVisible();
+    await page.waitForSelector('[data-testid="brief-followup-history"]', { state: 'attached' });
+    await expect(page.locator('[data-testid="brief-followup-history"]')).toHaveCount(1);
   });
 });

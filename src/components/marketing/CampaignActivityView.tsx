@@ -46,7 +46,7 @@ export const CampaignActivityView: React.FC<CampaignActivityViewProps> = ({ camp
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 font-sans text-left animate-fade-in pb-12" data-testid="campaign-activity-story">
+    <div className="max-w-4xl mx-auto space-y-6 font-sans text-left pb-12" data-testid="campaign-activity-story">
       {/* HEADER CARD */}
       <div className="bg-[#fffdf8] border border-[rgba(1,54,45,0.14)] rounded-2xl p-6 shadow-sm space-y-2">
         <span className="text-xs font-bold text-[#00635c] uppercase tracking-wider">Human-Readable Timeline</span>

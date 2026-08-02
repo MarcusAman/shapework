@@ -64,7 +64,16 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
   onSubmitInterventionInput,
   onCancelJob,
 }) => {
-  const [workspaceTab, setWorkspaceTab] = useState<'brief' | 'build' | 'review' | 'activity'>('review');
+  const [workspaceTab, setWorkspaceTab] = useState<'brief' | 'build' | 'review' | 'activity'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode');
+      if (mode === 'brief' || mode === 'build' || mode === 'review' || mode === 'activity') {
+        return mode;
+      }
+    }
+    return 'review';
+  });
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [postcardPage, setPostcardPage] = useState<'front' | 'back'>('front');
   const [showBuildViewSidecar, setShowBuildViewSidecar] = useState<boolean>(true);

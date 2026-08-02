@@ -1851,7 +1851,7 @@ export default function MarketingIntakeConsole({
           )}
 
           {/* SEGMENTED NAVIGATION CONTROL (SECTION 4) */}
-          {isOperator && (
+          {isOperator && !selectedCampaignId && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#073F35] border border-[rgba(208,214,187,0.14)] p-1.5 rounded-2xl shadow-sm">
               <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
                 <button
