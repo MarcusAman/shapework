@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { X, Sparkles, AlertTriangle } from 'lucide-react';
 
 export interface RequestChangeDrawerProps {
@@ -79,16 +79,20 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-md bg-[#0B4A3F] border-l border-[rgba(208,214,187,0.24)] shadow-2xl p-6 z-50 animate-slide-in-right flex flex-col justify-between font-sans text-[#FFFDF8] text-left">
+    <div
+      className="fixed inset-y-0 right-0 w-full max-w-md bg-[#0B4A3F] border-l border-[rgba(208,214,187,0.24)] shadow-2xl p-6 z-50 animate-slide-in-right flex flex-col justify-between font-sans text-[#FFFDF8] text-left"
+      data-testid="request-change-drawer"
+    >
       <div className="space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-emerald-300 shrink-0" />
-            <h3 className="font-serif font-bold text-base text-[#FFFDF8]">Request a change</h3>
+            <h3 className="font-serif font-bold text-base text-[#FFFDF8]" data-testid="change-drawer-title">Request a change</h3>
           </div>
           <button
             type="button"
+            data-testid="close-change-drawer"
             onClick={onClose}
             className="p-1 text-[rgba(246,247,241,0.6)] hover:text-white rounded-lg transition-colors cursor-pointer"
           >
@@ -101,7 +105,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
           <span className="text-[rgba(246,247,241,0.6)] text-[10px] uppercase tracking-wider font-bold block">
             Selected material:
           </span>
-          <span className="font-bold text-emerald-200 text-sm">
+          <span className="font-bold text-emerald-200 text-sm" data-testid="change-selected-asset">
             {assetDisplayNames[selectedAsset] || selectedAsset}
           </span>
         </div>
@@ -112,6 +116,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
             <textarea
               rows={4}
               value={changeText}
+              data-testid="change-description-textarea"
               onChange={(e) => setChangeText(e.target.value)}
               placeholder="Describe requested adjustments clearly..."
               className="w-full p-3 bg-[#073F35] border border-[rgba(208,214,187,0.2)] rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400 font-sans"
@@ -127,6 +132,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
                   type="radio"
                   name="applyScope"
                   value="single"
+                  data-testid="change-scope-single"
                   checked={applyScope === 'single'}
                   onChange={() => setApplyScope('single')}
                   className="accent-emerald-400"
@@ -139,6 +145,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
                   type="radio"
                   name="applyScope"
                   value="cross"
+                  data-testid="change-scope-cross"
                   checked={applyScope === 'cross'}
                   onChange={() => setApplyScope('cross')}
                   className="accent-emerald-400"
@@ -150,7 +157,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
 
           {/* Affected Materials Listing (When Cross Scope Selected) */}
           {applyScope === 'cross' && (
-            <div className="p-3 bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-xl space-y-2 text-xs animate-fade-in">
+            <div className="p-3 bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-xl space-y-2 text-xs animate-fade-in" data-testid="cross-affected-materials-list">
               <span className="font-bold text-emerald-200 block text-[11px]">
                 Potentially affected materials:
               </span>
@@ -178,7 +185,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
 
           {/* Cross-Asset Re-approval Warning */}
           {showReapproveWarning && (
-            <div className="p-3 bg-amber-500/20 border border-amber-400/40 rounded-xl space-y-1.5 text-xs animate-fade-in">
+            <div className="p-3 bg-amber-500/20 border border-amber-400/40 rounded-xl space-y-1.5 text-xs animate-fade-in" data-testid="reapprove-warning-box">
               <div className="flex items-center gap-2 text-amber-200 font-bold">
                 <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
                 <span>Re-approval Required</span>
@@ -199,6 +206,7 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
             </button>
             <button
               type="submit"
+              data-testid="submit-change-request-btn"
               disabled={isSubmitting}
               className="px-5 py-2 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all border border-emerald-400/40"
             >

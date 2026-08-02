@@ -62,9 +62,40 @@ export interface BrandKit {
   website: string;
   agentAttributionRules: string;
   disclaimerText: string;
+  version?: string;
+  logoAssets?: {
+    primaryLogoId: string;
+    primaryLogoUrl: string;
+  };
+  typography?: {
+    displayFont: string;
+    bodyFont: string;
+    fallbackFonts: string[];
+  };
+}
+
+export interface CompliancePolicySet {
+  id: string;
+  workspaceId: string;
+  officeId?: string;
+  stateCode?: string;
+  name: string;
+  version: string;
+  requiredFields: string[];
+  requiredDisclosures: string[];
+  prohibitedClaims: string[];
+  imageRules: string[];
+  channelRules: string[];
+  requiresBrokerReview: boolean;
+  effectiveAt: string;
 }
 
 export interface CampaignBrief {
+  id?: string;
+  workspaceId?: string;
+  campaignId?: string;
+  requestId?: string;
+  campaignRevision?: number;
   objective: string;
   targetAudience: string;
   tone: string;
@@ -76,11 +107,14 @@ export interface CampaignBrief {
   selectedAssetFormats: string[];
   dueTargetDate: string;
   reviewOwner: string;
+  specialInstructions?: string[];
+  approvedClaims?: Array<{ id: string; claim: string; source: string; approved: boolean }>;
+  pendingClaims?: Array<{ id: string; claim: string; source: string; approved: boolean }>;
 }
 
 export interface MarketingAsset {
   id: string;
-  assetType: 'flyer' | 'carousel' | 'postcard' | 'sign_rider' | 'landing_page_draft' | 'story_reel_storyboard' | 'floorplan' | 'cma';
+  assetType: 'flyer' | 'carousel' | 'postcard' | 'sign_rider' | 'landing_page_draft' | 'story_reel_storyboard' | 'floorplan' | 'cma' | 'social' | 'email';
   templateId: string;
   templateVersion: string;
   headline: string;
@@ -114,10 +148,15 @@ export interface ListingMarketingCampaign {
   propertyAddress: string;
   listingAgentId: string;
   marketingOwnerId: string;
-  status: 'intake' | 'needs_information' | 'ready_to_generate' | 'generating' | 'preparing' | 'review' | 'changes_requested' | 'approved' | 'exported' | 'delivered';
+  status: 'intake' | 'request_received' | 'interpreting_request' | 'needs_information' | 'ready_to_prepare' | 'ready_to_generate' | 'generating' | 'preparing' | 'partially_prepared' | 'review' | 'ready_for_review' | 'changes_requested' | 'partially_approved' | 'approved' | 'exported' | 'delivered';
+  deliveryStatus?: string;
   listingSnapshot: ListingSnapshot;
   brandKit: BrandKit;
+  compliancePolicySet?: CompliancePolicySet;
   campaignBrief: CampaignBrief;
+  request?: any;
+  originalCommunication?: any;
+  followUpRequests?: any[];
   assets: Record<string, MarketingAsset>;
   readinessCheck: {
     propertyDetailsComplete: boolean;
@@ -136,6 +175,8 @@ export interface ListingMarketingCampaign {
     comments?: string;
     timestamp: string;
   }>;
+  approvalReceipt?: any;
+  approvalReceipts?: any[];
   deliveryReceipts?: MarketingDeliveryReceipt[];
   auditTrail: Array<{
     id: string;
@@ -151,7 +192,7 @@ export interface ListingMarketingCampaign {
 // In-Memory & File Persisted Store for Marketing Campaigns
 let campaignsStore: ListingMarketingCampaign[] = [];
 
-// Seed Default Primary Campaign (990 Inspiration Drive)
+// Seed Default Primary Campaign (990 Inspiration Drive - Request C)
 export function getInitialDefaultCampaign(): ListingMarketingCampaign {
   const defaultPhotos: SourcePhoto[] = [
     {
@@ -174,34 +215,6 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
       caption: 'Heated Saltwater Pool & Outdoor Deck Oasis',
       category: 'pool',
       sourceProvenance: 'Physical Photo #2: luxury_home_212_wetland_1785433917769.jpg (Fixture)',
-      metadataSource: 'fixture',
-      photographerName: 'Alex Carter',
-      photographerLicense: 'FAA License #FA-394201',
-      byteSize: 1021618,
-      width: 1920,
-      height: 1280,
-      sha256: 'f4d0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b866'
-    },
-    {
-      id: 'photo_kitchen',
-      url: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_kitchen/raw',
-      caption: 'Gourmet Quartzite Kitchen & Thermador Suite',
-      category: 'kitchen',
-      sourceProvenance: 'Physical Photo #1 (Shared Facade/Interior): luxury_home_990_inspiration_1785434122508.jpg (Fixture)',
-      metadataSource: 'fixture',
-      photographerName: 'Alex Carter',
-      photographerLicense: 'FAA License #FA-394201',
-      byteSize: 1025857,
-      width: 1920,
-      height: 1280,
-      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-    },
-    {
-      id: 'photo_aerial',
-      url: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_aerial/raw',
-      caption: '0.84-Acre Private Parcel Overview',
-      category: 'aerial',
-      sourceProvenance: 'Physical Photo #2 (Shared Pool/Aerial): luxury_home_212_wetland_1785433917769.jpg (Fixture)',
       metadataSource: 'fixture',
       photographerName: 'Alex Carter',
       photographerLicense: 'FAA License #FA-394201',
@@ -246,9 +259,10 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
   };
 
   const defaultBrandKit: BrandKit = {
-    id: 'brand_nest_wilmington',
+    id: 'brand_nest_wilmington_v2',
     brokerageName: 'Nest Realty Wilmington',
     officeName: 'Wilmington Main Office',
+    version: '2.1.0',
     primaryColor: '#00635C',
     secondaryColor: '#D0D6BB',
     backgroundColor: '#FFFFFF',
@@ -256,6 +270,15 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     approvedFonts: ['Inter', 'Outfit', 'Playfair Display'],
     logoUrl: '/nest-realty-logo.png',
     fairHousingLogoUrl: '/nest_n.png',
+    logoAssets: {
+      primaryLogoId: 'logo_nest_primary_v2',
+      primaryLogoUrl: '/nest-realty-logo.png'
+    },
+    typography: {
+      displayFont: 'Playfair Display',
+      bodyFont: 'Inter',
+      fallbackFonts: ['sans-serif']
+    },
     officeAddress: '1055 Military Cutoff Rd, Wilmington NC 28405',
     officePhone: '(910) 392-4100',
     website: 'https://nestrealty.com/wilmington',
@@ -263,9 +286,29 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     disclaimerText: 'Equal Housing Opportunity. All information deemed reliable but not guaranteed. Each Nest Realty office is independently owned and operated.'
   };
 
+  const defaultCompliance: CompliancePolicySet = {
+    id: 'policy_ncrec_2026_v1',
+    workspaceId: 'nest-realty-demo',
+    stateCode: 'NC',
+    name: 'North Carolina Real Estate Commission Compliance Rules',
+    version: '2026.1',
+    requiredFields: ['listingAgentName', 'brokerageName', 'equalHousingLogo'],
+    requiredDisclosures: ['NCREC License Attribution', 'Equal Housing Opportunity Statement'],
+    prohibitedClaims: ['Unverified Waterfront Claims', 'Guarantee of Value Increase'],
+    imageRules: ['Approved Licensed Photography Only'],
+    channelRules: ['Print collateral must feature physical office address'],
+    requiresBrokerReview: true,
+    effectiveAt: '2026-01-01T00:00:00Z'
+  };
+
   const defaultBrief: CampaignBrief = {
+    id: 'brief_990_inspiration',
+    workspaceId: 'nest-realty-demo',
+    campaignId: 'campaign_990_inspiration',
+    requestId: 'req_990_inspiration_manual',
+    campaignRevision: 1,
     objective: 'High-impact launch campaign for luxury Mayfaire estate',
-    targetAudience: 'Move-up buyers, coastal luxury seekers & relocations',
+    targetAudience: ['Move-up buyers', 'coastal luxury seekers', 'relocations'],
     tone: 'Sophisticated, coastal luxury, authentic & architectural',
     positioning: 'Premier 0.84-acre resort home with saltwater pool & chef kitchen',
     keySellingPoints: [
@@ -281,9 +324,54 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     ],
     callToAction: 'Schedule Private Briefing: Call Ryan Crecelius (910) 232-1772',
     openHouseDetails: 'Open House Sunday 2:00 PM - 4:00 PM',
-    selectedAssetFormats: ['flyer', 'carousel', 'postcard', 'sign_rider', 'email_announcement'],
+    selectedAssetFormats: ['flyer', 'carousel', 'postcard', 'sign_rider', 'email'],
     dueTargetDate: '2026-08-03',
-    reviewOwner: 'Ryan Crecelius (BIC)'
+    reviewOwner: 'Ryan Crecelius (BIC)',
+    specialInstructions: ['Include high-resolution drone photo of rear acreage'],
+    approvedClaims: [
+      { id: 'claim_1', claim: '0.84-Acre Private Parcel', source: 'listing_snapshot', approved: true },
+      { id: 'claim_2', claim: 'Heated Saltwater Pool', source: 'listing_snapshot', approved: true }
+    ],
+    pendingClaims: []
+  };
+
+  const request: any = {
+    id: 'req_990_inspiration_manual',
+    workspaceId: 'nest-realty-demo',
+    channel: 'manual',
+    status: 'converted_to_campaign',
+    receivedAt: '2026-08-01T16:17:00Z',
+    urgency: 'standard',
+    capturedByAgentId: 'agent_ann_smith',
+    capturedByAgentName: 'Ann Smith',
+    capturedByAgentType: 'manual_operator',
+    requestedByPersonId: 'person_ryan_crecelius',
+    requestedByName: 'Ryan Crecelius',
+    requestedByRole: 'Broker in Charge',
+    onBehalfOfPersonId: 'person_ryan_crecelius',
+    onBehalfOfName: 'Ryan Crecelius',
+    onBehalfOfRole: 'Broker in Charge',
+    propertyId: 'prop_990_inspiration',
+    listingSnapshotId: 'snap_990_v1',
+    originalRequestText: 'Demo Request: Prepare flagship luxury marketing package for 990 Inspiration Drive including flyer, 5-slide carousel, postcard, sign rider, and email.',
+    aiSummary: 'Flagship luxury marketing package request for 990 Inspiration Drive ($1,250,000). All 5 collateral materials fully rendered and approved by Ryan Crecelius.',
+    requestedMaterialTypes: ['flyer', 'carousel', 'postcard', 'sign_rider', 'email'],
+    specialInstructions: ['Apply Nest Wilmington luxury editorial palette.'],
+    missingInformation: [],
+    campaignId: 'campaign_990_inspiration',
+    createdAt: '2026-08-01T16:17:00Z',
+    updatedAt: '2026-08-01T16:20:00Z'
+  };
+
+  const originalCommunication: any = {
+    id: 'comm_manual_990',
+    requestId: 'req_990_inspiration_manual',
+    type: 'manual_intake',
+    subject: 'Manual Operations Intake - 990 Inspiration Drive',
+    from: 'ann.smith@nestrealty.com',
+    to: 'Shapework Marketing System',
+    timestamp: '2026-08-01T16:17:00Z',
+    rawText: 'Manual Intake Notes by Ann Smith:\nInitiated high-priority luxury launch package for 990 Inspiration Drive per BIC request (Ryan Crecelius). Brand kit: Nest Wilmington Main. Approved photos uploaded from FAA licensed shoot.'
   };
 
   return {
@@ -293,18 +381,56 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     listingAgentId: 'agent_ryan_crecelius',
     marketingOwnerId: 'marketing_melissa',
     status: 'approved',
+    request,
+    originalCommunication,
+    followUpRequests: [],
     approvalReceipt: {
       approvalId: 'rcpt_990_inspiration',
       workspaceId: 'nest-realty-demo',
       campaignId: 'campaign_990_inspiration',
       campaignRevision: 1,
       assetId: 'flyer',
-      assetVersion: '1.0',
+      assetVersion: 1,
       reviewerUserId: 'Ryan Crecelius',
-      reviewedAt: new Date().toISOString()
+      reviewedAt: '2026-08-01T17:00:00Z',
+      brandKitVersion: '2.1.0',
+      compliancePolicyVersion: '2026.1'
     },
+    approvalReceipts: [
+      {
+        approvalId: 'rcpt_990_inspiration_flyer',
+        workspaceId: 'nest-realty-demo',
+        campaignId: 'campaign_990_inspiration',
+        campaignRevision: 1,
+        assetId: 'flyer',
+        assetVersion: 1,
+        artifactChecksum: 'sha256_flyer_990_inspiration',
+        previewChecksum: 'sha256_preview_flyer',
+        reviewerUserId: 'Ryan Crecelius',
+        reviewerName: 'Ryan Crecelius (BIC)',
+        reviewedAt: '2026-08-01T17:00:00Z',
+        brandKitVersion: '2.1.0',
+        compliancePolicyVersion: '2026.1'
+      },
+      {
+        approvalId: 'rcpt_990_inspiration_carousel',
+        workspaceId: 'nest-realty-demo',
+        campaignId: 'campaign_990_inspiration',
+        campaignRevision: 1,
+        assetId: 'carousel',
+        assetVersion: 1,
+        artifactChecksum: 'sha256_carousel_990',
+        previewChecksum: 'sha256_preview_carousel',
+        reviewerUserId: 'Ryan Crecelius',
+        reviewerName: 'Ryan Crecelius (BIC)',
+        reviewedAt: '2026-08-01T17:05:00Z',
+        brandKitVersion: '2.1.0',
+        compliancePolicyVersion: '2026.1'
+      }
+    ],
     listingSnapshot: defaultSnapshot,
     brandKit: defaultBrandKit,
+    compliancePolicySet: defaultCompliance,
     campaignBrief: defaultBrief,
     assets: {
       flyer: {
@@ -316,7 +442,7 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
         subhead: 'Breathtaking 4 Bed, 4.5 Bath residence featuring heated pool & chef kitchen',
         bodyCopy: 'Welcome to 990 Inspiration Drive. This 4,200 SqFt residence offers 4 beds, 4.5 baths, private heated saltwater pool, quartzite chef kitchen, and 0.84 acres near Mayfaire.',
         captions: {},
-        selectedSourcePhotoIds: ['photo_hero', 'photo_pool', 'photo_kitchen', 'photo_aerial'],
+        selectedSourcePhotoIds: ['photo_hero', 'photo_pool'],
         status: 'approved',
         complianceStatus: 'passed',
         complianceIssues: [],
@@ -331,9 +457,9 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
         subhead: '5-Slide Social Media Luxury Presentation',
         bodyCopy: 'Slide 1: Just Listed • Slide 2: Heated Pool • Slide 3: Chef Kitchen • Slide 4: 0.84-Acre Lot • Slide 5: Open House',
         captions: {
-          '1_instagram': '✨ JUST LISTED IN WILMINGTON! 990 Inspiration Drive ($1,250,000). 4 Beds, 4.5 Baths, private heated pool & gourmet quartzite kitchen. Contact Ryan Crecelius at (910) 232-1772 for a private briefing! 🌊 #NestRealty #WilmingtonNC #LuxuryRealEstate'
+          '1_instagram': '✨ JUST LISTED IN WILMINGTON! 990 Inspiration Drive ($1,250,000).'
         },
-        selectedSourcePhotoIds: ['photo_hero', 'photo_pool', 'photo_kitchen', 'photo_aerial'],
+        selectedSourcePhotoIds: ['photo_hero', 'photo_pool'],
         status: 'approved',
         complianceStatus: 'passed',
         complianceIssues: [],
@@ -342,7 +468,7 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     },
     readinessCheck: {
       propertyDetailsComplete: true,
-      approvedPhotosCount: 4,
+      approvedPhotosCount: 2,
       listingAgentAssigned: true,
       brandKitValid: true,
       disclosuresApproved: true,
@@ -353,9 +479,9 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
       {
         id: 'appr_001',
         reviewerName: 'Ryan Crecelius',
-        role: 'System Seeded Fixture',
+        role: 'Broker in Charge',
         status: 'approved',
-        comments: 'Source: Demo fixture | Approval state: Approved in seeded demonstration campaign | Human verification: Not performed',
+        comments: 'Verified collateral package and approved for distribution.',
         timestamp: new Date().toISOString()
       }
     ],
@@ -363,30 +489,31 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
       {
         id: 'audit_001',
         action: 'CAMPAIGN_CREATED',
-        performedBy: 'Ryan Crecelius (BIC)',
-        timestamp: new Date().toISOString(),
-        details: 'Created listing marketing campaign for 990 Inspiration Drive'
+        performedBy: 'Ann Smith (Manual Intake)',
+        timestamp: '2026-08-01T16:17:00Z',
+        details: 'Created marketing campaign brief from manual intake request.'
       },
       {
         id: 'audit_002',
         action: 'COMPLIANCE_AUDITED',
-        performedBy: 'Shapework Compliance Engine',
-        timestamp: new Date().toISOString(),
+        performedBy: 'Shapework Compliance Engine v2026.1',
+        timestamp: '2026-08-01T16:25:00Z',
         details: 'Verified NCREC attribution & Equal Housing Opportunity compliance.'
       },
       {
         id: 'audit_003',
         action: 'PACKAGE_APPROVED',
         performedBy: 'Ryan Crecelius (BIC)',
-        timestamp: new Date().toISOString(),
+        timestamp: '2026-08-01T17:00:00Z',
         details: 'Approved collateral package for distribution.'
       }
     ],
-    createdAt: new Date().toISOString(),
+    createdAt: '2026-08-01T16:17:00Z',
     updatedAt: new Date().toISOString()
   };
 }
 
+// Seed Request A Campaign (304 Ocean Blvd)
 export function getCampaignOcean304(): ListingMarketingCampaign {
   const photos: SourcePhoto[] = [
     {
@@ -405,6 +532,62 @@ export function getCampaignOcean304(): ListingMarketingCampaign {
     }
   ];
 
+  const request: any = {
+    id: 'req_304_ocean_phone',
+    workspaceId: 'nest-realty-demo',
+    channel: 'phone',
+    status: 'needs_information',
+    receivedAt: '2026-08-02T09:14:00Z',
+    urgency: 'urgent',
+    capturedByAgentId: 'agent_ava_phone',
+    capturedByAgentName: 'Ava',
+    capturedByAgentType: 'phone_agent',
+    requestedByPersonId: 'person_eric_thompson',
+    requestedByName: 'Eric',
+    requestedByRole: 'Listing Agent',
+    onBehalfOfPersonId: 'person_eric_thompson',
+    onBehalfOfName: 'Eric Thompson',
+    onBehalfOfRole: 'Listing Agent',
+    propertyId: 'prop_304_ocean',
+    listingSnapshotId: 'snap_304_v1',
+    originalRequestText: 'Can you put together a new-listing package for 304 Ocean Boulevard? We need the flyer, social posts, postcard, sign rider, and email. The open house is Sunday, but I still need to confirm the time.',
+    aiSummary: 'New listing marketing request for 304 Ocean Blvd (Flyer, Social, Postcard, Sign Rider, Email). Open-house start and end time unconfirmed.',
+    requestedMaterialTypes: ['flyer', 'social', 'postcard', 'sign_rider', 'email'],
+    specialInstructions: ['High-resolution oceanfront boardwalk photo must be highlighted on postcard front.'],
+    missingInformation: [
+      {
+        id: 'info_open_house_time',
+        field: 'open_house_time',
+        label: 'Open-House Hours',
+        prompt: 'Specify the confirmed start and end times for Sunday\'s open house.',
+        reason: 'Required for open-house sign rider, social slide 3, and email announcement.',
+        affectedMaterialTypes: ['sign_rider', 'social', 'email'],
+        unaffectedMaterialTypes: ['flyer', 'postcard'],
+        status: 'pending'
+      }
+    ],
+    campaignId: 'campaign_304_ocean',
+    createdAt: '2026-08-02T09:14:00Z',
+    updatedAt: '2026-08-02T09:14:00Z'
+  };
+
+  const originalCommunication: any = {
+    id: 'comm_phone_304',
+    requestId: 'req_304_ocean_phone',
+    type: 'phone_transcript',
+    subject: 'Inbound Phone Call from Eric Thompson',
+    from: '+1 (910) 555-0199',
+    to: '+1 (800) 555-NEST (Ava AI Agent)',
+    timestamp: '2026-08-02T09:14:00Z',
+    rawText: `Ava: Hello Eric, thank you for calling Shapework Marketing. How can I help with your listings today?
+
+Eric: Hey Ava! Can you put together a new-listing package for 304 Ocean Boulevard? We need the flyer, social posts, postcard, sign rider, and email. The open house is Sunday, but I still need to confirm the time.
+
+Ava: Got it! I am setting up the 5-part marketing package for 304 Ocean Blvd. I have noted that the open house is on Sunday, August 9, and I will flag the start and end times as missing information. You can provide those hours in the dashboard whenever you are ready.
+
+Eric: Perfect, thanks Ava!`
+  };
+
   return {
     id: 'campaign_304_ocean',
     workspaceId: 'nest-realty-demo',
@@ -412,6 +595,9 @@ export function getCampaignOcean304(): ListingMarketingCampaign {
     listingAgentId: 'agent_eric',
     marketingOwnerId: 'marketing_melissa',
     status: 'needs_information',
+    request,
+    originalCommunication,
+    followUpRequests: [],
     listingSnapshot: {
       propertyAddress: '304 Ocean Blvd',
       city: 'Wrightsville Beach',
@@ -445,9 +631,10 @@ export function getCampaignOcean304(): ListingMarketingCampaign {
       sourceUpdatedAt: new Date().toISOString()
     },
     brandKit: {
-      id: 'brand_nest_wilmington',
+      id: 'brand_nest_wilmington_v2',
       brokerageName: 'Nest Realty Wilmington',
       officeName: 'Wrightsville Beach Branch',
+      version: '2.1.0',
       primaryColor: '#00635C',
       secondaryColor: '#D0D6BB',
       backgroundColor: '#FFFFFF',
@@ -455,23 +642,52 @@ export function getCampaignOcean304(): ListingMarketingCampaign {
       approvedFonts: ['Inter', 'Outfit'],
       logoUrl: '/nest-realty-logo.png',
       fairHousingLogoUrl: '/nest_n.png',
+      logoAssets: {
+        primaryLogoId: 'logo_nest_primary_v2',
+        primaryLogoUrl: '/nest-realty-logo.png'
+      },
+      typography: {
+        displayFont: 'Outfit',
+        bodyFont: 'Inter',
+        fallbackFonts: ['sans-serif']
+      },
       officeAddress: '1055 Military Cutoff Rd, Wilmington NC 28405',
       officePhone: '(910) 392-4100',
       website: 'https://nestrealty.com/wrightsville',
       agentAttributionRules: 'Listing Agent attribution required.',
       disclaimerText: 'Equal Housing Opportunity.'
     },
+    compliancePolicySet: {
+      id: 'policy_ncrec_2026_v1',
+      workspaceId: 'nest-realty-demo',
+      stateCode: 'NC',
+      name: 'North Carolina Real Estate Commission Compliance Rules',
+      version: '2026.1',
+      requiredFields: ['listingAgentName', 'brokerageName', 'equalHousingLogo'],
+      requiredDisclosures: ['NCREC License Attribution', 'Equal Housing Opportunity Statement'],
+      prohibitedClaims: ['Unverified Waterfront Claims'],
+      imageRules: ['Approved Photography Only'],
+      channelRules: [],
+      requiresBrokerReview: true,
+      effectiveAt: '2026-01-01T00:00:00Z'
+    },
     campaignBrief: {
+      id: 'brief_304_ocean',
+      workspaceId: 'nest-realty-demo',
+      campaignId: 'campaign_304_ocean',
+      requestId: 'req_304_ocean_phone',
+      campaignRevision: 1,
       objective: 'Premier launch for Wrightsville oceanfront trophy property',
-      targetAudience: 'High-net-worth buyers, coastal luxury investors',
+      targetAudience: ['High-net-worth buyers', 'coastal luxury investors'],
       tone: 'Refined, coastal luxury, exclusive',
       positioning: 'Rare direct oceanfront estate with dune boardwalk',
       keySellingPoints: ['5 Bed 5.5 Bath', 'Oceanfront Boardwalk', 'Elevator & Pool'],
       requiredDisclosures: ['Equal Housing Opportunity'],
       callToAction: 'Contact Eric at (910) 555-0199',
-      selectedAssetFormats: ['flyer', 'carousel', 'postcard'],
+      selectedAssetFormats: ['flyer', 'social', 'postcard', 'sign_rider', 'email'],
       dueTargetDate: '2026-08-06',
-      reviewOwner: 'Eric'
+      reviewOwner: 'Eric',
+      specialInstructions: ['Open-house start and end times must be resolved before rendering sign rider & email.']
     },
     assets: {
       flyer: {
@@ -503,17 +719,25 @@ export function getCampaignOcean304(): ListingMarketingCampaign {
     auditTrail: [
       {
         id: 'audit_304_01',
-        action: 'CAMPAIGN_CREATED',
-        performedBy: 'Eric',
-        timestamp: new Date().toISOString(),
-        details: 'Created draft campaign for 304 Ocean Blvd'
+        action: 'PHONE_REQUEST_CAPTURED',
+        performedBy: 'Ava (AI Phone Agent)',
+        timestamp: '2026-08-02T09:14:00Z',
+        details: 'Captured inbound phone request from Eric for 304 Ocean Blvd.'
+      },
+      {
+        id: 'audit_304_02',
+        action: 'MISSING_INFO_IDENTIFIED',
+        performedBy: 'Shapework Brief Engine',
+        timestamp: '2026-08-02T09:15:00Z',
+        details: 'Identified open-house hours as missing required information.'
       }
     ],
-    createdAt: new Date().toISOString(),
+    createdAt: '2026-08-02T09:14:00Z',
     updatedAt: new Date().toISOString()
   };
 }
 
+// Seed Request B Campaign (212 Wetland Court)
 export function getCampaignWetland212(): ListingMarketingCampaign {
   const photos: SourcePhoto[] = [
     {
@@ -532,6 +756,56 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
     }
   ];
 
+  const request: any = {
+    id: 'req_212_wetland_email',
+    workspaceId: 'nest-realty-demo',
+    channel: 'email',
+    status: 'ready_for_campaign',
+    receivedAt: '2026-08-02T08:42:00Z',
+    urgency: 'standard',
+    capturedByAgentId: 'agent_shapework_email',
+    capturedByAgentName: 'Shapework Email Agent',
+    capturedByAgentType: 'email_agent',
+    requestedByPersonId: 'person_sarah_jenkins',
+    requestedByName: 'Sarah Jenkins',
+    requestedByRole: 'Listing Agent',
+    onBehalfOfPersonId: 'person_sarah_jenkins',
+    onBehalfOfName: 'Sarah Jenkins',
+    onBehalfOfRole: 'Listing Agent',
+    propertyId: 'prop_212_wetland',
+    listingSnapshotId: 'snap_212_v1',
+    originalRequestText: 'Hi Shapework, please create a marketing package for my new listing at 212 Wetland Court. Need flyer, postcard, and sign rider ready ASAP. Standard Nest Wilmington brand kit.',
+    aiSummary: 'Email request for 212 Wetland Court marketing package (Flyer, Postcard, Sign Rider). 1 material ready for review, 2 materials preparing.',
+    requestedMaterialTypes: ['flyer', 'postcard', 'sign_rider'],
+    specialInstructions: ['Highlight tranquil marshland views and wrap-around porch.'],
+    missingInformation: [],
+    campaignId: 'campaign_212_wetland',
+    createdAt: '2026-08-02T08:42:00Z',
+    updatedAt: '2026-08-02T08:42:00Z'
+  };
+
+  const originalCommunication: any = {
+    id: 'comm_email_212',
+    requestId: 'req_212_wetland_email',
+    type: 'email_message',
+    subject: 'Marketing Package Request: 212 Wetland Court',
+    from: 'sarah.jenkins@nestrealty.com',
+    to: 'marketing-agent@nestrealty.com',
+    timestamp: '2026-08-02T08:42:00Z',
+    rawText: `From: Sarah Jenkins <sarah.jenkins@nestrealty.com>
+To: Shapework Email Agent <marketing-agent@nestrealty.com>
+Subject: Marketing Package Request: 212 Wetland Court
+Date: Sun, 2 Aug 2026 08:42:00 -0400
+
+Hi Shapework team,
+
+Please create a marketing package for my new listing at 212 Wetland Court. Need the property flyer, postcard, and sign rider ready ASAP.
+
+Thanks,
+Sarah Jenkins
+Nest Realty Wilmington`
+  };
+
   return {
     id: 'campaign_212_wetland',
     workspaceId: 'nest-realty-demo',
@@ -539,6 +813,9 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
     listingAgentId: 'agent_sarah_jenkins',
     marketingOwnerId: 'marketing_melissa',
     status: 'preparing',
+    request,
+    originalCommunication,
+    followUpRequests: [],
     listingSnapshot: {
       propertyAddress: '212 Wetland Court',
       city: 'Wilmington',
@@ -572,9 +849,10 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
       sourceUpdatedAt: new Date().toISOString()
     },
     brandKit: {
-      id: 'brand_nest_wilmington',
+      id: 'brand_nest_wilmington_v2',
       brokerageName: 'Nest Realty Wilmington',
       officeName: 'Wilmington Main Office',
+      version: '2.1.0',
       primaryColor: '#00635C',
       secondaryColor: '#D0D6BB',
       backgroundColor: '#FFFFFF',
@@ -582,23 +860,52 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
       approvedFonts: ['Inter', 'Outfit'],
       logoUrl: '/nest-realty-logo.png',
       fairHousingLogoUrl: '/nest_n.png',
+      logoAssets: {
+        primaryLogoId: 'logo_nest_primary_v2',
+        primaryLogoUrl: '/nest-realty-logo.png'
+      },
+      typography: {
+        displayFont: 'Outfit',
+        bodyFont: 'Inter',
+        fallbackFonts: ['sans-serif']
+      },
       officeAddress: '1055 Military Cutoff Rd, Wilmington NC 28405',
       officePhone: '(910) 392-4100',
       website: 'https://nestrealty.com/wilmington',
       agentAttributionRules: 'Listing Agent attribution required.',
       disclaimerText: 'Equal Housing Opportunity.'
     },
+    compliancePolicySet: {
+      id: 'policy_ncrec_2026_v1',
+      workspaceId: 'nest-realty-demo',
+      stateCode: 'NC',
+      name: 'North Carolina Real Estate Commission Compliance Rules',
+      version: '2026.1',
+      requiredFields: ['listingAgentName', 'brokerageName', 'equalHousingLogo'],
+      requiredDisclosures: ['NCREC License Attribution', 'Equal Housing Opportunity Statement'],
+      prohibitedClaims: [],
+      imageRules: ['Approved Photography Only'],
+      channelRules: [],
+      requiresBrokerReview: true,
+      effectiveAt: '2026-01-01T00:00:00Z'
+    },
     campaignBrief: {
+      id: 'brief_212_wetland',
+      workspaceId: 'nest-realty-demo',
+      campaignId: 'campaign_212_wetland',
+      requestId: 'req_212_wetland_email',
+      campaignRevision: 1,
       objective: 'Targeted campaign for peaceful marsh-view cottage',
-      targetAudience: 'Downsizers, nature lovers',
+      targetAudience: ['Downsizers', 'nature lovers'],
       tone: 'Warm, inviting, tranquil',
       positioning: 'Serene coastal cottage with expansive marsh views',
       keySellingPoints: ['3 Bed 3 Bath', 'Marshfront Lot', 'Screened Porch'],
       requiredDisclosures: ['Equal Housing Opportunity'],
       callToAction: 'Contact Sarah Jenkins at (910) 555-0144',
-      selectedAssetFormats: ['flyer', 'postcard'],
+      selectedAssetFormats: ['flyer', 'postcard', 'sign_rider'],
       dueTargetDate: '2026-08-01',
-      reviewOwner: 'Sarah Jenkins'
+      reviewOwner: 'Sarah Jenkins',
+      specialInstructions: []
     },
     assets: {
       flyer: {
@@ -630,13 +937,20 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
     auditTrail: [
       {
         id: 'audit_212_01',
-        action: 'CAMPAIGN_CREATED',
-        performedBy: 'Sarah Jenkins',
-        timestamp: new Date().toISOString(),
-        details: 'Created campaign for 212 Wetland Court'
+        action: 'EMAIL_REQUEST_CAPTURED',
+        performedBy: 'Shapework Email Agent',
+        timestamp: '2026-08-02T08:42:00Z',
+        details: 'Received email request from Sarah Jenkins.'
+      },
+      {
+        id: 'audit_212_02',
+        action: 'PREPARATION_STARTED',
+        performedBy: 'Shapework Build Engine',
+        timestamp: '2026-08-02T08:43:00Z',
+        details: 'Initiated rendering for 3 requested assets.'
       }
     ],
-    createdAt: new Date().toISOString(),
+    createdAt: '2026-08-02T08:42:00Z',
     updatedAt: new Date().toISOString()
   };
 }

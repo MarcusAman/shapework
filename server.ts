@@ -5127,6 +5127,68 @@ app.get('/api/marketing/campaigns', requireAuth, resolveWorkspaceContext, requir
   return res.json({ success: true, campaigns });
 });
 
+// GET All Persistent Marketing Requests
+app.get('/api/marketing/requests', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const all = getAllCampaigns();
+  const requests = all.map(c => c.request).filter(Boolean);
+  return res.json({ success: true, requests });
+});
+
+// GET Specific Marketing Request by ID
+app.get('/api/marketing/requests/:id', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const all = getAllCampaigns();
+  const reqItem = all.map(c => c.request).find(r => r && r.id === req.params.id);
+  if (!reqItem) {
+    return res.status(404).json({ success: false, error: 'Marketing request not found' });
+  }
+  return res.json({ success: true, request: reqItem });
+});
+
+// POST Follow-up Request for existing campaign
+app.post('/api/marketing/campaigns/:id/follow-up', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const campaign = getCampaignById(req.params.id);
+  if (!campaign) {
+    return res.status(404).json({ success: false, error: 'Campaign not found' });
+  }
+  const { requestText, requestedBy, channel, specialInstructions } = req.body || {};
+  const currentRev = campaign.campaignBrief?.campaignRevision || 1;
+  const newRev = currentRev + 1;
+
+  const followUp: any = {
+    id: `req_followup_${Date.now()}`,
+    workspaceId: campaign.workspaceId,
+    channel: channel || 'email',
+    status: 'converted_to_campaign',
+    receivedAt: new Date().toISOString(),
+    capturedByAgentName: 'Shapework Email Agent',
+    capturedByAgentType: 'email_agent',
+    requestedByName: requestedBy || campaign.listingSnapshot.listingAgentName,
+    originalRequestText: requestText || 'Follow-up request to update marketing collateral.',
+    aiSummary: `Follow-up request: ${requestText || 'Update collateral'}. Created campaign revision ${newRev}.`,
+    requestedMaterialTypes: campaign.campaignBrief?.requestedMaterialTypes || ['flyer'],
+    specialInstructions: specialInstructions || [],
+    campaignId: campaign.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  if (!campaign.followUpRequests) campaign.followUpRequests = [];
+  campaign.followUpRequests.unshift(followUp);
+  if (campaign.campaignBrief) {
+    campaign.campaignBrief.campaignRevision = newRev;
+  }
+  campaign.auditTrail.unshift({
+    id: `audit_followup_${Date.now()}`,
+    action: 'FOLLOW_UP_REQUEST_ADDED',
+    performedBy: requestedBy || campaign.listingSnapshot.listingAgentName,
+    timestamp: new Date().toISOString(),
+    details: `Added follow-up request. Created campaign revision ${newRev}.`
+  });
+
+  saveCampaign(campaign);
+  return res.json({ success: true, campaign, followUpRequest: followUp, revision: newRev });
+});
+
 // GET Operator Workboard Data (Operator/Admin Only)
 app.get('/api/marketing/workboard', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
   if (!isMarketingOperatorOrAdmin(req)) {

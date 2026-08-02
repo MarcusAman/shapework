@@ -69,14 +69,15 @@ export const BuildViewSidecar: React.FC<BuildViewSidecarProps> = ({
     <div
       role="region"
       aria-label="Build View Progress Panel"
-      className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.18)] rounded-3xl p-5 shadow-2xl space-y-4 font-sans text-xs text-[#FFFDF8] w-full max-w-sm flex flex-col justify-between"
+      data-testid="build-view-sidecar"
+      className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.18)] rounded-3xl p-5 shadow-2xl space-y-4 font-sans text-xs text-[#FFFDF8] w-full max-w-sm flex flex-col justify-between text-left"
     >
       {/* 1. HEADER */}
       <div className="border-b border-[rgba(208,214,187,0.14)] pb-3 space-y-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse shrink-0" />
-            <h3 className="font-serif font-bold text-sm text-[#FFFDF8]">
+            <h3 className="font-serif font-bold text-sm text-[#FFFDF8]" data-testid="build-view-header">
               {isCompleted
                 ? 'Package prepared'
                 : isFailed
@@ -98,7 +99,7 @@ export const BuildViewSidecar: React.FC<BuildViewSidecarProps> = ({
         </div>
 
         {/* Counter-Based Progress */}
-        <p className="text-[11px] text-[rgba(246,247,241,0.75)] font-medium">
+        <p className="text-[11px] text-[rgba(246,247,241,0.75)] font-medium" data-testid="build-progress-text">
           {isCompleted
             ? `${totalCount} of ${totalCount} materials ready`
             : `${completedCount} of ${totalCount} materials ready`}
