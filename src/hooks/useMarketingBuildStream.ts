@@ -93,21 +93,25 @@ export function useMarketingBuildStream(
       }
     };
 
+    let pollInterval: any = null;
     es.onerror = () => {
       setIsConnected(false);
       es.close();
 
-      // Trigger fallback polling interval if SSE disconnects
-      const pollInterval = setInterval(() => {
-        pollJobStatus();
-      }, 3000);
-
-      return () => clearInterval(pollInterval);
+      // Trigger fallback polling interval if SSE disconnects (if not already polling)
+      if (!pollInterval) {
+        pollInterval = setInterval(() => {
+          pollJobStatus();
+        }, 3000);
+      }
     };
 
     return () => {
       es.close();
       eventSourceRef.current = null;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
   }, [campaignId, jobId, pollJobStatus]);
 

@@ -93,7 +93,7 @@ export const RedesignedDeliveryDrawer: React.FC<RedesignedDeliveryDrawerProps> =
                 <HardDrive className="w-4 h-4 text-emerald-300 shrink-0" />
                 <div>
                   <h4 className="font-bold text-xs text-white">Google Drive</h4>
-                  <span className="text-[10px] text-emerald-300 font-bold block">Connected • Active</span>
+                  <span className="text-[10px] text-amber-300 font-bold block" data-testid="gdrive-status">Demo connection</span>
                 </div>
               </div>
 

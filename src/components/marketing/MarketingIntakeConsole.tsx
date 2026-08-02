@@ -142,16 +142,16 @@ export default function MarketingIntakeConsole({
     "grouped",
   );
   
-  // Dedicated Campaign Workspace Navigation & Asset Review State
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const camp = params.get("campaign") || params.get("campaignId");
       if (camp) return camp;
-      if (params.get("view") === "detail" || params.get("subtab") === "templates") return "campaign_990_inspiration";
     }
     return null; // Root page is Campaign Selection List
   });
+  const [allCampaigns, setAllCampaigns] = useState<any[]>([]);
+  const [campaignNotFoundError, setCampaignNotFoundError] = useState<boolean>(false);
 
   const [campaignWorkspaceMode, setCampaignWorkspaceMode] = useState<
     "overview" | "review" | "activity"
@@ -288,22 +288,16 @@ export default function MarketingIntakeConsole({
 
   // Single asset download handler
   const handleDownloadSingleAsset = (assetId: string) => {
-    const assetFilenames: Record<string, string> = {
-      flyer: "990-Inspiration-Drive-Flyer.pdf",
-      carousel: `Slide-0${socialSlideIndex + 1}.png`,
-      postcard: postcardPage === "front" ? "990-Inspiration-Drive-Postcard-Front.pdf" : "990-Inspiration-Drive-Postcard-Back.pdf",
-      sign_rider: "990-Inspiration-Drive-Sign-Rider.pdf",
-      email: "990-Inspiration-Drive-Email.html",
-    };
-    const filename = assetFilenames[assetId] || `${assetId}.pdf`;
-    const downloadUrl = `/api/marketing/campaigns/campaign_990_inspiration/deliver/export?format=binary`;
+    const cId = selectedCampaignId || "campaign_990_inspiration";
+    const filename = `${cId}-${assetId}.pdf`;
+    const downloadUrl = `/api/marketing/campaigns/${cId}/deliver/export?format=binary`;
     const link = document.createElement("a");
     link.href = downloadUrl;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setIntakeToast(`📥 Downloading ${assetId.replace("_", " ")} file (${filename})...`);
+    setIntakeToast(`📥 Exported ${assetId.replace("_", " ")} file (${filename})`);
   };
 
   const handleApproveAsset = (assetId: string) => {
@@ -782,14 +776,53 @@ export default function MarketingIntakeConsole({
     useState(false);
   const [headlessProgressStep, setHeadlessProgressStep] = useState(0);
 
-  // Fetch Persistent Marketing Campaign on Mount
+  // Fetch All Persistent Marketing Campaigns on Mount
   useEffect(() => {
     fetch("/api/marketing/campaigns")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.campaigns && data.campaigns.length > 0) {
-          const camp = data.campaigns[0];
+        if (data.success && Array.isArray(data.campaigns)) {
+          setAllCampaigns(data.campaigns);
+        }
+      })
+      .catch((err) =>
+        console.error("Failed to load persistent marketing campaigns list:", err),
+      );
+  }, []);
+
+  // Fetch Selected Campaign with AbortController & Stale Response Protection (Sections 1, 4, 5)
+  useEffect(() => {
+    if (!selectedCampaignId) {
+      setActiveCampaign(null);
+      setCampaignNotFoundError(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setCampaignNotFoundError(false);
+
+    fetch(`/api/marketing/campaigns/${selectedCampaignId}`, {
+      signal: abortController.signal,
+      credentials: "include",
+      headers: {
+        "x-workspace-id": "nest-realty-demo",
+      },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("not_found");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        // Section 4 & 5: Reject stale response if active selected campaign has changed
+        if (data.campaignId && data.campaignId !== selectedCampaignId) {
+          return;
+        }
+        if (data.success && data.campaign) {
+          const camp = data.campaign;
           setActiveCampaign(camp);
+          setCampaignNotFoundError(false);
           if (camp.listingSnapshot) {
             setCustomAddress(camp.listingSnapshot.propertyAddress);
             setCustomPrice(
@@ -800,12 +833,20 @@ export default function MarketingIntakeConsole({
               setCustomHeadline(camp.assets.flyer.headline);
             }
           }
+        } else {
+          setCampaignNotFoundError(true);
         }
       })
-      .catch((err) =>
-        console.error("Failed to load persistent marketing campaign:", err),
-      );
-  }, []);
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        console.warn(`Campaign fetch error for ${selectedCampaignId}:`, err);
+        setCampaignNotFoundError(true);
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [selectedCampaignId]);
 
   const [mediaLibraryPhotos, setMediaLibraryPhotos] = useState<
     Array<{
@@ -2519,17 +2560,13 @@ export default function MarketingIntakeConsole({
           {/* CUSTOMER CAMPAIGN LIST VIEW (WHEN NO CAMPAIGN IS SELECTED) */}
           {activeTab === "campaigns" && !selectedCampaignId && (
             <MarketingHomeInbox
-              campaigns={[
+              campaigns={allCampaigns.length > 0 ? allCampaigns : [
                 {
                   id: "campaign_990_inspiration",
                   propertyAddress: "990 Inspiration Drive",
                   agentName: "Ryan Crecelius",
                   targetDate: "August 3, 2026",
-                  status: activeCampaign?.status || "ready_for_review",
-                  deliveryStatus: activeCampaign?.deliveryStatus,
-                  approvalReceipt: activeCampaign?.approvalReceipt,
-                  deliveryReceipts: activeCampaign?.deliveryReceipts,
-                  assetApprovals: activeCampaign?.assetApprovals,
+                  status: "approved",
                 },
                 {
                   id: "campaign_304_ocean",
@@ -2549,15 +2586,6 @@ export default function MarketingIntakeConsole({
                   targetDate: "August 1, 2026",
                   status: "preparing",
                 },
-                {
-                  id: "campaign_1420_mayfaire",
-                  propertyAddress: "1420 Mayfaire Town Drive",
-                  agentName: "Melissa",
-                  targetDate: "July 28, 2026",
-                  status: "approved",
-                  deliveryStatus: "delivered",
-                  deliveryReceipts: [{ id: "rc_1" }],
-                },
               ]}
               activeJob={activeBuildJob}
               onSelectCampaign={(cId, mode) => {
@@ -2573,36 +2601,40 @@ export default function MarketingIntakeConsole({
           )}
 
           {/* DEDICATED CAMPAIGN WORKSPACE VIEW (WHEN A CAMPAIGN IS SELECTED) */}
-          {(activeTab === "templates" ||
-            (activeTab === "campaigns" && selectedCampaignId)) && (
-            <CampaignWorkspaceViewport
-              campaign={
-                activeCampaign || {
-                  id: selectedCampaignId || "campaign_990_inspiration",
-                  propertyAddress: customAddress || "990 Inspiration Drive",
-                  status:
-                    selectedCampaignId === "campaign_304_ocean" ||
-                    campaignWorkspaceMode === "delivered"
-                      ? "approved"
-                      : "ready_for_review",
-                  deliveryStatus:
-                    campaignWorkspaceMode === "delivered" ||
-                    selectedCampaignId === "campaign_304_ocean"
-                      ? "delivered"
-                      : undefined,
-                }
-              }
-              job={activeBuildJob}
-              events={buildEvents}
-              selectedAsset={selectedReviewAsset}
-              onSelectAsset={(asset) => handleSelectAsset(asset)}
-              onBackToInbox={() => handleSelectCampaign(null)}
-              onApproveMaterial={handleApproveAsset}
-              onRequestChangeOpen={() => setShowRequestChangeDrawer(true)}
-              onOpenDeliveryDrawer={() => setShowRedesignedDeliveryDrawer(true)}
-              onSubmitInterventionInput={submitBuildInput}
-              onCancelJob={cancelBuildJob}
-            />
+          {activeTab === "campaigns" && selectedCampaignId && (
+            campaignNotFoundError ? (
+              /* SECTION 1: CAMPAIGN UNAVAILABLE ERROR STATE */
+              <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 max-w-md mx-auto my-12 bg-[#0B4A3F] border border-rose-500/30 rounded-3xl text-white shadow-2xl">
+                <AlertCircle className="w-12 h-12 text-rose-400" />
+                <h2 className="font-serif font-bold text-2xl text-[#FFFDF8]" data-testid="campaign-unavailable-heading">
+                  Campaign unavailable
+                </h2>
+                <p className="text-xs text-[rgba(246,247,241,0.75)] leading-relaxed" data-testid="campaign-unavailable-text">
+                  This campaign could not be found or you do not have access to it.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleSelectCampaign(null)}
+                  className="px-6 py-2.5 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer border border-emerald-400/30"
+                >
+                  Back to Marketing
+                </button>
+              </div>
+            ) : (
+              <CampaignWorkspaceViewport
+                campaign={activeCampaign}
+                job={activeBuildJob}
+                events={buildEvents}
+                selectedAsset={selectedReviewAsset}
+                onSelectAsset={(asset) => handleSelectAsset(asset)}
+                onBackToInbox={() => handleSelectCampaign(null)}
+                onApproveMaterial={handleApproveAsset}
+                onRequestChangeOpen={() => setShowRequestChangeDrawer(true)}
+                onOpenDeliveryDrawer={() => setShowRedesignedDeliveryDrawer(true)}
+                onSubmitInterventionInput={submitBuildInput}
+                onCancelJob={cancelBuildJob}
+              />
+            )
           )}
 
           {/* NON-ALERT MISSING INFORMATION MODAL */}
@@ -2630,10 +2662,10 @@ export default function MarketingIntakeConsole({
           <RedesignedDeliveryDrawer
             isOpen={showRedesignedDeliveryDrawer}
             onClose={() => setShowRedesignedDeliveryDrawer(false)}
-            campaignId={selectedCampaignId || "campaign_990_inspiration"}
-            propertyAddress={activeCampaign?.propertyAddress || customAddress}
+            campaignId={selectedCampaignId!}
+            propertyAddress={activeCampaign?.propertyAddress || customAddress || "Selected Campaign"}
             onDownloadFullPackage={async () => {
-              await handleDownloadPackageZip();
+              await handleDownloadRealZipPackage();
             }}
             onExportDestination={async (dest) => {
               if (dest === "google_drive") {

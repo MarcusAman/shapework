@@ -191,7 +191,8 @@ export function useWorkspaceConsoleState() {
 
     const nextPath = getPathFromTab(tab);
     if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, '', nextPath);
+      const search = window.location.search || '';
+      window.history.pushState({}, '', `${nextPath}${search}`);
     }
   }, [getPathFromTab]);
 

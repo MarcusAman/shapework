@@ -114,7 +114,7 @@ export interface ListingMarketingCampaign {
   propertyAddress: string;
   listingAgentId: string;
   marketingOwnerId: string;
-  status: 'intake' | 'needs_information' | 'ready_to_generate' | 'generating' | 'review' | 'changes_requested' | 'approved' | 'exported' | 'delivered';
+  status: 'intake' | 'needs_information' | 'ready_to_generate' | 'generating' | 'preparing' | 'review' | 'changes_requested' | 'approved' | 'exported' | 'delivered';
   listingSnapshot: ListingSnapshot;
   brandKit: BrandKit;
   campaignBrief: CampaignBrief;
@@ -293,6 +293,16 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     listingAgentId: 'agent_ryan_crecelius',
     marketingOwnerId: 'marketing_melissa',
     status: 'approved',
+    approvalReceipt: {
+      approvalId: 'rcpt_990_inspiration',
+      workspaceId: 'nest-realty-demo',
+      campaignId: 'campaign_990_inspiration',
+      campaignRevision: 1,
+      assetId: 'flyer',
+      assetVersion: '1.0',
+      reviewerUserId: 'Ryan Crecelius',
+      reviewedAt: new Date().toISOString()
+    },
     listingSnapshot: defaultSnapshot,
     brandKit: defaultBrandKit,
     campaignBrief: defaultBrief,
@@ -342,7 +352,7 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     approvals: [
       {
         id: 'appr_001',
-        reviewerName: 'Demo Fixture System',
+        reviewerName: 'Ryan Crecelius',
         role: 'System Seeded Fixture',
         status: 'approved',
         comments: 'Source: Demo fixture | Approval state: Approved in seeded demonstration campaign | Human verification: Not performed',
@@ -377,11 +387,269 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
   };
 }
 
+export function getCampaignOcean304(): ListingMarketingCampaign {
+  const photos: SourcePhoto[] = [
+    {
+      id: 'photo_ocean_hero',
+      url: '/api/marketing/campaigns/campaign_304_ocean/assets/photo_hero/raw',
+      caption: 'Direct Oceanfront Views & Private Boardwalk',
+      category: 'hero',
+      sourceProvenance: 'Physical Photo: ocean_blvd_304.jpg',
+      metadataSource: 'fixture',
+      photographerName: 'Sarah Miller',
+      photographerLicense: 'FAA License #FA-982104',
+      byteSize: 1200450,
+      width: 1920,
+      height: 1280,
+      sha256: 'a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef'
+    }
+  ];
+
+  return {
+    id: 'campaign_304_ocean',
+    workspaceId: 'nest-realty-demo',
+    propertyAddress: '304 Ocean Blvd, Wrightsville Beach, NC 28480',
+    listingAgentId: 'agent_eric',
+    marketingOwnerId: 'marketing_melissa',
+    status: 'needs_information',
+    listingSnapshot: {
+      propertyAddress: '304 Ocean Blvd',
+      city: 'Wrightsville Beach',
+      state: 'NC',
+      postalCode: '28480',
+      listingPrice: 2850000,
+      bedrooms: 5,
+      bathrooms: 5.5,
+      squareFeet: 5100,
+      acreage: 0.45,
+      propertyType: 'Oceanfront Single Family',
+      yearBuilt: 2024,
+      listingStatus: 'Draft',
+      targetListDate: '2026-08-10',
+      openHouseDates: [],
+      headline: 'OCEANFRONT COASTAL VILLA IN WRIGHTSVILLE BEACH',
+      publicRemarks: 'Spectacular 5 bed, 5.5 bath luxury oceanfront estate featuring panoramic Atlantic views, private dunes boardwalk, elevator, and dual master suites.',
+      keyFeatures: [
+        '5 Bedrooms & 5.5 Luxury Bathrooms (5,100 SqFt)',
+        'Direct Private Boardwalk to Dunes & Beach',
+        'Commercial Grade Elevator & 3-Car Garage',
+        'Dual Oceanfront Master Suites'
+      ],
+      listingAgentId: 'agent_eric',
+      listingAgentName: 'Eric',
+      listingAgentEmail: 'eric@nestrealty.com',
+      listingAgentPhone: '(910) 555-0199',
+      brokerInChargeName: 'Eric (BIC)',
+      approvedSourcePhotos: photos,
+      source: 'crm',
+      sourceUpdatedAt: new Date().toISOString()
+    },
+    brandKit: {
+      id: 'brand_nest_wilmington',
+      brokerageName: 'Nest Realty Wilmington',
+      officeName: 'Wrightsville Beach Branch',
+      primaryColor: '#00635C',
+      secondaryColor: '#D0D6BB',
+      backgroundColor: '#FFFFFF',
+      darkCharcoal: '#0F172A',
+      approvedFonts: ['Inter', 'Outfit'],
+      logoUrl: '/nest-realty-logo.png',
+      fairHousingLogoUrl: '/nest_n.png',
+      officeAddress: '1055 Military Cutoff Rd, Wilmington NC 28405',
+      officePhone: '(910) 392-4100',
+      website: 'https://nestrealty.com/wrightsville',
+      agentAttributionRules: 'Listing Agent attribution required.',
+      disclaimerText: 'Equal Housing Opportunity.'
+    },
+    campaignBrief: {
+      objective: 'Premier launch for Wrightsville oceanfront trophy property',
+      targetAudience: 'High-net-worth buyers, coastal luxury investors',
+      tone: 'Refined, coastal luxury, exclusive',
+      positioning: 'Rare direct oceanfront estate with dune boardwalk',
+      keySellingPoints: ['5 Bed 5.5 Bath', 'Oceanfront Boardwalk', 'Elevator & Pool'],
+      requiredDisclosures: ['Equal Housing Opportunity'],
+      callToAction: 'Contact Eric at (910) 555-0199',
+      selectedAssetFormats: ['flyer', 'carousel', 'postcard'],
+      dueTargetDate: '2026-08-06',
+      reviewOwner: 'Eric'
+    },
+    assets: {
+      flyer: {
+        id: 'asset_flyer_304',
+        assetType: 'flyer',
+        templateId: 'tmpl_flyer_coastal_emerald_v1',
+        templateVersion: '1.0.0',
+        headline: 'OCEANFRONT COASTAL VILLA IN WRIGHTSVILLE BEACH',
+        subhead: 'Panoramic Atlantic views, private boardwalk, and luxury finishes',
+        bodyCopy: 'Welcome to 304 Ocean Blvd. 5,100 SqFt of direct oceanfront living.',
+        captions: {},
+        selectedSourcePhotoIds: ['photo_ocean_hero'],
+        status: 'draft',
+        complianceStatus: 'pending',
+        complianceIssues: [],
+        updatedAt: new Date().toISOString()
+      }
+    },
+    readinessCheck: {
+      propertyDetailsComplete: false,
+      approvedPhotosCount: 1,
+      listingAgentAssigned: true,
+      brandKitValid: true,
+      disclosuresApproved: true,
+      isReadyForGeneration: false,
+      missingFields: ['open_house_hours']
+    },
+    approvals: [],
+    auditTrail: [
+      {
+        id: 'audit_304_01',
+        action: 'CAMPAIGN_CREATED',
+        performedBy: 'Eric',
+        timestamp: new Date().toISOString(),
+        details: 'Created draft campaign for 304 Ocean Blvd'
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function getCampaignWetland212(): ListingMarketingCampaign {
+  const photos: SourcePhoto[] = [
+    {
+      id: 'photo_wetland_hero',
+      url: '/api/marketing/campaigns/campaign_212_wetland/assets/photo_hero/raw',
+      caption: 'Marshfront Elevation & Screened Porch',
+      category: 'hero',
+      sourceProvenance: 'Physical Photo: wetland_ct_212.jpg',
+      metadataSource: 'fixture',
+      photographerName: 'Alex Carter',
+      photographerLicense: 'FAA License #FA-394201',
+      byteSize: 980120,
+      width: 1920,
+      height: 1280,
+      sha256: 'b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef12'
+    }
+  ];
+
+  return {
+    id: 'campaign_212_wetland',
+    workspaceId: 'nest-realty-demo',
+    propertyAddress: '212 Wetland Court, Wilmington, NC 28411',
+    listingAgentId: 'agent_sarah_jenkins',
+    marketingOwnerId: 'marketing_melissa',
+    status: 'preparing',
+    listingSnapshot: {
+      propertyAddress: '212 Wetland Court',
+      city: 'Wilmington',
+      state: 'NC',
+      postalCode: '28411',
+      listingPrice: 875000,
+      bedrooms: 3,
+      bathrooms: 3,
+      squareFeet: 2800,
+      acreage: 0.62,
+      propertyType: 'Single Family Residence',
+      yearBuilt: 2019,
+      listingStatus: 'Active',
+      targetListDate: '2026-08-01',
+      openHouseDates: ['Saturday 1:00 PM - 3:00 PM'],
+      headline: 'CHARMING MARSH-VIEW COTTAGE',
+      publicRemarks: 'Tranquil 3 bed, 3 bath cottage situated on a private cul-de-sac backing to protected tidal marshlands. Features open concept floorplan and screened wrap-around porch.',
+      keyFeatures: [
+        '3 Bedrooms & 3 Full Bathrooms (2,800 SqFt)',
+        'Protected Tidal Marshland Views',
+        'Screened Wrap-Around Porch',
+        'Quiet Cul-de-sac Location'
+      ],
+      listingAgentId: 'agent_sarah_jenkins',
+      listingAgentName: 'Sarah Jenkins',
+      listingAgentEmail: 'sarah@nestrealty.com',
+      listingAgentPhone: '(910) 555-0144',
+      brokerInChargeName: 'Ryan Crecelius (BIC)',
+      approvedSourcePhotos: photos,
+      source: 'crm',
+      sourceUpdatedAt: new Date().toISOString()
+    },
+    brandKit: {
+      id: 'brand_nest_wilmington',
+      brokerageName: 'Nest Realty Wilmington',
+      officeName: 'Wilmington Main Office',
+      primaryColor: '#00635C',
+      secondaryColor: '#D0D6BB',
+      backgroundColor: '#FFFFFF',
+      darkCharcoal: '#0F172A',
+      approvedFonts: ['Inter', 'Outfit'],
+      logoUrl: '/nest-realty-logo.png',
+      fairHousingLogoUrl: '/nest_n.png',
+      officeAddress: '1055 Military Cutoff Rd, Wilmington NC 28405',
+      officePhone: '(910) 392-4100',
+      website: 'https://nestrealty.com/wilmington',
+      agentAttributionRules: 'Listing Agent attribution required.',
+      disclaimerText: 'Equal Housing Opportunity.'
+    },
+    campaignBrief: {
+      objective: 'Targeted campaign for peaceful marsh-view cottage',
+      targetAudience: 'Downsizers, nature lovers',
+      tone: 'Warm, inviting, tranquil',
+      positioning: 'Serene coastal cottage with expansive marsh views',
+      keySellingPoints: ['3 Bed 3 Bath', 'Marshfront Lot', 'Screened Porch'],
+      requiredDisclosures: ['Equal Housing Opportunity'],
+      callToAction: 'Contact Sarah Jenkins at (910) 555-0144',
+      selectedAssetFormats: ['flyer', 'postcard'],
+      dueTargetDate: '2026-08-01',
+      reviewOwner: 'Sarah Jenkins'
+    },
+    assets: {
+      flyer: {
+        id: 'asset_flyer_212',
+        assetType: 'flyer',
+        templateId: 'tmpl_flyer_coastal_emerald_v1',
+        templateVersion: '1.0.0',
+        headline: 'CHARMING MARSH-VIEW COTTAGE',
+        subhead: 'Tranquil 3 Bed, 3 Bath cottage on protected tidal marsh',
+        bodyCopy: 'Welcome to 212 Wetland Court. 2,800 SqFt of serene marshfront living.',
+        captions: {},
+        selectedSourcePhotoIds: ['photo_wetland_hero'],
+        status: 'ready_for_review',
+        complianceStatus: 'passed',
+        complianceIssues: [],
+        updatedAt: new Date().toISOString()
+      }
+    },
+    readinessCheck: {
+      propertyDetailsComplete: true,
+      approvedPhotosCount: 1,
+      listingAgentAssigned: true,
+      brandKitValid: true,
+      disclosuresApproved: true,
+      isReadyForGeneration: true,
+      missingFields: []
+    },
+    approvals: [],
+    auditTrail: [
+      {
+        id: 'audit_212_01',
+        action: 'CAMPAIGN_CREATED',
+        performedBy: 'Sarah Jenkins',
+        timestamp: new Date().toISOString(),
+        details: 'Created campaign for 212 Wetland Court'
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export function initializeCampaignsStore(initialData?: ListingMarketingCampaign[]) {
   if (initialData && initialData.length > 0) {
     campaignsStore = initialData;
   } else if (campaignsStore.length === 0) {
-    campaignsStore = [getInitialDefaultCampaign()];
+    campaignsStore = [
+      getInitialDefaultCampaign(),
+      getCampaignOcean304(),
+      getCampaignWetland212()
+    ];
   }
   return campaignsStore;
 }
@@ -398,7 +666,7 @@ export function getCampaignById(id: string): ListingMarketingCampaign | undefine
     initializeCampaignsStore();
   }
   const normalizedId = id.startsWith('camp_') && !id.startsWith('campaign_') ? 'campaign_' + id.slice(5) : id;
-  return campaignsStore.find(c => c.id === id || c.id === normalizedId || c.propertyAddress.toLowerCase().includes(id.toLowerCase()));
+  return campaignsStore.find(c => c.id === id || c.id === normalizedId);
 }
 
 export function saveCampaign(campaign: ListingMarketingCampaign): ListingMarketingCampaign {

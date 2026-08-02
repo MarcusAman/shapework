@@ -18,6 +18,7 @@ import {
   MapPin,
   Calendar,
   AlertCircle,
+  Lock,
 } from 'lucide-react';
 import {
   MarketingCampaignState,
@@ -27,6 +28,7 @@ import {
   getCampaignStatusBadge,
 } from '../../shared/marketingStateModel';
 import { BuildViewSidecar } from './BuildViewSidecar';
+import { assertCampaignIntegrity } from '../../shared/marketingCampaignResolver';
 
 export interface CampaignWorkspaceViewportProps {
   campaign: any;
@@ -58,17 +60,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
   const [workspaceTab, setWorkspaceTab] = useState<'overview' | 'review' | 'activity'>('review');
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [postcardPage, setPostcardPage] = useState<'front' | 'back'>('front');
-  const [socialSlideIndex, setSocialSlideIndex] = useState<number>(0);
-
-  const derivedCampaignState = getDerivedCampaignState(campaign, job);
-  const derivedAssetState = getDerivedAssetState(selectedAsset, campaign, job);
-  const campaignBadge = getCampaignStatusBadge(derivedCampaignState);
-
-  const isPreparing =
-    derivedCampaignState === 'preparing' ||
-    derivedCampaignState === 'ready_to_prepare' ||
-    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'build');
-  const [showBuildViewSidecar, setShowBuildViewSidecar] = useState<boolean>(isPreparing);
+  const [showBuildViewSidecar, setShowBuildViewSidecar] = useState<boolean>(true);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -81,8 +73,43 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
       }
     }
   }, []);
+
+  if (!campaign) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100dvh-64px)] w-full bg-[#01362d] text-emerald-200 p-8 font-mono text-xs font-bold">
+        <div className="animate-pulse flex flex-col items-center gap-3">
+          <div className="w-6 h-6 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+          <span>Loading Campaign Record...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Verify campaign integrity invariant once campaign is loaded
+  const isValidIntegrity = assertCampaignIntegrity(
+    campaign?.id,
+    campaign?.id,
+    campaign?.id,
+    campaign?.id
+  );
+
+  const derivedCampaignState = getDerivedCampaignState(campaign, job);
+  const derivedAssetState = getDerivedAssetState(selectedAsset, campaign, job);
+  const campaignBadge = getCampaignStatusBadge(derivedCampaignState);
+
+  const isPreparing =
+    derivedCampaignState === 'preparing' ||
+    derivedCampaignState === 'ready_to_prepare' ||
+    (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'build');
+
   const isApproved = derivedCampaignState === 'approved' || derivedCampaignState === 'delivered' || derivedCampaignState === 'exported';
   const isMaterialApproved = derivedAssetState === 'approved';
+
+  // Check if current asset has a real rendered preview
+  const assetRecord = campaign?.assets?.[selectedAsset];
+  const hasRealPreview =
+    selectedAsset === 'flyer' ||
+    (assetRecord && (assetRecord.status === 'ready_for_review' || assetRecord.status === 'approved' || assetRecord.status === 'exported'));
 
   const assetList: Array<{ id: 'flyer' | 'carousel' | 'postcard' | 'sign_rider' | 'email'; name: string }> = [
     { id: 'flyer', name: 'Property Flyer' },
@@ -92,8 +119,61 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
     { id: 'email', name: 'Email Announcement' },
   ];
 
+  // Dynamic Snapshot Facts
+  const snapshot = campaign?.listingSnapshot || {};
+  const propertyAddress = campaign?.propertyAddress || snapshot.propertyAddress || 'Campaign Address Unavailable';
+  const listingPriceFormatted = snapshot.listingPrice
+    ? `$${Number(snapshot.listingPrice).toLocaleString()}`
+    : 'Price TBD';
+  const agentName = snapshot.listingAgentName || 'Listing Agent';
+  const bedrooms = snapshot.bedrooms || 0;
+  const bathrooms = snapshot.bathrooms || 0;
+  const squareFeet = snapshot.squareFeet || 0;
+  const yearBuilt = snapshot.yearBuilt || 'N/A';
+  const publicRemarks = snapshot.publicRemarks || campaign?.campaignBrief?.objective || 'Property details and public remarks pending ingest.';
+  const primaryPhotoUrl = snapshot.approvedSourcePhotos?.[0]?.url || '/nest_n.png';
+  const reviewerName = campaign?.approvals?.[0]?.reviewerName || campaign?.approvalReceipt?.reviewerUserId || agentName;
+
+  if (!isValidIntegrity || !campaign?.id) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100dvh-64px)] w-full bg-[#01362d] text-rose-100 p-8">
+        <div className="bg-rose-950/80 border border-rose-700/60 p-8 rounded-2xl max-w-md text-center space-y-4 shadow-2xl">
+          <AlertCircle className="w-12 h-12 text-rose-400 mx-auto" />
+          <h2 className="text-xl font-serif font-bold text-white">Campaign Record Integrity Mismatch</h2>
+          <p className="text-xs text-rose-200 leading-relaxed">
+            A mismatch occurred between the requested route and loaded campaign payload. Execution was halted to prevent displaying cross-contaminated property data.
+          </p>
+          <button
+            type="button"
+            onClick={onBackToInbox}
+            className="px-6 py-2.5 bg-rose-800 hover:bg-rose-700 text-white text-xs font-bold rounded-xl cursor-pointer"
+          >
+            Return to Marketing Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100dvh-64px)] w-full bg-[#01362d] text-[#FFFDF8] font-sans overflow-hidden">
+      {/* DEVELOPMENT INTEGRITY STRIP (SECTION 16) */}
+      <div
+        data-testid="dev-identity-strip"
+        className="bg-slate-950 text-slate-300 px-6 py-1 text-[11px] font-mono flex items-center justify-between border-b border-slate-800 shrink-0 select-none"
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-emerald-400 font-bold">DEVELOPMENT INTEGRITY STRIP</span>
+          <span>campaignId: <strong className="text-emerald-300">{campaign.id}</strong></span>
+          <span>revision: <strong className="text-cyan-300">{campaign.revision || 1}</strong></span>
+          <span>snapshotId: <strong className="text-amber-300">{snapshot.id || `snapshot_${campaign.id}`}</strong></span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span>selectedAsset: <strong className="text-purple-300">{selectedAsset}</strong></span>
+          <span>version: <strong className="text-pink-300">1.0</strong></span>
+        </div>
+      </div>
+
       {/* 1. COMPACT WORKSPACE HEADER (76–96px tall) */}
       <header className="h-20 bg-[#0B4A3F] border-b border-[rgba(208,214,187,0.18)] px-6 flex items-center justify-between shrink-0 shadow-md">
         <div className="flex items-center gap-4">
@@ -110,15 +190,15 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
 
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="font-serif font-bold text-xl text-[#FFFDF8]">
-                {campaign?.propertyAddress || '990 Inspiration Drive'}
+              <h2 className="font-serif font-bold text-xl text-[#FFFDF8]" data-testid="workspace-campaign-title">
+                {propertyAddress}
               </h2>
               <span className={`px-3 py-0.5 rounded-full text-xs font-bold border ${campaignBadge.badgeClass}`}>
                 {campaignBadge.label}
               </span>
             </div>
             <p className="text-xs text-[rgba(246,247,241,0.7)] mt-0.5">
-              New Listing Package • Ryan Crecelius • Due August 3, 2026
+              New Listing Package • {agentName} • Due {campaign?.campaignBrief?.dueTargetDate || 'August 3, 2026'}
             </p>
           </div>
         </div>
@@ -189,7 +269,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
             {assetList.map((asset) => {
               const st = getDerivedAssetState(asset.id, campaign, job);
               const isSelected = selectedAsset === asset.id;
-              const isReady = st === 'ready_for_review' || st === 'approved';
+              const hasAssetPreview = asset.id === 'flyer' || (campaign?.assets?.[asset.id] && (st === 'ready_for_review' || st === 'approved'));
 
               return (
                 <button
@@ -212,11 +292,11 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                     <span className="text-[10px] text-[rgba(246,247,241,0.6)] block">
                       {st === 'approved'
                         ? 'Approved'
-                        : isReady
+                        : hasAssetPreview
                         ? 'Ready for review'
                         : st === 'preparing'
                         ? 'Preparing...'
-                        : 'Waiting'}
+                        : 'Unrendered'}
                     </span>
                   </div>
                 </button>
@@ -248,7 +328,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               </span>
               <button
                 type="button"
-                onClick={() => setZoomScale(Math.min(1.5, zoomScale + 0.1))}
+                onClick={() => setZoomScale(Math.min(1.4, zoomScale + 0.1))}
                 className="p-1 text-[rgba(246,247,241,0.7)] hover:text-white rounded-lg cursor-pointer"
                 title="Zoom In"
               >
@@ -256,8 +336,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               </button>
             </div>
 
-            {/* Page Toggles for Postcard & Carousel */}
-            {selectedAsset === 'postcard' && (
+            {/* Page Toggles for Postcard */}
+            {selectedAsset === 'postcard' && hasRealPreview && (
               <div className="flex items-center gap-1 bg-[#073F35] p-0.5 rounded-xl text-[10px] font-bold">
                 <button
                   type="button"
@@ -294,35 +374,41 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                     <span className="text-xs font-sans uppercase tracking-widest font-bold text-emerald-900">
                       Nest Editorial Collection
                     </span>
-                    <h1 className="text-3xl font-bold text-slate-900 leading-tight">
-                      {campaign?.propertyAddress || '990 Inspiration Drive'}
+                    <h1 className="text-3xl font-bold text-slate-900 leading-tight" data-testid="flyer-property-address">
+                      {propertyAddress}
                     </h1>
                   </div>
-                  <span className="text-2xl font-bold text-emerald-950">$1,495,000</span>
+                  <span className="text-2xl font-bold text-emerald-950" data-testid="flyer-listing-price">
+                    {listingPriceFormatted}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-12 gap-6 font-sans">
                   <div className="col-span-8 space-y-3">
                     <img
-                      src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_facade/raw"
+                      src={primaryPhotoUrl}
                       alt="Property Facade"
                       className="w-full h-72 object-cover rounded-sm border border-slate-200"
                     />
-                    <p className="text-xs text-slate-700 leading-relaxed font-serif pt-2">
-                      Exquisite waterfront estate situated along Landfall’s primary Intracoastal fairway. Designed for elegant architectural harmony with full resort amenities.
+                    <p className="text-xs text-slate-700 leading-relaxed font-serif pt-2" data-testid="flyer-public-remarks">
+                      {publicRemarks}
                     </p>
                   </div>
 
                   <div className="col-span-4 bg-slate-50 p-4 border border-slate-200 rounded-sm space-y-4 text-xs font-sans">
                     <div className="space-y-1 border-b border-slate-200 pb-2">
                       <span className="text-[10px] text-slate-500 font-bold uppercase">Specifications</span>
-                      <p className="font-bold text-slate-900">4 Beds • 4.5 Baths</p>
-                      <p className="font-bold text-slate-900">4,200 SqFt • Built 2021</p>
+                      <p className="font-bold text-slate-900" data-testid="flyer-specs-beds-baths">
+                        {bedrooms} Beds • {bathrooms} Baths
+                      </p>
+                      <p className="font-bold text-slate-900" data-testid="flyer-specs-sqft-year">
+                        {squareFeet > 0 ? `${squareFeet.toLocaleString()} SqFt` : 'SqFt TBD'} • Built {yearBuilt}
+                      </p>
                     </div>
 
                     <div className="space-y-1">
                       <span className="text-[10px] text-slate-500 font-bold uppercase">Listing Agent</span>
-                      <p className="font-bold text-slate-900">Ryan Crecelius</p>
+                      <p className="font-bold text-slate-900" data-testid="flyer-agent-name">{agentName}</p>
                       <p className="text-[11px] text-slate-600">Nest Realty Wilmington</p>
                     </div>
 
@@ -334,20 +420,43 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               </div>
             )}
 
-            {/* OTHER FORMAT SURFACES (Postcard, Social, Email) */}
+            {/* REAL RENDERED SURFACE VS UNRENDERED PLACEHOLDER NOTICE (SECTIONS 8, 9) */}
             {selectedAsset !== 'flyer' && (
-              <div className="w-[580px] min-h-[400px] bg-[#FFFDF8] text-slate-900 rounded-xl p-8 space-y-4 text-left shadow-2xl font-sans border border-slate-200">
-                <div className="border-b pb-3 flex justify-between items-center">
-                  <h3 className="font-serif font-bold text-xl capitalize">{selectedAsset.replace('_', ' ')} Preview</h3>
-                  <span className="text-xs font-bold text-emerald-800">Nest Editorial Template</span>
+              hasRealPreview ? (
+                <div className="w-[580px] min-h-[400px] bg-[#FFFDF8] text-slate-900 rounded-xl p-8 space-y-4 text-left shadow-2xl font-sans border border-slate-200">
+                  <div className="border-b pb-3 flex justify-between items-center">
+                    <h3 className="font-serif font-bold text-xl capitalize">{selectedAsset.replace('_', ' ')} Preview</h3>
+                    <span className="text-xs font-bold text-emerald-800">Nest Editorial Template</span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Rendered collateral preview generated for {propertyAddress}.
+                  </p>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                    <p className="font-bold text-emerald-900">{snapshot.headline || propertyAddress}</p>
+                    <p className="text-slate-700">{publicRemarks}</p>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-600">
-                  Rendered collateral preview generated for {campaign?.propertyAddress || '990 Inspiration Drive'}.
-                </p>
-                <div className="h-48 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-xs text-slate-500 font-medium">
-                  {selectedAsset.toUpperCase()} Rendered Canvas
+              ) : (
+                /* SECTION 9: UNRENDERED PLACEHOLDER SURFACING */
+                <div className="w-[580px] min-h-[360px] bg-[#FFFDF8] text-slate-900 rounded-xl p-8 space-y-4 text-left shadow-2xl font-sans border border-slate-200">
+                  <div className="border-b border-rose-200 pb-3 flex justify-between items-center">
+                    <h3 className="font-serif font-bold text-xl text-slate-800 capitalize" data-testid="placeholder-heading">
+                      Preview not available
+                    </h3>
+                    <span className="text-xs font-bold text-rose-700 bg-rose-100 px-2.5 py-1 rounded-full border border-rose-200">
+                      Unrendered
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed" data-testid="placeholder-subtext">
+                    This material has not been rendered yet for {propertyAddress}.
+                  </p>
+                  <div className="h-44 bg-slate-100/80 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-center space-y-2">
+                    <Lock className="w-8 h-8 text-slate-400" />
+                    <span className="text-xs font-bold text-slate-600">Rendered Artifact Pending</span>
+                    <span className="text-[11px] text-slate-400" data-testid="approve-material-disabled">Approval action disabled until artifact rendering completes.</span>
+                  </div>
                 </div>
-              </div>
+              )
             )}
           </div>
         </main>
@@ -371,8 +480,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
             <div className="space-y-4 text-xs font-sans">
               <div className="border-b border-[rgba(208,214,187,0.14)] pb-3">
                 <h3 className="font-serif font-bold text-sm text-[#FFFDF8]">Package Approved</h3>
-                <p className="text-[11px] text-[rgba(246,247,241,0.7)] mt-0.5">
-                  Approved by Ryan Crecelius
+                <p className="text-[11px] text-[rgba(246,247,241,0.7)] mt-0.5" data-testid="approved-by-agent">
+                  Approved by {reviewerName}
                 </p>
               </div>
 
@@ -382,7 +491,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                   <span>Ready for Delivery</span>
                 </div>
                 <p className="text-[11px] text-[rgba(246,247,241,0.8)] leading-relaxed">
-                  All 5 collateral deliverables have passed visual checks and human review.
+                  All collateral deliverables have passed visual checks and human review.
                 </p>
               </div>
 
@@ -426,14 +535,14 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Actions: Disabled for unrendered placeholders (Section 9) */}
               <div className="space-y-2 pt-1">
                 {isMaterialApproved ? (
                   <div className="p-3 bg-emerald-900/40 border border-emerald-400/40 rounded-xl text-emerald-200 text-xs font-bold flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     <span>Material Approved</span>
                   </div>
-                ) : (
+                ) : hasRealPreview ? (
                   <button
                     type="button"
                     onClick={() => onApproveMaterial(selectedAsset)}
@@ -441,6 +550,16 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                   >
                     <Check className="w-4 h-4 text-emerald-200" />
                     <span>Approve Material</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    data-testid="approve-material-disabled"
+                    className="w-full py-2.5 bg-slate-700/60 text-slate-400 rounded-xl font-bold cursor-not-allowed border border-slate-600/40 flex items-center justify-center gap-2 text-xs"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Approve Material Disabled</span>
                   </button>
                 )}
 

@@ -20,6 +20,25 @@ export type MarketingAssetState =
   | 'approved'
   | 'failed';
 
+export interface AssetApprovalReceipt {
+  approvalId: string;
+  workspaceId: string;
+  campaignId: string;
+  campaignRevision: number;
+  assetId: string;
+  assetVersion: number;
+  artifactChecksum: string;
+  previewChecksum: string;
+  reviewerUserId: string;
+  reviewedAt: string;
+}
+
+export interface CampaignClaim {
+  value: string;
+  source: 'listing_snapshot' | 'campaign_brief' | 'human_entered' | 'ai_draft';
+  approved: boolean;
+}
+
 export interface CampaignRecordState {
   id: string;
   status: string;
@@ -31,6 +50,7 @@ export interface CampaignRecordState {
     prompt: string;
   };
   assetApprovals?: Record<string, boolean>;
+  approvalReceipts?: AssetApprovalReceipt[];
 }
 
 export interface JobRecordState {
