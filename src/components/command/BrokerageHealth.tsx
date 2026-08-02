@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { 
   TrendingUp, AlertTriangle, CheckCircle, 
-  DollarSign, Clock, Users, ShieldAlert, Sparkles, 
+  DollarSign, Clock, Users, ShieldAlert, Zap, 
   FileText, Activity, ArrowRight, Brain, Shield, UserCheck
 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '../../utils/formatters';
@@ -62,7 +62,7 @@ export default function BrokerageHealth() {
           <div className="pt-3.5 border-t border-border-subtle/50 space-y-2">
             <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider block">Immediate Recommendation</span>
             <div className="p-3 bg-brand-green-soft/40 border border-brand-green/20 rounded-xl flex items-start gap-2.5">
-              <Sparkles className="w-4 h-4 text-brand-green shrink-0 mt-0.5" />
+              <Zap className="w-4 h-4 text-brand-green shrink-0 mt-0.5" />
               <div className="space-y-1 text-xs">
                 <span className="font-bold text-text-primary">Resolve Colonial Ave Close Slip</span>
                 <p className="text-[10px] text-text-secondary leading-relaxed font-medium">

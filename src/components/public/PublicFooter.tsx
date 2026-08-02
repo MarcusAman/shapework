@@ -7,24 +7,6 @@ interface PublicFooterProps {
 export default function PublicFooter({ onNavigate }: PublicFooterProps) {
   const footerLinks = [
     {
-      title: "Practice",
-      items: [
-        { label: "Home", path: "/" },
-        { label: "Method", path: "/method" },
-        { label: "Brokerages", path: "/brokerages" },
-        { label: "Discovery", path: "/discovery" },
-      ]
-    },
-    {
-      title: "Intelligence",
-      items: [
-        { label: "Operational AI", path: "/operational-intelligence" },
-        { label: "Field Notes", path: "/field-notes" },
-        { label: "About", path: "/about" },
-        { label: "Demo Platform", path: "/demo" },
-      ]
-    },
-    {
       title: "Legal",
       items: [
         { label: "Terms", path: "/terms" },

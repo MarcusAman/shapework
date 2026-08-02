@@ -35,16 +35,16 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
 
     try {
       const stateToken = generateGoogleOAuthState(wsId, userId);
-      const isProd = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
-      const isMock = !isProd && (process.env.APP_MODE === 'development' || !process.env.GOOGLE_CLIENT_ID);
+      const config = getGoogleConfig();
+      const hasRealCredentials = !!(config.clientId && config.clientSecret && !config.clientId.includes('placeholder') && !config.clientId.includes('mock'));
       
-      if (isMock) {
+      if (!hasRealCredentials) {
         const mockCode = 'mock_google_oauth_code_123';
         const mockUrl = `${req.protocol}://${req.get('host')}/api/integrations/google/callback?code=${mockCode}&state=${stateToken}`;
         return res.json({ url: mockUrl });
       }
 
-      const oauth2Client = getOAuthClient();
+      const oauth2Client = getOAuthClient(req);
       const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
@@ -126,7 +126,7 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
     validateGoogleOAuthState(stateStr, stateData.workspaceId, stateData.userId);
 
     try {
-      const result = await exchangeGoogleCode(codeStr);
+      const result = await exchangeGoogleCode(codeStr, req);
 
       const store = new IntegrationStateStore(dbState);
       const conn = await store.upsertConnection({

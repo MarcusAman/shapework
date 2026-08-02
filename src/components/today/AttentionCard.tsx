@@ -8,7 +8,7 @@ import {
   Check, 
   ChevronLeft, 
   ChevronRight,
-  Sparkles,
+  Zap,
   HelpCircle,
   ShieldAlert,
   AlertTriangle,
@@ -143,7 +143,7 @@ export default function AttentionCard({
       case 'Approval needed':
         return {
           label,
-          icon: <Sparkles className="w-3.5 h-3.5 text-purple-600" />,
+          icon: <Zap className="w-3.5 h-3.5 text-purple-600" />,
           colorClass: 'text-purple-750 font-bold'
         };
       case 'Blocked request':

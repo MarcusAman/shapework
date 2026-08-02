@@ -10,7 +10,7 @@ import {
   GitCompare, 
   AlertTriangle, 
   ArrowRight,
-  Sparkles
+  Zap
 } from 'lucide-react';
 
 interface CrossSystemMatchPanelProps {
@@ -153,7 +153,7 @@ export default function CrossSystemMatchPanel({ onRefreshParent }: CrossSystemMa
                     <span className="text-[10px] text-text-tertiary font-mono">Receipt ID: {receipt.id}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-brand-primary font-bold">
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Zap className="w-3.5 h-3.5" />
                     <span>Ambiguous Match detected</span>
                   </div>
                 </div>

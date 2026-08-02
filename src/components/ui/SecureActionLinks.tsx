@@ -4,7 +4,7 @@ import {
   CheckCircle, 
   Upload, 
   MapPin, 
-  Sparkles, 
+  Zap, 
   Calendar, 
   Send,
   HelpCircle,
@@ -211,7 +211,15 @@ export default function SecureActionLinks({ pathname }: SecureActionLinksProps) 
       setSessionData('shapework_audit_events', [auditEvent, ...auditEvents]);
 
       // Trigger main UI update
-      window.dispatchEvent(new Event('storage'));
+      try {
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        if (typeof document !== 'undefined' && document.createEvent) {
+          const evt = document.createEvent('Event');
+          evt.initEvent('storage', true, true);
+          window.dispatchEvent(evt);
+        }
+      }
 
       setIsSubmitting(false);
       setStatus('success');
@@ -321,7 +329,7 @@ export default function SecureActionLinks({ pathname }: SecureActionLinksProps) 
           <div className="max-w-md w-full bg-white border border-[#e4decb] rounded-[28px] p-8 shadow-sm space-y-6">
             <div className="border-b border-stone-100 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#18382b]" />
+                <Zap className="w-5 h-5 text-[#18382b]" />
                 <span className="text-sm font-bold text-[#18382b] font-serif">shapework.</span>
               </div>
               <span className="text-[9px] bg-red-50 text-red-700 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Step-Up Auth Required</span>
@@ -379,7 +387,7 @@ export default function SecureActionLinks({ pathname }: SecureActionLinksProps) 
           {/* Logo Header */}
           <div className="border-b border-stone-100 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-[#18382b]" />
+              <Zap className="w-5 h-5 text-[#18382b]" />
               <span className="text-sm font-bold text-[#18382b] font-serif">shapework.</span>
             </div>
             <span className="text-[9px] bg-[#eaf2ee] text-[#18382b] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Secure Action Link</span>
@@ -502,7 +510,7 @@ export default function SecureActionLinks({ pathname }: SecureActionLinksProps) 
         {/* Header */}
         <div className="border-b border-stone-100 pb-3 flex items-center justify-between select-none">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#18382b]" />
+            <Zap className="w-5 h-5 text-[#18382b]" />
             <span className="text-xs font-bold text-[#18382b] tracking-wider uppercase font-serif">shapework. agent links</span>
           </div>
           <span className="text-[9px] bg-stone-100 text-text-secondary px-2 py-0.5 rounded uppercase font-bold">Secure Portal</span>

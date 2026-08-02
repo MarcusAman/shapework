@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Sparkles, Send, Mic, Link2, AlertTriangle, UserCheck, DollarSign, FileText, CheckCircle, RefreshCw } from 'lucide-react';
+import { Zap, Send, Mic, Link2, AlertTriangle, UserCheck, DollarSign, FileText, CheckCircle, RefreshCw } from 'lucide-react';
 import { ChatMessage } from '../../types/shapework';
 import RiskBadge from '../ui/RiskBadge';
 import CommandPlanCard from './CommandPlan';
@@ -53,7 +53,7 @@ export default function AIOperatorWorkspace({
           {(chatHistory || []).length === 0 ? (
             <div className="h-full flex flex-col justify-center items-center text-center p-6 space-y-6">
               <div className="w-12 h-12 rounded-full bg-brand-green-soft flex items-center justify-center text-brand-green">
-                <Sparkles className="w-6 h-6 animate-pulse" />
+                <Zap className="w-6 h-6 animate-pulse text-emerald-400" />
               </div>
               <div className="space-y-2">
                 <h3 className="font-serif font-bold text-text-primary text-base">Conversational Operational Partner</h3>

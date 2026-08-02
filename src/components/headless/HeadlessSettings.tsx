@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Plus, Trash2, Key, Link as LinkIcon, Palette, Mail, ShieldAlert, Sparkles, Check, CheckCircle2 } from 'lucide-react';
+import { Copy, Plus, Trash2, Key, Link as LinkIcon, Palette, Mail, ShieldAlert, Zap, Check, CheckCircle2 } from 'lucide-react';
 
 // Helper to copy text to clipboard
 const copyToClipboard = (text: string) => {

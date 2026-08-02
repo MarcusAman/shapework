@@ -188,18 +188,27 @@ ${closingsAtRisk.map((c: any) => `- ${c.property_address} (Risk Level: ${c.risk_
 
   return (
     <div className="space-y-6 font-sans text-xs text-[#F6F7F1] select-text text-left">
-      <div className="flex justify-between items-center border-b border-[rgba(246,247,241,0.12)] pb-4 select-none">
-        <div>
-          <h3 className="text-xl font-serif font-black text-white">Weekly Owner Brief & Shield</h3>
-          <p className="mt-1 text-[#D0D6BB] font-medium font-sans">Overview of high-level operational risks, avoided interruptions, and owner-worthy decision queues.</p>
+      <div 
+        className="rounded-[28px] p-6 text-left shadow-xl select-none"
+        style={{
+          background: 'rgba(246, 247, 241, 0.10)',
+          border: '1px solid rgba(246, 247, 241, 0.18)',
+          backdropFilter: 'blur(18px)'
+        }}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl md:text-2xl font-serif font-black text-white uppercase tracking-wider">Weekly Owner Brief & Shield</h3>
+            <p className="mt-1 text-xs text-[#D0D6BB] font-sans">Overview of high-level operational risks, avoided interruptions, and owner-worthy decision queues.</p>
+          </div>
+          <button
+            onClick={handleExportBrief}
+            className="sw-btn bg-[#00635C] hover:bg-[#007c73] text-white py-2 px-4 rounded-xl border border-white/15 flex items-center gap-2 cursor-pointer font-bold shadow-md transition-colors shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Brief</span>
+          </button>
         </div>
-        <button
-          onClick={handleExportBrief}
-          className="sw-btn bg-[#00635C] hover:bg-[#007c73] text-white py-1.5 px-3 rounded-xl border border-[rgba(246,247,241,0.18)] flex items-center gap-1.5 cursor-pointer font-bold shadow-md transition-colors"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Export Brief</span>
-        </button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 select-none">

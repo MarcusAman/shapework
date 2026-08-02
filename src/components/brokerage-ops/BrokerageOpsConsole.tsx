@@ -263,14 +263,14 @@ export default function BrokerageOpsConsole() {
                 <div className="space-y-6 animate-fade-in text-left">
                   <div>
                     <h3 className="font-serif text-lg font-bold text-stone-900">Nest Realty Wilmington Executive Cockpit</h3>
-                    <p className="text-xs text-stone-500 mt-1">Platform-wide statistics, active SLAs, and overdue physical checkouts for Ryan.</p>
+                    <p className="text-xs text-stone-500 mt-1">Brokerage-wide activity, target response times, and physical asset checkouts for Ryan.</p>
                   </div>
 
                   {/* Summary grid */}
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {[
                       { label: 'Total Open Requests', val: openRequestsCount, desc: 'Active issues', color: 'border-l-4 border-blue-500 bg-blue-50/20' },
-                      { label: 'Overdue / Escalated', val: overdueRequestsCount, desc: 'SLA breached', color: 'border-l-4 border-rose-500 bg-rose-50/20 text-rose-700' },
+                      { label: 'Overdue / Escalated', val: overdueRequestsCount, desc: 'Past target turnaround', color: 'border-l-4 border-rose-500 bg-rose-50/20 text-rose-700' },
                       { label: 'Needs Ryan Attention', val: needsRyanCount, desc: 'Assigned to Ryan', color: 'border-l-4 border-amber-500 bg-amber-50/20 text-amber-700' },
                       { label: 'Unclassified Triage', val: unknownOwnerCount, desc: 'Awaiting routing', color: 'border-l-4 border-stone-500 bg-stone-50 text-stone-700' },
                       { label: 'Asset Checkouts', val: checkedOutAssetsCount, desc: `${overdueAssetsCount} overdue signs/lockboxes`, color: 'border-l-4 border-emerald-500 bg-emerald-50/20' }
@@ -317,7 +317,7 @@ export default function BrokerageOpsConsole() {
                           >
                             <div className="space-y-0.5">
                               <span className="font-bold text-stone-900 block font-serif">{r.title}</span>
-                              <span className="text-[10px] text-stone-500 block">SLA Overdue - Level {r.escalationLevel}</span>
+                              <span className="text-[10px] text-stone-500 block">Past Target Turnaround - Level {r.escalationLevel}</span>
                             </div>
                             <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase bg-rose-100 text-rose-800 font-mono">Urgent</span>
                           </div>
@@ -347,7 +347,7 @@ export default function BrokerageOpsConsole() {
                           </div>
                         ))}
                         {assets.filter(a => a.status === 'overdue').length === 0 && (
-                          <p className="text-xs text-stone-400 italic">All active checkouts are within SLA timelines.</p>
+                          <p className="text-xs text-stone-400 italic">All active checkouts are within target turnaround timelines.</p>
                         )}
                       </div>
                     </div>
@@ -411,7 +411,7 @@ export default function BrokerageOpsConsole() {
 
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="text-right font-mono text-[10px] space-y-0.5">
-                              <span className="text-stone-500 block">SLA Due: {new Date(req.slaDueAt).toLocaleDateString()}</span>
+                              <span className="text-stone-500 block">Target Date: {new Date(req.slaDueAt).toLocaleDateString()}</span>
                               <span className="text-stone-400 block">Owner: {req.assignedOwner || 'Unassigned'}</span>
                             </div>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${
@@ -535,7 +535,7 @@ export default function BrokerageOpsConsole() {
                             <span className="text-[9px] font-bold uppercase tracking-wider bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-mono block w-fit mb-1">{sop.department}</span>
                             <span className="font-serif font-bold text-base text-stone-900 block">{sop.title}</span>
                           </div>
-                          <span className="text-[10px] text-stone-400 font-mono">SLA: {sop.sla}</span>
+                          <span className="text-[10px] text-stone-400 font-mono">Target Turnaround: {sop.sla}</span>
                         </div>
 
                         <div className="space-y-1">
@@ -897,7 +897,7 @@ export default function BrokerageOpsConsole() {
 
             <div className="grid grid-cols-2 gap-3 font-mono text-[10px]">
               <div>
-                <span className="text-stone-400 block font-bold uppercase">SLA Due Date</span>
+                <span className="text-stone-400 block font-bold uppercase">Target Resolution Date</span>
                 <span className="text-stone-800">{new Date(selectedRequest.slaDueAt).toLocaleString()}</span>
               </div>
               <div>
@@ -922,7 +922,7 @@ export default function BrokerageOpsConsole() {
                   <option value="in_progress">in_progress</option>
                   <option value="waiting_on_requester">waiting_on_requester</option>
                   <option value="waiting_on_vendor">waiting_on_vendor</option>
-                  <option value="escalated">escalated (Raise SLA level)</option>
+                  <option value="escalated">escalated (Escalate to BIC)</option>
                   <option value="completed">completed</option>
                   <option value="closed">closed</option>
                 </select>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, FileText, ExternalLink, Menu, X, ChevronRight, ChevronLeft, LogOut, HelpCircle } from 'lucide-react';
+import { Shield, Users, FileText, ExternalLink, Menu, X, ChevronRight, ChevronLeft, LogOut, HelpCircle, PhoneCall, Calendar } from 'lucide-react';
 import { orgChartService } from '../../services/orgChartService';
 import {
   buildRyanShieldSummary,
@@ -11,8 +11,10 @@ import RyanShieldPage from './RyanShieldPage';
 import RoleEscalationMapPage from './RoleEscalationMapPage';
 import OwnerWeeklyBriefPage from './OwnerWeeklyBriefPage';
 import SectionNavigationBar from '../ui/SectionNavigationBar';
+import SOPStudio from '../sops/SOPStudio';
+import MarketingIntakeConsole from '../marketing/MarketingIntakeConsole';
 
-type NavId = 'shield' | 'roles' | 'brief';
+type NavId = 'shield' | 'roles' | 'sops' | 'marketing' | 'brief';
 
 const NAV_ITEMS: Array<{ id: NavId; label: string; sub: string; icon: React.FC<{ className?: string }> }> = [
   {
@@ -24,19 +26,47 @@ const NAV_ITEMS: Array<{ id: NavId; label: string; sub: string; icon: React.FC<{
   {
     id: 'roles',
     label: 'Role & Escalation Map',
-    sub: 'Who handles what. When you get involved.',
+    sub: 'Who handles what. Edit & remove roles for Tuesday.',
     icon: Users,
+  },
+  {
+    id: 'sops',
+    label: 'Staff SOP Templates',
+    sub: '5-section staff self-authoring & review.',
+    icon: FileText,
+  },
+  {
+    id: 'marketing',
+    label: 'Marketing Intake',
+    sub: 'Hotline call logs, AI transcripts & VA delegation.',
+    icon: PhoneCall,
   },
   {
     id: 'brief',
     label: 'Owner Weekly Brief',
     sub: 'Weekly digest of brokerage activity.',
-    icon: FileText,
+    icon: Calendar,
   },
 ];
 
-export default function NestWilmingtonDashboard() {
-  const [activeNav, setActiveNav] = useState<NavId>('shield');
+interface NestWilmingtonDashboardProps {
+  currentTab?: string;
+  state?: any;
+  embedded?: boolean;
+}
+
+export default function NestWilmingtonDashboard({ currentTab, state, embedded = true }: NestWilmingtonDashboardProps) {
+  const mapTabToNav = (tab?: string): NavId => {
+    if (!tab) return 'shield';
+    const lower = tab.toLowerCase();
+    if (lower.includes('role')) return 'roles';
+    if (lower.includes('sop')) return 'sops';
+    if (lower.includes('marketing')) return 'marketing';
+    if (lower.includes('brief')) return 'brief';
+    return 'shield';
+  };
+
+  const [activeNav, setActiveNav] = useState<NavId>(() => mapTabToNav(currentTab));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [askOpsOpen, setAskOpsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,6 +77,12 @@ export default function NestWilmingtonDashboard() {
   const [briefData, setBriefData] = useState<OwnerWeeklyBriefData | null>(null);
   const [rawModel, setRawModel] = useState<any>(null);
   const [activeProfile, setActiveProfile] = useState<any>(null);
+
+  useEffect(() => {
+    if (currentTab) {
+      setActiveNav(mapTabToNav(currentTab));
+    }
+  }, [currentTab]);
 
   useEffect(() => {
     // Fetch profile session
@@ -103,11 +139,34 @@ export default function NestWilmingtonDashboard() {
   }
 
   const renderPage = () => {
-    if (activeNav === 'shield' && shieldData) return <RyanShieldPage data={shieldData} />;
-    if (activeNav === 'roles' && rolesData && rawModel) {
-      return <RoleEscalationMapPage data={rolesData} model={rawModel} />;
+    if (activeNav === 'shield') {
+      return <RyanShieldPage data={shieldData || buildRyanShieldSummary(rawModel || fallbackModel as any)} />;
     }
-    if (activeNav === 'brief' && briefData) return <OwnerWeeklyBriefPage data={briefData} />;
+    if (activeNav === 'roles') {
+      return (
+        <RoleEscalationMapPage 
+          data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
+          model={rawModel || fallbackModel} 
+        />
+      );
+    }
+    if (activeNav === 'sops') {
+      return (
+        <div className="p-6">
+          <SOPStudio state={state || { workspaceId: 'nest-realty-demo' }} />
+        </div>
+      );
+    }
+    if (activeNav === 'marketing') {
+      return (
+        <div className="p-6">
+          <MarketingIntakeConsole state={state || { workspaceId: 'nest-realty-demo' }} />
+        </div>
+      );
+    }
+    if (activeNav === 'brief') {
+      return <OwnerWeeklyBriefPage data={briefData || buildOwnerWeeklyBrief()} />;
+    }
     return null;
   };
 
@@ -233,6 +292,30 @@ export default function NestWilmingtonDashboard() {
     </div>
   );
 
+  const fallbackModel = { positions: [], roles: [], sops: [], connections: [], escalationPolicies: [], routingMatrix: [] };
+
+  if (embedded) {
+    return (
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg">
+        {/* Scrollable page body or full-bleed Map */}
+        {activeNav === 'roles' ? (
+          <div className="flex-1 min-h-0 relative p-6">
+            <RoleEscalationMapPage 
+              data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
+              model={rawModel || fallbackModel} 
+            />
+          </div>
+        ) : (
+          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
+            <div className="max-w-[1600px] mx-auto space-y-6">
+              {renderPage()}
+            </div>
+          </main>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[var(--app-bg)] overflow-hidden font-sans text-xs text-text-primary internal-theme">
       {/* Mobile Bar */}
@@ -268,79 +351,8 @@ export default function NestWilmingtonDashboard() {
         {sidebarContent}
       </aside>
 
-      {/* Ask Nest Ops Modal */}
-      {askOpsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setAskOpsOpen(false)} />
-          <div className="relative w-full max-w-md bg-[var(--surface-1)] border border-[var(--border-strong)] rounded-[28px] p-8 shadow-2xl space-y-5 animate-fade-in text-left">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-serif font-black text-white uppercase tracking-wider">Ask Nest Ops</h3>
-                <p className="text-[10px] text-[#D0D6BB] font-sans font-medium mt-0.5">AI Voice & Chat Agents — Nest Wilmington</p>
-              </div>
-              <button type="button" onClick={() => setAskOpsOpen(false)} className="text-[#D0D6BB] hover:text-white cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="bg-black/20 rounded-2xl border border-white/5 p-4 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-[#00635C]/30 border border-[#00635C]/40 flex items-center justify-center mx-auto">
-                <Shield className="w-5 h-5 text-emerald-300" />
-              </div>
-              <p className="text-sm text-white font-serif font-bold">Nest Ops is ready</p>
-              <p className="text-xs text-[#D0D6BB]/70 leading-relaxed max-w-xs mx-auto">
-                Voice and chat agents handle intake, route requests, and answer operational questions on behalf of the team.
-              </p>
-              <div className="pt-2 space-y-2">
-                <a
-                  href="/app/nest-ops-hub"
-                  className="w-full py-2.5 bg-[#00635C] hover:bg-[#007c73] text-[#F6F7F1] rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
-                  onClick={() => setAskOpsOpen(false)}
-                >
-                  Open Nest Ops Hub
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setAskOpsOpen(false)}
-                  className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-[#D0D6BB] rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider transition-all cursor-pointer border border-white/5"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg pt-16 lg:pt-0">
-        {/* Top Header Bar */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#01362D]">
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-mono text-[#D0D6BB] uppercase tracking-wider">
-              Nest Wilmington
-            </span>
-            <span className="text-[#D0D6BB]/30">/</span>
-            <span className="text-xs font-serif font-black text-white uppercase tracking-wider">{activeNavItem.label}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              id="export-brief-btn"
-              onClick={() => window.print()}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-mono text-[#D0D6BB] hover:text-white transition-all cursor-pointer uppercase tracking-wider"
-            >
-              Export Brief
-            </button>
-            <button
-              type="button"
-              onClick={() => setAskOpsOpen(true)}
-              className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00635C]/20 hover:bg-[#00635C]/40 border border-[#00635C]/30 text-[10px] font-mono text-emerald-300 transition-all cursor-pointer uppercase tracking-wider"
-            >
-              Ask Nest Ops
-            </button>
-          </div>
-        </div>
         <SectionNavigationBar 
           activeTab={activeNav} 
           onChangeTab={(navId) => setActiveNav(navId as any)} 
@@ -349,7 +361,7 @@ export default function NestWilmingtonDashboard() {
 
         {/* Scrollable page body or full-bleed Map */}
         {activeNav === 'roles' && rolesData && rawModel ? (
-          <div className="flex-1 min-h-0 relative">
+          <div className="flex-1 min-h-0 relative p-6">
             <RoleEscalationMapPage data={rolesData} model={rawModel} />
           </div>
         ) : (

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Send, Mic, Link2, X, RefreshCw, Command } from 'lucide-react';
+import { Zap, Send, Mic, Link2, X, RefreshCw, Command } from 'lucide-react';
 import { ChatMessage } from '../../types/shapework';
 import CommandPlanCard from '../ai/CommandPlan';
 

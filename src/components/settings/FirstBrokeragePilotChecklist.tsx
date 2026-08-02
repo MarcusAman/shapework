@@ -51,52 +51,52 @@ export default function FirstBrokeragePilotChecklist() {
   const progressPercent = Math.round((completedCount / checklist.length) * 100);
 
   return (
-    <div className="bg-surface border border-border-soft rounded-3xl p-6 shadow-sm space-y-6 max-w-4xl mx-auto text-left text-xs text-text-secondary leading-normal font-sans">
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 max-w-4xl mx-auto text-left text-xs text-slate-700 leading-normal font-sans">
       
       {/* Header */}
       <div className="flex justify-between items-center select-none">
         <div>
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldCheck className="w-5 h-5 text-brand-primary" />
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+            <ShieldCheck className="w-5 h-5 text-emerald-600" />
             <span>First Brokerage Pilot Checklist</span>
           </h3>
-          <p className="text-xs text-text-secondary mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Required checklist for shapework admins before starting live operations.
           </p>
         </div>
 
         <div className="text-right">
-          <span className="font-mono text-sm font-bold text-brand-primary block">{progressPercent}% Passed</span>
-          <span className="text-[10px] text-text-tertiary block font-mono">{completedCount} of {checklist.length} checked</span>
+          <span className="font-mono text-sm font-bold text-emerald-700 block">{progressPercent}% Passed</span>
+          <span className="text-[10px] text-slate-500 block font-mono">{completedCount} of {checklist.length} checked</span>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full bg-stone-100 rounded-full h-2 overflow-hidden select-none">
-        <div className="bg-brand-primary h-2 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden select-none border border-slate-200">
+        <div className="bg-emerald-600 h-2 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
       </div>
 
       {/* Checklist items */}
-      <div className="divide-y divide-border-subtle/40 border border-border-soft rounded-2xl overflow-hidden bg-white">
+      <div className="divide-y divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
         {checklist.map((item) => {
           const isChecked = !!checkedItems[item.id];
           return (
             <div 
               key={item.id} 
               onClick={() => handleToggle(item.id)}
-              className={`p-3.5 hover:bg-stone-50/50 flex justify-between items-center gap-4 transition-colors cursor-pointer ${
-                isChecked ? 'bg-stone-50/10' : ''
+              className={`p-3.5 hover:bg-slate-100/80 flex justify-between items-center gap-4 transition-colors cursor-pointer ${
+                isChecked ? 'bg-white' : ''
               }`}
             >
               <div className="space-y-1">
-                <span className="font-bold text-text-primary block">{item.id}. {item.label}</span>
-                <p className="text-[11px] text-text-tertiary">{item.desc}</p>
+                <span className="font-bold text-slate-900 block">{item.id}. {item.label}</span>
+                <p className="text-[11px] text-slate-500">{item.desc}</p>
               </div>
               <div className="shrink-0 select-none">
                 {isChecked ? (
-                  <CheckCircle2 className="w-5 h-5 text-success" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 ) : (
-                  <Circle className="w-5 h-5 text-border-medium" />
+                  <Circle className="w-5 h-5 text-slate-300" />
                 )}
               </div>
             </div>
@@ -105,11 +105,11 @@ export default function FirstBrokeragePilotChecklist() {
       </div>
 
       {progressPercent === 100 && (
-        <div className="bg-status-success-soft/30 border border-status-success/20 p-4 rounded-2xl flex gap-3 items-start select-none animate-fade-in">
-          <CheckCircle2 className="w-5 h-5 text-status-success shrink-0" />
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex gap-3 items-start select-none animate-fade-in">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <div className="space-y-0.5">
-            <span className="font-bold text-status-success text-xs block">System Ready for Launch</span>
-            <span className="text-[11px] text-text-secondary leading-normal block">
+            <span className="font-bold text-emerald-900 text-xs block">System Ready for Launch</span>
+            <span className="text-[11px] text-emerald-800 leading-normal block">
               All acceptance criteria met. Brokerage OS is ready to operate live brokerages with full data integrity.
             </span>
           </div>

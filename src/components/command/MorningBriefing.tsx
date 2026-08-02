@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  Sparkles, 
+  Zap, 
   ArrowRight,
   TrendingDown,
   ShieldAlert,
@@ -32,18 +32,25 @@ interface OperatingBriefCardProps {
 
 function OperatingBriefCard({ type, label, value, description, action, onActionClick }: OperatingBriefCardProps) {
   return (
-    <div className={`alert-card ${type} flex flex-col justify-between h-full`}>
-      <div>
-        <div className="alert-label">{label}</div>
-        <div className="alert-value">{value}</div>
-        <p className="alert-description">{description}</p>
+    <div 
+      className="rounded-[28px] p-6 flex flex-col justify-between space-y-4 text-left transition-all hover:border-white/30 shadow-xl"
+      style={{
+        background: 'rgba(246, 247, 241, 0.10)',
+        border: '1px solid rgba(246, 247, 241, 0.18)',
+        backdropFilter: 'blur(18px)'
+      }}
+    >
+      <div className="space-y-2">
+        <div className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider">{label}</div>
+        <div className="font-serif text-lg font-black text-white tracking-tight">{value}</div>
+        <p className="text-xs text-[#D0D6BB] leading-relaxed">{description}</p>
       </div>
       <button 
         onClick={onActionClick}
-        className="mt-4 text-[11px] font-bold text-[var(--sw-green-700)] hover:text-[var(--sw-green-900)] hover:underline flex items-center gap-1 cursor-pointer w-fit"
+        className="mt-2 px-3 py-1.5 bg-[#00635C] hover:bg-[#007c73] text-white text-[11px] font-bold rounded-lg cursor-pointer w-fit flex items-center gap-1.5 transition-colors shadow-sm"
       >
         <span>{action}</span>
-        <ArrowRight className="w-3 h-3" />
+        <ArrowRight className="w-3.5 h-3.5 text-white/90" />
       </button>
     </div>
   );
@@ -100,10 +107,10 @@ export default function MorningBriefing({
         } else {
           alerts.push({
             type: 'warning',
-            label: 'Needs Attention',
-            value: 'Workflow Nudge',
+            label: 'Operational Action',
+            value: 'Action Required',
             description: cleanText.length > 70 ? cleanText.substring(0, 68) + '...' : cleanText,
-            action: 'Open work queue'
+            action: 'View work queue'
           });
         }
       }
@@ -143,17 +150,24 @@ export default function MorningBriefing({
     <div className="space-y-8 text-left font-sans animate-fade-in pb-4">
       
       {/* 1. Today's Summary & Status */}
-      <div className="sw-card p-5 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--sw-border)] pb-4 select-none">
+      <div 
+        className="rounded-[28px] p-6 space-y-6 text-left shadow-xl"
+        style={{
+          background: 'rgba(246, 247, 241, 0.10)',
+          border: '1px solid rgba(246, 247, 241, 0.18)',
+          backdropFilter: 'blur(18px)'
+        }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[rgba(246,247,241,0.12)] pb-4 select-none">
           <div>
-            <h2 className="text-base font-bold text-[var(--sw-text)]">Situation Report</h2>
+            <h2 className="font-serif text-base font-black text-white">Situation Report</h2>
           </div>
           <button 
             onClick={onGenerate}
             disabled={isGenerating}
-            className="sw-btn sw-btn-secondary text-[11px] py-1.5 px-3"
+            className="px-3 py-1.5 bg-[#00635C] hover:bg-[#007c73] text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-sm"
           >
-            <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+            <Zap className={`w-3.5 h-3.5 text-emerald-300 ${isGenerating ? 'animate-spin' : ''}`} />
             <span>{isGenerating ? 'Refreshing...' : 'Refresh Logs'}</span>
           </button>
         </div>
@@ -163,51 +177,51 @@ export default function MorningBriefing({
           <div 
             onClick={() => onNavigateTab && onNavigateTab('Transactions')}
             data-testid="telemetry-revenue-at-risk"
-            className="p-3 bg-[var(--sw-card)] border border-[var(--sw-border)] hover:border-[var(--sw-risk)] transition-colors rounded-xl cursor-pointer"
+            className="p-4 rounded-2xl bg-black/30 border border-white/10 hover:border-emerald-500/40 transition-colors cursor-pointer"
           >
-            <span className="text-[10px] uppercase font-bold text-[var(--sw-muted)] block">Revenue at Risk</span>
-            <strong className="text-lg font-bold text-[var(--sw-risk)] block mt-1 font-mono">
+            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Revenue at Risk</span>
+            <strong className="text-xl font-extrabold text-white block mt-1 font-sans">
               {formatCurrency(revenueAtRisk)}
             </strong>
           </div>
           <div 
             onClick={() => onNavigateTab && onNavigateTab('Work Queue')}
             data-testid="telemetry-needs-attention"
-            className="p-3 bg-[var(--sw-card)] border border-[var(--sw-border)] hover:border-[var(--sw-text)] transition-colors rounded-xl cursor-pointer"
+            className="p-4 rounded-2xl bg-black/30 border border-white/10 hover:border-emerald-500/40 transition-colors cursor-pointer"
           >
-            <span className="text-[10px] uppercase font-bold text-[var(--sw-muted)] block">Needs Attention</span>
-            <strong className="text-lg font-bold text-[var(--sw-text)] block mt-1 font-mono">
+            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Needs Attention</span>
+            <strong className="text-xl font-extrabold text-white block mt-1 font-sans">
               {itemsNeedingAttentionCount} Files
             </strong>
           </div>
           <div 
             onClick={() => onNavigateTab && onNavigateTab('Approvals')}
             data-testid="telemetry-pending-decisions"
-            className="p-3 bg-[var(--sw-card)] border border-[var(--sw-border)] hover:border-[var(--sw-warning)] transition-colors rounded-xl cursor-pointer"
+            className="p-4 rounded-2xl bg-black/30 border border-white/10 hover:border-emerald-500/40 transition-colors cursor-pointer"
           >
-            <span className="text-[10px] uppercase font-bold text-[var(--sw-muted)] block">Pending Decisions</span>
-            <strong className="text-lg font-bold text-[var(--sw-warning)] block mt-1 font-mono">
+            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Pending Decisions</span>
+            <strong className="text-xl font-extrabold text-white block mt-1 font-sans">
               {decisionsCount} Items
             </strong>
           </div>
-          <div className="p-3 bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-xl">
-            <span className="text-[10px] uppercase font-bold text-[var(--sw-muted)] block">Interruptions Avoided</span>
-            <strong className="text-lg font-bold text-[var(--sw-success)] block mt-1 font-mono flex items-center gap-1">
-              184 <TrendingDown className="w-3.5 h-3.5 text-[var(--sw-success)]" />
+          <div className="p-4 rounded-2xl bg-black/30 border border-white/10">
+            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Interruptions Avoided</span>
+            <strong className="text-xl font-extrabold text-white block mt-1 font-sans flex items-center gap-1">
+              184 <TrendingDown className="w-4 h-4 text-emerald-400" />
             </strong>
           </div>
         </div>
 
         {/* Primary recommendation alert line */}
-        <div className="flex items-center gap-2.5 text-xs py-2 px-3 bg-[var(--sw-mint-100)] border-l-4 border-[var(--sw-green-700)] text-[var(--sw-green-900)] rounded-r-xl select-none font-medium">
-          <span className="animate-pulse text-xs shrink-0">▲</span>
-          <span><strong>Recommended:</strong> {primaryActionText.replace(/\*\*/g, '')}</span>
+        <div className="flex items-center gap-2.5 text-xs py-3 px-4 rounded-2xl bg-black/30 border border-[rgba(246,247,241,0.12)] text-[#F6F7F1] select-none font-medium">
+          <span className="animate-pulse text-xs text-emerald-400 shrink-0">▲</span>
+          <span><strong className="text-white font-bold">Recommended:</strong> {primaryActionText.replace(/\*\*/g, '')}</span>
         </div>
       </div>
 
-      {/* 2. Structured Operating Brief section (replacing black box) */}
+      {/* 2. Structured Operating Brief section */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold text-[var(--sw-text)] uppercase tracking-wider select-none">
+        <h3 className="font-serif text-base font-black text-white px-1">
           Operating Brief
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

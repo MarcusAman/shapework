@@ -9,7 +9,7 @@ import {
   Clock, 
   AlertTriangle,
   Send,
-  Sparkles,
+  Zap,
   Award
 } from 'lucide-react';
 
@@ -179,7 +179,7 @@ export default function AgentOnboardingBoard() {
         {selectedAgent.id === 'onb_1' && (
           <div className="p-4 border border-brand-primary/10 bg-brand-soft/20 rounded-xl space-y-3">
             <span className="text-[10px] text-brand-primary font-bold uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
+              <Zap className="w-3.5 h-3.5 text-emerald-400" />
               Onboarding Bio Assistant
             </span>
             <p className="text-xs text-text-secondary leading-relaxed font-medium">

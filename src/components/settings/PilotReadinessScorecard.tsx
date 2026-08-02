@@ -104,36 +104,36 @@ export default function PilotReadinessScorecard({ state = {} }: PilotReadinessSc
   ];
 
   return (
-    <div className="bg-stone-50 border border-border-soft rounded-3xl p-5 text-left text-xs text-text-secondary leading-normal space-y-4 font-sans select-none">
+    <div className="bg-white border border-slate-200 rounded-3xl p-5 text-left text-xs text-slate-700 leading-normal space-y-4 font-sans select-none shadow-sm">
       
-      <div className="border-b border-border-soft pb-2 flex items-center justify-between">
+      <div className="border-b border-slate-200 pb-2 flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-            <Activity className="w-5 h-5 text-brand-primary" />
+          <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+            <Activity className="w-5 h-5 text-emerald-600" />
             <span>Pilot Readiness Scorecard</span>
           </h4>
-          <p className="text-[10px] text-text-tertiary mt-0.5">Automated checklist auditing operational systems health.</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Automated checklist auditing operational systems health.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {targets.map((tgt, idx) => (
-          <div key={idx} className="bg-white border border-border-soft rounded-2xl p-4 flex gap-3 items-start shadow-sm">
+          <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex gap-3 items-start shadow-2xs">
             <div className="shrink-0 mt-0.5">
               {tgt.status === 'pass' ? (
-                <CheckCircle2 className="w-4 h-4 text-success" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               ) : (
-                <AlertTriangle className="w-4 h-4 text-status-attention" />
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
               )}
             </div>
             <div className="space-y-1 select-text">
-              <span className="font-bold text-text-primary block">{tgt.name}</span>
-              <div className="flex items-center gap-1 text-[10px] text-text-secondary">
-                <Info className="w-3 h-3 text-text-tertiary shrink-0" />
+              <span className="font-bold text-slate-900 block">{tgt.name}</span>
+              <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                <Info className="w-3 h-3 text-slate-400 shrink-0" />
                 <span>{tgt.evidence}</span>
               </div>
               {tgt.status !== 'pass' && (
-                <span className="text-[9px] text-status-attention font-bold block mt-1">
+                <span className="text-[9px] text-amber-800 font-bold block mt-1 font-mono">
                   Next Action: {tgt.next}
                 </span>
               )}

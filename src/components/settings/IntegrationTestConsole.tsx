@@ -14,7 +14,7 @@ import {
   Layers,
   Database,
   ArrowRight,
-  Sparkles,
+  Zap,
   Copy,
   FileText,
   AlertTriangle,
@@ -276,7 +276,7 @@ export default function IntegrationTestConsole() {
       <div className="flex border-b border-border-soft pb-2 select-none gap-2">
         {[
           { id: 'scenarios', label: 'E2E Scenario Triggers', icon: Layers },
-          { id: 'demo_flow', label: 'Rechat + Dotloop Guided Demo', icon: Sparkles },
+          { id: 'demo_flow', label: 'Rechat + Dotloop Guided Demo', icon: Zap },
           { id: 'debugging', label: 'Observability & Debugging', icon: Terminal }
         ].map((tab) => (
           <button

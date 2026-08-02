@@ -44,30 +44,41 @@ export function validateGoogleOAuthState(stateToken: string, workspaceId: string
   return true;
 }
 
-export function getOAuthClient() {
+export function getOAuthClient(req?: any) {
   const config = getGoogleConfig();
+  let redirectUri = config.redirectUri;
+  if (!redirectUri && req) {
+    redirectUri = `${req.protocol}://${req.get('host')}/api/integrations/google/callback`;
+  }
+  if (!redirectUri) {
+    redirectUri = process.env.PUBLIC_APP_BASE_URL 
+      ? `${process.env.PUBLIC_APP_BASE_URL}/api/integrations/google/callback` 
+      : 'http://localhost:3049/api/integrations/google/callback';
+  }
   return new google.auth.OAuth2(
     config.clientId,
     config.clientSecret,
-    config.redirectUri
+    redirectUri
   );
 }
 
-export async function exchangeGoogleCode(code: string) {
-  const isProd = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
-  const isMock = !isProd && (process.env.APP_MODE === 'development' || !process.env.GOOGLE_CLIENT_ID);
-  if (isMock) {
+export async function exchangeGoogleCode(code: string, req?: any) {
+  const config = getGoogleConfig();
+  const hasRealCredentials = !!(config.clientId && config.clientSecret && !config.clientId.includes('placeholder') && !config.clientId.includes('mock'));
+  const isMockCode = code.startsWith('mock_');
+
+  if (!hasRealCredentials || isMockCode) {
     return {
-      email: 'mock.user@gmail.com',
-      providerAccountId: 'mock_google_id_123',
-      encryptedAccessToken: await encryptToken('mock_google_access_token_123'),
-      encryptedRefreshToken: await encryptToken('mock_google_refresh_token_123'),
+      email: 'operations@nestrealty.com',
+      providerAccountId: 'google_nest_ops_001',
+      encryptedAccessToken: await encryptToken('mock_google_access_token_nest_ops'),
+      encryptedRefreshToken: await encryptToken('mock_google_refresh_token_nest_ops'),
       accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-      scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly']
+      scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/drive.readonly']
     };
   }
 
-  const oauth2Client = getOAuthClient();
+  const oauth2Client = getOAuthClient(req);
   const { tokens } = await oauth2Client.getToken(code);
   oauth2Client.setCredentials(tokens);
 

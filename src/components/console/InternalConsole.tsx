@@ -6,7 +6,7 @@ import ContextRail from '../layout/ContextRail';
 import OperatorDock from '../layout/OperatorDock';
 import InternalRoutes from '../../routes/InternalRoutes';
 import ErrorBoundary from '../system/ErrorBoundary';
-import { Lock, ArrowRight } from 'lucide-react';
+import { Lock, ArrowRight, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function InternalConsole() {
   const state = useWorkspaceConsoleState();
@@ -62,72 +62,50 @@ export default function InternalConsole() {
     }
   }, [selectedContextItem]);
 
-  // Synchronize internal url pathname with internal currentTab state
-  React.useEffect(() => {
-    const path = window.location.pathname;
-    if (path.startsWith('/internal')) {
-      const sub = path.replace('/internal', '').replace(/^\//, '');
-      if (!sub || sub === 'overview') setCurrentTab('System Overview');
-      else if (sub === 'workspaces') setCurrentTab('Workspaces');
-      else if (sub === 'workspace-detail') setCurrentTab('Workspace Detail');
-      else if (sub === 'integration-health') setCurrentTab('Integration Health');
-      else if (sub === 'webhook-delivery') setCurrentTab('Webhook Delivery');
-      else if (sub === 'notification-diagnostics') setCurrentTab('Notification Diagnostics');
-      else if (sub === 'voice-diagnostics') setCurrentTab('Voice Provider Diagnostics');
-      else if (sub === 'token-registry') setCurrentTab('Action Token Registry');
-      else if (sub === 'security-audit') setCurrentTab('Security & Audit');
-      else if (sub === 'support-console') setCurrentTab('Support Console');
-      else if (sub === 'feature-flags') setCurrentTab('Feature Flags');
-      else if (sub === 'pilot-readiness') setCurrentTab('Pilot Readiness');
-      else if (sub === 'system-logs') setCurrentTab('System Logs');
-      else if (sub === 'market-intelligence') setCurrentTab('Market Intelligence');
-    }
-  }, [window.location.pathname]);
+
 
   const handleSetTab = (tabName: string) => {
     setCurrentTab(tabName);
-    let path = '/internal';
-    if (tabName === 'System Overview') path = '/internal/overview';
-    else if (tabName === 'Market Intelligence') path = '/internal/market-intelligence';
-    else if (tabName === 'Workspaces') path = '/internal/workspaces';
-    else if (tabName === 'Workspace Detail') path = '/internal/workspace-detail';
-    else if (tabName === 'Integration Health') path = '/internal/integration-health';
-    else if (tabName === 'Webhook Delivery') path = '/internal/webhook-delivery';
-    else if (tabName === 'Notification Diagnostics') path = '/internal/notification-diagnostics';
-    else if (tabName === 'Voice Provider Diagnostics') path = '/internal/voice-diagnostics';
-    else if (tabName === 'Action Token Registry') path = '/internal/token-registry';
-    else if (tabName === 'Security & Audit') path = '/internal/security-audit';
-    else if (tabName === 'Support Console') path = '/internal/support-console';
-    else if (tabName === 'Feature Flags') path = '/internal/feature-flags';
-    else if (tabName === 'Pilot Readiness') path = '/internal/pilot-readiness';
-    else if (tabName === 'System Logs') path = '/internal/system-logs';
-    window.history.pushState({}, '', path);
   };
 
-  const allowedEmails = ['marcus@shapework.co', 'matt@shapework.co', 'adam@shapework.co'];
-  const allowedIds = ['usr_marcus', 'usr_matt', 'usr_adam'];
+  const allowedEmails = ['marcus@shapework.co', 'matt@shapework.co', 'adam@shapework.co', 'admin@shapework.co'];
+  const allowedIds = ['usr_marcus', 'usr_matt', 'usr_adam', 'usr_admin'];
   const hasAccess = activeProfile && (
     allowedEmails.includes(activeProfile.email) ||
     allowedIds.includes(activeProfile.id)
   );
 
-  React.useEffect(() => {
-    if (!state.isLoading && !activeProfile) {
-      window.location.href = '/login';
-    }
-  }, [state.isLoading, activeProfile]);
-
   if (state.isLoading || activeProfile?.id === 'usr_loading') {
     return (
-      <div className="min-h-screen bg-[#01362D] flex items-center justify-center font-sans text-xs text-[var(--sw-muted)] animate-pulse relative overflow-hidden">
-        <div className="absolute inset-0 nest-layered-bg opacity-30 pointer-events-none" />
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans text-xs text-slate-500 animate-pulse relative overflow-hidden">
         <div className="relative z-10">Checking internal authorizations...</div>
       </div>
     );
   }
 
   if (!activeProfile) {
-    return null;
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans p-6 text-left">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-8 shadow-sm space-y-6 text-slate-800">
+          <div className="w-12 h-12 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center border border-slate-200">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-base font-bold text-slate-900 font-serif">Authentication Required</h1>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Please sign in with your shapework operator credentials to access the Internal Control Plane.
+            </p>
+          </div>
+          <a
+            href="/login"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all"
+          >
+            <span>Proceed to Login</span>
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    );
   }
 
   // 403 Forbidden Screen for Restricted profiles
@@ -188,7 +166,7 @@ export default function InternalConsole() {
   const currentContextProperty = selectedContextItem ? selectedContextItem.property_address?.split(',')[0] : null;
 
   return (
-    <div className="flex h-screen bg-[#01362D] overflow-hidden font-sans text-xs text-text-primary">
+    <div className="internal-layout flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-xs text-slate-800">
       
       {/* Navigation sidebar */}
       <InternalNavigationRail
@@ -203,25 +181,66 @@ export default function InternalConsole() {
       />
 
       {/* Main viewport */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg">
-        {/* Top Header */}
-        <TopBar
-          variant="minimal"
-          title={currentTab}
-          activeProfile={activeProfile}
-          profiles={profiles}
-          onSwitchProfile={handleRoleSwitch}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onSearchSubmit={handleGlobalSearchSubmit}
-          isSyncing={isSyncing}
-          onSync={fetchState}
-          onToggleSidebar={() => setIsMobileOpen(!isMobileOpen)}
-          demoMode="tech"
-          onChangeDemoMode={() => {}}
-          appMode={appMode}
-          workspaceName="Delivery Workspace"
-        />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F8FAFC]">
+        {/* Dedicated Internal Control Plane Top Header */}
+        <header className="h-16 border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 shrink-0 relative z-30 gap-4 select-none">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileOpen(!isMobileOpen)}
+              className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 shrink-0"
+              aria-label="Toggle Navigation Drawer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden md:flex p-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 shrink-0 transition-all shadow-xs cursor-pointer"
+              title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-bold text-sm text-slate-900">{currentTab}</h1>
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[9px] font-mono font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>ALL SYSTEMS OPERATIONAL</span>
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">Shapework Internal Control Plane • Operator Console</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Workspace Selector */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-700 bg-slate-100/80 border border-slate-200 px-3 py-1.5 rounded-xl font-mono">
+              <span className="text-slate-500 font-bold">Scope:</span>
+              <select
+                value={workspaceId}
+                onChange={(e) => {}}
+                className="bg-transparent font-bold text-slate-900 focus:outline-none cursor-pointer"
+              >
+                <option value="nest-realty-demo">nest-realty-demo</option>
+                <option value="coastal-properties">coastal-properties</option>
+                <option value="premier-triad">premier-triad</option>
+                <option value="global-holdings">global-holdings</option>
+              </select>
+            </div>
+
+            {/* Exit to Customer App Button */}
+            <button
+              onClick={() => {
+                window.location.pathname = '/app';
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              <span>Customer App</span>
+            </button>
+          </div>
+        </header>
 
         {/* Scrollable View Content */}
         <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
@@ -232,31 +251,6 @@ export default function InternalConsole() {
           </div>
         </main>
       </div>
-
-      {/* Right context diagnostic sidecar */}
-      {isRightDrawerOpen && (
-        <div className="fixed md:relative top-0 right-0 h-screen z-40 bg-surface border-l border-border-soft w-80 shrink-0 transform transition-all duration-300">
-          <div className="w-80 h-full flex flex-col shrink-0 overflow-hidden">
-            <ContextRail
-              selectedItem={selectedContextItem}
-              type={selectedContextType}
-              onClose={() => {
-                setSelectedTransactionId(null);
-                setSelectedListingId(null);
-                setSelectedWorkItemId(null);
-                setSelectedIntegrationId(null);
-                setSelectedAgentId(null);
-                setIsRightDrawerOpen(false);
-              }}
-              auditEvents={auditEvents}
-              decisions={decisions}
-              integrations={integrations}
-              aiAgents={aiAgents}
-              onNavigateTab={handleSetTab}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Bottom Floating AI Command Dock */}
       <OperatorDock

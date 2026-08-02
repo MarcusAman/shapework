@@ -179,26 +179,26 @@ export default function DataImportCenter({ state = {} }: DataImportCenterProps) 
         </div>
 
         {/* Template info */}
-        <div className="bg-stone-50 border border-border-soft rounded-xl p-3.5 space-y-2">
-          <div className="flex justify-between items-center text-[10px] text-text-tertiary select-none font-bold">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+          <div className="flex justify-between items-center text-[10px] text-slate-500 select-none font-bold font-mono">
             <span>{activeTemplate.title}</span>
-            <span className="text-brand-primary">Standard Header CSV</span>
+            <span className="text-slate-900">Standard Header CSV</span>
           </div>
-          <div className="text-[10px] text-text-secondary font-mono leading-relaxed bg-white border border-border-subtle p-2.5 rounded-lg select-all">
+          <div className="text-[10px] text-slate-800 font-mono leading-relaxed bg-white border border-slate-200 p-2.5 rounded-lg select-all shadow-2xs">
             {activeTemplate.headers.join(',')}<br/>
             {activeTemplate.example}
           </div>
           <div className="flex gap-4">
             <button
               onClick={() => setCsvText(activeTemplate.headers.join(',') + '\n' + activeTemplate.example)}
-              className="text-[9px] text-brand-primary font-bold hover:underline mt-1 cursor-pointer block select-none"
+              className="text-[9px] text-slate-900 font-bold font-mono hover:underline mt-1 cursor-pointer block select-none"
             >
               [ Load Example Template Text ]
             </button>
             <a
               href={`/templates/${activeTemplate.filename}`}
               download
-              className="text-[9px] text-brand-primary font-bold hover:underline mt-1 block select-none"
+              className="text-[9px] text-slate-900 font-bold font-mono hover:underline mt-1 block select-none"
             >
               [ Download CSV Template File ]
             </a>
@@ -207,7 +207,7 @@ export default function DataImportCenter({ state = {} }: DataImportCenterProps) 
 
         {/* Paste Area */}
         <div className="space-y-1">
-          <label className="text-[10px] text-text-tertiary font-bold uppercase select-none">Paste CSV Data Stream</label>
+          <label className="text-[10px] text-slate-600 font-bold uppercase select-none font-mono">Paste CSV Data Stream</label>
           <textarea
             value={csvText}
             onChange={(e) => {
@@ -215,7 +215,7 @@ export default function DataImportCenter({ state = {} }: DataImportCenterProps) 
               setIsSuccess(false);
             }}
             placeholder="Paste comma-separated rows here..."
-            className="w-full p-3 font-mono text-[10px] border border-border-soft rounded-xl focus:outline-none focus:border-brand-primary bg-stone-50/50"
+            className="w-full p-3 font-mono text-[10px] border border-slate-300 rounded-xl focus:outline-none focus:border-slate-500 bg-white text-slate-900 shadow-2xs"
             rows={8}
           />
         </div>
@@ -225,7 +225,7 @@ export default function DataImportCenter({ state = {} }: DataImportCenterProps) 
           <button
             onClick={handleParse}
             disabled={!csvText.trim()}
-            className="px-4 py-2 bg-brand-primary hover:bg-brand-primary-hover text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <Database className="w-3.5 h-3.5" />
             <span>Validate Schema & Parse Rows</span>
@@ -235,7 +235,7 @@ export default function DataImportCenter({ state = {} }: DataImportCenterProps) 
             <button
               onClick={handleImportSubmit}
               disabled={isImporting}
-              className="px-4 py-2 bg-status-success text-white hover:bg-status-success/80 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               {isImporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
               <span>Import {parsedRows.length} Rows to Workspace</span>

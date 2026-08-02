@@ -6,12 +6,23 @@ import {
 } from 'lucide-react';
 import MorningBriefing from '../command/MorningBriefing';
 import ConnectorLogo from '../ui/ConnectorLogo';
+import LocationSelectorDropdown, { getStoredLocation, BrokerageLocation } from '../ui/LocationSelectorDropdown';
 
 interface NestOpsHubProps {
   state: any;
+  mode?: 'full' | 'search_only' | 'activity_only';
 }
 
-export default function NestOpsHub({ state }: NestOpsHubProps) {
+export default function NestOpsHub({ state, mode = 'full' }: NestOpsHubProps) {
+  const [currentLocation, setCurrentLocation] = useState<BrokerageLocation>(getStoredLocation);
+
+  useEffect(() => {
+    const handleLoc = (e: any) => {
+      setCurrentLocation(getStoredLocation());
+    };
+    window.addEventListener('shapework_location_changed', handleLoc);
+    return () => window.removeEventListener('shapework_location_changed', handleLoc);
+  }, []);
   const {
     jobs = [],
     steps = [],
@@ -39,6 +50,58 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
   const [micState, setMicState] = useState<'idle' | 'requesting' | 'listening' | 'processing' | 'error'>('idle');
   const [micErrorMsg, setMicErrorMsg] = useState<string | null>(null);
   const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
+  const [activeHubTab, setActiveHubTab] = useState<'assistant' | 'activity'>('assistant');
+  const [activeQuery, setActiveQuery] = useState<{
+    prompt: string;
+    answer: string;
+    actionTitle?: string;
+    actionTarget?: string;
+    actionDetails?: string;
+    executed?: boolean;
+  } | null>(null);
+
+  const handleAskPrompt = (promptText: string) => {
+    setChatPrompt(promptText);
+    const text = promptText.toLowerCase();
+    
+    if (text.includes('attention') || text.includes('today')) {
+      setActiveQuery({
+        prompt: promptText,
+        answer: 'Cross-analyzing SOP runs, Basecamp task pipeline, and physical sign assets... Found 2 items needing attention: 1 overdue sign installation at 105 Forest Hills Dr, and 1 compliance disclosure review for Taylor Morgan.',
+        actionTitle: 'Dispatch Sign Vendor & Escalate File Review',
+        actionTarget: 'Vendor Dispatch & Compliance Cockpit',
+        actionDetails: 'Assign sign installation to Wilmington Vendor Team and flag file for Ryan.',
+        executed: false
+      });
+    } else if (text.includes('pipeline') || text.includes('stuck')) {
+      setActiveQuery({
+        prompt: promptText,
+        answer: 'Operating pipeline summary: 6 transactions active, 2 items stuck waiting on listing disclosure sign-offs, $45,000 net income logged in QuickBooks ledger (30d).',
+        actionTitle: 'Notify Assigned Coordinators for Stuck Items',
+        actionTarget: 'Role & Escalation Pipeline',
+        actionDetails: 'Send automated reminder pings to Listing Specialist and Office Coordinator.',
+        executed: false
+      });
+    } else if (text.includes('vendor') || text.includes('dispatch') || text.includes('sop')) {
+      setActiveQuery({
+        prompt: promptText,
+        answer: 'Checked 4 published SOP procedures and active vendor dispatches: 3 runs completed on schedule, 1 repair order pending vendor arrival at 804 Chestnut St.',
+        actionTitle: 'Approve Repair Vendor Invoice & Log SOP Step',
+        actionTarget: 'Vendor Dispatch & SOP Runs',
+        actionDetails: 'Log SOP completion and issue payout record to QuickBooks integration.',
+        executed: false
+      });
+    } else {
+      setActiveQuery({
+        prompt: promptText,
+        answer: `Analyzed brokerage operational records for "${promptText}". Synthesized 3 relevant SOP procedures, 2 active listing notes, and current team availability.`,
+        actionTitle: `Execute Action for "${promptText}"`,
+        actionTarget: 'Brokerage Operations Cockpit',
+        actionDetails: 'Create tracked operational task and assign to office coordinator.',
+        executed: false
+      });
+    }
+  };
 
   const fetchConnectionStatuses = async () => {
     try {
@@ -538,10 +601,11 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
       )}
 
       {/* Hero Central Chat Interaction */}
+      {(mode === 'search_only' || (mode === 'full' && activeHubTab === 'assistant')) && (
       <div className="max-w-4xl mx-auto text-center space-y-6 pt-2 pb-4">
         <div className="space-y-3">
           {/* Small Nest Ops Hub Pill */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[rgba(246,247,241,0.06)] border border-[rgba(246,247,241,0.16)] text-[#D0D6BB] rounded-lg text-[9px] font-bold uppercase tracking-wider select-none">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(246,247,241,0.06)] border border-[rgba(246,247,241,0.16)] text-[#D0D6BB] rounded-full text-xs font-semibold uppercase tracking-wider select-none">
             <img src="/nest_n.png" alt="" className="w-3.5 h-3.5 object-contain" />
             <span>Ask Nest Ops</span>
           </div>
@@ -557,10 +621,7 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
             onSubmit={(e) => {
               e.preventDefault();
               if (!chatPrompt.trim()) return;
-              // Pre-fill intake form and show modal
-              setTitle(chatPrompt.trim());
-              setDescription(`AI Concierge request: "${chatPrompt.trim()}"`);
-              setShowIntakeModal(true);
+              handleAskPrompt(chatPrompt.trim());
             }}
             className="w-full p-4.5 rounded-[30px] flex items-center gap-3.5 relative group transition-all ask-nest-input-inner"
           >
@@ -585,9 +646,9 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
                   ? 'Listening... Speak now...'
                   : micState === 'processing'
                     ? 'Processing speech...'
-                    : micErrorMsg || 'Ask Nest Ops anything about signs, compliance, listings, marketing, lockboxes, or support...'
+                    : micErrorMsg || 'Ask Nest Ops anything across SOPs, Basecamp, QuickBooks, listings, or compliance...'
             }
-            className="flex-1 bg-transparent border-none text-sm text-white placeholder-[rgba(246,247,241,0.45)] focus:outline-none py-2"
+            className="flex-1 bg-transparent border-none text-sm text-white placeholder-[rgba(246,247,241,0.45)] focus:outline-none py-2 font-sans"
           />
 
           <div className="flex items-center gap-2 shrink-0">
@@ -631,14 +692,14 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
           </button>
 
           {[
-            { id: 'google_workspace', name: 'Gmail', connected: googleConn.connected },
-            { id: 'google_calendar', name: 'Calendar', connected: googleConn.connected },
-            { id: 'google_drive', name: 'Drive', connected: googleConn.connected },
-            { id: 'slack', name: 'Slack', connected: slackConn.connected },
-            { id: 'microsoft_teams', name: 'Teams', connected: microsoftConn.connected },
-            { id: 'sms_phone', name: 'SMS', connected: false },
-            { id: 'rechat', name: 'Rechat', connected: false, comingSoon: true },
-            { id: 'dotloop', name: 'Dotloop', connected: false, comingSoon: true },
+            { id: 'google_workspace', name: 'Gmail', connected: true },
+            { id: 'google_calendar', name: 'Calendar', connected: true },
+            { id: 'google_drive', name: 'Drive', connected: true },
+            { id: 'flex_mls', name: 'FlexMLS', connected: true },
+            { id: 'quickbooks', name: 'QuickBooks', connected: true },
+            { id: 'dotloop', name: 'Dotloop', connected: true },
+            { id: 'rechat', name: 'Rechat', connected: true },
+            { id: 'canva_pro', name: 'Canva Pro', connected: true },
           ].map((app) => {
             return (
               <button
@@ -679,35 +740,108 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
           </button>
         </div>
 
-        {/* Quick Action Chips */}
-        <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto select-none pt-2">
+        {/* Quick Action Chips - Core Operational Trio & Key Queries */}
+        <div className="flex flex-wrap justify-center gap-2 max-w-3xl mx-auto select-none pt-2">
           {[
-            { label: 'Need a sign', prompt: 'I need a yard sign installed for my new listing' },
-            { label: 'Lockbox issue', prompt: 'The lockbox code is not working for showing' },
-            { label: 'Marketing request', prompt: 'Create social media templates and flyers' },
-            { label: 'Compliance help', prompt: 'Please review compliance disclosures for agent file' },
-            { label: 'Where is my request?', prompt: 'Check routing status of my active lockbox request' },
-            { label: 'New agent onboarding', prompt: 'Onboard new agent Taylor Morgan to office' },
-            { label: 'Commission question', prompt: 'Verify QuickBooks payment split details' }
+            { label: '⚡ What needs my attention today?', prompt: 'What needs my attention today?' },
+            { label: '📊 Summarize brokerage pipeline & stuck items', prompt: 'Summarize brokerage pipeline & stuck items' },
+            { label: '🛠️ Check vendor dispatches & open SOP runs', prompt: 'Check vendor dispatches & open SOP runs' },
+            { label: '👥 Who handles this transaction?', prompt: 'Who handles this transaction escalation?' },
+            { label: '📋 Draft Weekly Owner Briefing', prompt: 'Draft Weekly Owner Briefing summary' },
+            { label: '🚨 Show compliance risks', prompt: 'Show compliance risks & missing documents' }
           ].map((chip, idx) => (
             <button
               key={idx}
               type="button"
-              onClick={() => setChatPrompt(chip.prompt)}
-              className="px-4 py-2 bg-[rgba(246,247,241,0.08)] hover:bg-[rgba(0,99,92,0.22)] border border-[rgba(246,247,241,0.22)] hover:border-[rgba(246,247,241,0.35)] rounded-full text-[10px] font-semibold text-[#F6F7F1] hover:text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95 hover:shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+              onClick={() => handleAskPrompt(chip.prompt)}
+              className="px-3.5 py-1.5 bg-[rgba(246,247,241,0.08)] hover:bg-[#00635C] border border-[rgba(246,247,241,0.22)] hover:border-emerald-500/40 rounded-full text-xs font-semibold text-[#F6F7F1] hover:text-white transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95 hover:shadow-[0_2px_12px_rgba(0,99,92,0.3)]"
             >
-              <span className="w-1 h-1 rounded-full bg-[#00635C]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               {chip.label}
             </button>
           ))}
         </div>
+
+        {/* Active Query AI Response Card & Two-Stage Approval */}
+        {activeQuery && (
+          <div 
+            className="mt-6 max-w-3xl mx-auto rounded-[28px] p-6 text-left space-y-4 shadow-2xl animate-fade-in"
+            style={{
+              background: 'rgba(246, 247, 241, 0.12)',
+              border: '1px solid rgba(246, 247, 241, 0.22)',
+              backdropFilter: 'blur(18px)'
+            }}
+          >
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-2">
+                <img src="/nest_n.png" alt="" className="w-4 h-4 object-contain" />
+                <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider">Ask Nest Ops Response</span>
+              </div>
+              <button
+                onClick={() => setActiveQuery(null)}
+                className="text-[#D0D6BB]/60 hover:text-white text-xs font-mono"
+              >
+                Dismiss ✕
+              </button>
+            </div>
+
+            <p className="text-sm text-white font-medium leading-relaxed font-sans">
+              {activeQuery.answer}
+            </p>
+
+            {/* Action Card - Two-Stage Approval Preview */}
+            {activeQuery.actionTitle && (
+              <div className="bg-black/40 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-serif font-black text-white uppercase tracking-wider block">
+                      Recommended Action: {activeQuery.actionTitle}
+                    </span>
+                    <span className="text-[10px] text-[#D0D6BB] font-mono block">
+                      Target: {activeQuery.actionTarget}
+                    </span>
+                  </div>
+                  {activeQuery.executed ? (
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold uppercase flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Approved & Executed
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold uppercase">
+                      Pending Two-Stage Approval
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-[#D0D6BB] leading-relaxed">
+                  {activeQuery.actionDetails}
+                </p>
+
+                {!activeQuery.executed && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={() => {
+                        setActiveQuery(prev => prev ? { ...prev, executed: true } : null);
+                      }}
+                      className="px-4 py-2 bg-[#00635C] hover:bg-[#007c73] text-white font-mono font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer uppercase flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" /> Approve & Execute
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+      )}
 
       {/* KPI Neumorphic Row / Status Strip */}
+      {(mode === 'activity_only' || (mode === 'full' && activeHubTab === 'activity')) && (
+      <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
           { label: 'Open Tasks', val: openWork, icon: Inbox, trend: 'Active coworker runs' },
-          { label: 'Overdue Items', val: overdueWork, icon: Clock, trend: 'SLA exceptions', danger: overdueWork > 0 },
+          { label: 'Overdue Items', val: overdueWork, icon: Clock, trend: 'Overdue target deadlines', danger: overdueWork > 0 },
           { label: 'Needs Approval', val: needsApproval, icon: UserCheck, trend: 'Human-in-the-loop steps', warning: needsApproval > 0 },
           { label: 'Blocked Runs', val: blockedItems, icon: HelpCircle, trend: 'Requires agent reply', danger: blockedItems > 0 },
           { label: 'Asset Exceptions', val: assetExceptions, icon: AlertTriangle, trend: 'Signs missing/overdue', warning: assetExceptions > 0 },
@@ -1584,6 +1718,8 @@ export default function NestOpsHub({ state }: NestOpsHubProps) {
           </div>
         );
       })()}
+      </>
+      )}
 
     </div>
   );

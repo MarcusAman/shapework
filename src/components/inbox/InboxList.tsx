@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Paperclip, Sparkles } from 'lucide-react';
+import { Paperclip, Zap } from 'lucide-react';
 import { Communication } from '../../types/shapework';
 import ChannelBadge from '../ui/ChannelBadge';
 import { safeLower } from '../../utils/string';
@@ -75,9 +75,8 @@ export default function InboxList({
               {item.subject}
             </h4>
 
-            {/* Extracted Intent with AI sparkles */}
             <div className="flex gap-1.5 items-start bg-secondary-surface p-2 rounded-lg border border-border-subtle/40 pl-2">
-              <Sparkles className="w-3.5 h-3.5 text-brand-green shrink-0 mt-0.5" />
+              <Zap className="w-3.5 h-3.5 text-brand-green shrink-0 mt-0.5" />
               <p className="text-[11px] text-text-secondary leading-snug line-clamp-2">
                 <span className="font-semibold text-text-primary">Intent:</span> {item.intent}
               </p>

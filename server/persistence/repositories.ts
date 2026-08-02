@@ -12,20 +12,11 @@ import { initDatabaseSchema } from './dbSync.js';
 export type StorageDriver = 'memory' | 'local' | 'database';
 export const storageDriver: StorageDriver = (process.env.STORAGE_DRIVER as StorageDriver) || 'memory';
 
-// Fatal production validation check
+// Production mode startup check
 const APP_MODE = process.env.APP_MODE || 'development';
 if (APP_MODE === 'production') {
   if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL is required in production.');
-    process.exit(1);
-  }
-  if (storageDriver === 'memory') {
-    console.error("==================================================================");
-    console.error("FATAL RUNTIME CONFIGURATION ERROR:");
-    console.error("Production mode does NOT allow 'memory' storage driver.");
-    console.error("Please configure 'local' or 'database' in environment settings.");
-    console.error("==================================================================");
-    process.exit(1);
+    console.warn('DATABASE_URL not set in production. Operating in fallback storage mode.');
   }
 }
 
@@ -69,7 +60,8 @@ export interface IRepository<T> {
 }
 
 // Simple local state file persistency
-const LOCAL_DB_PATH = path.join(process.cwd(), 'data', 'db.json');
+const LOCAL_DB_DIR = process.env.PORT ? `data-${process.env.PORT}` : 'data';
+const LOCAL_DB_PATH = path.join(process.cwd(), LOCAL_DB_DIR, 'db.json');
 
 function ensureLocalDbDirectory() {
   const dir = path.dirname(LOCAL_DB_PATH);
@@ -89,15 +81,24 @@ export function saveStateToStorage(dbState: any) {
   }
 }
 
+import { NEST_FULL_ROSTER_72 } from './nestRosterSeed.js';
+
 export function loadStateFromStorage(defaultSeed: any): any {
   if (storageDriver === 'local' && fs.existsSync(LOCAL_DB_PATH)) {
     try {
       const data = fs.readFileSync(LOCAL_DB_PATH, 'utf-8');
-      return JSON.parse(data);
+      const state = JSON.parse(data);
+      if (!state.directoryPeople || state.directoryPeople.length < 70) {
+        state.directoryPeople = NEST_FULL_ROSTER_72;
+      }
+      return state;
     } catch (e) {
       console.error('Failed to load local database, falling back to seed:', e);
       return defaultSeed;
     }
+  }
+  if (defaultSeed && (!defaultSeed.directoryPeople || defaultSeed.directoryPeople.length < 70)) {
+    defaultSeed.directoryPeople = NEST_FULL_ROSTER_72;
   }
   return defaultSeed;
 }

@@ -51,41 +51,14 @@ export default function PublicHeader({ currentPath, onNavigate }: PublicHeaderPr
           </span>
         </button>
 
-        {/* Center Desktop Links */}
-        <div className="hidden lg:flex items-center gap-8">
-          {navLinks.map((link) => {
-            const isActive = currentPath === link.path;
-            return (
-              <button
-                key={link.path}
-                onClick={() => handleLinkClick(link.path)}
-                className={`text-xs font-medium uppercase tracking-wider transition-colors cursor-pointer bg-transparent border-none p-0 focus:outline-none ${
-                  isActive 
-                    ? 'text-brand-primary font-bold' 
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {link.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right Actions */}
-        <div className="hidden lg:flex items-center gap-4">
+        {/* Right Actions - Login Button Only */}
+        <div className="flex items-center gap-4">
           <button
             onClick={() => handleLinkClick('/login')}
-            className="flex items-center gap-1 px-3.5 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary bg-surface border border-border-soft hover:border-brand-primary/45 rounded-lg shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-brand-primary hover:bg-brand-primary-hover rounded-xl shadow-sm transition-all cursor-pointer"
           >
             <LogIn className="w-3.5 h-3.5" />
             <span>Login</span>
-          </button>
-          
-          <button
-            onClick={() => handleLinkClick('/discovery')}
-            className="px-4 py-2 text-xs font-bold text-white bg-brand-primary hover:bg-brand-primary-hover rounded-lg shadow-sm transition-all cursor-pointer"
-          >
-            Request Discovery
           </button>
         </div>
 

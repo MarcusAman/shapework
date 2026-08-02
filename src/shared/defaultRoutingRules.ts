@@ -34,7 +34,15 @@ export function resetOperatingMemory() {
   sessionStorage.removeItem(STORAGE_KEYS.INTEGRATION_EVENTS);
   sessionStorage.removeItem(STORAGE_KEYS.AGENT_REQUESTS);
   sessionStorage.removeItem(STORAGE_KEYS.CSV_IMPORTS);
-  window.dispatchEvent(new Event('shapework_ops_reset'));
+  try {
+    window.dispatchEvent(new Event('shapework_ops_reset'));
+  } catch (e) {
+    if (typeof document !== 'undefined' && document.createEvent) {
+      const evt = document.createEvent('Event');
+      evt.initEvent('shapework_ops_reset', true, true);
+      window.dispatchEvent(evt);
+    }
+  }
 }
 
 export function useOperatingMemoryStore() {

@@ -16,10 +16,23 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
   const shouldReduceMotion = useReducedMotion();
 
   React.useEffect(() => {
+    if (sessionStorage.getItem('shapework_logged_out') === 'true') {
+      return;
+    }
     fetch('/api/auth/session')
       .then(res => {
-        if (res.ok) {
-          onNavigate('/app');
+        if (res.ok) return res.json();
+        throw new Error('Not authenticated');
+      })
+      .then(data => {
+        if (data && data.user) {
+          const email = (data.user.email || '').toLowerCase().trim();
+          const isAdminUser = ['marcus@shapework.co', 'adam@shapework.co', 'matt@shapework.co', 'admin@shapework.co'].includes(email);
+          if (isAdminUser) {
+            onNavigate('/internal');
+          } else {
+            onNavigate('/app');
+          }
         }
       })
       .catch(() => {});
@@ -50,7 +63,13 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
         throw new Error(data.message || 'Invalid email or password.');
       }
 
-      onNavigate('/app');
+      sessionStorage.removeItem('shapework_logged_out');
+      const isAdminUser = ['marcus@shapework.co', 'adam@shapework.co', 'matt@shapework.co', 'admin@shapework.co'].includes(email.toLowerCase().trim());
+      if (isAdminUser) {
+        onNavigate('/internal');
+      } else {
+        onNavigate('/app');
+      }
     } catch (err: any) {
       console.error('[Login] Error during authentication:', err);
       setErrorMsg(err.message || 'Connection error. Please try again.');
@@ -88,32 +107,26 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
       {/* Left Panel: Cover Image */}
       <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-[#18382B]">
         <motion.div
-          initial={{ scale: shouldReduceMotion ? 1 : 1.03 }}
-          animate={{ scale: 1 }}
+          initial={{ scale: shouldReduceMotion ? 1.05 : 1.08 }}
+          animate={{ scale: 1.05 }}
           transition={{ duration: shouldReduceMotion ? 0 : 1.5, ease: 'easeOut' }}
-          className="absolute inset-0 bg-cover bg-center"
+          className="absolute -inset-4 bg-cover bg-center filter blur-[2.5px] brightness-[0.9]"
           style={{ backgroundImage: `url('/nest_background_img.png')` }}
         />
-        {/* Subtle dark green gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#18382B]/95 via-[#18382B]/75 to-[#2F5D46]/45" />
+        {/* Deep contrast dark green gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#0b2118]/90 via-[#143326]/80 to-[#18382B]/60" />
         
         {/* Branding on cover image */}
-        <div className="absolute inset-0 p-12 flex flex-col justify-between z-10 text-[#FFFDF7]">
-          <div 
-            onClick={() => onNavigate('/')} 
-            className="font-serif font-bold text-xl tracking-tight cursor-pointer"
-          >
-            shapework<span className="text-[#DDEBDD]">.</span>
-          </div>
-          <div className="space-y-3">
-            <h2 className="text-2xl font-semibold leading-snug tracking-tight">
+        <div className="absolute inset-0 p-12 flex flex-col justify-end z-10 text-[#FFFDF7]">
+          <div className="space-y-4 mb-8">
+            <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-md">
               Calm operations for modern brokerages.
             </h2>
-            <p className="text-xs text-[#DDEBDD]/80 font-light max-w-sm leading-relaxed">
+            <p className="text-sm text-[#F0F7F2] font-bold max-w-md leading-relaxed drop-shadow">
               We design the operating layer that turns scattered emails, files, and updates into structured, automated work.
             </p>
           </div>
-          <div className="text-[10px] text-[#DDEBDD]/40 font-mono">
+          <div className="text-[11px] text-[#DDEBDD]/80 font-bold font-mono tracking-wider">
             EST. 2026 / WILMINGTON, NC
           </div>
         </div>

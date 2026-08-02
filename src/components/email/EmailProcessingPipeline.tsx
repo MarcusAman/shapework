@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Mail, Check, AlertTriangle, ArrowRight, ShieldCheck, FileText, Activity, Layers, Sparkles } from 'lucide-react';
+import { Mail, Check, AlertTriangle, ArrowRight, ShieldCheck, FileText, Activity, Layers, Zap } from 'lucide-react';
 import { EmailMessage } from '../../types/shapework';
 import AutoUpdatePolicyBadge from '../ui/AutoUpdatePolicyBadge';
 
@@ -386,7 +386,7 @@ function EmailDecisionExplainer({ message }: { message: EmailMessage }) {
   return (
     <div className="p-4 bg-brand-green-soft/40 border border-brand-green/20 rounded-xl space-y-3 text-xs leading-relaxed text-text-primary text-left font-sans">
       <div className="flex items-center gap-1.5 text-brand-green font-bold">
-        <Sparkles className="w-4 h-4 shrink-0" />
+        <Zap className="w-4 h-4 shrink-0 text-emerald-400" />
         <span>shapework. AI Decision Explainer</span>
       </div>
 

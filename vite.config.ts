@@ -9,7 +9,27 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        html2canvas: 'html2canvas-pro',
       },
+    },
+    build: {
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('OrgChartWizardPage')) return 'feature-orgchart';
+            if (id.includes('RoleProfileModal') || id.includes('RoleProfilePdfDocument')) return 'feature-roleprofile';
+            if (id.includes('EvidenceDrawer')) return 'feature-evidencedrawer';
+            if (id.includes('node_modules')) {
+              if (id.includes('lucide-react')) return 'vendor-icons';
+              if (id.includes('framer-motion')) return 'vendor-motion';
+              if (id.includes('jspdf') || id.includes('html2pdf') || id.includes('html2canvas')) return 'vendor-pdf';
+              if (id.includes('react-dom') || id.includes('react')) return 'vendor-react';
+              return 'vendor-core';
+            }
+          }
+        }
+      }
     },
     server: {
       hmr: {

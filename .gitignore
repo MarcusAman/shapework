@@ -6,3 +6,13 @@ coverage/
 *.log
 .env*
 !.env.example
+data/receipts/
+data/previews/
+data-*/
+data/private/
+data/releases/
+scratch/
+*.png
+scratch_capture.mjs
+test-results/
+

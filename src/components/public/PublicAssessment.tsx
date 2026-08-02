@@ -11,7 +11,7 @@ import {
   TrendingUp,
   Cpu,
   HelpCircle,
-  Sparkles
+  Zap
 } from 'lucide-react';
 
 interface PublicAssessmentProps {
@@ -314,7 +314,7 @@ export default function PublicAssessment({ onNavigate }: PublicAssessmentProps) 
                 <ul className="space-y-2">
                   {calculatedScores.topOpportunities?.map((opp: string, i: number) => (
                     <li key={i} className="text-xs text-stone-700 flex items-start gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{opp}</span>
                     </li>
                   ))}

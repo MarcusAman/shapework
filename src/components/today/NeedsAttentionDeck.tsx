@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle2, Zap } from 'lucide-react';
 import { useNeedsAttentionDeck, AttentionCardData, DeckTab } from '../../hooks/useNeedsAttentionDeck';
 import AttentionCard from './AttentionCard';
 
@@ -225,7 +225,7 @@ export default function NeedsAttentionDeck({ state }: NeedsAttentionDeckProps) {
           className="fixed top-6 right-6 z-[100] bg-stone-900 text-[#fffdf7] border border-stone-800 px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300"
           role="alert"
         >
-          <Sparkles className="w-4 h-4 text-amber-300" />
+          <Zap className="w-4 h-4 text-amber-300" />
           <span className="text-xs font-bold font-mono">{toast.message}</span>
         </div>
       )}

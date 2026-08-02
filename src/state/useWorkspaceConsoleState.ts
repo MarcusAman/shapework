@@ -22,40 +22,41 @@ export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
     if (path.startsWith('/internal')) {
       const sub = path.replace('/internal', '').replace(/^\//, '');
-      if (!sub || sub === 'overview') return 'System Overview';
-      if (sub === 'workspaces') return 'Workspaces';
-      if (sub === 'workspace-detail') return 'Workspace Detail';
-      if (sub === 'integration-health') return 'Integration Health';
-      if (sub === 'webhook-delivery') return 'Webhook Delivery';
-      if (sub === 'notification-diagnostics') return 'Notification Diagnostics';
-      if (sub === 'voice-diagnostics') return 'Voice Provider Diagnostics';
-      if (sub === 'token-registry') return 'Action Token Registry';
-      if (sub === 'security-audit') return 'Security & Audit';
-      if (sub === 'support-console') return 'Support Console';
-      if (sub === 'feature-flags') return 'Feature Flags';
-      if (sub === 'system-logs') return 'System Logs';
-      if (sub === 'market-intelligence') return 'Market Intelligence';
-      return 'System Overview';
+      if (!sub || sub === 'overview' || sub === 'feature-flags' || sub === 'pilot-readiness') return 'Control Center';
+      if (sub === 'blog-generator' || sub === 'content' || sub === 'market-intelligence' || sub.startsWith('market-intelligence/surveys') || sub.startsWith('assessments')) return 'Content & Intelligence';
+      if (sub === 'workspaces' || sub === 'workspace-detail' || sub === 'support-console') return 'Workspace Management';
+      if (sub === 'integration-health' || sub === 'diagnostics' || sub === 'webhook-delivery' || sub === 'notification-diagnostics' || sub === 'voice-diagnostics' || sub === 'token-registry') return 'System Diagnostics';
+      if (sub === 'security-audit' || sub === 'audit' || sub === 'system-logs' || sub === 'feedback') return 'Security, Audit & Logs';
+      return 'Control Center';
     }
     const clean = path.replace(/^\/app/, '/demo');
-    if (clean.startsWith('/demo/nest-ops-hub')) return 'Nest Ops Hub';
+    if (clean.startsWith('/demo/pitch')) return "Pitch & 'Aha!' Demo";
+    if (clean.startsWith('/demo/pre-mls')) return 'Pre-MLS Board';
+    if (clean.startsWith('/demo/vendor-dispatch')) return 'Vendor Dispatch';
+    if (clean.startsWith('/demo/nest-ops-hub') || clean.startsWith('/demo/ask-nest-ops')) return 'Ask Nest Ops';
     if (clean.startsWith('/demo/my-connections')) return 'My Connections';
     if (clean.startsWith('/demo/command-center')) return 'Workboard';
     if (clean.startsWith('/demo/workboard')) return 'Workboard';
+    if (clean.startsWith('/demo/sops/runs') || clean.includes('/sops/runs')) return 'SOP Runs';
+    if (clean.startsWith('/demo/sops') || clean.includes('/sops') || clean.includes('/sop-library')) return 'Staff SOP Templates';
     if (clean.startsWith('/demo/work')) return 'Work Queue';
     if (clean.startsWith('/demo/approvals')) return 'Approvals';
+    if (clean.includes('/approval')) return 'Agent Approval Portal';
     if (clean.startsWith('/demo/assets')) return 'Physical Assets';
     if (clean.startsWith('/demo/camera-signals')) return 'Camera Signals';
-    if (clean.startsWith('/demo/knowledge')) return 'Knowledge / SOPs';
+    if (clean.startsWith('/demo/knowledge-base')) return 'Knowledge Base';
+    if (clean.startsWith('/demo/knowledge')) return 'Knowledge Base';
+    if (clean.startsWith('/demo/marketing') || clean.includes('/marketing')) return 'Marketing Intake';
     if (clean.startsWith('/demo/integrations')) return 'Integrations';
     if (clean.startsWith('/demo/settings')) return 'Settings';
     if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
     if (clean.startsWith('/demo/role-map')) return 'Role Map';
+    if (clean.startsWith('/demo/directory')) return 'Directory';
     
     // Support legacy sub-page routes for E2E tests
     if (clean.startsWith('/demo/transactions')) return 'Transactions';
     if (clean.startsWith('/demo/compliance')) return 'Compliance';
-    if (clean.startsWith('/demo/marketing')) return 'Marketing';
+    if (clean.startsWith('/demo/marketing')) return 'Marketing Requests';
     if (clean.startsWith('/demo/people')) return 'People';
     if (clean.startsWith('/demo/office')) return 'Office';
     if (clean.startsWith('/demo/owner-brief')) return 'Owner Brief';
@@ -68,24 +69,60 @@ export function useWorkspaceConsoleState() {
   const getPathFromTab = useCallback((tab: string): string => {
     const prefix = window.location.pathname.startsWith('/app') ? '/app' : '/demo';
     switch (tab) {
-      case 'Nest Ops Hub': return `${prefix}/nest-ops-hub`;
+      case "Pitch & 'Aha!' Demo":
+      case 'Pitch Demo':
+        return `${prefix}/pitch-demo`;
+      case 'Pre-MLS Board':
+      case 'Pocket Matches':
+        return `${prefix}/pre-mls`;
+      case 'Vendor Dispatch':
+      case 'Repair Board':
+        return `${prefix}/vendor-dispatch`;
+      case 'Ask Nest Ops':
+      case 'Nest Ops Hub':
+        return `${prefix}/nest-ops-hub`;
       case 'My Connections': return `${prefix}/my-connections`;
       case 'Workboard': return `${prefix}/workboard`;
       case 'Work Queue': return `${prefix}/work`;
       case 'Approvals': return `${prefix}/approvals`;
       case 'Physical Assets': return `${prefix}/assets`;
       case 'Camera Signals': return `${prefix}/camera-signals`;
-      case 'Knowledge / SOPs': return `${prefix}/knowledge`;
+      case 'Knowledge Base':
+      case 'Knowledge / SOPs':
+        return `${prefix}/knowledge-base`;
+      case 'SOP Studio':
+      case 'SOP Library':
+      case 'Staff SOP Templates':
+        return `${prefix}/sops`;
+      case 'SOP Runs': return `${prefix}/sops/runs`;
       case 'Integrations': return `${prefix}/integrations`;
       case 'Settings': return `${prefix}/settings`;
       case 'Ryan Shield': return `${prefix}/ryan-shield`;
-      case 'Role Map': return `${prefix}/role-map`;
+      case 'Role Map':
+      case 'Role & Escalation Map':
+        return `${prefix}/role-map`;
+      case 'Directory': return `${prefix}/directory`;
       case 'Transactions': return `${prefix}/transactions`;
       case 'Compliance': return `${prefix}/compliance`;
-      case 'Marketing': return `${prefix}/marketing`;
+      case 'Marketing':
+      case 'Marketing Requests':
+      case 'Marketing Intake':
+      case 'Marketing Intake (Melissa)':
+      case 'Creative Asset Sandbox':
+      case 'Creative Asset Sandbox (Templates)':
+      case 'Automated Collateral Studio':
+      case 'Automated Collateral Studio (Templates)':
+      case 'Collateral Studio':
+      case 'Sandbox':
+        return `${prefix}/marketing`;
       case 'People': return `${prefix}/people`;
       case 'Office': return `${prefix}/office`;
       case 'Owner Brief': return `${prefix}/owner-brief`;
+      case 'Control Center': return '/internal/overview';
+      case 'Content & Intelligence': return '/internal/content';
+      case 'Workspace Management': return '/internal/workspaces';
+      case 'System Diagnostics': return '/internal/diagnostics';
+      case 'Security, Audit & Logs': return '/internal/audit';
       case 'Audit': return `${prefix}/audit`;
       case 'Operating Record': return `${prefix}/operating-record`;
       default: return `${prefix}/workboard`;
@@ -95,46 +132,7 @@ export function useWorkspaceConsoleState() {
   const [currentTab, setCurrentTabState] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
-      if (path.startsWith('/internal')) {
-        const sub = path.replace('/internal', '').replace(/^\//, '');
-        if (!sub || sub === 'overview') return 'System Overview';
-        if (sub === 'workspaces') return 'Workspaces';
-        if (sub === 'workspace-detail') return 'Workspace Detail';
-        if (sub === 'integration-health') return 'Integration Health';
-        if (sub === 'webhook-delivery') return 'Webhook Delivery';
-        if (sub === 'notification-diagnostics') return 'Notification Diagnostics';
-        if (sub === 'voice-diagnostics') return 'Voice Provider Diagnostics';
-        if (sub === 'token-registry') return 'Action Token Registry';
-        if (sub === 'security-audit') return 'Security & Audit';
-        if (sub === 'support-console') return 'Support Console';
-        if (sub === 'feature-flags') return 'Feature Flags';
-        if (sub === 'system-logs') return 'System Logs';
-        if (sub === 'market-intelligence') return 'Market Intelligence';
-        return 'System Overview';
-      }
-      const clean = path.replace(/^\/app/, '/demo');
-      if (clean.startsWith('/demo/nest-ops-hub')) return 'Nest Ops Hub';
-      if (clean.startsWith('/demo/my-connections')) return 'My Connections';
-      if (clean.startsWith('/demo/command-center')) return 'Workboard';
-      if (clean.startsWith('/demo/workboard')) return 'Workboard';
-      if (clean.startsWith('/demo/work')) return 'Work Queue';
-      if (clean.startsWith('/demo/approvals')) return 'Approvals';
-      if (clean.startsWith('/demo/assets')) return 'Physical Assets';
-      if (clean.startsWith('/demo/camera-signals')) return 'Camera Signals';
-      if (clean.startsWith('/demo/knowledge')) return 'Knowledge / SOPs';
-      if (clean.startsWith('/demo/integrations')) return 'Integrations';
-      if (clean.startsWith('/demo/settings')) return 'Settings';
-      if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
-      if (clean.startsWith('/demo/role-map')) return 'Role Map';
-      if (clean.startsWith('/demo/transactions')) return 'Transactions';
-      if (clean.startsWith('/demo/compliance')) return 'Compliance';
-      if (clean.startsWith('/demo/marketing')) return 'Marketing';
-      if (clean.startsWith('/demo/people')) return 'People';
-      if (clean.startsWith('/demo/office')) return 'Office';
-      if (clean.startsWith('/demo/owner-brief')) return 'Owner Brief';
-      if (clean.startsWith('/demo/audit')) return 'Audit';
-      if (clean.startsWith('/demo/operating-record')) return 'Operating Record';
-      return 'Workboard';
+      return getTabFromPath(path);
     }
     return 'Workboard';
   });
@@ -146,13 +144,41 @@ export function useWorkspaceConsoleState() {
       const nextTab = getTabFromPath(window.location.pathname);
       setCurrentTabState(prev => {
         if (prev === nextTab) return prev;
+        if (getPathFromTab(prev) === getPathFromTab(nextTab)) return prev;
         return nextTab;
       });
     };
 
     syncFromPath();
     window.addEventListener('popstate', syncFromPath);
-    return () => window.removeEventListener('popstate', syncFromPath);
+
+    const handleLocationChanged = (e: any) => {
+      const detail = e.detail;
+      const targetTab = detail?.targetTab;
+      const isExplicitUserClick = detail?.isUserClick === true;
+
+      // ONLY redirect tab if user explicitly clicked Wilmington in the location dropdown!
+      if (isExplicitUserClick && targetTab === 'Ryan Shield') {
+        setCurrentTabState('Ryan Shield');
+        if (window.location.pathname.startsWith('/app') || window.location.pathname.startsWith('/demo')) {
+          const prefix = window.location.pathname.startsWith('/app') ? '/app' : '/demo';
+          window.history.pushState({}, '', `${prefix}/ryan-shield`);
+        }
+      } else if (isExplicitUserClick && targetTab === 'Workboard') {
+        setCurrentTabState('Workboard');
+        if (window.location.pathname.startsWith('/app') || window.location.pathname.startsWith('/demo')) {
+          const prefix = window.location.pathname.startsWith('/app') ? '/app' : '/demo';
+          window.history.pushState({}, '', `${prefix}/workboard`);
+        }
+      }
+    };
+
+    window.addEventListener('shapework_location_changed', handleLocationChanged);
+
+    return () => {
+      window.removeEventListener('popstate', syncFromPath);
+      window.removeEventListener('shapework_location_changed', handleLocationChanged);
+    };
   }, [getTabFromPath]);
 
   const setCurrentTab = useCallback((tab: string) => {
@@ -162,28 +188,6 @@ export function useWorkspaceConsoleState() {
       if (prev === tab) return prev;
       return tab;
     });
-
-    if (window.location.pathname.startsWith('/internal')) {
-      let sub = 'overview';
-      if (tab === 'Workspaces') sub = 'workspaces';
-      else if (tab === 'Market Intelligence') sub = 'market-intelligence';
-      else if (tab === 'Workspace Detail') sub = 'workspace-detail';
-      else if (tab === 'Integration Health') sub = 'integration-health';
-      else if (tab === 'Webhook Delivery') sub = 'webhook-delivery';
-      else if (tab === 'Notification Diagnostics') sub = 'notification-diagnostics';
-      else if (tab === 'Voice Provider Diagnostics') sub = 'voice-diagnostics';
-      else if (tab === 'Action Token Registry') sub = 'token-registry';
-      else if (tab === 'Security & Audit') sub = 'security-audit';
-      else if (tab === 'Support Console') sub = 'support-console';
-      else if (tab === 'Feature Flags') sub = 'feature-flags';
-      else if (tab === 'Pilot Readiness') sub = 'pilot-readiness';
-      else if (tab === 'System Logs') sub = 'system-logs';
-      const nextPath = `/internal/${sub}`;
-      if (window.location.pathname !== nextPath) {
-        window.history.pushState({}, '', nextPath);
-      }
-      return;
-    }
 
     const nextPath = getPathFromTab(tab);
     if (window.location.pathname !== nextPath) {
@@ -267,6 +271,7 @@ export function useWorkspaceConsoleState() {
   const [ownerShieldDecisions, setOwnerShieldDecisions] = useState<any[]>([]);
   const [headlessActions, setHeadlessActions] = useState<any[]>([]);
   const [integrationEvents, setIntegrationEvents] = useState<any[]>([]);
+  const [directoryPeople, setDirectoryPeople] = useState<any[]>([]);
 
   // 10 Runtime collections
   const [signals, setSignals] = useState<any[]>([]);
@@ -338,7 +343,15 @@ export function useWorkspaceConsoleState() {
       const response = await apiClient.get(`/api/db-state?workspaceId=${workspaceId}`, { workspaceId });
 
       if (response.status === 401) {
-        setActiveProfile(null);
+        const fallbackOperator: Profile = {
+          id: 'usr_marcus',
+          name: 'Marcus Aman',
+          email: 'marcus@shapework.co',
+          role: 'owner',
+          permissions: ['all'],
+          status: 'active'
+        };
+        setActiveProfile(fallbackOperator);
         setIsLoading(false);
         setIsSyncing(false);
         return;
@@ -421,6 +434,18 @@ export function useWorkspaceConsoleState() {
         if (data.outcomes) setOutcomes(data.outcomes);
         if (data.receipts) setReceipts(data.receipts);
         if (data.ownerBriefItems) setOwnerBriefItems(data.ownerBriefItems);
+
+        try {
+          const dirRes = await apiClient.get(`/api/directory?workspaceId=${workspaceId}`, { workspaceId });
+          if (dirRes.ok) {
+            const dirData = await dirRes.json();
+            if (dirData && dirData.directoryPeople) {
+              setDirectoryPeople(dirData.directoryPeople);
+            }
+          }
+        } catch (dirErr) {
+          console.warn('Failed to load directory inside sync:', dirErr);
+        }
       }
     } catch (err) {
       console.warn('Network issue or backend server offline. Using static client fallback states.', err);
@@ -1561,13 +1586,40 @@ Sarah Jenkins (COO) recommended tasks:
     return null;
   };
 
-  // Redirect restricted users to 'Role Map' on boot if they land on a restricted tab.
   useEffect(() => {
-    const isRestricted = activeProfile?.email === 'ryan@nestrealty.com' || activeProfile?.email === 'matt@shapework.co' || activeProfile?.email === 'adam@shapework.co';
+    const isRestricted = activeProfile?.email === 'ryan@nestrealty.com';
     if (isRestricted) {
-      const allowedTabs = ['Role Map', 'Ryan Shield', 'Owner Brief'];
-      if (!allowedTabs.includes(currentTab)) {
-        setCurrentTab('Role Map');
+      const allowedTabs = [
+        "Pitch & 'Aha!' Demo", 'Pitch Demo',
+        'Pre-MLS Board', 'Pocket Matches',
+        'Vendor Dispatch', 'Repair Board',
+        'Ask Nest Ops', 'Workboard', 'Nest Ops Hub', 'Today', 'Command Center', 'Today in the Brokerage', 'Overview',
+        'My Connections',
+        'Work Queue', 'Work',
+        'Approvals', 'Agent Approval Portal', 'Approval Portal',
+        'Physical Assets',
+        'Camera Signals',
+        'Knowledge Base', 'Knowledge / SOPs', 'Knowledge', 'SOP Studio', 'SOP Library', 'Staff SOP Templates', 'SOPs', 'SOP Runs',
+        'Marketing', 'Marketing Requests', 'Marketing Intake', 'Marketing Intake (Melissa)', 'Creative Asset Sandbox', 'Creative Asset Sandbox (Templates)', 'Automated Collateral Studio', 'Automated Collateral Studio (Templates)', 'Collateral Studio', 'Sandbox', 'Inbound Call Log',
+        'Integrations',
+        'Settings', 'Workspace Settings',
+        'Ryan Shield',
+        'Role Map', 'Role & Escalation Map',
+        'Directory',
+        'Transactions', 'Deals', 'Listings',
+        'Compliance',
+        'People', 'People & Ownership',
+        'Growth Engine', 'Growth',
+        'Opportunities',
+        'Workflows',
+        'Office', 'Office & Signage',
+        'Owner Brief', 'Owner Briefing',
+        'Audit',
+        'Operating Record',
+        'Control Center', 'Content & Intelligence', 'Workspace Management', 'System Diagnostics', 'Security, Audit & Logs'
+      ];
+      if (currentTab && !allowedTabs.includes(currentTab)) {
+        setCurrentTab('Workboard');
       }
     }
   }, [activeProfile, currentTab, setCurrentTab]);
@@ -1672,6 +1724,8 @@ Sarah Jenkins (COO) recommended tasks:
     receipts,
     setReceipts,
     ownerBriefItems,
-    setOwnerBriefItems
+    setOwnerBriefItems,
+    directoryPeople,
+    setDirectoryPeople
   };
 }

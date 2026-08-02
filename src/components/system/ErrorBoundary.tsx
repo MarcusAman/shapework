@@ -24,12 +24,29 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
+    if (typeof window !== 'undefined' && error && error.message && (
+      error.message.includes('dynamically imported module') ||
+      error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Loading chunk')
+    )) {
+      window.location.reload();
+      return { hasError: false, error: null, errorInfo: null };
+    }
     return { hasError: true, error, errorInfo: null };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     (this as any).setState({ error, errorInfo });
     console.error("Uncaught error caught by shapework ErrorBoundary:", error, errorInfo);
+
+    // Auto-recover if browser tries to load a stale pre-deployment chunk hash
+    if (error && error.message && (
+      error.message.includes('dynamically imported module') ||
+      error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Loading chunk')
+    )) {
+      window.location.reload();
+    }
   }
 
   private handleReset = () => {

@@ -9,23 +9,44 @@ import SecureActionLinks from './components/ui/SecureActionLinks';
 import PublicLayout from './components/public/PublicLayout';
 import WorkspaceAccessGate from './components/system/WorkspaceAccessGate';
 
+// Resilient lazy loader that auto-reloads the page if a stale build chunk fails to fetch after a deployment
+function lazyWithRetry<T extends React.ComponentType<any>>(componentImport: () => Promise<{ default: T }>) {
+  return React.lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error: any) {
+      if (typeof window !== 'undefined') {
+        const reloadKey = 'shapework_chunk_reload_retry';
+        const hasReloaded = sessionStorage.getItem(reloadKey);
+        if (!hasReloaded) {
+          sessionStorage.setItem(reloadKey, 'true');
+          window.location.reload();
+          return new Promise(() => {}) as any;
+        }
+        sessionStorage.removeItem(reloadKey);
+      }
+      throw error;
+    }
+  });
+}
+
 // Route-level lazy loading for code splitting bundle hygiene
-const WorkspaceConsole = React.lazy(() => import('./components/demo/WorkspaceConsole'));
-const InternalConsole = React.lazy(() => import('./components/console/InternalConsole'));
-const DemoConsole = React.lazy(() => import('./components/console/DemoConsole'));
-const PublicHome = React.lazy(() => import('./components/public/PublicHome'));
-const PublicMethod = React.lazy(() => import('./components/public/PublicMethod'));
-const PublicBrokerages = React.lazy(() => import('./components/public/PublicBrokerages'));
-const PublicIntelligence = React.lazy(() => import('./components/public/PublicIntelligence'));
-const PublicDiscovery = React.lazy(() => import('./components/public/PublicDiscovery'));
-const PublicAbout = React.lazy(() => import('./components/public/PublicAbout'));
-const PublicFieldNotes = React.lazy(() => import('./components/public/PublicFieldNotes'));
-const PublicDiscoveryRequest = React.lazy(() => import('./components/public/PublicDiscoveryRequest'));
-const PublicLogin = React.lazy(() => import('./components/public/PublicLogin'));
-const PublicForgotPassword = React.lazy(() => import('./components/public/PublicForgotPassword'));
-const PublicResetPassword = React.lazy(() => import('./components/public/PublicResetPassword'));
-const PublicTerms = React.lazy(() => import('./components/public/PublicTerms'));
-const PublicPrivacy = React.lazy(() => import('./components/public/PublicPrivacy'));
+const WorkspaceConsole = lazyWithRetry(() => import('./components/demo/WorkspaceConsole'));
+const InternalConsole = lazyWithRetry(() => import('./components/console/InternalConsole'));
+const DemoConsole = lazyWithRetry(() => import('./components/console/DemoConsole'));
+const PublicHome = lazyWithRetry(() => import('./components/public/PublicHome'));
+const PublicMethod = lazyWithRetry(() => import('./components/public/PublicMethod'));
+const PublicBrokerages = lazyWithRetry(() => import('./components/public/PublicBrokerages'));
+const PublicIntelligence = lazyWithRetry(() => import('./components/public/PublicIntelligence'));
+const PublicDiscovery = lazyWithRetry(() => import('./components/public/PublicDiscovery'));
+const PublicAbout = lazyWithRetry(() => import('./components/public/PublicAbout'));
+const PublicFieldNotes = lazyWithRetry(() => import('./components/public/PublicFieldNotes'));
+const PublicDiscoveryRequest = lazyWithRetry(() => import('./components/public/PublicDiscoveryRequest'));
+const PublicLogin = lazyWithRetry(() => import('./components/public/PublicLogin'));
+const PublicForgotPassword = lazyWithRetry(() => import('./components/public/PublicForgotPassword'));
+const PublicResetPassword = lazyWithRetry(() => import('./components/public/PublicResetPassword'));
+const PublicTerms = lazyWithRetry(() => import('./components/public/PublicTerms'));
+const PublicPrivacy = lazyWithRetry(() => import('./components/public/PublicPrivacy'));
 import { ClientDealPortal, AgentActionPortal, SmartIntakeLink } from './components/headless/HeadlessPortals';
 
 export default function App() {
@@ -170,17 +191,26 @@ export default function App() {
     );
   }
 
-  const isAssessmentRoute = currentPath.startsWith('/assessment/') || currentPath === '/survey' || currentPath.startsWith('/survey/');
+  const isAssessmentRoute = currentPath.startsWith('/assessment/') || currentPath === '/survey' || currentPath === '/survey/' || currentPath.startsWith('/survey/');
   if (isAssessmentRoute) {
-    const PublicAssessment = React.lazy(() => import('./components/public/PublicAssessment'));
+    const PublicSurveyRenderer = React.lazy(() => import('./components/public/PublicSurveyRenderer'));
+    let slug = currentPath.startsWith('/assessment/') 
+      ? currentPath.replace('/assessment/', '') 
+      : currentPath.replace('/survey/', '');
+    if (slug === '/survey' || slug === '/survey/' || !slug || slug === 'survey') {
+      slug = 'brokerage-operational-intelligence';
+    }
+    // Remove trailing slash if present
+    slug = slug.replace(/\/$/, '');
+    
     return (
       <ErrorBoundary>
         <React.Suspense fallback={
           <div className="min-h-screen bg-[#01362D] flex items-center justify-center font-sans text-xs text-[#D0D6BB] animate-pulse">
-            Loading assessment...
+            Loading survey...
           </div>
         }>
-          <PublicAssessment onNavigate={navigate} />
+          <PublicSurveyRenderer slug={slug} onNavigate={navigate} />
         </React.Suspense>
       </ErrorBoundary>
     );
@@ -213,13 +243,19 @@ export default function App() {
         </div>
       }>
         {isInternal ? (
-          <InternalConsole />
+          <ErrorBoundary>
+            <InternalConsole />
+          </ErrorBoundary>
         ) : isDemo ? (
-          <DemoConsole />
+          <ErrorBoundary>
+            <DemoConsole />
+          </ErrorBoundary>
         ) : (
-          <WorkspaceAccessGate>
-            <WorkspaceConsole />
-          </WorkspaceAccessGate>
+          <ErrorBoundary>
+            <WorkspaceAccessGate>
+              <WorkspaceConsole />
+            </WorkspaceAccessGate>
+          </ErrorBoundary>
         )}
       </React.Suspense>
     );
@@ -260,7 +296,7 @@ export default function App() {
     if (currentPath === '/field-notes' || currentPath.startsWith('/field-notes/')) {
       return <PublicFieldNotes currentPath={currentPath} onNavigate={navigate} />;
     }
-    return <PublicHome onNavigate={navigate} />;
+    return <PublicLogin onNavigate={navigate} />;
   };
 
   const isLegalPage = currentPath === '/terms' || currentPath === '/privacy';

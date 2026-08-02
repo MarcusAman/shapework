@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { X, Sparkles, AlertCircle, Cpu, FileText } from 'lucide-react';
+import { X, Zap, AlertCircle, Cpu, FileText } from 'lucide-react';
 
 interface EvidenceDrawerProps {
   isOpen: boolean;
@@ -35,7 +35,7 @@ export default function EvidenceDrawer({
         {/* Header */}
         <div className="p-4 border-b border-border-subtle flex justify-between items-center bg-secondary-surface">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-brand-green" />
+            <Zap className="w-5 h-5 text-brand-green" />
             <h3 className="font-serif font-bold text-text-primary text-sm">AI Proposal Evidence</h3>
           </div>
           <button

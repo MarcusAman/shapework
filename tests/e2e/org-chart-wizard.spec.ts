@@ -1,13 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
 let serverProcess: ChildProcess;
-const PORT = '3049';
+const PORT = '3000';
 
 test.beforeAll(async () => {
+  // Kill only the listening process on this port
+  try {
+    execSync(`lsof -t -sTCP:LISTEN -i:${PORT} | xargs kill -9`, { stdio: 'ignore' });
+  } catch (e) {}
+
   const dataDir = path.join(process.cwd(), 'data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });

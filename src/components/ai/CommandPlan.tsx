@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Sparkles, CheckCircle2, ShieldAlert, Play, XCircle, Settings, ClipboardList, RefreshCw } from 'lucide-react';
+import { Zap, CheckCircle2, ShieldAlert, Play, XCircle, Settings, ClipboardList, RefreshCw } from 'lucide-react';
 import { CommandPlan } from '../../types/shapework';
 import { safeLower } from '../../utils/string';
 
@@ -96,7 +96,7 @@ export default function CommandPlanCard({
       <div className="flex justify-between items-start gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-1.5 text-brand-green">
-            <Sparkles className="w-4 h-4 shrink-0" />
+            <Zap className="w-4 h-4 shrink-0 text-emerald-400" />
             <span className="font-bold text-[10px] uppercase tracking-wider">shapework. AI Execution Planner</span>
           </div>
           <h4 className="font-serif font-bold text-text-primary text-sm leading-snug">

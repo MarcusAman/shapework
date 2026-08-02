@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Play, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { Play, Zap, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Scenario {
   id: string;
@@ -86,7 +86,7 @@ export default function AgentSimulationPanel({ onTriggerSimulation }: AgentSimul
       <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-text-primary font-mono flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-brand-green" />
+            <Zap className="w-4 h-4 text-brand-green" />
             <span>Agent Operations Simulator</span>
           </h4>
           <p className="text-[11px] text-text-secondary">Inject real-world signals to watch specialist agent cascade loops.</p>

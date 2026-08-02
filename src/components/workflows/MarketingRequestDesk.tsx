@@ -259,10 +259,18 @@ Google Review Link: https://g.page/nest-realty/review`;
             <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block">Submit Collateral Request</span>
             
             {isSubmitted ? (
-              <div className="bg-[rgba(0,99,92,0.15)] border border-[rgba(0,99,92,0.3)] p-6 rounded-2xl text-center space-y-2 select-none">
+              <div className="bg-[rgba(0,99,92,0.15)] border border-[rgba(0,99,92,0.3)] p-6 rounded-2xl text-center space-y-3 select-none">
                 <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto" />
-                <h4 className="font-bold text-white text-sm">Collateral Request Logged</h4>
-                <p className="text-xs text-[#D0D6BB]">Request submitted to coordinator. Validating missing asset links...</p>
+                <h4 className="font-bold text-white text-sm">Collateral Request Logged to Melissa's Intake Queue</h4>
+                <p className="text-xs text-[#D0D6BB]">Request converted to active Creative Brief. 5 collateral previews generated automatically with dynamic QR codes.</p>
+                <div className="pt-2 flex justify-center gap-3">
+                  <a
+                    href="/app/marketing"
+                    className="px-4 py-2 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl text-xs font-mono font-bold transition-all shadow-md flex items-center gap-2"
+                  >
+                    <span>⚡ View Rendered 5-Asset Package in Creative Sandbox ↗</span>
+                  </a>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleFormSubmit} className="space-y-4 select-text">

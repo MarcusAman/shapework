@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Database, 
   Link2, 
-  Sparkles, 
+  Zap, 
   CheckCircle2, 
   XCircle, 
   Info, 

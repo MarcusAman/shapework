@@ -23,7 +23,7 @@ import {
   ArrowUpRight,
   Activity,
   FileText,
-  Sparkles,
+  Zap,
   Settings,
   ChevronLeft,
   Phone,

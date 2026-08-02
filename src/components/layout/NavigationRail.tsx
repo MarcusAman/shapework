@@ -7,7 +7,7 @@ import React from 'react';
 import {
   Sliders,
   Inbox,
-  Sparkles,
+  Zap,
   FolderOpen,
   Home,
   Layers,
@@ -37,7 +37,7 @@ export default function NavigationRail({
   const primaryNavItems = [
     { name: 'Command Center', icon: Sliders },
     { name: 'Operations Inbox', icon: Inbox, badge: 3 },
-    { name: 'AI Operator', icon: Sparkles },
+    { name: 'AI Operator', icon: Zap },
     { name: 'Transactions', icon: FolderOpen },
     { name: 'Listings', icon: Home },
   ];

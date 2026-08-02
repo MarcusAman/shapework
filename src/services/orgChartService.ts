@@ -1,3 +1,5 @@
+import { NEST_FULL_ROSTER_72 } from '../../server/persistence/nestRosterSeed';
+
 export type OrgPositionStatus =
   | 'active'
   | 'open'
@@ -240,8 +242,13 @@ export type OrgModel = {
 
 export type RoutingMatrixItem = {
   category: string;
+  displayName?: string;
   description?: string;
   exampleRequest?: string;
+  officeCondition?: {
+    office: string;
+    operator: 'is' | 'is_not' | 'is_any_of' | 'is_not_any_of' | 'is_unknown';
+  };
   primaryOwnerPositionId: string;
   backupOwnerPositionId: string;
   sla: string;
@@ -366,7 +373,7 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     name: 'Eric Knight',
     title: 'Broker-in-Charge (Mayfaire)',
     department: 'Brokers-in-Charge',
-    office: 'Wilmington',
+    office: 'Mayfaire',
     email: 'eric@nestrealty.com',
     phone: '910-555-0105',
     reportsToPositionId: 'pos_ryan',
@@ -457,7 +464,35 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     businessCase: 'An automated agent that parses inbound requests, checks SOP compliance, handles missing info gathering, and suggests routing fallback to Ann.',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
-  }
+  },
+  ...NEST_FULL_ROSTER_72.map((person, idx) => {
+    const col = idx % 8;
+    const row = Math.floor(idx / 8);
+    return {
+      id: person.id.startsWith('pos_') ? person.id : `pos_${person.id}`,
+      workspaceId: person.workspaceId || 'nest-realty-demo',
+      name: person.displayName,
+      title: person.title || (person.personType === 'agent' ? 'Broker / REALTOR®' : 'Team Member'),
+      department: person.personType === 'leadership' ? 'Leadership' : person.personType === 'staff' ? 'Operations' : 'Brokerage Agents',
+      office: person.primaryOfficeName || 'Wilmington',
+      email: person.email,
+      phone: person.phone,
+      reportsToPositionId: person.isBrokerInCharge
+        ? 'pos_ryan'
+        : person.personType === 'agent'
+        ? ((person.primaryOfficeName || '').toLowerCase().includes('carolina') ? 'pos_bic' : 'pos_eric')
+        : 'pos_coo',
+      visibilityLevel: (person.personType === 'leadership' ? 'leadership' : 'internal') as any,
+      roleIds: person.isBrokerInCharge ? ['role_agent_support', 'role_compliance'] : ['role_agent'],
+      x: 100 + col * 220,
+      y: 700 + row * 180,
+      avatarUrl: `/org-avatars/agent_${(idx % 12) + 1}.png`,
+      status: (person.status === 'active' ? 'active' : 'open') as any,
+      connectedTools: ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
+      createdAt: person.createdAt || new Date().toISOString(),
+      updatedAt: person.updatedAt || new Date().toISOString()
+    };
+  })
 ];
 
 const DEFAULT_ROLES: OrgRole[] = [
@@ -1060,23 +1095,25 @@ const DEFAULT_ESCALATIONS: EscalationPolicy[] = [
 ];
 
 const DEFAULT_ROUTING_MATRIX: RoutingMatrixItem[] = [
-  { category: 'Agent question', primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours' },
-  { category: 'Compliance', primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_compliance_risk' },
-  { category: 'Contract / transaction issue', primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours' },
-  { category: 'Accounting / commissions', primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_deal_at_risk' },
-  { category: 'Payables / bills / receipts', primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '48 hours' },
-  { category: 'Marketing request', primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '24 hours' },
-  { category: 'Listing marketing', primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '12 hours' },
-  { category: 'Agent branding', primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '72 hours' },
-  { category: 'Business cards / print materials', primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ann', sla: '48 hours' },
-  { category: 'Signs / riders', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '24 hours' },
-  { category: 'Lockboxes / keys', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', escalationPolicyId: 'esc_showing_blocked' },
-  { category: 'Office supplies', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '48 hours' },
-  { category: 'Room reservation', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '2 hours' },
-  { category: 'Vendor / maintenance', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '24 hours' },
-  { category: 'Event support', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '72 hours' },
-  { category: 'IT / systems', primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours' },
-  { category: 'Leadership decision', primaryOwnerPositionId: 'pos_ryan', backupOwnerPositionId: 'pos_bic', sla: '24 hours' }
+  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Carolina Beach', officeCondition: { office: 'Carolina Beach', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_compliance_file', escalationPolicyId: 'esc_compliance_risk' },
+  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Mayfaire', officeCondition: { office: 'Mayfaire', operator: 'is' }, primaryOwnerPositionId: 'pos_eric', backupOwnerPositionId: 'pos_bic', sla: '4 hours', status: 'active', sopId: 'sop_compliance_file', escalationPolicyId: 'esc_compliance_risk' },
+  { category: 'Agent question', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours', status: 'active' },
+  { category: 'Compliance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_compliance_risk', status: 'active' },
+  { category: 'Contract / transaction issue', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours', status: 'active' },
+  { category: 'Accounting / commissions', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_deal_at_risk', status: 'active' },
+  { category: 'Payables / bills / receipts', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '48 hours', status: 'active' },
+  { category: 'Marketing request', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', status: 'active' },
+  { category: 'Listing marketing', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', status: 'active' },
+  { category: 'Agent branding', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '72 hours', status: 'active' },
+  { category: 'Business cards / print materials', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ann', sla: '48 hours', status: 'active' },
+  { category: 'Signs / riders', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active' },
+  { category: 'Lockboxes / keys', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', escalationPolicyId: 'esc_showing_blocked', status: 'active' },
+  { category: 'Office supplies', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '48 hours', status: 'active' },
+  { category: 'Room reservation', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '2 hours', status: 'active' },
+  { category: 'Vendor / maintenance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', status: 'active' },
+  { category: 'Event support', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '72 hours', status: 'active' },
+  { category: 'IT / systems', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', status: 'active' },
+  { category: 'Leadership decision', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ryan', backupOwnerPositionId: 'pos_bic', sla: '24 hours', status: 'active' }
 ];
 
 export const DEFAULT_KNOWLEDGE_DOCUMENTS: OrgKnowledgeDocument[] = [
@@ -1256,6 +1293,18 @@ export const orgChartService = {
             }
             
             let updated = { ...p, status, avatarCrop };
+            const isLeadershipOrStaff = ['pos_ryan', 'pos_coo', 'pos_ann', 'pos_james', 'pos_melissa', 'pos_bic', 'pos_eric', 'pos_va', 'pos_front_desk', 'pos_ai_ops'].includes(p.id) ||
+              p.department === 'Leadership' || p.department === 'Brokers-in-Charge';
+            
+            if (!isLeadershipOrStaff) {
+              const office = (p.office || seedPos?.office || p.primaryOfficeName || '').toLowerCase();
+              if (office.includes('carolina')) {
+                updated.reportsToPositionId = 'pos_bic';
+              } else {
+                updated.reportsToPositionId = 'pos_eric';
+              }
+            }
+
             if (seedPos) {
               if (!p.avatarUrl) {
                 updated.avatarUrl = seedPos.avatarUrl;
@@ -1276,7 +1325,9 @@ export const orgChartService = {
               }
             }
             if (needsMigration && seedPos) {
-              updated.reportsToPositionId = seedPos.reportsToPositionId;
+              if (isLeadershipOrStaff) {
+                updated.reportsToPositionId = seedPos.reportsToPositionId;
+              }
               updated.x = seedPos.x;
               updated.y = seedPos.y;
               updated.department = seedPos.department;
@@ -1284,7 +1335,7 @@ export const orgChartService = {
             return updated;
           });
           
-          const requiredPosIds = ['pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
+          const requiredPosIds = ['pos_bic', 'pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
           requiredPosIds.forEach(id => {
             if (!parsed.positions.some((p: any) => p.id === id)) {
               const seedPos = DEFAULT_POSITIONS.find(dp => dp.id === id);
@@ -1354,6 +1405,154 @@ export const orgChartService = {
   saveOrgChart(workspaceId: string, model: OrgModel): void {
     const key = `org_chart_${workspaceId}`;
     localStorage.setItem(key, JSON.stringify(model));
+  },
+
+  updatePosition(workspaceId: string, id: string, updates: Partial<OrgPosition>): OrgModel {
+    const model = this.getOrgChart(workspaceId);
+    model.positions = model.positions.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p);
+    this.saveOrgChart(workspaceId, model);
+    return model;
+  },
+
+  deletePosition(workspaceId: string, id: string, reassignToPositionId?: string): OrgModel {
+    const model = this.getOrgChart(workspaceId);
+    model.positions = model.positions.filter(p => p.id !== id);
+    if (reassignToPositionId) {
+      model.positions.forEach(p => {
+        if (p.reportsToPositionId === id) p.reportsToPositionId = reassignToPositionId;
+        if (p.backupPositionId === id) p.backupPositionId = reassignToPositionId;
+      });
+      model.roles.forEach(r => {
+        if (r.positionId === id) r.positionId = reassignToPositionId;
+      });
+      model.sops.forEach(s => {
+        if (s.ownerPositionId === id) s.ownerPositionId = reassignToPositionId;
+      });
+    }
+    this.saveOrgChart(workspaceId, model);
+    return model;
+  },
+
+  updateRole(workspaceId: string, id: string, updates: Partial<OrgRole>): OrgModel {
+    const model = this.getOrgChart(workspaceId);
+    model.roles = model.roles.map(r => r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r);
+    this.saveOrgChart(workspaceId, model);
+    return model;
+  },
+
+  deleteRole(workspaceId: string, id: string, reassignToRoleId?: string): OrgModel {
+    const model = this.getOrgChart(workspaceId);
+    model.roles = model.roles.filter(r => r.id !== id);
+    model.positions.forEach(p => {
+      if (p.roleIds) p.roleIds = p.roleIds.filter(rid => rid !== id);
+    });
+    if (reassignToRoleId) {
+      model.sops.forEach(s => {
+        if (s.roleId === id) s.roleId = reassignToRoleId;
+      });
+    } else {
+      model.sops = model.sops.filter(s => s.roleId !== id);
+    }
+    this.saveOrgChart(workspaceId, model);
+    return model;
+  },
+
+  deleteSop(workspaceId: string, id: string): OrgModel {
+    const model = this.getOrgChart(workspaceId);
+    model.sops = model.sops.filter(s => s.id !== id);
+    model.roles.forEach(r => {
+      if (r.sopIds) r.sopIds = r.sopIds.filter(sid => sid !== id);
+    });
+    this.saveOrgChart(workspaceId, model);
+    return model;
+  },
+
+  cloneWorkspace(
+    sourceWorkspaceId: string,
+    targetConfig: {
+      brokerageName: string;
+      targetWorkspaceId: string;
+      offices?: string[];
+      principalBrokerName?: string;
+      principalBrokerEmail?: string;
+      clonePositions?: boolean;
+      cloneRoles?: boolean;
+      cloneSops?: boolean;
+      cloneRouting?: boolean;
+    }
+  ): {
+    success: boolean;
+    targetWorkspaceId: string;
+    counts: { positions: number; roles: number; sops: number; routing: number };
+  } {
+    const sourceModel = this.getOrgChart(sourceWorkspaceId);
+    const targetWsId = targetConfig.targetWorkspaceId.toLowerCase().replace(/\s+/g, '-');
+    const now = new Date().toISOString();
+
+    const newPositions = (targetConfig.clonePositions !== false ? sourceModel.positions : []).map(p => {
+      let name = p.name;
+      let email = p.email;
+      if (p.id === 'pos_ryan' && targetConfig.principalBrokerName) {
+        name = targetConfig.principalBrokerName;
+        if (targetConfig.principalBrokerEmail) email = targetConfig.principalBrokerEmail;
+      }
+      return {
+        ...p,
+        workspaceId: targetWsId,
+        name,
+        email,
+        office: targetConfig.offices && targetConfig.offices.length > 0 ? targetConfig.offices[0] : p.office,
+        createdAt: now,
+        updatedAt: now
+      };
+    });
+
+    const newRoles = (targetConfig.cloneRoles !== false ? sourceModel.roles : []).map(r => ({
+      ...r,
+      workspaceId: targetWsId,
+      createdAt: now,
+      updatedAt: now
+    }));
+
+    const newSops = (targetConfig.cloneSops !== false ? sourceModel.sops : []).map(s => ({
+      ...s,
+      workspaceId: targetWsId,
+      createdAt: now,
+      updatedAt: now
+    }));
+
+    const newRouting = (targetConfig.cloneRouting !== false ? sourceModel.routingMatrix : []).map(m => ({
+      ...m
+    }));
+
+    const newConnections = sourceModel.connections ? sourceModel.connections.map(c => ({ ...c })) : [];
+    const newEscalations = sourceModel.escalationPolicies ? sourceModel.escalationPolicies.map(e => ({ ...e, workspaceId: targetWsId })) : [];
+    const newDocs = sourceModel.knowledgeDocuments ? sourceModel.knowledgeDocuments.map(d => ({ ...d, workspaceId: targetWsId })) : [];
+    const newLogicNodes = sourceModel.logicNodes ? sourceModel.logicNodes.map(l => ({ ...l, workspaceId: targetWsId })) : [];
+
+    const newModel: OrgModel = {
+      positions: newPositions,
+      roles: newRoles,
+      sops: newSops,
+      connections: newConnections,
+      escalationPolicies: newEscalations,
+      routingMatrix: newRouting,
+      knowledgeDocuments: newDocs,
+      logicNodes: newLogicNodes
+    };
+
+    this.saveOrgChart(targetWsId, newModel);
+
+    return {
+      success: true,
+      targetWorkspaceId: targetWsId,
+      counts: {
+        positions: newPositions.length,
+        roles: newRoles.length,
+        sops: newSops.length,
+        routing: newRouting.length
+      }
+    };
   },
 
   getTemplate(templateName: string, workspaceId: string): OrgModel {

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ArrowRight, Sparkles, Check, X, ShieldAlert } from 'lucide-react';
+import { ArrowRight, Zap, Check, X, ShieldAlert } from 'lucide-react';
 
 interface DealStageUpdateCardProps {
   propertyName: string;
@@ -71,7 +71,7 @@ export default function DealStageUpdateCard({
 
       {/* Automation Rule details */}
       <div className="flex items-center gap-1.5 text-[10px] text-text-tertiary pt-1 border-t border-border-subtle/30 font-medium">
-        <Sparkles className="w-3.5 h-3.5 text-brand-green shrink-0" />
+        <Zap className="w-3.5 h-3.5 text-brand-green shrink-0" />
         <span>Rule: {automationRule}</span>
       </div>
 

@@ -1,10 +1,13 @@
 import React from 'react';
+import { Lock } from 'lucide-react';
 import AppShell from '../layout/AppShell';
 import CustomerAppRoutes from '../../routes/CustomerAppRoutes';
 import EvidenceDrawer from '../ui/EvidenceDrawer';
 import { useWorkspaceConsoleState } from '../../state/useWorkspaceConsoleState';
 import ErrorBoundary from '../system/ErrorBoundary';
 import WorkspaceAccessGate from '../system/WorkspaceAccessGate';
+
+const allowedCustomerRoles = ['owner', 'admin', 'broker', 'agent', 'operations_manager', 'transaction_coordinator', 'compliance_officer', 'staff', 'guest'];
 
 export default function WorkspaceConsole() {
   const state = useWorkspaceConsoleState();
@@ -89,61 +92,50 @@ export default function WorkspaceConsole() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setSelectedTransactionId, setSelectedListingId, setSelectedWorkItemId, setSelectedIntegrationId, setSelectedAgentId]);
 
-  if (isLoading) {
+  if (isLoading || !activeProfile) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
-        Loading shapework...
+      <div className="min-h-screen bg-[#01362D] text-[#F6F7F1] flex flex-col items-center justify-center font-sans p-6 text-center select-none">
+        <div className="space-y-4 max-w-sm w-full flex flex-col items-center">
+          <div className="w-12 h-12 rounded-2xl bg-[#00635C] border border-white/10 flex items-center justify-center shadow-xl animate-pulse">
+            <span className="text-white font-serif font-black text-xl">S</span>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider font-sans">Loading your workspace…</h3>
+            <p className="text-[11px] text-[#D0D6BB]/70">Connecting to Nest Realty operational intelligence</p>
+          </div>
+          <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-full h-full bg-[#00635C] animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }
 
-  const allowedCustomerRoles = [
-    'owner',
-    'admin',
-    'operations_lead',
-    'transaction_coordinator',
-    'compliance_partner',
-    'listing_coordinator',
-    'marketing_coordinator',
-    'events',
-    'maintenance',
-    'agent_support',
-    'shapework_operator'
-  ];
-
-  if (!activeProfile) {
+  if (!allowedCustomerRoles.includes(activeProfile?.role || '')) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
-        Authenticating console profile...
-      </div>
-    );
-  }
-
-  if (!allowedCustomerRoles.includes(activeProfile.role)) {
-    return (
-      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center font-sans p-6 text-left">
-        <div className="max-w-md w-full bg-white border border-stone-200 rounded-2xl p-8 shadow-xl space-y-6">
-          <div className="w-12 h-12 bg-red-100 text-red-700 rounded-full flex items-center justify-center">
+      <div className="min-h-screen bg-[#012822] flex items-center justify-center font-sans p-6 text-left text-[#F6F7F1] select-none">
+        <div className="max-w-md w-full bg-[#013028] border border-emerald-500/20 rounded-2xl p-8 shadow-2xl space-y-6">
+          <div className="w-12 h-12 bg-red-950/60 text-red-400 border border-red-500/30 rounded-full flex items-center justify-center">
             <Lock className="w-6 h-6" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-base font-bold text-text-primary uppercase tracking-wider font-mono">403 Forbidden</h1>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              This area is restricted to brokerage staff, owners, and coordinators.
+            <h1 className="text-base font-bold text-white tracking-wide">403 Restricted Access</h1>
+            <p className="text-xs text-[#D0D6BB] leading-relaxed">
+              This area is restricted to authorized brokerage staff, owners, and coordinators.
             </p>
-            <p className="text-[11px] text-text-tertiary leading-normal">
-              Your profile (<strong className="text-text-secondary">{activeProfile?.name || 'Guest'}</strong>) is registered as a role (<strong className="capitalize">{activeProfile?.role?.replace('_', ' ') || 'None'}</strong>) which is not authorized to access this command center.
+            <p className="text-[11px] text-[#D0D6BB]/70 leading-normal">
+              Your profile (<strong className="text-white">{activeProfile?.name || 'Guest'}</strong>) is registered as role (<strong className="capitalize text-emerald-300">{activeProfile?.role?.replace('_', ' ') || 'None'}</strong>) which is not authorized to access this section.
             </p>
           </div>
           {appMode !== 'production' && (
-            <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl space-y-2">
-              <label className="text-[9px] font-bold text-stone-500 uppercase tracking-wider font-mono block">
+            <div className="p-4 bg-black/40 border border-white/10 rounded-xl space-y-2">
+              <label className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider block font-sans">
                 Sandbox Identity Switcher (Dev Mode)
               </label>
               <select
                 value={activeProfile?.id || ''}
                 onChange={(e) => handleRoleSwitch(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-semibold focus:outline-none"
+                className="w-full px-3 py-2 bg-[#01241E] border border-white/15 text-white rounded-lg text-xs font-semibold focus:outline-none"
               >
                 {profiles.map((p: any) => (
                   <option key={p.id} value={p.id}>
@@ -158,7 +150,7 @@ export default function WorkspaceConsole() {
               onClick={() => {
                 window.location.pathname = '/login';
               }}
-              className="w-full py-2.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 bg-[#00635C] hover:bg-[#004d47] text-white border border-emerald-400/30 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Return to Login</span>
             </button>

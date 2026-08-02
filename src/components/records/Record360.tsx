@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { X, Layers, Database, Shield, FileText, User, Mail, Sparkles } from 'lucide-react';
+import { X, Layers, Database, Shield, FileText, User, Mail, Zap } from 'lucide-react';
 import RecordHeader from './RecordHeader';
 import RecordTimeline from './RecordTimeline';
 import RecordEvidence from './RecordEvidence';

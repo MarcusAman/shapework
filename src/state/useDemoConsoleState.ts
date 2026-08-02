@@ -33,67 +33,138 @@ import {
 export function useDemoConsoleState() {
   const getTabFromPath = (path: string): string => {
     const clean = path.replace(/^\/app/, '/demo');
-    if (clean.startsWith('/demo/nest-ops-hub')) return 'Nest Ops Hub';
+    if (clean.startsWith('/demo/pitch')) return "Pitch & 'Aha!' Demo";
+    if (clean.startsWith('/demo/pre-mls')) return 'Pre-MLS Board';
+    if (clean.startsWith('/demo/vendor-dispatch')) return 'Vendor Dispatch';
+    if (clean.startsWith('/demo/nest-ops-hub') || clean.startsWith('/demo/ask-nest-ops')) return 'Ask Nest Ops';
     if (clean.startsWith('/demo/my-connections')) return 'My Connections';
-    if (clean.startsWith('/demo/work')) return 'Work';
+    if (clean.startsWith('/demo/workboard') || clean.startsWith('/demo/command-center')) return 'Workboard';
+    if (clean.startsWith('/demo/work')) return 'Work Queue';
     if (clean.startsWith('/demo/operating-record')) return 'Operating Record';
     if (clean.startsWith('/demo/opportunities')) return 'Opportunities';
     if (clean.startsWith('/demo/workflows')) return 'Workflows';
-    if (clean.startsWith('/demo/transactions')) return 'Transactions';
-    if (clean.startsWith('/demo/deals')) return 'Transactions';
-    if (clean.startsWith('/demo/listings')) return 'Transactions';
+    if (clean.startsWith('/demo/transactions') || clean.startsWith('/demo/deals') || clean.startsWith('/demo/listings')) return 'Transactions';
     if (clean.startsWith('/demo/compliance')) return 'Compliance';
-    if (clean.startsWith('/demo/marketing')) return 'Marketing Requests';
-    if (clean.startsWith('/demo/people')) return 'People & Ownership';
+    if (clean.startsWith('/demo/marketing') || clean.includes('/marketing')) return 'Marketing Intake';
+    if (clean.startsWith('/demo/people')) return 'People';
     if (clean.startsWith('/demo/growth')) return 'Growth Engine';
-    if (clean.startsWith('/demo/office')) return 'Office & Signage';
+    if (clean.startsWith('/demo/office')) return 'Office';
     if (clean.startsWith('/demo/approvals')) return 'Approvals';
+    if (clean.includes('/approval')) return 'Agent Approval Portal';
+    if (clean.startsWith('/demo/assets')) return 'Physical Assets';
+    if (clean.startsWith('/demo/camera-signals')) return 'Camera Signals';
+    if (clean.startsWith('/demo/knowledge')) return 'Knowledge Base';
+    if (clean.startsWith('/demo/sops')) return 'Staff SOP Templates';
+    if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
+    if (clean.startsWith('/demo/role-map')) return 'Role Map';
+    if (clean.startsWith('/demo/directory')) return 'Directory';
     if (clean.startsWith('/demo/owner-brief')) return 'Owner Brief';
     if (clean.startsWith('/demo/integrations')) return 'Integrations';
     if (clean.startsWith('/demo/audit')) return 'Audit';
     if (clean.startsWith('/demo/settings')) return 'Settings';
-    return 'Today';
+    return 'Workboard';
   };
 
   const getPathFromTab = (tab: string): string => {
     const prefix = window.location.pathname.startsWith('/app') ? '/app' : '/demo';
     switch (tab) {
-      case 'Nest Ops Hub': return `${prefix}/nest-ops-hub`;
+      case "Pitch & 'Aha!' Demo":
+      case 'Pitch Demo':
+        return `${prefix}/pitch-demo`;
+      case 'Pre-MLS Board':
+      case 'Pocket Matches':
+        return `${prefix}/pre-mls`;
+      case 'Vendor Dispatch':
+      case 'Repair Board':
+        return `${prefix}/vendor-dispatch`;
+      case 'Ask Nest Ops':
+      case 'Nest Ops Hub':
+      case 'Ask':
+        return `${prefix}/nest-ops-hub`;
       case 'My Connections': return `${prefix}/my-connections`;
-      case 'Today': return prefix;
-      case 'Work': return `${prefix}/work`;
-      case 'Work Queue': return `${prefix}/work`;
+      case 'Workboard':
+      case 'Command Center':
+      case 'Today in the Brokerage':
+      case 'Overview':
+      case 'Today':
+        return `${prefix}/workboard`;
+      case 'Work Queue':
+      case 'Work':
+        return `${prefix}/work`;
       case 'Operating Record': return `${prefix}/operating-record`;
       case 'Opportunities': return `${prefix}/opportunities`;
       case 'Workflows': return `${prefix}/workflows`;
-      case 'Transactions': return `${prefix}/transactions`;
-      case 'Deals': return `${prefix}/transactions`;
-      case 'Listings': return `${prefix}/transactions`;
+      case 'Transactions':
+      case 'Deals':
+      case 'Listings':
+        return `${prefix}/transactions`;
       case 'Compliance': return `${prefix}/compliance`;
-      case 'Marketing Requests': return `${prefix}/marketing`;
-      case 'People & Ownership': return `${prefix}/people`;
-      case 'People': return `${prefix}/people`;
+      case 'Marketing':
+      case 'Marketing Requests':
+      case 'Marketing Intake':
+      case 'Marketing Intake (Melissa)':
+      case 'Creative Asset Sandbox':
+      case 'Creative Asset Sandbox (Templates)':
+      case 'Automated Collateral Studio':
+      case 'Automated Collateral Studio (Templates)':
+      case 'Collateral Studio':
+      case 'Sandbox':
+        return `${prefix}/marketing`;
+      case 'People & Ownership':
+      case 'People':
+        return `${prefix}/people`;
       case 'Growth Engine': return `${prefix}/growth`;
-      case 'Office & Signage': return `${prefix}/office`;
+      case 'Office & Signage':
+      case 'Office':
+        return `${prefix}/office`;
       case 'Approvals': return `${prefix}/approvals`;
-      case 'Owner Brief': return `${prefix}/owner-brief`;
+      case 'Agent Approval Portal':
+      case 'Approval Portal':
+        return `${prefix}/approvals`;
+      case 'Physical Assets': return `${prefix}/assets`;
+      case 'Camera Signals': return `${prefix}/camera-signals`;
+      case 'Knowledge Base':
+      case 'Knowledge / SOPs':
+      case 'Knowledge':
+        return `${prefix}/knowledge-base`;
+      case 'SOP Studio':
+      case 'SOP Library':
+      case 'Staff SOP Templates':
+      case 'SOPs':
+        return `${prefix}/sops`;
+      case 'SOP Runs': return `${prefix}/sops/runs`;
+      case 'Ryan Shield': return `${prefix}/ryan-shield`;
+      case 'Role Map':
+      case 'Role & Escalation Map':
+        return `${prefix}/role-map`;
+      case 'Directory': return `${prefix}/directory`;
+      case 'Owner Brief':
+      case 'Owner Briefing':
+        return `${prefix}/owner-brief`;
       case 'Integrations': return `${prefix}/integrations`;
       case 'Audit': return `${prefix}/audit`;
-      case 'Settings': return `${prefix}/settings`;
-      default: return prefix;
+      case 'Settings':
+      case 'Workspace Settings':
+        return `${prefix}/settings`;
+      default: return `${prefix}/workboard`;
     }
   };
 
-  const currentTab = typeof window !== 'undefined'
-    ? getTabFromPath(window.location.pathname)
-    : 'Command Center';
+  const [currentTabState, setCurrentTabState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return getTabFromPath(window.location.pathname);
+    }
+    return 'Workboard';
+  });
+
+  const currentTab = currentTabState;
 
   const setCurrentTab = (tab: string) => {
     if (typeof window === 'undefined') return;
+    setCurrentTabState(tab);
     const newPath = getPathFromTab(tab);
     if (window.location.pathname !== newPath) {
       window.history.pushState({}, '', newPath);
-      window.dispatchEvent(new Event('popstate'));
     }
   };
 

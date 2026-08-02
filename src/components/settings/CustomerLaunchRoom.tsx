@@ -67,27 +67,27 @@ export default function CustomerLaunchRoom({
     <div className="space-y-6 font-sans text-xs text-text-secondary leading-normal text-left max-w-6xl mx-auto">
       
       {/* Launch Room Banner Info */}
-      <div className="flex flex-wrap justify-between items-center gap-4 bg-surface border border-border-soft rounded-3xl p-6 shadow-sm select-none">
+      <div className="flex flex-wrap justify-between items-center gap-4 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm select-none">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Building className="w-6 h-6 text-brand-primary" />
-            <h2 className="font-serif font-bold text-text-primary text-base">Customer Onboarding & Launch Room</h2>
+            <Building className="w-6 h-6 text-slate-700" />
+            <h2 className="font-bold text-slate-900 text-base">Customer Onboarding & Launch Room</h2>
           </div>
-          <p className="text-text-tertiary max-w-xl">
+          <p className="text-slate-500 max-w-xl text-xs">
             Operational dashboard to orchestrate, analyze, and validate real real estate brokerages setup parameters.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="bg-stone-50 border border-border-soft rounded-2xl px-4 py-2.5 shadow-sm text-center shrink-0">
-            <span className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider block">Launch Readiness</span>
-            <span className="text-lg font-serif font-bold text-text-primary block mt-0.5">{report?.readinessPercentage || 0}%</span>
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 shadow-2xs text-center shrink-0">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block font-mono">Launch Readiness</span>
+            <span className="text-lg font-bold text-slate-900 block mt-0.5 font-mono">{report?.readinessPercentage || 0}%</span>
           </div>
 
-          <div className="bg-stone-50 border border-border-soft rounded-2xl px-4 py-2.5 shadow-sm text-center shrink-0">
-            <span className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider block">Go-Live Blockers</span>
-            <span className={`text-lg font-serif font-bold block mt-0.5 ${
-              (report?.blockingFailuresCount || 0) > 0 ? 'text-red-650' : 'text-text-primary'
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 shadow-2xs text-center shrink-0">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block font-mono">Go-Live Blockers</span>
+            <span className={`text-lg font-bold block mt-0.5 font-mono ${
+              (report?.blockingFailuresCount || 0) > 0 ? 'text-rose-600' : 'text-slate-900'
             }`}>
               {report?.blockingFailuresCount || 0}
             </span>
@@ -96,11 +96,11 @@ export default function CustomerLaunchRoom({
       </div>
 
       {/* Main Tab Navigation */}
-      <div className="flex border-b border-border-soft pb-2 gap-2 select-none overflow-x-auto">
+      <div className="flex border-b border-slate-200 pb-2 gap-2 select-none overflow-x-auto text-xs font-mono">
         <button
           onClick={() => setActiveTab('readiness')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'readiness' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'readiness' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <ClipboardList className="w-4 h-4" />
@@ -109,8 +109,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('wizard')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'wizard' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'wizard' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <Sliders className="w-4 h-4" />
@@ -119,8 +119,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('rechat')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'rechat' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'rechat' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <Database className="w-4 h-4" />
@@ -129,8 +129,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('dotloop')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'dotloop' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'dotloop' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <RefreshCw className="w-4 h-4" />
@@ -139,8 +139,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('mapping')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'mapping' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'mapping' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -149,8 +149,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('runbook')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'runbook' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'runbook' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <ClipboardList className="w-4 h-4" />
@@ -159,8 +159,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('admin_ops')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'admin_ops' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'admin_ops' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
@@ -169,8 +169,8 @@ export default function CustomerLaunchRoom({
 
         <button
           onClick={() => setActiveTab('golive')}
-          className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-            activeTab === 'golive' ? 'bg-brand-primary text-white shadow-sm' : 'hover:bg-stone-150 text-text-secondary'
+          className={`px-3.5 py-1.5 font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'golive' ? 'bg-slate-900 text-white shadow-xs' : 'hover:bg-slate-100 text-slate-600'
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
@@ -179,7 +179,7 @@ export default function CustomerLaunchRoom({
       </div>
 
       {/* Render Active Tab */}
-      <div className="bg-surface border border-border-soft rounded-3xl p-6 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
         {activeTab === 'readiness' && (
           <LaunchReadinessPanel 
             report={report} 

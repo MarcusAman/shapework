@@ -96,5 +96,5 @@ CREATE INDEX IF NOT EXISTS idx_suppression_list_created_at ON suppression_list(c
 CREATE INDEX IF NOT EXISTS idx_unsubscribe_events_created_at ON unsubscribe_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_bounce_events_created_at ON bounce_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_complaint_events_created_at ON complaint_events(created_at);
-CREATE INDEX IF NOT EXISTS idx_compliance_checks_created_at ON compliance_checks(created_at);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_created_at ON compliance_checks(run_at);
 CREATE INDEX IF NOT EXISTS idx_provider_logs_created_at ON provider_logs(created_at);

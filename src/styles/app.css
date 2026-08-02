@@ -76,3 +76,17 @@
 .no-horizontal-scrollbar::-webkit-scrollbar {
   height: 0px !important;
 }
+
+/* Enforce Apple SF Pro font stack across all /internal console interfaces */
+.internal-layout,
+.internal-layout * {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.internal-layout .font-mono,
+.internal-layout code,
+.internal-layout pre,
+.internal-layout kbd {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace !important;
+}
+

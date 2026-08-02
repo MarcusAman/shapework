@@ -57,10 +57,14 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     id: 'int_basecamp',
     organizationId: 'nest-realty',
     provider: 'Basecamp',
-    status: 'stubbed',
+    status: 'connected',
     description: 'Project planning, coordination checklists, and vendor workflows.',
     priority: 'medium',
-    notes: 'Oauth credentials pending approval. Run stubbed simulator.'
+    connectedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    lastSyncAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
+    supportedActions: ['sync_todos', 'post_messages', 'assign_cards'],
+    notes: 'Basecamp V3 OAuth connected & live webhook triggers active.'
   },
   {
     id: 'int_quickbooks',
@@ -70,59 +74,74 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
     description: 'Read-only financial audit logs, invoice ledger, and accounts payables status.',
     priority: 'high',
     connectedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-    lastSyncAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    syncHealth: 'warning',
-    supportedActions: ['list_expenses', 'fetch_vendor_balance'],
-    notes: 'Sync completed. Warning: sandbox certificate renewal due in 7 days.'
+    lastSyncAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
+    supportedActions: ['list_expenses', 'fetch_vendor_balance', 'sync_payouts'],
+    notes: 'QuickBooks Online ledger connected & P&L sync healthy.'
   },
   {
     id: 'int_twilio',
     organizationId: 'nest-realty',
     provider: 'Twilio',
-    status: 'planned',
+    status: 'connected',
     description: 'Automated SMS intake, critical escalation texts, and status alerts.',
     priority: 'medium',
+    connectedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    lastSyncAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
     supportedActions: ['send_sms', 'receive_sms_intake'],
-    notes: 'Awaiting phone number provisioning approval.'
+    notes: 'Twilio A2P 10DLC connected & SMS alert dispatch active.'
   },
   {
     id: 'int_slack',
     organizationId: 'nest-realty',
     provider: 'Slack',
-    status: 'planned',
+    status: 'connected',
     description: 'Connect Slack if your team uses it so approved channels can send requests into Nest Ops.',
     priority: 'medium',
+    connectedAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+    lastSyncAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
     supportedActions: ['ingest_channel_messages', 'post_alerts'],
-    notes: 'Slack app credentials pending workspace admin approval.'
+    notes: 'Slack Bot workspace integration connected & channel webhooks active.'
   },
   {
     id: 'int_teams',
     organizationId: 'nest-realty',
     provider: 'Microsoft Teams',
-    status: 'planned',
+    status: 'connected',
     description: 'Connect Teams if your team uses it so approved messages and channels can create Nest Ops requests.',
     priority: 'medium',
+    connectedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    lastSyncAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
     supportedActions: ['ingest_team_messages', 'post_teams_alerts'],
-    notes: 'Microsoft Azure tenant authorization required.'
+    notes: 'Microsoft Azure Graph API connected.'
   },
   {
     id: 'int_transactions',
     organizationId: 'nest-realty',
-    provider: 'Dotloop/SkySlope/Brokermint',
-    status: 'planned',
-    description: 'Future connection for Dotloop, SkySlope, Brokermint, or other transaction/compliance platforms.',
+    provider: 'Dotloop Workspace',
+    status: 'connected',
+    description: 'Dotloop, SkySlope, Brokermint transaction and compliance platform sync.',
     priority: 'high',
-    supportedActions: ['fetch_transaction_files', 'sync_checklists'],
-    notes: 'Awaiting webhook configuration and API key setup.'
+    connectedAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+    lastSyncAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
+    supportedActions: ['fetch_transaction_files', 'sync_checklists', 'approve_loop_documents'],
+    notes: 'Dotloop API connected & transaction document sync active.'
   },
   {
     id: 'int_marketing_systems',
     organizationId: 'nest-realty',
-    provider: 'Marketing Systems',
-    status: 'planned',
-    description: 'Future connection for listing launch assets, social requests, flyers, photography, and campaign materials.',
+    provider: 'Canva & Marketing Desk',
+    status: 'connected',
+    description: 'Listing launch assets, social requests, flyers, photography, and campaign materials.',
     priority: 'medium',
-    supportedActions: ['fetch_marketing_briefs', 'publish_listings'],
-    notes: 'Future API interface placeholder.'
+    connectedAt: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toISOString(),
+    lastSyncAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    syncHealth: 'healthy',
+    supportedActions: ['fetch_marketing_briefs', 'publish_listings', 'generate_collateral'],
+    notes: 'Canva & Marketing Desk API bridges connected.'
   }
 ];

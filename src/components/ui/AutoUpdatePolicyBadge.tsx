@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Sparkles, ShieldAlert, CheckCircle, AlertTriangle, EyeOff } from 'lucide-react';
+import { Zap, ShieldAlert, CheckCircle, AlertTriangle, EyeOff } from 'lucide-react';
 
 interface AutoUpdatePolicyBadgeProps {
   status: 'processing' | 'matched' | 'low_confidence' | 'needs_approval' | 'auto_updated' | 'failed' | 'ignored';
@@ -18,7 +18,7 @@ export default function AutoUpdatePolicyBadge({ status, confidence }: AutoUpdate
     case 'auto_updated':
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-status-healthy-soft text-status-healthy border border-status-healthy/10">
-          <Sparkles className="w-3 h-3" />
+          <Zap className="w-3 h-3" />
           <span>Auto-Updated ({confidencePct})</span>
         </span>
       );

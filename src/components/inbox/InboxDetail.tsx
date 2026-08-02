@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Mail, MessageSquare, Paperclip, Sparkles, CheckCircle, ShieldAlert, Cpu, ArrowRight } from 'lucide-react';
+import { Mail, MessageSquare, Paperclip, Zap, CheckCircle, ShieldAlert, Cpu, ArrowRight } from 'lucide-react';
 import { Communication } from '../../types/shapework';
 import ChannelBadge from '../ui/ChannelBadge';
 import SourceBadge from '../ui/SourceBadge';
@@ -131,7 +131,7 @@ export default function InboxDetail({
         {hasProposal && (
           <div className="p-4 bg-brand-green-soft/40 border border-brand-green/20 rounded-xl space-y-3">
             <div className="flex items-center gap-1.5 text-brand-green font-bold text-xs">
-              <Sparkles className="w-4 h-4 animate-pulse" />
+              <Zap className="w-4 h-4 animate-pulse text-emerald-400" />
               <span>Recommended Operational Response Action</span>
             </div>
             

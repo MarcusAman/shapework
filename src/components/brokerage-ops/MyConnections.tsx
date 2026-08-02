@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Mail, Calendar, Users, Phone, FolderOpen, FileText, Sparkles, 
+  Mail, Calendar, Users, Phone, FolderOpen, FileText, Zap, 
   MessageSquare, CheckCircle, AlertCircle, X, Shield, Eye, 
   EyeOff, HelpCircle, Lock, RefreshCw, ChevronRight, Check
 } from 'lucide-react';
@@ -258,7 +258,7 @@ export default function MyConnections({ state }: MyConnectionsProps) {
       case 'transactions':
         return <FileText className="w-5 h-5" />;
       case 'marketing systems':
-        return <Sparkles className="w-5 h-5 text-teal-500" />;
+        return <Zap className="w-5 h-5 text-teal-500" />;
       default:
         return <Link2Icon className="w-5 h-5" />;
     }
@@ -295,7 +295,7 @@ export default function MyConnections({ state }: MyConnectionsProps) {
         };
       case 'twilio':
         return {
-          can: ['Receive SMS queries sent to the hotline: +19105072047', 'Send assignment and SLA escalation text alerts', 'Allow status replies (e.g. reply "RESOLVED" to close a task)'],
+          can: ['Receive SMS queries sent to the hotline: +19105072047', 'Send assignment and urgent broker escalation text alerts', 'Allow status replies (e.g. reply "RESOLVED" to close a task)'],
           cannot: ['Scan personal SMS logs', 'Initiate unsolicited marketing texts']
         };
       case 'google drive':
@@ -509,7 +509,7 @@ export default function MyConnections({ state }: MyConnectionsProps) {
                 />
                 <div>
                   <span className="font-bold text-white block">Urgent SMS hotline</span>
-                  <span className="text-[10px] text-[#D0D6BB] leading-tight block mt-0.5 font-medium font-sans">Send immediate text messages for overdue SLA exceptions and critical compliance risks.</span>
+                  <span className="text-[10px] text-[#D0D6BB] leading-tight block mt-0.5 font-medium font-sans">Send immediate text messages for overdue task deadlines and critical compliance risks.</span>
                 </div>
               </label>
 

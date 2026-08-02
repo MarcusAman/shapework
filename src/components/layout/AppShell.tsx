@@ -10,6 +10,7 @@ import ContextRail from './ContextRail';
 import OperatorDock from './OperatorDock';
 import { Profile, ChatMessage } from '../../types/shapework';
 import ErrorBoundary from '../system/ErrorBoundary';
+import PitchAhaDemoModal from '../demo/PitchAhaDemoModal';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -55,6 +56,7 @@ interface AppShellProps {
   aiAgents?: any[];
   appMode?: string;
   workspaceId?: string;
+  onOpenPitchDemo?: () => void;
 }
 
 export default function AppShell({
@@ -96,6 +98,7 @@ export default function AppShell({
 }: AppShellProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
+  const [isPitchDemoOpen, setIsPitchDemoOpen] = useState(false);
 
   // Auto-open drawer when a new context item is inspected
   React.useEffect(() => {
@@ -153,24 +156,33 @@ export default function AppShell({
 
       {/* Main viewport */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg">
-        {/* Top Header */}
-        <TopBar
-          variant="minimal"
-          title={getPageTitle(currentTab)}
-          activeProfile={activeProfile}
-          profiles={profiles}
-          onSwitchProfile={onSwitchProfile}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onSearchSubmit={onSearchSubmit}
-          isSyncing={isSyncing}
-          onSync={onSync}
-          onToggleSidebar={() => setIsMobileOpen(!isMobileOpen)}
-          demoMode={demoMode}
-          onChangeDemoMode={onChangeDemoMode}
-          appMode={appMode}
-          workspaceName={workspaceId === 'nest-realty-demo' ? 'Nest Ops Hub' : 'Nest Realty Wilmington'}
-          onToggleOperator={() => setOperatorMinimized(!operatorMinimized)}
+        {/* Top Header (Omitted on Role Map so Org Chart header is the single top bar) */}
+        {currentTab !== 'Role Map' && currentTab !== 'Role & Escalation Map' && (
+          <TopBar
+            variant="minimal"
+            title=""
+            currentTab={currentTab}
+            activeProfile={activeProfile}
+            profiles={profiles}
+            onSwitchProfile={onSwitchProfile}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onSearchSubmit={onSearchSubmit}
+            isSyncing={isSyncing}
+            onSync={onSync}
+            onToggleSidebar={() => setIsMobileOpen(!isMobileOpen)}
+            demoMode={demoMode}
+            onChangeDemoMode={onChangeDemoMode}
+            appMode={appMode}
+            workspaceName={workspaceId === 'nest-realty-demo' ? 'Nest Ops Hub' : 'Nest Realty Wilmington'}
+            onToggleOperator={() => setOperatorMinimized(!operatorMinimized)}
+            onOpenPitchDemo={() => setIsPitchDemoOpen(true)}
+          />
+        )}
+
+        <PitchAhaDemoModal
+          isOpen={isPitchDemoOpen}
+          onClose={() => setIsPitchDemoOpen(false)}
         />
 
         {/* Scrollable View Content */}

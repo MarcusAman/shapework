@@ -9,7 +9,7 @@ import {
   Send, 
   CheckCircle, 
   UserCheck, 
-  Sparkles,
+  Zap,
   ArrowRight,
   ShieldCheck
 } from 'lucide-react';
@@ -200,7 +200,7 @@ export default function RequestDesk() {
             {/* AI Summary */}
             <div className="space-y-1 bg-brand-soft/20 border border-brand-primary/10 p-3 rounded-xl">
               <span className="text-[9px] text-brand-primary font-bold uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-brand-primary" />
+                <Zap className="w-3 h-3 text-brand-primary" />
                 AI Extraction Summary
               </span>
               <p className="text-xs text-text-primary leading-normal font-medium">

@@ -10,7 +10,7 @@ import {
   Play,
   ArrowRight,
   Clock,
-  Sparkles,
+  Zap,
   User
 } from 'lucide-react';
 

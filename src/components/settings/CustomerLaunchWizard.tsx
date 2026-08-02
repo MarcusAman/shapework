@@ -15,7 +15,7 @@ import {
   CheckCircle,
   ArrowRight,
   ArrowLeft,
-  Sparkles,
+  Zap,
   Lock
 } from 'lucide-react';
 
@@ -99,10 +99,10 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
   };
 
   return (
-    <div className="bg-surface border border-border-soft rounded-3xl p-6 shadow-card space-y-6 max-w-4xl mx-auto text-left text-xs text-text-secondary leading-normal font-sans">
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 max-w-4xl mx-auto text-left text-xs text-slate-700 leading-normal font-sans">
       
       {/* Step header progress */}
-      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-border-soft pb-4 select-none">
+      <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 pb-4 select-none font-mono text-[11px]">
         {steps.map((step) => {
           const Icon = step.icon;
           const isActive = currentStep === step.num;
@@ -111,8 +111,8 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
             <div 
               key={step.num} 
               className={`flex items-center gap-1.5 pb-1 ${
-                isActive ? 'text-brand-primary border-b-2 border-brand-primary font-bold' : 
-                isDone ? 'text-success font-semibold' : 'text-text-tertiary'
+                isActive ? 'text-slate-900 border-b-2 border-slate-900 font-bold' : 
+                isDone ? 'text-emerald-700 font-bold' : 'text-slate-400'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -129,26 +129,26 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 1 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 1 — Workspace Tenancy Configuration</h3>
-              <p className="mt-1">Define primary brokerage details and owner authorization identities.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 1 — Workspace Tenancy Configuration</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Define primary brokerage details and owner authorization identities.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Brokerage Legal Name</label>
+                <label className="font-bold text-slate-900 block">Brokerage Legal Name</label>
                 <input 
                   type="text" 
                   value={workspace.name} 
                   onChange={(e) => setWorkspace({ ...workspace, name: e.target.value })} 
                   placeholder="e.g. Nest Realty Richmond" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Timezone</label>
+                <label className="font-bold text-slate-900 block">Timezone</label>
                 <select 
                   value={workspace.timezone} 
                   onChange={(e) => setWorkspace({ ...workspace, timezone: e.target.value })} 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 >
                   <option value="America/New_York">America/New_York (EST)</option>
                   <option value="America/Chicago">America/Chicago (CST)</option>
@@ -157,31 +157,31 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
                 </select>
               </div>
               <div className="space-y-1 col-span-2">
-                <label className="font-bold text-text-primary block">Primary Office Address</label>
+                <label className="font-bold text-slate-900 block">Primary Office Address</label>
                 <input 
                   type="text" 
                   value={workspace.location} 
                   onChange={(e) => setWorkspace({ ...workspace, location: e.target.value })} 
                   placeholder="Street Address, City, State, ZIP" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Owner Full Name</label>
+                <label className="font-bold text-slate-900 block">Owner Full Name</label>
                 <input 
                   type="text" 
                   value={workspace.ownerName} 
                   onChange={(e) => setWorkspace({ ...workspace, ownerName: e.target.value })} 
                   placeholder="Diane Ross" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1 col-span-2">
-                <label className="font-bold text-text-primary block">Launch Mode Strategy</label>
+                <label className="font-bold text-slate-900 block">Launch Mode Strategy</label>
                 <select 
                   value={workspace.launchMode} 
                   onChange={(e) => setWorkspace({ ...workspace, launchMode: e.target.value })} 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 >
                   <option value="integration_first">Integration First (Rechat & Dotloop required before launch)</option>
                   <option value="manual_first">Manual First (Allow roster & deal imports fallback; connect syncs later)</option>
@@ -189,13 +189,13 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Owner Email Address</label>
+                <label className="font-bold text-slate-900 block">Owner Email Address</label>
                 <input 
                   type="email" 
                   value={workspace.ownerEmail} 
                   onChange={(e) => setWorkspace({ ...workspace, ownerEmail: e.target.value })} 
                   placeholder="diane.ross@nestrealty.com" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
             </div>
@@ -206,48 +206,48 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 2 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 2 — Staff Ownership Mapping</h3>
-              <p className="mt-1">Assign roles and routing targets for key coordinator and compliance desks.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 2 — Staff Ownership Mapping</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Assign roles and routing targets for key coordinator and compliance desks.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Operations Lead (Primary Admin)</label>
+                <label className="font-bold text-slate-900 block">Operations Lead (Primary Admin)</label>
                 <input 
                   type="text" 
                   value={staff.operationsLead} 
                   onChange={(e) => setStaff({ ...staff, operationsLead: e.target.value })} 
                   placeholder="Email or Name" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Transaction Coordinator</label>
+                <label className="font-bold text-slate-900 block">Transaction Coordinator</label>
                 <input 
                   type="text" 
                   value={staff.transactionCoordinator} 
                   onChange={(e) => setStaff({ ...staff, transactionCoordinator: e.target.value })} 
                   placeholder="Email or Name" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Compliance Partner</label>
+                <label className="font-bold text-slate-900 block">Compliance Partner</label>
                 <input 
                   type="text" 
                   value={staff.compliancePartner} 
                   onChange={(e) => setStaff({ ...staff, compliancePartner: e.target.value })} 
                   placeholder="Email or Name" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Listing Coordinator</label>
+                <label className="font-bold text-slate-900 block">Listing Coordinator</label>
                 <input 
                   type="text" 
                   value={staff.listingCoordinator} 
                   onChange={(e) => setStaff({ ...staff, listingCoordinator: e.target.value })} 
                   placeholder="Email or Name" 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
             </div>
@@ -258,8 +258,8 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 3 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 3 — Active Guard Modules</h3>
-              <p className="mt-1">Toggle the active guard layers to run in background sweeps.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 3 — Active Guard Modules</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Toggle the active guard layers to run in background sweeps.</p>
             </div>
             <div className="space-y-2 select-none">
               {[
@@ -268,11 +268,11 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
                 { name: 'Deal Intake Guard', desc: 'Warns about missing escrow folders and imports checklist templates' },
                 { name: 'Closing Compliance Guard', desc: 'Monitors closing disclosures and signed seller files' }
               ].map((item) => (
-                <label key={item.name} className="flex items-start gap-3 p-3 bg-stone-50 border border-border-soft rounded-xl cursor-pointer">
-                  <input type="checkbox" defaultChecked className="mt-1 rounded" />
+                <label key={item.name} className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100/80 transition-colors">
+                  <input type="checkbox" defaultChecked className="mt-1 rounded accent-slate-900 w-4 h-4" />
                   <div>
-                    <span className="font-bold text-text-primary block">{item.name}</span>
-                    <span className="text-[10px] text-text-tertiary block mt-0.5">{item.desc}</span>
+                    <span className="font-bold text-slate-900 block">{item.name}</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">{item.desc}</span>
                   </div>
                 </label>
               ))}
@@ -284,38 +284,38 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 4 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 4 — Service Level Agreements & Routing</h3>
-              <p className="mt-1">Define action boundaries and escalation triggers.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 4 — Service Level Agreements & Routing</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Define action boundaries and escalation triggers.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Default Request SLA (Minutes)</label>
+                <label className="font-bold text-slate-900 block">Default Request SLA (Minutes)</label>
                 <input 
                   type="number" 
                   value={routing.defaultSlaMins} 
                   onChange={(e) => setRouting({ ...routing, defaultSlaMins: e.target.value })} 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-text-primary block">Owner Shield Escalation SLA (Minutes)</label>
+                <label className="font-bold text-slate-900 block">Owner Shield Escalation SLA (Minutes)</label>
                 <input 
                   type="number" 
                   value={routing.escalationSlaMins} 
                   onChange={(e) => setRouting({ ...routing, escalationSlaMins: e.target.value })} 
-                  className="w-full p-2 border border-border-soft rounded-lg bg-white"
+                  className="w-full p-2 border border-slate-300 rounded-xl bg-white text-slate-900 shadow-2xs"
                 />
               </div>
-              <label className="col-span-2 flex items-center gap-2.5 p-3 bg-stone-50 border border-border-soft rounded-xl cursor-pointer select-none">
+              <label className="col-span-2 flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer select-none">
                 <input 
                   type="checkbox" 
                   checked={routing.requireApprovalForOutbound} 
                   onChange={(e) => setRouting({ ...routing, requireApprovalForOutbound: e.target.checked })} 
-                  className="rounded"
+                  className="rounded accent-slate-900 w-4 h-4"
                 />
                 <div>
-                  <span className="font-bold text-text-primary block">Require Manual TC Approval for Outbound Actions</span>
-                  <span className="text-[10px] text-text-tertiary block mt-0.5">Enforces writeback gating for Rechat tasks, emails, and SMS alerts.</span>
+                  <span className="font-bold text-slate-900 block">Require Manual TC Approval for Outbound Actions</span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Enforces writeback gating for Rechat tasks, emails, and SMS alerts.</span>
                 </div>
               </label>
             </div>
@@ -326,8 +326,8 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 5 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 5 — Compliance Document Checklist</h3>
-              <p className="mt-1">Select the standard closing milestones and required disclosures.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 5 — Compliance Document Checklist</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Select the standard closing milestones and required disclosures.</p>
             </div>
             <div className="space-y-2 select-none">
               {[
@@ -336,9 +336,9 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
                 'Lead-Based Paint Disclosure (Conditional - pre-1978)',
                 'Buyer Agency Agreement & Representation Signature (Required)'
               ].map((item) => (
-                <div key={item} className="p-3 bg-stone-50 border border-border-soft rounded-xl flex justify-between items-center">
-                  <span className="font-semibold text-text-primary">{item}</span>
-                  <span className="text-[9px] font-bold font-mono text-brand-primary bg-brand-soft px-2 py-0.5 rounded">T-30 Review</span>
+                <div key={item} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                  <span className="font-semibold text-slate-900">{item}</span>
+                  <span className="text-[9px] font-bold font-mono text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">T-30 Review</span>
                 </div>
               ))}
             </div>
@@ -349,8 +349,8 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 6 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 6 — Connect Communication Pipelines</h3>
-              <p className="mt-1">Connect API endpoints. Production requires real client key authorization scopes.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 6 — Connect Communication Pipelines</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Connect API endpoints. Production requires real client key authorization scopes.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 select-none">
               {[
@@ -359,12 +359,12 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
                 { name: 'Gmail Workspace API', status: 'Configuration Pending' },
                 { name: 'Twilio SMS Gateway', status: 'Credentials Input Required' }
               ].map((conn) => (
-                <div key={conn.name} className="p-3 bg-white border border-border-soft rounded-xl flex justify-between items-center shadow-sm">
+                <div key={conn.name} className="p-3 bg-white border border-slate-200 rounded-xl flex justify-between items-center shadow-2xs">
                   <div>
-                    <span className="font-bold text-text-primary block">{conn.name}</span>
-                    <span className="text-[10px] text-text-tertiary block mt-0.5">{conn.status}</span>
+                    <span className="font-bold text-slate-900 block">{conn.name}</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">{conn.status}</span>
                   </div>
-                  <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded uppercase">Setup</span>
+                  <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded uppercase font-mono">Setup</span>
                 </div>
               ))}
             </div>
@@ -375,13 +375,13 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 7 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 7 — Roster & Transactions Data Import</h3>
-              <p className="mt-1">Upload active datasets via manual CSV paste lines.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 7 — Roster & Transactions Data Import</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Upload active datasets via manual CSV paste lines.</p>
             </div>
-            <div className="p-4 border border-dashed border-border-soft rounded-xl text-center space-y-2 select-none">
-              <UploadCloud className="w-8 h-8 text-text-tertiary mx-auto" />
-              <p className="font-semibold text-text-primary">Drag Roster or Transaction CSV file here</p>
-              <span className="text-[10px] text-text-tertiary block">Or copy and paste raw rows in the Import settings panel later.</span>
+            <div className="p-6 border border-dashed border-slate-300 rounded-xl text-center space-y-2 select-none bg-slate-50">
+              <UploadCloud className="w-8 h-8 text-slate-400 mx-auto" />
+              <p className="font-semibold text-slate-900">Drag Roster or Transaction CSV file here</p>
+              <span className="text-[10px] text-slate-500 block">Or copy and paste raw rows in the Import settings panel later.</span>
             </div>
           </div>
         )}
@@ -390,21 +390,21 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 8 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">// Step 8 — Launch Authorization Audit</h3>
-              <p className="mt-1">Confirm and activate the workspace. An immutable audit record will log this bootstrap action.</p>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 8 — Launch Authorization Audit</h3>
+              <p className="mt-1 text-slate-500 text-[11px]">Confirm and activate the workspace. An immutable audit record will log this bootstrap action.</p>
             </div>
-            <div className="bg-stone-50 p-4 rounded-xl border border-border-soft space-y-3 font-mono">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 font-mono">
               <div>
-                <span className="text-text-tertiary block text-[9px] font-bold uppercase select-none">Workspace Name</span>
-                <span className="text-text-primary font-bold">{workspace.name || 'Untitled Brokerage'}</span>
+                <span className="text-slate-500 block text-[9px] font-bold uppercase select-none">Workspace Name</span>
+                <span className="text-slate-900 font-bold">{workspace.name || 'Untitled Brokerage'}</span>
               </div>
               <div>
-                <span className="text-text-tertiary block text-[9px] font-bold uppercase select-none">Tenant Owner</span>
-                <span className="text-text-primary font-bold">{workspace.ownerName} ({workspace.ownerEmail})</span>
+                <span className="text-slate-500 block text-[9px] font-bold uppercase select-none">Tenant Owner</span>
+                <span className="text-slate-900 font-bold">{workspace.ownerName} ({workspace.ownerEmail})</span>
               </div>
               <div>
-                <span className="text-text-tertiary block text-[9px] font-bold uppercase select-none">TC Coordinator Assigned</span>
-                <span className="text-text-primary font-bold">{staff.transactionCoordinator || 'Unassigned'}</span>
+                <span className="text-slate-500 block text-[9px] font-bold uppercase select-none">TC Coordinator Assigned</span>
+                <span className="text-slate-900 font-bold">{staff.transactionCoordinator || 'Unassigned'}</span>
               </div>
             </div>
           </div>
@@ -413,11 +413,11 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
       </div>
 
       {/* Footer wizard controls */}
-      <div className="flex justify-between items-center pt-4 border-t border-border-soft select-none">
+      <div className="flex justify-between items-center pt-4 border-t border-slate-200 select-none">
         <button 
           onClick={handleBack}
           disabled={currentStep === 1}
-          className="px-4 py-2 border border-border-medium hover:bg-stone-50 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-30"
+          className="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-30 text-slate-800"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back</span>
@@ -426,7 +426,7 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep < 8 ? (
           <button
             onClick={handleNext}
-            className="px-4 py-2 bg-brand-primary hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
           >
             <span>Next</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -434,7 +434,7 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         ) : (
           <button
             onClick={handleActivate}
-            className="px-5 py-2 bg-success text-white hover:bg-emerald-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+            className="px-5 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5" />
             <span>Activate Workspace</span>

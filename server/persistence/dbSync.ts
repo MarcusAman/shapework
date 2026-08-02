@@ -9,6 +9,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { convertKeysToSnake, convertKeysToCamel } from './databaseRepositories';
 import crypto from 'crypto';
+import { hashPassword } from '../auth/password.js';
+import { NEST_FULL_ROSTER_72 } from './nestRosterSeed.js';
 
 const resolvedFilename = typeof import.meta !== 'undefined' && import.meta.url 
   ? fileURLToPath(import.meta.url) 
@@ -25,7 +27,56 @@ export async function initDatabaseSchema(pool: pg.Pool) {
     const sql = fs.readFileSync(migrationPath, 'utf8');
     await pool.query(sql);
 
-    // Create brokerage entry points table dynamically and alter work_items columns
+    // 1. Create directory_people first in a separate call to avoid PostgreSQL compilation/dependency errors
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS directory_people (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        first_name VARCHAR(100) NOT NULL,
+        middle_name VARCHAR(100),
+        last_name VARCHAR(100) NOT NULL,
+        preferred_name VARCHAR(100),
+        display_name VARCHAR(255) NOT NULL,
+        title VARCHAR(255),
+        role VARCHAR(255),
+        team VARCHAR(255),
+        person_type VARCHAR(50),
+        office_ids VARCHAR(100)[],
+        office_names VARCHAR(255)[],
+        primary_office_id VARCHAR(100),
+        primary_office_name VARCHAR(255),
+        email VARCHAR(255),
+        alternate_email VARCHAR(255),
+        phone VARCHAR(100),
+        alternate_phone VARCHAR(100),
+        photo_url TEXT,
+        profile_url TEXT,
+        scheduling_url TEXT,
+        status VARCHAR(50) NOT NULL,
+        is_broker_in_charge BOOLEAN DEFAULT FALSE,
+        is_team_leader BOOLEAN DEFAULT FALSE,
+        raw_role VARCHAR(255),
+        source_parser_version VARCHAR(50),
+        communication_preference VARCHAR(50) DEFAULT 'standard',
+        tags VARCHAR(100)[],
+        source VARCHAR(50) NOT NULL,
+        source_spreadsheet_id VARCHAR(100),
+        source_sheet_name VARCHAR(100),
+        source_row_key VARCHAR(100),
+        last_source_modified_at VARCHAR(100),
+        last_synced_at VARCHAR(100),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE directory_people
+      ADD COLUMN IF NOT EXISTS is_team_leader BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS raw_role VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS source_parser_version VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS communication_preference VARCHAR(50) DEFAULT 'standard';
+    `);
+
+    // 2. Create brokerage entry points table and other tables dynamically
     await pool.query(`
       CREATE TABLE IF NOT EXISTS brokerage_entry_points (
         id VARCHAR(100) PRIMARY KEY,
@@ -35,7 +86,7 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         source_record_id VARCHAR(100),
         related_transaction_id VARCHAR(100) REFERENCES transactions(id) ON DELETE SET NULL,
         related_marketing_request_id VARCHAR(100),
-        related_person_id VARCHAR(100),
+        related_person_id VARCHAR(100) REFERENCES directory_people(id) ON DELETE SET NULL,
         received_at VARCHAR(100) NOT NULL,
         created_by VARCHAR(100),
         assigned_owner_role VARCHAR(100),
@@ -247,16 +298,16 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         job_id VARCHAR(100) NOT NULL REFERENCES shapework_jobs(id) ON DELETE CASCADE,
         step_order INTEGER NOT NULL,
         title VARCHAR(255) NOT NULL,
-        description TEXT NOT NULL,
+        description TEXT,
         channel VARCHAR(50) NOT NULL,
         status VARCHAR(50) NOT NULL,
         requires_approval BOOLEAN NOT NULL DEFAULT FALSE,
         risk_level VARCHAR(50) NOT NULL,
-        assigned_role VARCHAR(100) NOT NULL,
+        assigned_role VARCHAR(100),
         approved_by VARCHAR(255),
         approved_at VARCHAR(100),
         output_summary TEXT,
-        safe_payload_summary TEXT NOT NULL,
+        safe_payload_summary TEXT,
         created_at VARCHAR(100) NOT NULL,
         updated_at VARCHAR(100) NOT NULL
       );
@@ -264,8 +315,8 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       CREATE TABLE IF NOT EXISTS shapework_approvals (
         id VARCHAR(100) PRIMARY KEY,
         workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-        job_id VARCHAR(100) NOT NULL REFERENCES shapework_jobs(id) ON DELETE CASCADE,
-        step_id VARCHAR(100) NOT NULL REFERENCES shapework_job_steps(id) ON DELETE CASCADE,
+        job_id VARCHAR(100) NOT NULL,
+        step_id VARCHAR(100) NOT NULL,
         approval_type VARCHAR(100) NOT NULL,
         title VARCHAR(255) NOT NULL,
         summary TEXT NOT NULL,
@@ -287,8 +338,8 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       CREATE TABLE IF NOT EXISTS shapework_actions (
         id VARCHAR(100) PRIMARY KEY,
         workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-        job_id VARCHAR(100) NOT NULL REFERENCES shapework_jobs(id) ON DELETE CASCADE,
-        step_id VARCHAR(100) NOT NULL REFERENCES shapework_job_steps(id) ON DELETE CASCADE,
+        job_id VARCHAR(100) NOT NULL,
+        step_id VARCHAR(100) NOT NULL,
         approval_id VARCHAR(100),
         action_type VARCHAR(100) NOT NULL,
         channel VARCHAR(50) NOT NULL,
@@ -320,8 +371,8 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       CREATE TABLE IF NOT EXISTS shapework_outcomes (
         id VARCHAR(100) PRIMARY KEY,
         workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-        job_id VARCHAR(100) NOT NULL REFERENCES shapework_jobs(id) ON DELETE CASCADE,
-        step_id VARCHAR(100) NOT NULL REFERENCES shapework_job_steps(id) ON DELETE CASCADE,
+        job_id VARCHAR(100) NOT NULL,
+        step_id VARCHAR(100) NOT NULL,
         action_id VARCHAR(100) REFERENCES shapework_actions(id) ON DELETE SET NULL,
         outcome_type VARCHAR(100) NOT NULL,
         title VARCHAR(255) NOT NULL,
@@ -335,8 +386,8 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       CREATE TABLE IF NOT EXISTS shapework_receipts (
         id VARCHAR(100) PRIMARY KEY,
         workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-        job_id VARCHAR(100) NOT NULL REFERENCES shapework_jobs(id) ON DELETE CASCADE,
-        outcome_id VARCHAR(100) NOT NULL REFERENCES shapework_outcomes(id) ON DELETE CASCADE,
+        job_id VARCHAR(100) NOT NULL,
+        outcome_id VARCHAR(100) NOT NULL,
         title VARCHAR(255) NOT NULL,
         summary TEXT NOT NULL,
         action_taken VARCHAR(255) NOT NULL,
@@ -357,6 +408,94 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         category VARCHAR(100) NOT NULL,
         priority VARCHAR(50) NOT NULL,
         created_at VARCHAR(100) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS ops_sops (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        sop_id VARCHAR(100) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        department VARCHAR(100),
+        owner_role VARCHAR(100),
+        owner_user_id VARCHAR(100),
+        backup_role VARCHAR(100),
+        backup_user_id VARCHAR(100),
+        final_approver_user_id VARCHAR(100),
+        escalation_recipient_role VARCHAR(100),
+        purpose TEXT NOT NULL,
+        expected_outcome TEXT NOT NULL,
+        scope TEXT,
+        exclusions TEXT,
+        tags TEXT[],
+        trigger_type VARCHAR(100) NOT NULL,
+        trigger TEXT,
+        trigger_conditions TEXT,
+        required_info JSONB,
+        steps JSONB,
+        decisions JSONB,
+        escalation_behavior JSONB,
+        completion_evidence JSONB,
+        governance JSONB,
+        status VARCHAR(50) NOT NULL,
+        version VARCHAR(50) NOT NULL,
+        versions JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS ops_sop_runs (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        sop_id VARCHAR(100) NOT NULL,
+        sop_version VARCHAR(50) NOT NULL,
+        related_request_id VARCHAR(100),
+        title VARCHAR(255) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        started_by VARCHAR(100) NOT NULL,
+        started_at VARCHAR(100) NOT NULL,
+        completed_at VARCHAR(100),
+        current_step_id VARCHAR(100),
+        completed_steps JSONB,
+        blocked_steps JSONB,
+        step_statuses JSONB,
+        step_evidence JSONB,
+        step_notes JSONB,
+        required_info_data JSONB,
+        timeline JSONB,
+        feedback_submitted BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS ops_feedback (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        object_type VARCHAR(50) NOT NULL,
+        object_id VARCHAR(100) NOT NULL,
+        helpful BOOLEAN,
+        rating VARCHAR(50),
+        reasons JSONB,
+        comment TEXT,
+        submitted_by VARCHAR(255),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS ops_improvement_requests (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        feedback_id VARCHAR(100),
+        sop_id VARCHAR(100) NOT NULL,
+        sop_version VARCHAR(50) NOT NULL,
+        affected_step VARCHAR(100),
+        reason TEXT,
+        comment TEXT,
+        submitted_by VARCHAR(255),
+        assigned_reviewer VARCHAR(255),
+        status VARCHAR(50) NOT NULL,
+        resolution_notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
@@ -433,7 +572,12 @@ const TABLE_MAPPINGS = [
   { stateKey: 'deliveries', table: 'shapework_deliveries', hasWorkspaceId: true },
   { stateKey: 'outcomes', table: 'shapework_outcomes', hasWorkspaceId: true },
   { stateKey: 'receipts', table: 'shapework_receipts', hasWorkspaceId: true },
-  { stateKey: 'ownerBriefItems', table: 'owner_brief_items', hasWorkspaceId: true }
+  { stateKey: 'ownerBriefItems', table: 'owner_brief_items', hasWorkspaceId: true },
+  { stateKey: 'directoryPeople', table: 'directory_people', hasWorkspaceId: true },
+  { stateKey: 'opsSops', table: 'ops_sops', hasWorkspaceId: true },
+  { stateKey: 'opsSopRuns', table: 'ops_sop_runs', hasWorkspaceId: true },
+  { stateKey: 'opsFeedback', table: 'ops_feedback', hasWorkspaceId: true },
+  { stateKey: 'opsImprovementRequests', table: 'ops_improvement_requests', hasWorkspaceId: true }
 ];
 
 export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Promise<any> {
@@ -458,6 +602,7 @@ export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Pr
       workspaceId
     };
   });
+  state.profiles = state.workspaceUsers;
 
   // 3. Load all other tables mapped directly to workspace_id
   for (const mapping of TABLE_MAPPINGS) {
@@ -510,8 +655,95 @@ export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Pr
             camel.sourceDetails = camel.sourceDetail;
           }
         }
+        if (mapping.stateKey === 'opsSops') {
+          if (!camel.decisions || !Array.isArray(camel.decisions)) {
+            camel.decisions = [];
+          }
+          if (!camel.requiredInfo || !Array.isArray(camel.requiredInfo)) {
+            camel.requiredInfo = [];
+          }
+          if (!camel.steps || !Array.isArray(camel.steps)) {
+            camel.steps = [];
+          }
+          if (!camel.versions || !Array.isArray(camel.versions)) {
+            camel.versions = [];
+          }
+        }
+        if (mapping.stateKey === 'opsSopRuns') {
+          if (!camel.completedSteps || !Array.isArray(camel.completedSteps)) {
+            camel.completedSteps = [];
+          }
+          if (!camel.blockedSteps || !Array.isArray(camel.blockedSteps)) {
+            camel.blockedSteps = [];
+          }
+          if (!camel.stepStatuses || typeof camel.stepStatuses !== 'object') {
+            camel.stepStatuses = {};
+          }
+          if (!camel.stepEvidence || typeof camel.stepEvidence !== 'object') {
+            camel.stepEvidence = {};
+          }
+          if (!camel.stepNotes || typeof camel.stepNotes !== 'object') {
+            camel.stepNotes = {};
+          }
+          if (!camel.requiredInfoData || typeof camel.requiredInfoData !== 'object') {
+            camel.requiredInfoData = {};
+          }
+          if (!camel.timeline || !Array.isArray(camel.timeline)) {
+            camel.timeline = [];
+          }
+        }
+        if (mapping.stateKey === 'opsFeedback') {
+          camel.userId = camel.submittedBy;
+          camel.interactionType = camel.helpful ? 'thumbs_up' : 'thumbs_down';
+          camel.reasonCodes = camel.reasons || [];
+          camel.submittedBy = camel.submittedBy || 'Anonymous';
+        }
+        if (mapping.stateKey === 'opsImprovementRequests') {
+          // Normalize DB columns back to legacy/API fields for frontend compatibility
+          camel.sourceFeedbackId = camel.feedbackId;
+          camel.targetType = 'sop';
+          camel.targetId = camel.sopId;
+          camel.title = `Improvement needed for SOP: ${camel.sopId}`;
+          camel.description = camel.comment || camel.reason || 'User reported issue';
+          if (camel.reason && typeof camel.reason === 'string') {
+            camel.reasonCodes = camel.reason.split(', ').map((s: string) => s.trim());
+          } else {
+            camel.reasonCodes = [];
+          }
+        }
         return camel;
       });
+    }
+  }
+
+  if (!state.directoryPeople || state.directoryPeople.length < 70) {
+    try {
+      for (const person of NEST_FULL_ROSTER_72) {
+        await pool.query(`
+          INSERT INTO directory_people (
+            id, workspace_id, first_name, last_name, display_name, email, phone,
+            title, role, person_type, primary_office_name, is_broker_in_charge, status, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            display_name = EXCLUDED.display_name,
+            title = EXCLUDED.title,
+            role = EXCLUDED.role,
+            person_type = EXCLUDED.person_type,
+            primary_office_name = EXCLUDED.primary_office_name,
+            is_broker_in_charge = EXCLUDED.is_broker_in_charge,
+            status = EXCLUDED.status,
+            updated_at = NOW();
+        `, [
+          person.id, workspaceId, person.firstName, person.lastName, person.displayName,
+          person.email, person.phone, person.title, person.role, person.personType,
+          person.primaryOfficeName, person.isBrokerInCharge, person.status || 'active'
+        ]);
+      }
+      const reloaded = await pool.query('SELECT * FROM directory_people WHERE workspace_id = $1', [workspaceId]);
+      state.directoryPeople = reloaded.rows.map(row => convertKeysToCamel(row));
+    } catch (e) {
+      console.error('Failed to seed DB directory_people:', e);
+      state.directoryPeople = NEST_FULL_ROSTER_72.map(p => ({ ...p, workspaceId }));
     }
   }
 
@@ -566,14 +798,14 @@ export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, sta
       
       // Upsert User by email to handle dynamic IDs gracefully
       const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [wu.email]);
+      const resolvedUserId = userRes.rows.length > 0 ? userRes.rows[0].id : (wu.id || `usr_${Math.random().toString(36).substring(2, 11)}`);
       const userRow = convertKeysToSnake({
-        id: userRes.rows.length > 0 ? userRes.rows[0].id : wu.id,
+        id: resolvedUserId,
         email: wu.email,
         name: wu.name,
         passwordHash: wu.passwordHash || null,
         status: wu.status || 'active'
       });
-      const resolvedUserId = userRow.id;
       if (userRes.rows.length === 0) {
         const keys = Object.keys(userRow);
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
@@ -662,12 +894,85 @@ export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, sta
             dbRow.source_detail = item.sourceDetails;
           }
         }
+        if (mapping.stateKey === 'opsSops') {
+          dbRow.sop_id = item.sopId || item.id;
+          dbRow.purpose = item.purpose || item.description || item.title || 'Standard Operating Procedure';
+          dbRow.expected_outcome = item.expected_outcome || item.expectedOutcome || 'Successful execution of process.';
+          dbRow.trigger_type = item.triggerType || 'manual_start';
+          dbRow.status = item.status || 'published';
+          dbRow.version = item.version || '1.0';
+        }
+        if (mapping.stateKey === 'opsSopRuns') {
+          dbRow.sop_id = item.sopId || dbRow.sop_id || 'sop_unknown';
+          dbRow.sop_version = item.sopVersion || dbRow.sop_version || '1.0';
+          dbRow.started_by = item.startedBy || dbRow.started_by || 'system';
+          dbRow.status = item.status || dbRow.status || 'completed';
+        }
+        if (mapping.stateKey === 'opsFeedback') {
+          dbRow.reasons = item.reasonCodes || item.reasons || [];
+          dbRow.submitted_by = item.submittedBy || item.userId || 'Anonymous';
+        }
+        if (mapping.stateKey === 'opsImprovementRequests') {
+          console.log('[DEBUG DB IR] item:', JSON.stringify(item));
+          console.log('[DEBUG DB IR] initial dbRow:', JSON.stringify(dbRow));
+          dbRow.feedback_id = item.sourceFeedbackId || item.feedbackId;
+          
+          let resolvedSopId = item.sopId;
+          let resolvedSopVersion = item.sopVersion || '1.0';
+          
+          const targetId = item.targetId || item.sopId;
+          if (targetId) {
+            if (targetId.startsWith('run_')) {
+              const runs = state.opsSopRuns || [];
+              const run = runs.find((r: any) => r.id === targetId);
+              if (run) {
+                resolvedSopId = run.sopId;
+                resolvedSopVersion = run.sopVersion;
+              }
+            } else {
+              resolvedSopId = targetId;
+            }
+          }
+          
+          dbRow.sop_id = resolvedSopId || 'sop_unknown';
+          dbRow.sop_version = resolvedSopVersion;
+          dbRow.reason = item.reason || (item.reasonCodes ? item.reasonCodes.join(', ') : 'user_feedback');
+          dbRow.comment = item.comment || item.description || 'Improvement needed';
+          console.log('[DEBUG DB IR] final dbRow:', JSON.stringify(dbRow));
+        }
       }
 
       // Replace invalid string timestamps like 'Never' with null to satisfy TIMESTAMPTZ database constraints
       for (const k of Object.keys(dbRow)) {
         if (dbRow[k] === 'Never') {
           dbRow[k] = null;
+        }
+        
+        // Clean and normalize JSONB columns to avoid double-stringification errors
+        const isJsonColumn = [
+          'dns_records', 'steps', 'findings', 'sample_messaging', 'filters', 
+          'raw_payload', 'payload', 'response', 'proposed_action', 
+          'completion_evidence', 'escalation_behavior', 'governance', 'decision_rules',
+          'decisions', 'required_info', 'versions', 'completed_steps', 'blocked_steps',
+          'step_statuses', 'step_evidence', 'step_notes', 'required_info_data', 'timeline', 'reasons'
+        ].includes(k);
+        
+        if (isJsonColumn && dbRow[k] !== null && dbRow[k] !== undefined) {
+          if (typeof dbRow[k] === 'string') {
+            try {
+              const parsed = JSON.parse(dbRow[k]);
+              if (typeof parsed === 'string') {
+                dbRow[k] = JSON.parse(parsed);
+              } else {
+                dbRow[k] = parsed;
+              }
+            } catch (e) {
+              // Not a valid JSON string, leave as is
+            }
+          }
+          if (typeof dbRow[k] === 'object') {
+            dbRow[k] = JSON.stringify(dbRow[k]);
+          }
         }
       }
 
@@ -768,7 +1073,7 @@ export async function seedDatabaseIfEmpty(pool: pg.Pool, state: any) {
 
 export async function ensureSuperAdminsExist(pool: pg.Pool) {
   const superAdmins = [
-    { id: 'usr_admin', email: 'admin@shapework.co', name: 'Platform Admin', password: 'password123' },
+    { id: 'usr_admin', email: 'admin@shapework.co', name: 'Platform Admin', password: 'shapework2026' },
     { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus', password: 'shapework2026' },
     { id: 'usr_adam', email: 'adam@shapework.co', name: 'Adam', password: 'shapework2026' },
     { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', password: 'shapework2026' }
@@ -778,7 +1083,7 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
     try {
       const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [sa.email]);
       let userId = sa.id;
-      const pwdHash = crypto.createHash('sha256').update(sa.password).digest('hex');
+      const pwdHash = hashPassword(sa.password);
 
       if (userRes.rows.length === 0) {
         // Insert User

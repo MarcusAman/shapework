@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { 
-  ShieldAlert, Settings, Sparkles, RefreshCw, Cpu, 
+  ShieldAlert, Settings, Zap, RefreshCw, Cpu, 
   Check, Lock, Play, Layers, MessageSquare, AlertTriangle, Eye, Shield, Users, Building, Plus
 } from 'lucide-react';
 import { AgentDefinition, AgentRun, AgentEvent, AgentGovernancePolicy } from '../../types/shapework';

@@ -122,7 +122,15 @@ export default function OwnerShield() {
     sessionStorage.setItem('shapework_audit_events', JSON.stringify([auditEvent, ...auditEvents]));
 
     // Dispatch update event
-    window.dispatchEvent(new Event('storage'));
+    try {
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      if (typeof document !== 'undefined' && document.createEvent) {
+        const evt = document.createEvent('Event');
+        evt.initEvent('storage', true, true);
+        window.dispatchEvent(evt);
+      }
+    }
   };
 
   return (

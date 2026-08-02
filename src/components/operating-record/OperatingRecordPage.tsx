@@ -12,7 +12,7 @@ import {
   CheckCircle2, 
   Shield, 
   Brain, 
-  Sparkles, 
+  Zap, 
   FolderOpen, 
   ArrowRight, 
   Layers, 

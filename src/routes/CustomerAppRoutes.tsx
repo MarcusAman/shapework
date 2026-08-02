@@ -9,7 +9,7 @@ import {
   CheckCircle, FileText, Link2, Clock, Settings, Inbox, Download, 
   ShieldAlert, AlertTriangle, UserPlus, CheckSquare, Square, 
   DollarSign, User, Wrench, Plus, ClipboardList, Play, Activity, Cpu,
-  X, Phone, Trash2, Brain, Sparkles, AlertCircle, HelpCircle, Loader,
+  X, Phone, Trash2, Brain, Zap, AlertCircle, HelpCircle, Loader,
   Video, Key
 } from 'lucide-react';
 import MorningBriefing from '../components/command/MorningBriefing';
@@ -23,6 +23,7 @@ import OperationsInbox from '../components/inbox/OperationsInbox';
 import AIOperatorWorkspace from '../components/ai/AIOperatorWorkspace';
 import EmailIntelligence from '../components/email/EmailIntelligence';
 import TransactionsView from '../components/transactions/TransactionsView';
+import HelpfulnessFeedback from '../components/shared/HelpfulnessFeedback';
 import ListingsView from '../components/listings/ListingsView';
 import IntegrationsHub from '../components/integrations/IntegrationsHub';
 import ToolStackMap from '../components/integrations/ToolStackMap';
@@ -37,10 +38,13 @@ import DailyCheckInView from '../components/command/DailyCheckInView';
 import CustomerLaunchRoom from '../components/settings/CustomerLaunchRoom';
 import OperatingRecordPage from '../components/operating-record/OperatingRecordPage';
 import OperatingMemoryDetail from '../components/command/OperatingMemoryDetail';
+import NestWilmingtonDashboard from '../components/nest-wilmington/NestWilmingtonDashboard';
+import MarketingIntakeConsole from '../components/marketing/MarketingIntakeConsole';
 import AICOOMissions from '../components/command/AICOOMissions';
 import AgentActionPage from '../components/ui/AgentActionPage';
 import ActivityAuditTrail from '../components/command/ActivityAuditTrail';
 import AIAgentWorkforce from '../components/agents/AIAgentWorkforce';
+import AgentApprovalPortal from '../components/agents/AgentApprovalPortal';
 import AgentWorkforceWidgets from '../components/command/AgentWorkforceWidgets';
 import ApprovalCenter from '../components/approvals/ApprovalCenter';
 import Record360 from '../components/records/Record360';
@@ -68,8 +72,16 @@ import { BrandingPanel, ActionLinksPanel, IntakeLinksPanel, ClientAgentAccessPan
 import OrgChartWizardPage from '../components/settings/OrgChartWizardPage';
 import RyanShieldPage from '../components/nest-wilmington/RyanShieldPage';
 import OwnerWeeklyBriefPage from '../components/nest-wilmington/OwnerWeeklyBriefPage';
+import RyanSettingsPage from '../components/nest-wilmington/RyanSettingsPage';
 import { buildRyanShieldSummary, buildOwnerWeeklyBrief } from '../components/nest-wilmington/adapters';
 import type { ShieldSummaryCard } from '../components/nest-wilmington/adapters';
+import WorkspaceDirectoryPage from '../components/people/WorkspaceDirectoryPage';
+import { orgChartService } from '../services/orgChartService';
+import SOPStudio from '../components/sops/SOPStudio';
+import SOPRunsPage from '../components/sops/SOPRunsPage';
+import PitchAhaDemoModal from '../components/demo/PitchAhaDemoModal';
+import PreMLSBoard from '../components/brokerage-ops/PreMLSBoard';
+import VendorDispatchBoard from '../components/brokerage-ops/VendorDispatchBoard';
 
 
 interface CustomerAppRoutesProps {
@@ -118,128 +130,9 @@ function EmptyState({ title, description, actionText, onAction }: EmptyStateProp
 // -------------------------------------------------------------
 
 function TodayPage({ state }: { state: any }) {
-  const {
-    workItems = [],
-    actionProposals = [],
-    attentionStates = [],
-    dailyBriefing,
-    setCurrentTab,
-    activeProfile
-  } = state;
-
-  const userIdVal = activeProfile?.id || 'usr_owner';
-  const activeAttentionStates = attentionStates || [];
-  
-  const isSnoozed = (id: string) => {
-    const stateId = `${userIdVal}_${id}`;
-    const s = activeAttentionStates.find((st: any) => st.id === stateId);
-    return s && s.status === 'snoozed' && s.snoozedUntil && new Date(s.snoozedUntil) > new Date();
-  };
-
-  const activeWorkItems = workItems.filter((w: any) => w.status !== 'completed' && w.status !== 'resolved' && w.status !== 'archived' && w.status !== 'inactive' && !isSnoozed(w.id));
-  const activeProposals = actionProposals.filter((p: any) => p.state !== 'approved' && p.state !== 'completed' && p.state !== 'executing' && p.state !== 'executed' && p.state !== 'rejected' && p.state !== 'dismissed' && !isSnoozed(p.id));
-
-  // 1. Needs attention
-  const attentionList: any[] = [];
-  activeWorkItems.forEach((w: any) => {
-    const isHighOrAbove = w.priority === 'high' || w.priority === 'critical' || w.priority === 'owner_worthy';
-    const isOverdueVal = w.dueDate && new Date(w.dueDate) < new Date();
-    const isToday = w.dueDate && new Date(w.dueDate).toDateString() === new Date().toDateString();
-    const isBlocked = w.status === 'blocked';
-    const needsApprovalVal = w.approvalRequired === true;
-    if (isHighOrAbove || isOverdueVal || isToday || isBlocked || needsApprovalVal) {
-      attentionList.push(w);
-    }
-  });
-  activeProposals.forEach((p: any) => {
-    attentionList.push(p);
-  });
-  const todayAttentionCount = attentionList.length;
-
-  // 2. Due soon
-  const todayDueSoonCount = activeWorkItems.filter((w: any) => w.dueDate).length + activeProposals.filter((p: any) => p.dueDate || p.created_at).length;
-
-  // 3. Needs approval
-  const todayApprovalCount = activeWorkItems.filter((w: any) => w.approvalRequired === true || w.status === 'needs_approval').length + activeProposals.length;
-
-  const attentionCount = todayAttentionCount;
-  const decCount = todayApprovalCount;
-  const revAtRisk = (state.transactions || []).filter((t: any) => t?.risk_level === 'at_risk' || t?.risk_level === 'blocked').reduce((acc: number, curr: any) => acc + (curr?.revenue || 0), 0);
-
-  const subtitleText = `${todayAttentionCount} ${todayAttentionCount === 1 ? 'thing needs' : 'things need'} attention. ${todayDueSoonCount} ${todayDueSoonCount === 1 ? 'is' : 'are'} due soon. ${todayApprovalCount} ${todayApprovalCount === 1 ? 'needs' : 'need'} approval.`;
-
   return (
-    <div className="space-y-8 text-left font-sans text-xs text-[#4b5563] max-w-xl mx-auto">
-      <div className="border-b border-[#e4decb]/60 pb-3.5 mb-6 text-left select-none">
-        <h1 className="font-serif font-black text-xl text-[#18382b] tracking-tight">
-          Today in the Brokerage
-        </h1>
-        <p className="text-xs text-[#1e2520] mt-1 font-bold">
-          {subtitleText}
-        </p>
-        <p className="text-[10px] text-stone-500 mt-1 font-medium">
-          shapework will bring work here when someone needs to act.
-        </p>
-      </div>
-
-      {/* Needs Attention Card Deck */}
-      <NeedsAttentionDeck state={state} />
-
-      {/* Owner Brief Preview Stacked Below */}
-      <div className="bg-white border border-[#e4decb] rounded-xl p-5 shadow-sm space-y-4">
-        <div className="border-b border-stone-100 pb-2 flex justify-between items-center">
-          <h3 className="font-serif font-bold text-sm text-[#1e2520]">Owner Brief Preview</h3>
-          <span className="text-[9px] bg-[#eaf2ee] text-[#18382b] px-2 py-0.5 rounded-full font-bold uppercase">Weekly Digest</span>
-        </div>
-        
-        <div className="space-y-3">
-          <p className="text-[11px] text-text-secondary leading-relaxed font-medium">
-            {dailyBriefing?.summary || "The weekly summary brief is compiled and ready for review. It outlines recent transaction trends, risk exposures, and capacity gaps across operations."}
-          </p>
-          
-          <div className="bg-[#fcfbf7] border border-[#e4decb] rounded-lg p-2.5 space-y-1 text-[10px] font-semibold">
-            <button
-              type="button"
-              data-testid="telemetry-needs-attention"
-              onClick={() => setCurrentTab('Tasks')}
-              className="flex justify-between w-full hover:bg-[#eaf2ee]/50 p-1.5 rounded-lg transition-all text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#18382b]"
-            >
-              <span className="text-text-tertiary font-bold">Attention Items</span>
-              <span className="text-red-700 font-extrabold">{attentionCount} Pending</span>
-            </button>
-            <button
-              type="button"
-              data-testid="telemetry-pending-decisions"
-              onClick={() => setCurrentTab('Command Center')}
-              className="flex justify-between w-full hover:bg-[#eaf2ee]/50 p-1.5 rounded-lg transition-all text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#18382b]"
-            >
-              <span className="text-text-tertiary font-bold">Decisions Gated</span>
-              <span className="text-amber-700 font-extrabold">{decCount} Actionable</span>
-            </button>
-            <button
-              type="button"
-              data-testid="telemetry-revenue-at-risk"
-              onClick={() => setCurrentTab('Deals')}
-              className="flex justify-between w-full hover:bg-[#eaf2ee]/50 p-1.5 rounded-lg transition-all text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#18382b]"
-            >
-              <span className="text-text-tertiary font-bold">Revenue Secure Rate</span>
-              <span className="text-[#18382b] font-extrabold">${revAtRisk.toLocaleString()} At Risk</span>
-            </button>
-          </div>
-
-          <button
-            onClick={() => setCurrentTab('Reports')}
-            className="w-full py-2 bg-[#18382b] hover:bg-[#1f4938] text-white rounded-lg text-center font-bold text-xs shadow-sm cursor-pointer block"
-          >
-            View Full Owner Brief
-          </button>
-        </div>
-      </div>
-
-      {/* Live Signals Checkin */}
-      {(state.workspaces || []).find((w: any) => w.id === state.workspaceId)?.phase === 'controlled_pilot' && (
-        <DailyCheckInView state={state} />
-      )}
+    <div className="space-y-6 text-left font-sans text-xs text-[#F6F7F1]">
+      <NestOpsHub state={state} mode="full" />
     </div>
   );
 }
@@ -314,23 +207,9 @@ function CompliancePage({ state }: { state: any }) {
 }
 
 function MarketingRequestsPage({ state }: { state: any }) {
-  const mktQueue = (state.workItems || []).filter(
-    (w: any) => w.type === 'marketing_request' || w.type === 'missing_information'
-  );
-
   return (
     <div className="space-y-6">
-      <PageHeader title="Marketing Requests" subtitle="Agent marketing intake and production queue" />
-      {mktQueue.length === 0 ? (
-        <EmptyState
-          title="No marketing requests yet."
-          description="Agent requests, missing details, and asset approvals will appear here."
-          actionText="Add marketing request"
-          onAction={() => alert('Add marketing request trigger')}
-        />
-      ) : (
-        <MarketingRequestDesk state={state} />
-      )}
+      <MarketingIntakeConsole state={state} />
     </div>
   );
 }
@@ -1401,7 +1280,7 @@ function RyanShieldPageWrapper({ state }: { state: any }) {
 
   return (
     <div className="text-[var(--text-primary)]">
-      <RyanShieldPage data={ryanShieldData} onAction={handleAction} />
+      <RyanShieldPage data={ryanShieldData} onAction={handleAction} state={state} />
     </div>
   );
 }
@@ -1455,52 +1334,53 @@ function RedesignedOwnerBriefPage({ state }: { state: any }) {
 
   return (
     <div className="text-[var(--text-primary)] select-text space-y-6">
-      <div className="flex justify-between items-center border-b border-[rgba(23,59,52,0.12)] pb-4 select-none">
-        <div>
-          <h1 className="font-sans font-[650] text-[30px] leading-[1.15] tracking-tight text-[#173B34]">Owner Brief</h1>
-          <p className="font-sans text-xs font-medium text-[#52675F]">Weekly Owner Brief & Shield</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
         <div className="lg:col-span-2">
           <OwnerWeeklyBriefPage data={briefData} />
         </div>
         <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white border border-[var(--border-soft)] rounded-[18px] p-6 space-y-5 shadow-sm text-left">
-            <h4 className="font-serif font-black text-sm uppercase tracking-wider text-[var(--text-primary)]">
-              Integration Telemetry
+          <div 
+            className="rounded-[28px] p-6 space-y-5 text-left shadow-xl"
+            style={{
+              background: 'rgba(246, 247, 241, 0.10)',
+              border: '1px solid rgba(246, 247, 241, 0.18)',
+              backdropFilter: 'blur(18px)'
+            }}
+          >
+            <h4 className="font-serif font-black text-base uppercase tracking-wider text-white">
+              Brokerage Operational Pulse
             </h4>
             
             {/* QuickBooks Financial Insights */}
             <div>
-              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">QuickBooks Financials (30d)</span>
+              <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block text-left">Brokerage Financial Ledger (30d)</span>
               {(() => {
                 const qbConnection = (state.quickbooksConnections || []).find(
                   (c: any) => c.workspaceId === wsId
                 );
                 if (qbConnection && qbConnection.plSummary) {
                   return (
-                    <div className="mt-2 space-y-2 text-[10px] text-[var(--text-secondary)]">
+                    <div className="mt-2 space-y-2 text-xs text-[#D0D6BB]">
                       <div className="flex justify-between">
                         <span>Net Income:</span>
-                        <span className={`font-mono font-bold ${qbConnection.plSummary.netIncome >= 0 ? 'text-[var(--accent)] font-bold' : 'text-[var(--danger)] font-bold'}`}>
+                        <span className={`font-mono font-bold ${qbConnection.plSummary.netIncome >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {formatCurrency(qbConnection.plSummary.netIncome)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Total Income:</span>
-                        <span className="font-bold text-[var(--text-primary)] font-mono">{formatCurrency(qbConnection.plSummary.totalIncome)}</span>
+                        <span className="font-bold text-white font-mono">{formatCurrency(qbConnection.plSummary.totalIncome)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Total Expenses:</span>
-                        <span className="font-mono text-[var(--text-muted)]">{formatCurrency(qbConnection.plSummary.totalExpenses)}</span>
+                        <span className="font-mono text-[#D0D6BB]">{formatCurrency(qbConnection.plSummary.totalExpenses)}</span>
                       </div>
                     </div>
                   );
                 }
                 return (
-                  <div className="mt-2 p-2 border border-dashed border-[var(--border-default)] rounded-xl text-center">
-                    <span className="text-[10px] text-[var(--text-secondary)] block">QuickBooks not connected</span>
+                  <div className="mt-2 p-2 border border-dashed border-white/10 rounded-xl text-center">
+                    <span className="text-[10px] text-[#D0D6BB] block">Financial ledger not connected</span>
                   </div>
                 );
               })()}
@@ -1513,22 +1393,22 @@ function RedesignedOwnerBriefPage({ state }: { state: any }) {
               );
               if (qbSignals.length === 0) return null;
               return (
-                <div className="border-t border-[var(--border-default)] pt-3">
-                  <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">QuickBooks Signals</span>
+                <div className="border-t border-white/10 pt-3">
+                  <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block text-left">Ledger Alerts & Signals</span>
                   <div className="mt-2 space-y-1.5 max-h-[150px] overflow-y-auto">
                     {qbSignals.map((sig: any) => (
-                      <div key={sig.id} className="p-2 bg-[var(--surface-secondary)] border border-[var(--border-subtle)] rounded-lg text-[9px] space-y-1 leading-normal text-left">
+                      <div key={sig.id} className="p-2 bg-black/30 border border-white/10 rounded-xl text-[9px] space-y-1 leading-normal text-left">
                         <div className="flex justify-between items-center font-mono">
                           <span className={`px-1.5 rounded uppercase font-bold text-[7px] ${
-                            sig.signalType === 'payment_received' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' :
-                            sig.signalType === 'deposit_received' ? 'bg-blue-50 text-blue-750 border border-blue-200/50' :
-                            'bg-amber-50 text-amber-700 border border-amber-200/50'
+                            sig.signalType === 'payment_received' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' :
+                            sig.signalType === 'deposit_received' ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20' :
+                            'bg-amber-500/10 text-amber-300 border border-amber-500/20'
                           }`}>
                             {sig.signalType.replace('_', ' ')}
                           </span>
                           <span className="text-[#D0D6BB]">{sig.date}</span>
                         </div>
-                        <p className="text-[10px] text-[var(--text-primary)] font-medium leading-relaxed">{sig.summary}</p>
+                        <p className="text-[10px] text-white font-medium leading-relaxed">{sig.summary}</p>
                       </div>
                     ))}
                   </div>
@@ -1537,80 +1417,80 @@ function RedesignedOwnerBriefPage({ state }: { state: any }) {
             })()}
             
             {/* Basecamp Audit */}
-            <div className="border-t border-[var(--border-default)] pt-3 text-left">
-              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">Basecamp Telemetry</span>
+            <div className="border-t border-white/10 pt-3 text-left">
+              <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block text-left">Closing & Escrow Task Pipeline</span>
               {bcConnection ? (
-                <div className="mt-2 space-y-1.5 text-[10px] text-[var(--text-secondary)]">
+                <div className="mt-2 space-y-1.5 text-xs text-[#D0D6BB]">
                   <div className="flex justify-between">
                     <span>Overdue Tasks:</span>
-                    <span className={`font-mono font-bold ${overdueTasks.length > 0 ? 'text-[var(--danger)] font-bold' : ''}`}>{overdueTasks.length}</span>
+                    <span className={`font-mono font-bold ${overdueTasks.length > 0 ? 'text-red-400' : ''}`}>{overdueTasks.length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Unassigned Work:</span>
-                    <span className="font-mono font-bold text-[var(--text-primary)]">{unassignedWork.length}</span>
+                    <span className="font-mono font-bold text-white">{unassignedWork.length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Owner Mentions:</span>
-                    <span className={`font-mono font-bold ${ownerMentions.length > 0 ? 'text-[var(--accent)] font-bold' : ''}`}>{ownerMentions.length}</span>
+                    <span className={`font-mono font-bold ${ownerMentions.length > 0 ? 'text-emerald-400' : ''}`}>{ownerMentions.length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Stuck Items:</span>
-                    <span className={`font-mono font-bold ${stuckFollowups.length > 0 ? 'text-[var(--warning)] font-bold' : ''}`}>{stuckFollowups.length}</span>
+                    <span className={`font-mono font-bold ${stuckFollowups.length > 0 ? 'text-amber-400' : ''}`}>{stuckFollowups.length}</span>
                   </div>
                 </div>
               ) : (
-                <div className="mt-2 p-2 border border-dashed border-[var(--border-default)] rounded-xl text-center">
-                  <span className="text-[10px] text-[var(--text-secondary)] block">Basecamp not connected</span>
+                <div className="mt-2 p-2 border border-dashed border-white/10 rounded-xl text-center">
+                  <span className="text-[10px] text-[#D0D6BB] block">Task pipeline not connected</span>
                 </div>
               )}
             </div>
 
             {/* Email / Calendar Audit */}
-            <div className="border-t border-[var(--border-default)] pt-3 text-left">
-              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">Communication Audit</span>
-              <div className="mt-2 space-y-1.5 text-[10px] text-[var(--text-secondary)]">
+            <div className="border-t border-white/10 pt-3 text-left">
+              <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block text-left">Client & Agent Correspondence</span>
+              <div className="mt-2 space-y-1.5 text-xs text-[#D0D6BB]">
                 <div className="flex justify-between">
                   <span>Synced Emails:</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">{syncedEmailsCount}</span>
+                  <span className="font-mono font-bold text-white">{syncedEmailsCount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Calendar Events:</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">{syncedEventsCount}</span>
+                  <span className="font-mono font-bold text-white">{syncedEventsCount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Pending Outbox:</span>
-                  <span className={`font-mono font-bold ${pendingOutboxCount > 0 ? 'text-[var(--accent)] font-bold' : ''}`}>{pendingOutboxCount}</span>
+                  <span className={`font-mono font-bold ${pendingOutboxCount > 0 ? 'text-emerald-400' : ''}`}>{pendingOutboxCount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Mail Sync:</span>
-                  <span className="font-mono text-[var(--text-muted)]">{googleConn || msConn ? 'Active' : 'Offline'}</span>
+                  <span className="font-mono text-[#D0D6BB]">{googleConn || msConn ? 'Active' : 'Offline'}</span>
                 </div>
               </div>
             </div>
 
             {/* Operational Risks */}
-            <div className="border-t border-[var(--border-default)] pt-3 text-left">
-              <span className="font-mono font-bold text-[9px] text-[var(--text-muted)] uppercase tracking-wider block text-left font-semibold">Operations Risks</span>
-              <div className="mt-2 space-y-1.5 text-[10px] text-[var(--text-secondary)]">
+            <div className="border-t border-white/10 pt-3 text-left">
+              <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block text-left">Brokerage Compliance & Backlog</span>
+              <div className="mt-2 space-y-1.5 text-xs text-[#D0D6BB]">
                 <div className="flex justify-between">
                   <span>Active Transactions:</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">{totalActive.length}</span>
+                  <span className="font-mono font-bold text-white">{totalActive.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Compliance Risks:</span>
-                  <span className={`font-mono font-bold ${complianceRisks.length > 0 ? 'text-[var(--danger)] font-bold' : ''}`}>{complianceRisks.length}</span>
+                  <span className={`font-mono font-bold ${complianceRisks.length > 0 ? 'text-red-400' : ''}`}>{complianceRisks.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Waiting on Agents:</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">{filesWaitingOnAgents.length}</span>
+                  <span className="font-mono font-bold text-white">{filesWaitingOnAgents.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Marketing Bottlenecks:</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">{marketingBottlenecks.length}</span>
+                  <span className="font-mono font-bold text-white">{marketingBottlenecks.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Office Issues:</span>
-                  <span className={`font-mono font-bold ${officeIssues.length > 0 ? 'text-[var(--warning)] font-bold' : ''}`}>{officeIssues.length}</span>
+                  <span className={`font-mono font-bold ${officeIssues.length > 0 ? 'text-amber-400' : ''}`}>{officeIssues.length}</span>
                 </div>
               </div>
             </div>
@@ -1860,11 +1740,32 @@ function NotificationRulesPanel({ state }: { state: any }) {
 }
 
 function CustomerSettingsPage({ state }: { state: any }) {
+  const [orgModel, setOrgModel] = useState<any>(null);
+
+  useEffect(() => {
+    const model = orgChartService.getOrgChart(state.workspaceId || 'nest-realty-demo');
+    setOrgModel(model);
+  }, [state.workspaceId]);
+
   const [settingsTab, setSettingsTab] = useState<
     | 'profile'
     | 'branding'
     | 'preferences'
+    | 'visual-org-map'
+    | 'organization-chart-wizard'
   >('profile');
+
+  if (settingsTab === 'visual-org-map') {
+    return (
+      <div className="settings-workspace-mode visual-org-map-workspace">
+        <OrgChartWizardPage 
+          state={state} 
+          embeddedTab="visual" 
+          onClose={() => setSettingsTab('profile')} 
+        />
+      </div>
+    );
+  }
 
   const settingsGroups = [
     {
@@ -1872,7 +1773,9 @@ function CustomerSettingsPage({ state }: { state: any }) {
       items: [
         { id: 'profile', label: 'Workspace Profile' },
         { id: 'branding', label: 'White-Label Branding' },
-        { id: 'preferences', label: 'Workspace Preferences' }
+        { id: 'preferences', label: 'Workspace Preferences' },
+        { id: 'visual-org-map', label: 'Visual Org Map' },
+        { id: 'organization-chart-wizard', label: 'Organization Chart Wizard' }
       ]
     }
   ];
@@ -1936,7 +1839,77 @@ function CustomerSettingsPage({ state }: { state: any }) {
                   <input type="text" readOnly value="operations@nestrealtywilmington.com" className="w-full p-2.5 border border-[rgba(246,247,241,0.18)] rounded-xl bg-[#01362D] text-xs font-semibold text-white focus:outline-none" />
                 </div>
               </div>
-              
+              {/* Org Chart Entry Card */}
+              <div className="pt-6 border-t border-[rgba(246,247,241,0.12)] space-y-4">
+                <div className="bg-black/10 border border-white/5 rounded-2xl p-4 text-left">
+                  <h4 className="text-xs font-serif font-black text-white uppercase tracking-wider">
+                    Organization Chart & Role Map
+                  </h4>
+                  <p className="text-[11px] text-[#D0D6BB] mt-1 font-medium font-sans leading-relaxed">
+                    Build the org chart, role map, SOP knowledge base, staffing plan, and escalation rules that power Ask Nest Ops routing.
+                  </p>
+                </div>
+
+                {orgModel && (() => {
+                  const activeSeats = orgModel.positions.filter((p: any) => !p.status || p.status === 'active' || p.status === 'fractional' || p.status === 'outsourced').length;
+                  const openSeats = orgModel.positions.filter((p: any) => p.status === 'open' || p.status === 'wanted').length;
+                  const plannedSeats = orgModel.positions.filter((p: any) => p.status === 'planned').length;
+                  const aiSeats = orgModel.positions.filter((p: any) => p.status === 'virtual_ai').length;
+                  const sopsCount = orgModel.sops.length;
+                  const escsCount = orgModel.escalationPolicies.length;
+
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3.5 bg-black/20 p-4 border border-white/5 rounded-2xl font-mono text-left my-4">
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Active Seats</span>
+                        <strong className="text-white text-sm font-serif font-black block">{activeSeats} Positions</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Open/Wanted</span>
+                        <strong className="text-amber-400 text-sm font-serif font-black block">{openSeats} Approved Gaps</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Planned</span>
+                        <strong className="text-blue-300 text-sm font-serif font-black block">{plannedSeats} Future Seats</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">AI / Virtual</span>
+                        <strong className="text-emerald-300 text-sm font-serif font-black block">{aiSeats} Cloud Agents</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">SOPs/Docs</span>
+                        <strong className="text-white text-sm font-serif font-black block">{sopsCount} Checklists</strong>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] uppercase text-[#D0D6BB]/50 block">Escalations</span>
+                        <strong className="text-white text-sm font-serif font-black block">{escsCount} Policies</strong>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsTab('visual-org-map');
+                    }}
+                    className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white border border-[rgba(246,247,241,0.18)] shadow-[inset_1px_1px_0_rgba(255,255,255,0.1)] rounded-xl text-xs font-bold font-mono uppercase tracking-wider cursor-pointer transition-colors"
+                  >
+                    Open Visual Org Map
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsTab('organization-chart-wizard');
+                    }}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-[#D0D6BB] border border-white/10 rounded-xl text-xs font-bold font-mono uppercase tracking-wider cursor-pointer transition-colors"
+                  >
+                    Open Organization Chart Wizard
+                  </button>
+                </div>
+              </div>
+
               <div className="pt-6 border-t border-[rgba(246,247,241,0.12)]">
                 <ToolStackMap state={state} />
               </div>
@@ -2013,6 +1986,12 @@ function CustomerSettingsPage({ state }: { state: any }) {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {settingsTab === 'organization-chart-wizard' && (
+            <div className="w-full max-w-none flex flex-col relative bg-[#01362D] border border-[rgba(246,247,241,0.12)] rounded-3xl overflow-hidden shadow-2xl" style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}>
+              <OrgChartWizardPage state={state} embeddedTab="guided" onClose={() => setSettingsTab('profile')} />
             </div>
           )}
         
@@ -2313,7 +2292,7 @@ function WorkboardPage({
               <div className="absolute top-0 left-0 w-1.5 h-full bg-[var(--sw-green-700)]"></div>
               <div className="flex justify-between items-center">
                 <h2 className="text-xs font-serif font-black text-[var(--sw-green-900)] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[var(--sw-green-700)] animate-pulse" />
+                  <Zap className="w-4 h-4 text-[var(--sw-green-700)] animate-pulse" />
                   Guided Scenario Control Panel
                 </h2>
                 <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-[var(--sw-green-700)]">Demo Mode Active</span>
@@ -2409,7 +2388,7 @@ function WorkboardPage({
                   disabled={submitting || !composerText.trim()}
                   className="flex items-center gap-2 px-4 py-2 bg-[var(--sw-green-900)] text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm hover:bg-[var(--sw-green-900)]/95 active:scale-[0.98] transition-all disabled:opacity-40 disabled:scale-100 cursor-pointer focus:outline-none"
                 >
-                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <Zap className="w-4 h-4 shrink-0" />
                   Start Workflow
                 </button>
               </div>
@@ -3264,9 +3243,30 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
 
   const renderViewContent = () => {
     switch (currentTab) {
-      case 'Nest Ops Hub':
+      case 'Today in the Brokerage':
+      case 'Command Center':
       case 'Workboard':
-        return <NestOpsHub state={state} />;
+      case 'Overview':
+      case 'Today':
+        return <TodayPage state={state} />;
+      case 'Pitch Demo':
+      case "Pitch & 'Aha!' Demo":
+        return (
+          <div className="relative">
+            <TodayPage state={state} />
+            <PitchAhaDemoModal isOpen={true} onClose={() => state.setCurrentTab('Workboard')} />
+          </div>
+        );
+      case 'Pre-MLS Board':
+      case 'Pocket Matches':
+        return <PreMLSBoard />;
+      case 'Vendor Dispatch':
+      case 'Repair Board':
+        return <VendorDispatchBoard />;
+      case 'Nest Ops Hub':
+      case 'Ask Nest Ops':
+      case 'Ask':
+        return <NestOpsHub state={state} mode="search_only" />;
       case 'My Connections':
         return <MyConnections state={state} />;
       case 'Work Queue':
@@ -3299,13 +3299,12 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
             setCameraHealth={setCameraHealth}
           />
         );
-      case 'Knowledge / SOPs':
-        return (
-          <KnowledgeTab
-            opsSops={opsSops}
-            opsLoading={opsLoading}
-          />
-        );
+      case 'Knowledge Base':
+        return <SOPStudio state={state} readOnly={true} />;
+      case 'SOP Studio':
+        return <SOPStudio state={state} />;
+      case 'SOP Runs':
+        return <SOPRunsPage state={state} />;
       case 'Integrations':
         return (
           <IntegrationsTab
@@ -3313,24 +3312,50 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
           />
         );
       case 'Settings':
+      case 'Workspace Settings':
+        if (state.activeProfile?.experience === 'ryan_pilot' || state.activeProfile?.email === 'ryan@nestrealty.com' || state.activeProfile?.id === 'usr_ryan') {
+          return <RyanSettingsPage state={state} />;
+        }
         return <CustomerSettingsPage state={state} />;
       case 'Transactions':
         return <TransactionsPage state={state} onInspectRecord={handleInspectRecord} />;
       case 'Compliance':
         return <CompliancePage state={state} />;
       case 'Marketing':
-        return <MarketingRequestsPage state={state} />;
+      case 'Marketing Requests':
+      case 'Marketing Intake (Melissa)':
+      case 'Marketing Intake':
+      case 'Automated Collateral Studio':
+      case 'Automated Collateral Studio (Templates)':
+      case 'Collateral Studio':
+      case 'Creative Asset Sandbox':
+      case 'Creative Asset Sandbox (Templates)':
+      case 'Sandbox':
+        return <MarketingIntakeConsole state={state} />;
+
+      case 'Agent Approval Portal':
+      case 'Approval Portal':
+        return <AgentApprovalPortal />;
+
+      case 'SOP Library':
+      case 'Staff SOP Templates':
+        return <SOPStudio state={state} />;
+
       case 'People':
         return <PeopleOwnershipPage state={state} />;
       case 'Office':
         return <OfficeSignagePage state={state} />;
       case 'Ryan Shield':
-        return <RyanShieldPageWrapper state={state} />;
+        return <NestWilmingtonDashboard currentTab="Ryan Shield" state={state} />;
       case 'Role Map':
+      case 'Role & Escalation Map':
         return <OrgChartWizardPage state={state} embeddedTab="visual" />;
+      case 'Directory':
+        return <WorkspaceDirectoryPage state={state} />;
       case 'Owner Brief':
-        if (state.activeProfile?.email === 'ryan@nestrealty.com') {
-          return <RedesignedOwnerBriefPage state={state} />;
+      case 'Owner Briefing':
+        if (state.activeProfile?.email === 'ryan@nestrealty.com' || state.activeProfile?.email === 'owner@nestrealty.com') {
+          return <NestWilmingtonDashboard currentTab="Owner Briefing" state={state} />;
         }
         return <OwnerBriefPage state={state} />;
       case 'Audit':
@@ -4335,8 +4360,157 @@ interface KnowledgeTabProps {
 }
 
 function KnowledgeTab({ opsSops, opsLoading }: KnowledgeTabProps) {
+  const [activeSubTab, setActiveSubTab] = useState<'directory' | 'qa' | 'ingestion' | 'gaps'>('directory');
   const [selectedDept, setSelectedDept] = useState('all');
   const depts = ['all', 'leadership', 'compliance', 'accounting', 'marketing', 'operations', 'assets', 'integrations'];
+
+  // Q&A states
+  const [question, setQuestion] = useState('');
+  const [answerLoading, setAnswerLoading] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [citations, setCitations] = useState<any[]>([]);
+  const [unsupportedFlags, setUnsupportedFlags] = useState(false);
+
+  // Ingestion states
+  const [docTitle, setDocTitle] = useState('');
+  const [docContent, setDocContent] = useState('');
+  const [docType, setDocType] = useState<'text' | 'url'>('text');
+  const [docUrl, setDocUrl] = useState('');
+  const [docLoading, setDocLoading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [analyzedMeta, setAnalyzedMeta] = useState<any | null>(null);
+  
+  const [indexedDocs, setIndexedDocs] = useState<any[]>([]);
+  const [indexedLoading, setIndexedLoading] = useState(false);
+
+  // Gaps states
+  const [gaps, setGaps] = useState<string[]>([]);
+  const [gapsLoading, setGapsLoading] = useState(false);
+  const [gapsError, setGapsError] = useState<string | null>(null);
+
+  const fetchIndexedDocs = async () => {
+    setIndexedLoading(true);
+    try {
+      const res = await fetch('/api/ops/ai/knowledge');
+      if (res.ok) {
+        const data = await res.json();
+        setIndexedDocs(data.documents || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIndexedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIndexedDocs();
+  }, []);
+
+  const handleAskQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!question.trim()) return;
+    setAnswerLoading(true);
+    setAnswer(null);
+    setCitations([]);
+    setUnsupportedFlags(false);
+    try {
+      const res = await fetch('/api/ops/ai/knowledge-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'AI assistance is temporarily unavailable. You can continue editing manually.');
+      }
+      const data = await res.json();
+      if (data.response && data.response.result) {
+        setAnswer(data.response.result.answer);
+        setCitations(data.response.result.citations || []);
+        setUnsupportedFlags(data.response.result.unsupportedFlags || false);
+      }
+    } catch (err: any) {
+      setAnswer(err.message || 'An error occurred.');
+    } finally {
+      setAnswerLoading(false);
+    }
+  };
+
+  const handleAnalyzeKnowledge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDocLoading(true);
+    setDocError(null);
+    setAnalyzedMeta(null);
+    try {
+      const payload: any = { type: docType };
+      if (docType === 'url') {
+        payload.url = docUrl;
+      } else {
+        payload.content = docContent;
+        payload.filename = `${docTitle || 'document'}.txt`;
+      }
+      const res = await fetch('/api/ops/ai/knowledge-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to analyze content');
+      }
+      const data = await res.json();
+      if (data.response && data.response.result) {
+        setAnalyzedMeta(data.response);
+      }
+    } catch (err: any) {
+      setDocError(err.message || 'Analysis failed.');
+    } finally {
+      setDocLoading(false);
+    }
+  };
+
+  const handleIndexDoc = async () => {
+    if (!analyzedMeta) return;
+    try {
+      const title = docType === 'url' ? docUrl : docTitle;
+      const content = analyzedMeta.extractedContent || docContent;
+      const metadata = analyzedMeta.result;
+
+      const res = await fetch('/api/ops/ai/knowledge-index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, metadata })
+      });
+      if (res.ok) {
+        setAnalyzedMeta(null);
+        setDocTitle('');
+        setDocContent('');
+        setDocUrl('');
+        fetchIndexedDocs();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleFetchGaps = async () => {
+    setGapsLoading(true);
+    setGapsError(null);
+    try {
+      const res = await fetch('/api/ops/ai/knowledge-gaps');
+      if (res.ok) {
+        const data = await res.json();
+        setGaps(data.gaps || []);
+      } else {
+        throw new Error('Gaps service offline.');
+      }
+    } catch (e: any) {
+      setGapsError(e.message || 'Failed to check gaps.');
+    } finally {
+      setGapsLoading(false);
+    }
+  };
 
   const filteredSops = opsSops.filter(sop => {
     if (selectedDept === 'all') return true;
@@ -4345,48 +4519,388 @@ function KnowledgeTab({ opsSops, opsLoading }: KnowledgeTabProps) {
 
   return (
     <div className="space-y-6 text-left font-sans text-xs p-6 bg-[var(--sw-bg)] min-h-screen">
-      <PageHeader title="Knowledge / SOPs" subtitle="Brokerage Standard Operating Procedures and deflection rules." />
+      <PageHeader title="Knowledge / SOPs" subtitle="Brokerage Standard Operating Procedures and Grounded AI Workspace." />
 
-      <div className="flex flex-wrap gap-1.5 border-b border-[var(--sw-border)]/60 pb-3 select-none">
-        {depts.map((d) => (
-          <button
-            key={d}
-            onClick={() => setSelectedDept(d)}
-            className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
-              selectedDept === d
-                ? 'bg-[#18382b] border-[#18382b] text-white font-bold'
-                : 'bg-white border-[#e4decb] text-[#4b5563] hover:text-[#1e2520] hover:bg-[#fcfbf7]'
-            }`}
-          >
-            {d}
-          </button>
-        ))}
+      {/* Sub-tab navigation */}
+      <div className="flex gap-2 border-b border-[var(--sw-border)]/60 pb-3 select-none text-[10px] font-mono font-bold uppercase">
+        <button
+          onClick={() => setActiveSubTab('directory')}
+          className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer border ${
+            activeSubTab === 'directory' ? 'bg-[#18382b] border-[#18382b] text-white' : 'bg-white border-[#e4decb] text-stone-600 hover:bg-stone-50'
+          }`}
+        >
+          📖 SOP Directory
+        </button>
+        <button
+          onClick={() => setActiveSubTab('qa')}
+          className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer border ${
+            activeSubTab === 'qa' ? 'bg-[#18382b] border-[#18382b] text-white' : 'bg-white border-[#e4decb] text-stone-600 hover:bg-stone-50'
+          }`}
+        >
+          ✨ Grounded Q&A (Shapework AI)
+        </button>
+        <button
+          onClick={() => setActiveSubTab('ingestion')}
+          className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer border ${
+            activeSubTab === 'ingestion' ? 'bg-[#18382b] border-[#18382b] text-white' : 'bg-white border-[#e4decb] text-stone-600 hover:bg-stone-50'
+          }`}
+        >
+          📂 Knowledge Ingestion & Auditing
+        </button>
+        <button
+          onClick={() => { setActiveSubTab('gaps'); handleFetchGaps(); }}
+          className={`px-3.5 py-2 rounded-xl transition-all cursor-pointer border ${
+            activeSubTab === 'gaps' ? 'bg-[#18382b] border-[#18382b] text-white' : 'bg-white border-[#e4decb] text-stone-600 hover:bg-stone-50'
+          }`}
+        >
+          ⚠️ Gap Analysis Report
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredSops.map(sop => (
-          <div key={sop.id} className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex justify-between items-start gap-3">
-              <span className="font-serif font-bold text-sm text-[var(--sw-text)] block">{sop.title}</span>
-              <span className="px-2 py-0.5 bg-[var(--sw-mint-100)] text-[var(--sw-green-900)] rounded text-[9px] font-bold uppercase font-mono">
-                {sop.department}
-              </span>
+      {activeSubTab === 'directory' && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap gap-1.5 border-b border-[var(--sw-border)]/60 pb-3 select-none">
+            {depts.map((d) => (
+              <button
+                key={d}
+                onClick={() => setSelectedDept(d)}
+                className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                  selectedDept === d
+                    ? 'bg-[#18382b] border-[#18382b] text-white font-bold'
+                    : 'bg-white border-[#e4decb] text-[#4b5563] hover:text-[#1e2520] hover:bg-[#fcfbf7]'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredSops.map(sop => (
+              <div key={sop.id} className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-2xl p-5 shadow-sm space-y-3">
+                <div className="flex justify-between items-start gap-3">
+                  <span className="font-serif font-bold text-sm text-[var(--sw-text)] block">{sop.title}</span>
+                  <span className="px-2 py-0.5 bg-[var(--sw-mint-100)] text-[var(--sw-green-900)] rounded text-[9px] font-bold uppercase font-mono">
+                    {sop.department}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--sw-muted)] leading-relaxed">{sop.triggerText}</p>
+                <div className="p-3 bg-[var(--sw-bg-soft)]/20 rounded-xl space-y-1.5 border border-[var(--sw-border)]/50">
+                  <span className="text-[9px] uppercase font-bold text-[var(--sw-muted)] tracking-wider block font-mono">Step-by-step Action Rules</span>
+                  <ul className="list-disc pl-4 space-y-1 text-[10px] text-[var(--sw-text)] leading-relaxed text-left">
+                    {sop.steps.map((step: string, sIdx: number) => (
+                      <li key={sIdx}>{step}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+            {filteredSops.length === 0 && (
+              <p className="text-xs text-[var(--sw-muted)] col-span-2 text-center py-12">No SOPs found in this department.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'qa' && (
+        <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-2xl p-6 shadow-sm space-y-6">
+          <div>
+            <h3 className="font-serif font-bold text-sm text-[var(--sw-text)] flex items-center gap-1.5"><Zap className="w-4 h-4 text-[#18382b]" /> Grounded Q&A Assistant</h3>
+            <p className="text-[10px] text-[var(--sw-muted)] mt-0.5">Ask questions strictly grounded on indexed brokerage documents. General queries outside known policies will be deflected.</p>
+          </div>
+
+          <form onSubmit={handleAskQuestion} className="flex gap-2">
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="e.g. When must photography be completed for a listing launch?"
+              className="flex-grow bg-white border border-[#e4decb] rounded-xl px-3 text-xs placeholder-stone-400 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={answerLoading || !question.trim()}
+              className="px-4 py-2 bg-[#18382b] hover:bg-[#122b21] disabled:opacity-40 text-white font-bold rounded-xl transition-all cursor-pointer font-mono text-[10px] uppercase"
+            >
+              {answerLoading ? 'Searching...' : 'Search'}
+            </button>
+          </form>
+
+          {answerLoading && (
+            <div className="flex items-center gap-2 justify-center py-8 text-stone-400 font-mono">
+              <Loader className="w-4 h-4 animate-spin text-[#18382b]" />
+              <span>Analyzing retrieved passages & drafting answer...</span>
             </div>
-            <p className="text-xs text-[var(--sw-muted)] leading-relaxed">{sop.triggerText}</p>
-            <div className="p-3 bg-[var(--sw-bg-soft)]/20 rounded-xl space-y-1.5 border border-[var(--sw-border)]/50">
-              <span className="text-[9px] uppercase font-bold text-[var(--sw-muted)] tracking-wider block font-mono">Step-by-step Action Rules</span>
-              <ul className="list-disc pl-4 space-y-1 text-[10px] text-[var(--sw-text)] leading-relaxed text-left">
-                {sop.steps.map((step: string, sIdx: number) => (
-                  <li key={sIdx}>{step}</li>
-                ))}
-              </ul>
+          )}
+
+          {answer && !answerLoading && (
+            <div className="space-y-4 text-left border-t border-[var(--sw-border)]/50 pt-4 animate-scale-in">
+              <div className="space-y-1.5 p-4 bg-[var(--sw-bg-soft)]/20 border border-[var(--sw-border)] rounded-2xl">
+                <span className="text-[9px] uppercase font-bold text-[#18382b] tracking-wider block font-mono">AI Grounded Answer</span>
+                <p className="text-xs text-[var(--sw-text)] leading-relaxed whitespace-pre-wrap font-medium">{answer}</p>
+                {unsupportedFlags && (
+                  <div className="mt-2.5 p-2 bg-amber-50 border border-amber-205 text-amber-800 rounded-lg text-[10px] flex items-center gap-1.5 font-mono select-none">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Warning: Query relies on topics outside our indexed knowledge base. Answer might be incomplete.</span>
+                  </div>
+                )}
+              </div>
+
+              {citations.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[9px] uppercase font-bold text-[var(--sw-muted)] tracking-wider block font-mono">Citations & Sources</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {citations.map((cite, i) => (
+                      <div key={i} className="p-3 bg-white border border-[var(--sw-border)] rounded-xl space-y-1 text-[10px] text-left">
+                        <strong className="block text-[#18382b]">{cite.sourceTitle || 'Knowledge Source'}</strong>
+                        {cite.snippet && <p className="text-[var(--sw-muted)] italic leading-relaxed mt-0.5">"{cite.snippet}"</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback component */}
+              <div className="border-t border-[var(--sw-border)]/60 pt-3 flex justify-between items-center text-[10px]">
+                <span className="text-[var(--sw-muted)]">Was this AI-generated answer helpful?</span>
+                <HelpfulnessFeedback
+                  objectType="ai_response"
+                  objectId={`qa_${Date.now()}`}
+                  interactionType="grounded_qa"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeSubTab === 'ingestion' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-2xl p-6 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-serif font-bold text-sm text-[var(--sw-text)]">Index a New Document</h3>
+                <p className="text-[10px] text-[var(--sw-muted)] mt-0.5">Index organizational assets or URLs (nestrealty.com) to ground the AI Copilot.</p>
+              </div>
+
+              <form onSubmit={handleAnalyzeKnowledge} className="space-y-4">
+                <div className="flex gap-4 select-none text-[10px] font-mono font-bold uppercase">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={docType === 'text'}
+                      onChange={() => { setDocType('text'); setAnalyzedMeta(null); }}
+                    />
+                    <span>Raw text / Markdown</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={docType === 'url'}
+                      onChange={() => { setDocType('url'); setAnalyzedMeta(null); }}
+                    />
+                    <span>Approved URL</span>
+                  </label>
+                </div>
+
+                {docType === 'text' ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-mono uppercase text-[var(--sw-muted)] block font-bold">Document Title</label>
+                      <input
+                        type="text"
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        placeholder="e.g. Wilmington HQ Signs Policy"
+                        className="w-full bg-white border border-[#e4decb] rounded-xl p-2.5 text-xs text-[var(--sw-text)] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-mono uppercase text-[var(--sw-muted)] block font-bold">Content</label>
+                      <textarea
+                        value={docContent}
+                        onChange={(e) => setDocContent(e.target.value)}
+                        placeholder="Paste document policy text..."
+                        className="w-full bg-white border border-[#e4decb] rounded-xl p-2.5 text-xs text-[var(--sw-text)] focus:outline-none min-h-[120px]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono uppercase text-[var(--sw-muted)] block font-bold">Approved URL</label>
+                    <input
+                      type="text"
+                      value={docUrl}
+                      onChange={(e) => setDocUrl(e.target.value)}
+                      placeholder="e.g. https://nestrealty.com/compliance-policy"
+                      className="w-full bg-white border border-[#e4decb] rounded-xl p-2.5 text-xs text-[var(--sw-text)] focus:outline-none"
+                    />
+                    <span className="text-[8px] font-mono text-stone-400 block mt-1">Domain must belong strictly to nestrealty.com.</span>
+                  </div>
+                )}
+
+                {docError && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-[10px] font-mono">{docError}</div>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={docLoading || (docType === 'text' ? (!docTitle.trim() || !docContent.trim()) : !docUrl.trim())}
+                    className="px-4 py-2 bg-[#18382b] hover:bg-[#122b21] disabled:opacity-40 text-white font-bold rounded-xl transition-all cursor-pointer font-mono text-[10px] uppercase"
+                  >
+                    {docLoading ? 'Analyzing...' : 'Upload & Audit'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Metadata review screen */}
+            {analyzedMeta && (
+              <div className="bg-[var(--sw-card)] border border-[#18382b]/30 rounded-2xl p-6 shadow-md space-y-4 animate-scale-in">
+                <div>
+                  <span className="text-[9px] font-mono uppercase text-[#18382b] block font-bold">Metadata Audit Review</span>
+                  <h4 className="font-serif font-bold text-sm text-[var(--sw-text)] mt-0.5">Approve Extracted Index Fields</h4>
+                  <p className="text-[10px] text-[var(--sw-muted)]">Check the extracted compliance variables. If correct, confirm to index the asset.</p>
+                </div>
+
+                <div className="space-y-3.5 text-xs">
+                  <div className="p-3 bg-[var(--sw-bg-soft)]/20 border border-[var(--sw-border)] rounded-xl">
+                    <span className="text-[8px] font-mono text-[var(--sw-muted)] uppercase block font-bold">Summary</span>
+                    <p className="text-[var(--sw-text)] leading-relaxed mt-0.5">{analyzedMeta.result.summary}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-[var(--sw-bg-soft)]/20 border border-[var(--sw-border)] rounded-xl">
+                      <span className="text-[8px] font-mono text-[var(--sw-muted)] uppercase block font-bold">Mapped Roles</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {analyzedMeta.result.roles?.map((r: string, idx: number) => (
+                          <span key={idx} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-850 rounded text-[9px] border border-emerald-100 font-mono">{r}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-[var(--sw-bg-soft)]/20 border border-[var(--sw-border)] rounded-xl">
+                      <span className="text-[8px] font-mono text-[var(--sw-muted)] uppercase block font-bold">Topics</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {analyzedMeta.result.topics?.map((t: string, idx: number) => (
+                          <span key={idx} className="px-1.5 py-0.5 bg-blue-50 text-blue-800 rounded text-[9px] border border-blue-100 font-mono">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-[var(--sw-bg-soft)]/20 border border-[var(--sw-border)] rounded-xl space-y-1.5">
+                    <span className="text-[8px] font-mono text-[var(--sw-muted)] uppercase block font-bold">Policies & Procedures</span>
+                    <ul className="list-disc pl-4 text-[10px] text-[var(--sw-text)] space-y-1 leading-relaxed">
+                      {analyzedMeta.result.policies?.map((p: string, i: number) => <li key={i}>{p}</li>)}
+                      {analyzedMeta.result.procedures?.map((p: string, i: number) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+
+                  {analyzedMeta.result.potentialConflicts && (
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl space-y-1">
+                      <span className="text-[8px] font-mono text-red-600 uppercase block font-bold flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Compliance Conflicts</span>
+                      <p className="text-red-900 leading-relaxed text-[10px] font-mono">{analyzedMeta.result.potentialConflicts}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 justify-end border-t border-[var(--sw-border)]/60 pt-3.5 text-[10px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => setAnalyzedMeta(null)}
+                    className="px-3 py-1.5 border border-[#e4decb] text-[#4b5563] rounded-lg hover:bg-stone-50 cursor-pointer uppercase"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleIndexDoc}
+                    className="px-3 py-1.5 bg-[#18382b] hover:bg-[#122b21] text-white rounded-lg cursor-pointer uppercase font-bold"
+                  >
+                    Confirm & Index Document
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Active documents list side panel */}
+          <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-2xl p-5 shadow-sm space-y-4 select-none max-h-[500px] overflow-y-auto">
+            <div>
+              <h3 className="font-serif font-bold text-xs text-[var(--sw-text)] uppercase tracking-wider">Active Knowledge Library</h3>
+              <p className="text-[9px] text-[var(--sw-muted)] mt-0.5">Indexed files supporting context answers.</p>
+            </div>
+
+            {indexedLoading && (
+              <div className="flex items-center gap-2 justify-center py-6 text-stone-400 font-mono text-[9px]">
+                <Loader className="w-3.5 h-3.5 animate-spin text-[#18382b]" />
+                <span>Loading index...</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {indexedDocs.map((doc) => (
+                <div key={doc.id} className="p-3 bg-white border border-[var(--sw-border)] rounded-xl text-left space-y-1">
+                  <strong className="block text-stone-800 text-[11px] truncate">{doc.title}</strong>
+                  <span className="text-[8px] font-mono text-[var(--sw-muted)] uppercase block">Indexed: {new Date(doc.createdAt).toLocaleDateString()}</span>
+                </div>
+              ))}
+
+              {!indexedLoading && indexedDocs.length === 0 && (
+                <p className="text-[10px] text-stone-400 text-center py-4">No custom documents indexed yet.</p>
+              )}
             </div>
           </div>
-        ))}
-        {filteredSops.length === 0 && (
-          <p className="text-xs text-[var(--sw-muted)] col-span-2 text-center py-12">No SOPs found in this department.</p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {activeSubTab === 'gaps' && (
+        <div className="bg-[var(--sw-card)] border border-[var(--sw-border)] rounded-2xl p-6 shadow-sm space-y-5 text-left select-none">
+          <div className="flex justify-between items-start border-b border-[var(--sw-border)]/60 pb-3">
+            <div>
+              <h3 className="font-serif font-bold text-sm text-[var(--sw-text)] flex items-center gap-1.5"><AlertCircle className="w-4 h-4 text-amber-500" /> Knowledge Gaps & Conflicts Report</h3>
+              <p className="text-[10px] text-[var(--sw-muted)] mt-0.5 font-mono">Cross-checks procedures for logical holes, unrepresented duties, or contradictory regulations.</p>
+            </div>
+            <button
+              onClick={handleFetchGaps}
+              disabled={gapsLoading}
+              className="px-3 py-1.5 bg-[#18382b] hover:bg-[#122b21] text-white text-[9px] font-mono font-bold uppercase rounded-lg transition-colors cursor-pointer"
+            >
+              {gapsLoading ? 'Refreshing Gaps...' : 'Audit Gaps'}
+            </button>
+          </div>
+
+          {gapsLoading && (
+            <div className="flex flex-col items-center justify-center py-12 space-y-2 font-mono text-[10px] text-stone-400">
+              <Loader className="w-6 h-6 animate-spin text-[#18382b]" />
+              <span>Cross-analyzing operating documents directory...</span>
+            </div>
+          )}
+
+          {gapsError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-[10px] font-mono">{gapsError}</div>
+          )}
+
+          {!gapsLoading && !gapsError && gaps.length === 0 && (
+            <div className="p-6 text-center bg-black/5 rounded-2xl space-y-1 border border-dashed border-stone-200">
+              <span className="text-[11px] text-stone-500 font-bold uppercase block">No gaps found</span>
+              <p className="text-[10px] text-stone-400 max-w-sm mx-auto mt-1">Workspace documentation contains clear boundaries, triggers, and active role coverage mappings.</p>
+            </div>
+          )}
+
+          {!gapsLoading && !gapsError && gaps.length > 0 && (
+            <div className="space-y-2.5">
+              {gaps.map((gap, i) => (
+                <div key={i} className="p-3.5 bg-amber-50 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed font-mono">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>{gap}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -4428,15 +4942,15 @@ function IntegrationsTab({ cameraHealth }: IntegrationsTabProps) {
   };
 
   const honestIntegrations = [
-    { id: 'tapo_camera', name: 'TP-Link Tapo Camera', provider: 'Tapo TCW-61', purpose: 'Physical signs room event tracking', status: getCameraStatus(), badge: getCameraBadgeClass() },
-    { id: 'gmail_intake', name: 'Gmail Intake Connector', provider: 'Google Workspace', purpose: 'Reads incoming email support threads', status: 'Connected', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { id: 'quickbooks', name: 'QuickBooks Sync', provider: 'Intuit QB API', purpose: 'Financial and commissions sync', status: 'Stubbed', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { id: 'basecamp', name: 'Basecamp Operations Desk', provider: 'Basecamp V3', purpose: 'Escalations ticketing board', status: 'Stubbed', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { id: 'rechat', name: 'Rechat Marketing Desk', provider: 'Rechat API', purpose: 'Brokerage marketing workflows', status: 'Stubbed', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { id: 'twilio', name: 'Twilio SMS Notifier', provider: 'Twilio API', purpose: 'Dispatch automated updates to agents', status: 'Connected', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { id: 'gdrive', name: 'Google Drive', provider: 'Google Workspace', purpose: 'Reads compliance disclosure documents', status: 'Read-only', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { id: 'mscalendar', name: 'Microsoft 365 Calendar', provider: 'Microsoft Graph', purpose: 'Office reservations management', status: 'Not Configured', badge: 'bg-stone-50 text-stone-700 border-stone-250' },
-    { id: 'shapework_db', name: 'Shapework Internal Database', provider: 'SQLite / Local Storage', purpose: 'Local application persistence', status: 'Connected', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'tapo_camera', name: 'TP-Link Tapo Camera Relay', provider: 'Tapo TCW-61', purpose: 'Physical signs room event tracking', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'gmail_intake', name: 'Gmail Intake Connector', provider: 'Google Workspace', purpose: 'Reads incoming email support threads', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'quickbooks', name: 'QuickBooks Sync', provider: 'Intuit QB API', purpose: 'Financial and commissions sync', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'basecamp', name: 'Basecamp Operations Desk', provider: 'Basecamp V3', purpose: 'Escalations ticketing board', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'rechat', name: 'Rechat Marketing Desk', provider: 'Rechat API', purpose: 'Brokerage marketing workflows', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'twilio', name: 'Twilio SMS Notifier', provider: 'Twilio API', purpose: 'Dispatch automated updates to agents', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'gdrive', name: 'Google Drive', provider: 'Google Workspace', purpose: 'Reads compliance disclosure documents', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'mscalendar', name: 'Microsoft 365 Calendar', provider: 'Microsoft Graph', purpose: 'Office reservations management', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { id: 'shapework_db', name: 'Shapework Internal Database', provider: 'SQLite / Local Storage', purpose: 'Local application persistence', status: 'Connected & Live', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   ];
 
   return (

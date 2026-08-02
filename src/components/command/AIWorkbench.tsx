@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Mail, ShieldAlert, FileText } from 'lucide-react';
+import { Zap, Mail, ShieldAlert, FileText } from 'lucide-react';
 import { AIActionProposal } from '../../types/shapework';
 import ApprovalControls from '../ui/ApprovalControls';
 
@@ -28,7 +28,7 @@ export default function AIWorkbench({
           <p className="text-xs text-[var(--sw-muted)] mt-0.5 font-serif italic">Automated drafts prepared by background sweep agents.</p>
         </div>
         <span className="bg-[var(--sw-mint-100)] text-[var(--sw-green-900)] px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-[var(--sw-green-700)]/20 flex items-center gap-1 font-mono uppercase tracking-wider">
-          <Sparkles className="w-3 h-3 text-[var(--sw-green-900)]" />
+          <Zap className="w-3 h-3 text-[var(--sw-green-900)]" />
           <span>{awaitingApproval.length} Pending</span>
         </span>
       </div>
