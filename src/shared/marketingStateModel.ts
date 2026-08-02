@@ -306,6 +306,10 @@ export function getDerivedCampaignState(
     return 'needs_information';
   }
 
+  if (campaign.status === 'approved') {
+    return 'approved';
+  }
+
   if (campaign.status === 'ready_for_review' || (job && job.status === 'completed')) {
     return 'ready_for_review';
   }

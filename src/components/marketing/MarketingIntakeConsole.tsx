@@ -816,7 +816,7 @@ export default function MarketingIntakeConsole({
       })
       .then((data) => {
         // Section 4 & 5: Reject stale response if active selected campaign has changed
-        if (data.campaignId && data.campaignId !== selectedCampaignId) {
+        if (data.campaign && data.campaign.id !== selectedCampaignId) {
           return;
         }
         if (data.success && data.campaign) {
@@ -2631,6 +2631,7 @@ export default function MarketingIntakeConsole({
                 onApproveMaterial={handleApproveAsset}
                 onRequestChangeOpen={() => setShowRequestChangeDrawer(true)}
                 onOpenDeliveryDrawer={() => setShowRedesignedDeliveryDrawer(true)}
+                onOpenMissingInfoModal={() => setShowMissingInfoModal(true)}
                 onSubmitInterventionInput={submitBuildInput}
                 onCancelJob={cancelBuildJob}
               />

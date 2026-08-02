@@ -43,6 +43,7 @@ export interface CampaignWorkspaceViewportProps {
   onApproveMaterial: (assetId: string) => Promise<void>;
   onRequestChangeOpen: () => void;
   onOpenDeliveryDrawer: () => void;
+  onOpenMissingInfoModal?: () => void;
   onSubmitInterventionInput: (reqId: string, input: string) => Promise<void>;
   onCancelJob: () => Promise<void>;
 }
@@ -57,6 +58,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
   onApproveMaterial,
   onRequestChangeOpen,
   onOpenDeliveryDrawer,
+  onOpenMissingInfoModal,
   onSubmitInterventionInput,
   onCancelJob,
 }) => {
@@ -82,7 +84,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
         setShowBuildViewSidecar(false);
       }
     }
-  }, []);
+  }, [campaign?.id]);
 
   if (!campaign) {
     return (
@@ -306,7 +308,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
           <CampaignBriefView
             campaign={campaign}
             onOpenOriginalCommunication={() => setIsCommunicationDrawerOpen(true)}
-            onResolveMissingInformation={onRequestChangeOpen}
+            onResolveMissingInformation={onOpenMissingInfoModal || onRequestChangeOpen}
           />
         </div>
       ) : workspaceTab === 'activity' ? (
