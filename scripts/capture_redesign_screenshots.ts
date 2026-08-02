@@ -32,6 +32,7 @@ import fs from 'fs';
   await page.screenshot({ path: path.join(artifactsDir, 'marketing-campaign-brief.png') });
 
   // 6. Original phone transcript drawer
+  await page.waitForSelector('[data-testid="open-original-communication-btn"]');
   await page.click('[data-testid="open-original-communication-btn"]');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(artifactsDir, 'marketing-original-phone-transcript-drawer.png') });
@@ -41,6 +42,7 @@ import fs from 'fs';
   await page.click('[data-testid="close-communication-drawer"]');
 
   // 8. Missing-information form with affected assets
+  await page.waitForSelector('[data-testid="resolve-missing-info-btn"]');
   await page.click('[data-testid="resolve-missing-info-btn"]');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(artifactsDir, 'marketing-missing-info-affected-assets.png') });
@@ -65,6 +67,7 @@ import fs from 'fs';
   await page.screenshot({ path: path.join(artifactsDir, 'marketing-configured-compliance-checks.png') });
 
   // 13. Contextual Request Change panel
+  await page.waitForSelector('[data-testid="request-change-btn"]');
   await page.click('[data-testid="request-change-btn"]');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(artifactsDir, 'marketing-contextual-request-change-panel.png') });
