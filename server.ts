@@ -256,8 +256,7 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// PORT is hardcoded by the infrastructure to 3000
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// PORT is set above using initialPort / process.env.PORT
 
 // INITIAL SEED DATA FOR NEW OPERATIONS INBOX & COMMUNICATIONS SCREENS
 const seedOperationsInbox = [
