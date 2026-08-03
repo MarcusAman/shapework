@@ -958,12 +958,8 @@ Nest Realty Wilmington`
 export function initializeCampaignsStore(initialData?: ListingMarketingCampaign[]) {
   if (initialData && initialData.length > 0) {
     campaignsStore = initialData;
-  } else if (campaignsStore.length === 0) {
-    campaignsStore = [
-      getInitialDefaultCampaign(),
-      getCampaignOcean304(),
-      getCampaignWetland212()
-    ];
+  } else {
+    campaignsStore = [];
   }
   return campaignsStore;
 }
@@ -1002,45 +998,8 @@ let workItemsStore: any[] = [];
 let dailyPlanningSnapshotsStore: any[] = [];
 
 export function getInitialWorkItems(): any[] {
-  return [
-    {
-      id: 'work_item_flow_a',
-      requestId: 'req_990_inspiration',
-      campaignId: 'campaign_990_inspiration',
-      workType: 'flyer',
-      title: '990 Inspiration Drive — Listing Flyer PDF',
-      description: 'Standard 2-page editorial listing flyer for luxury estate',
-      priority: 'high',
-      executionMode: 'automate_with_review',
-      executorType: 'shapework_automation',
-      executorName: 'Shapework Build Engine',
-      requestOwnerId: 'melissa',
-      reviewerId: 'melissa',
-      approverId: 'eric_anderson',
-      status: 'ready_for_review',
-      nextAction: 'Melissa to review rendered PDF proof and email to Eric Anderson',
-      quoteRequired: false,
-      printRequired: true,
-      approvalRequired: true,
-      requestedDueAt: '2026-08-03T17:00:00Z',
-      internalTargetAt: '2026-08-02T16:00:00Z',
-      hardDeadline: '2026-08-04T12:00:00Z',
-      listingDate: '2026-08-04',
-      printWorkflowStatus: 'specifications_needed',
-      producedAssetIds: ['asset_flyer_990'],
-      privateNotes: [
-        {
-          id: 'note_a_01',
-          authorId: 'melissa',
-          authorName: 'Melissa',
-          content: 'Eric requested extra emphasis on the custom wine cellar photos in the flyer.',
-          visibility: 'melissa_private',
-          createdAt: '2026-08-02T09:15:00Z'
-        }
-      ],
-      createdAt: '2026-08-02T08:00:00Z',
-      updatedAt: '2026-08-02T09:30:00Z'
-    },
+  return [];
+}
     {
       id: 'work_item_flow_b',
       requestId: 'req_304_ocean',

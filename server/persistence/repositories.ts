@@ -70,15 +70,21 @@ function ensureLocalDbDirectory() {
   }
 }
 
-export function saveStateToStorage(dbState: any) {
+let writeMutexChain: Promise<any> = Promise.resolve();
+
+export function saveStateToStorage(dbState: any): Promise<void> {
   if (storageDriver === 'local') {
-    try {
+    writeMutexChain = writeMutexChain.then(async () => {
       ensureLocalDbDirectory();
-      fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(dbState, null, 2));
-    } catch (e) {
-      console.error('Failed to persist state locally:', e);
-    }
+      const tmpPath = `${LOCAL_DB_PATH}.tmp.${Math.random().toString(36).substring(7)}`;
+      fs.writeFileSync(tmpPath, JSON.stringify(dbState, null, 2));
+      fs.renameSync(tmpPath, LOCAL_DB_PATH);
+    }).catch((e) => {
+      console.error('[Write Mutex] Operation encountered an error but queue recovered:', e);
+    });
+    return writeMutexChain;
   }
+  return Promise.resolve();
 }
 
 import { NEST_FULL_ROSTER_72 } from './nestRosterSeed.js';

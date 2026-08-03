@@ -227,6 +227,22 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
+// Guard: Reject automated E2E test record mutations in production tenant_nest_uat
+app.use((req, res, next) => {
+  const targetWorkspace = String(req.headers['x-workspace-id'] || req.headers['x-tenant-id'] || process.env.ACTIVE_TENANT_DIR || '');
+  const userAgent = String(req.headers['user-agent'] || '');
+  const isTestCaller = req.headers['x-playwright-test'] === 'true' || 
+                       userAgent.includes('Playwright') || 
+                       req.headers['x-test-runner'] === 'true';
+  const isWriteMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+
+  if ((targetWorkspace === 'tenant_nest_uat' || targetWorkspace === 'data-tenant_nest_uat') && isTestCaller && isWriteMethod) {
+    console.warn(`[TENANT GUARD] Blocked automated E2E test mutation attempt on ${targetWorkspace} by ${userAgent}`);
+    return res.status(403).json({
+      error: 'Tenant Guard Violation',
+      message: 'Automated E2E test mutations are strictly prohibited on final tenant_nest_uat. Automated tests must target disposable test tenants.'
+    });
+  }
   next();
 });
 

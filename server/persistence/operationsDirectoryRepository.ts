@@ -21,63 +21,7 @@ export interface StaffMemberProfile {
   status: 'active' | 'busy' | 'out_of_office';
 }
 
-const defaultStaffDirectory: StaffMemberProfile[] = [
-  {
-    id: 'staff_melissa_cooper',
-    fullName: 'Melissa Cooper',
-    title: 'Senior Marketing Director',
-    role: 'marketing_specialist',
-    email: 'melissa.cooper@nestrealty.com',
-    phone: '(910) 555-0142',
-    avatarUrl: '/org-avatars/melissa.png',
-    activeWorkloadCount: 4,
-    maxWorkloadCapacity: 8,
-    skills: ['Brand Compliance', 'Flyer Design', 'Social Campaigns', 'Print Ordering'],
-    escalationContactId: 'staff_ryan_crecelius',
-    status: 'active'
-  },
-  {
-    id: 'staff_ann_smith',
-    fullName: 'Ann Smith',
-    title: 'Marketing Operations Assistant',
-    role: 'va_assistant',
-    email: 'ann.smith@nestrealty.com',
-    phone: '(910) 555-0199',
-    avatarUrl: '/org-avatars/ann.png',
-    activeWorkloadCount: 3,
-    maxWorkloadCapacity: 6,
-    skills: ['Intake Triage', 'Basecamp Sync', 'Listing Copywriting'],
-    escalationContactId: 'staff_melissa_cooper',
-    status: 'active'
-  },
-  {
-    id: 'staff_ryan_crecelius',
-    fullName: 'Ryan Crecelius',
-    title: 'Managing Broker of Record',
-    role: 'broker_of_record',
-    email: 'ryan.crecelius@nestrealty.com',
-    phone: '(910) 555-0100',
-    avatarUrl: '/org-avatars/ryan.png',
-    activeWorkloadCount: 2,
-    maxWorkloadCapacity: 10,
-    skills: ['Contract Review', 'Compliance Signoff', 'Escrow Security'],
-    status: 'active'
-  },
-  {
-    id: 'staff_sarah_jenkins',
-    fullName: 'Sarah Jenkins',
-    title: 'Transaction Closing Coordinator',
-    role: 'closing_coordinator',
-    email: 'sarah.jenkins@nestrealty.com',
-    phone: '(910) 555-0188',
-    avatarUrl: '/org-avatars/sarah.png',
-    activeWorkloadCount: 5,
-    maxWorkloadCapacity: 7,
-    skills: ['Title Clearance', 'Earnest Money Audit', 'HUD Settlement'],
-    escalationContactId: 'staff_ryan_crecelius',
-    status: 'busy'
-  }
-];
+const defaultStaffDirectory: StaffMemberProfile[] = [];
 
 function getDataFilePath(): string {
   const tenantDir = process.env.ACTIVE_TENANT_DIR || (process.env.APP_MODE === 'uat' ? 'data-tenant_nest_uat' : 'data');
