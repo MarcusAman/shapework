@@ -18,6 +18,11 @@ import { runDemoEventInSandbox } from '../integrations/demoConnectorRunner';
 import { initialCatalogConnectors } from '../data/integrationCatalog';
 import { apiClient } from '../utils/apiClient';
 
+let cachedModePromise: Promise<any> | null = null;
+let cachedDbStatePromise: Map<string, Promise<any>> = new Map();
+let cachedAuthSessionPromise: Promise<any> | null = null;
+let cachedDirectoryPromise: Promise<any> | null = null;
+
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
     if (path.startsWith('/internal')) {
@@ -327,23 +332,32 @@ export function useWorkspaceConsoleState() {
   const fetchState = async () => {
     setIsSyncing(true);
     try {
-      // Fetch app mode
+      // Fetch app mode with deduplication
       let activeAppMode = 'development';
       try {
-        const modeRes = await fetch('/api/mode');
-        if (modeRes.ok) {
-          const modeData = await modeRes.json();
-          activeAppMode = modeData.mode || 'development';
-          setAppMode(activeAppMode);
+        if (!cachedModePromise) {
+          cachedModePromise = fetch('/api/mode').then(r => r.ok ? r.json() : { mode: 'development' }).catch(() => ({ mode: 'development' }));
         }
+        const modeData = await cachedModePromise;
+        activeAppMode = modeData.mode || 'development';
+        setAppMode(activeAppMode);
       } catch (e) {
         console.error('Failed to load mode:', e);
       }
 
-      // Fetch active workspace state
-      const response = await apiClient.get(`/api/db-state?workspaceId=${workspaceId}`, { workspaceId });
+      // Fetch active workspace state with deduplication
+      let response: Response | null = null;
+      try {
+        const fetchPromise = apiClient.get(`/api/db-state?workspaceId=${workspaceId}`, { workspaceId });
+        response = await Promise.race([
+          fetchPromise,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('db-state timeout')), 2000))
+        ]);
+      } catch (timeoutErr) {
+        console.warn('db-state fetch timed out or failed, using client static state');
+      }
 
-      if (response.status === 401) {
+      if (response && response.status === 401) {
         const fallbackOperator: Profile = {
           id: 'usr_marcus',
           name: 'Marcus Aman',
@@ -358,29 +372,55 @@ export function useWorkspaceConsoleState() {
         return;
       }
 
-      if (response.ok) {
+      if (response && response.ok) {
         const data = await response.json();
         if (data.profiles) {
           setProfiles(data.profiles);
           
           let loggedInUser = null;
           try {
-            const sessRes = await apiClient.get('/api/auth/session', { workspaceId });
+            if (!cachedAuthSessionPromise) {
+              cachedAuthSessionPromise = apiClient.get('/api/auth/session', { workspaceId }).catch(err => {
+                cachedAuthSessionPromise = null;
+                throw err;
+              });
+            }
+            const sessRes = await cachedAuthSessionPromise;
             if (sessRes.ok) {
               const sessData = await sessRes.json();
               if (sessData && sessData.user) {
                 loggedInUser = sessData.user;
               }
             }
-          } catch {}
+          } catch {
+            cachedAuthSessionPromise = null;
+          }
 
           if (loggedInUser) {
             setActiveProfile(loggedInUser);
-          } else if (data.profiles.length > 0) {
+          } else if (data.profiles && data.profiles.length > 0) {
             const currentToken = localStorage.getItem('shapework_session_token') || '';
             const userProfile = data.profiles.find((p: any) => p.email === currentToken || p.id === currentToken) || data.profiles[0];
             setActiveProfile(userProfile);
+          } else {
+            setActiveProfile({
+              id: 'usr_marcus',
+              name: 'Marcus Aman',
+              email: 'marcus@shapework.co',
+              role: 'owner',
+              permissions: ['all'],
+              status: 'active'
+            });
           }
+        } else {
+          setActiveProfile({
+            id: 'usr_marcus',
+            name: 'Marcus Aman',
+            email: 'marcus@shapework.co',
+            role: 'owner',
+            permissions: ['all'],
+            status: 'active'
+          });
         }
         if (data.agents) setAgents(data.agents);
         if (data.transactions) {
@@ -437,7 +477,10 @@ export function useWorkspaceConsoleState() {
         if (data.ownerBriefItems) setOwnerBriefItems(data.ownerBriefItems);
 
         try {
-          const dirRes = await apiClient.get(`/api/directory?workspaceId=${workspaceId}`, { workspaceId });
+          if (!cachedDirectoryPromise) {
+            cachedDirectoryPromise = apiClient.get(`/api/directory?workspaceId=${workspaceId}`, { workspaceId });
+          }
+          const dirRes = await cachedDirectoryPromise;
           if (dirRes.ok) {
             const dirData = await dirRes.json();
             if (dirData && dirData.directoryPeople) {
@@ -458,25 +501,14 @@ export function useWorkspaceConsoleState() {
 
   // Generate briefing
   const loadBriefing = async () => {
-    setIsGeneratingBriefing(true);
-    try {
-      const response = await fetch('/api/health');
-      if (response.ok) {
-        // Just checking basic health endpoint; load static briefing as fallback
-      }
-      throw new Error('Briefing failed');
-    } catch (err) {
-      // Fallback
-      setDailyBriefing(`**Active Operations Summary**  
-      Operational monitoring is steady. There are currently **5 active transaction files** being observed. **2 transactions** have elevated risk factors (notably **102 Pine Street** facing a financing milestone expiry and outstanding utility disclosures). 
-    
-      **Priority Action Points**
-      * **Critical Review Required:** **742 Evergreen Terrace** has been flagged by the coordinator due to structural foundation cracking. Immediate client exception review advised.
-      * **Lender Outreach Pending:** **102 Pine Street** financing contingency expires in five days; the AI Operator has prepared a follow-up letter to lender Alice Walker awaiting your approval.
-      * **Launch Preparation:** Photography launch coordinate checklist is overdue for **109 Woodlawn**. Todd Howard has been notified.`);
-    } finally {
-      setIsGeneratingBriefing(false);
-    }
+    setIsGeneratingBriefing(false);
+    setDailyBriefing(`**Active Operations Summary**  
+    Operational monitoring is steady. There are currently **5 active transaction files** being observed. **2 transactions** have elevated risk factors (notably **102 Pine Street** facing a financing milestone expiry and outstanding utility disclosures). 
+  
+    **Priority Action Points**
+    * **Critical Review Required:** **742 Evergreen Terrace** has been flagged by the coordinator due to structural foundation cracking. Immediate client exception review advised.
+    * **Lender Outreach Pending:** **102 Pine Street** financing contingency expires in five days; the AI Operator has prepared a follow-up letter to lender Alice Walker awaiting your approval.
+    * **Launch Preparation:** Photography launch coordinate checklist is overdue for **109 Woodlawn**. Todd Howard has been notified.`);
   };
 
   useEffect(() => {

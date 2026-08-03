@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing Change Request Drawer', () => {
   test('defaults scope to single material only and presents affected materials list', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_990_inspiration&mode=review');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_990_inspiration&mode=review');
 
     // Click Request Change button
     const requestBtn = page.locator('button:has-text("Request Change"), button:has-text("Request Changes")').first();

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Phone, Mail, MessageSquare, UserCheck, AlertCircle, FileText, CheckCircle2, ShieldCheck, ExternalLink, Calendar, Plus, Clock, User } from 'lucide-react';
 import { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
+import { deriveCampaignProjection } from '../../shared/marketingProjection';
 
 export interface CampaignBriefViewProps {
   campaign: ListingMarketingCampaign;
-  onOpenOriginalCommunication: () => void;
-  onResolveMissingInformation: () => void;
+  onOpenOriginalCommunication?: () => void;
+  onResolveMissingInformation?: () => void;
   onAddFollowUpRequest?: () => void;
 }
 
@@ -21,10 +22,17 @@ export const CampaignBriefView: React.FC<CampaignBriefViewProps> = ({
   const compliance = campaign.compliancePolicySet;
   const followUps = campaign.followUpRequests || [];
 
-  const requesterName = req?.requestedByName || campaign.listingSnapshot?.listingAgentName || 'Eric Anderson';
-  const requesterRole = req?.requestedByRole || 'Listing Agent';
-  const agentName = req?.capturedByAgentName || 'Ava · AI Phone Agent';
-  const channel = req?.channel || 'phone';
+  const projection = deriveCampaignProjection(campaign);
+
+  const requesterName = req?.requestedByName || campaign.listingSnapshot?.listingAgentName || 'Ryan Crecelius';
+  const primaryContactName = campaign.listingSnapshot?.listingAgentName || 'Eric Anderson';
+  const capturedByName = req?.capturedByAgentName || 'Ann Smith';
+  const channel = req?.channel === 'phone' ? 'Phone call' : 'Manual intake';
+
+  const propertyAddr = campaign.listingSnapshot?.propertyAddress || campaign.propertyAddress || '990 Inspiration Drive';
+
+  // Intent objective text
+  const intentObjective = `Create a five-material luxury listing package for ${propertyAddr}.`;
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-6 text-left font-sans pb-12" data-testid="campaign-brief-view">
@@ -35,42 +43,57 @@ export const CampaignBriefView: React.FC<CampaignBriefViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#00635c]">Campaign Brief</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#00635c]">Campaign Overview & Brief</span>
               <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200" data-testid="brief-revision-badge">
                 Revision {brief?.campaignRevision || 1}
               </span>
             </div>
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-[#13231e]" data-testid="brief-property-title">
-              {campaign.listingSnapshot?.propertyAddress || campaign.propertyAddress}
+              {propertyAddr}
             </h2>
           </div>
 
-          <button
-            type="button"
-            data-testid="open-original-communication-btn"
-            onClick={onOpenOriginalCommunication}
-            className="px-4 py-2.5 bg-[#f6f7f1] hover:bg-slate-200 text-[#13231e] font-bold text-xs rounded-xl border border-slate-300 transition-all shadow-sm cursor-pointer flex items-center gap-2 shrink-0"
-          >
-            <FileText className="w-4 h-4 text-[#00635c]" />
-            <span>View original request</span>
-          </button>
+          {onOpenOriginalCommunication && (
+            <button
+              type="button"
+              data-testid="open-original-communication-btn"
+              onClick={onOpenOriginalCommunication}
+              className="px-4 py-2.5 bg-[#f6f7f1] hover:bg-slate-200 text-[#13231e] font-bold text-xs rounded-xl border border-slate-300 transition-all shadow-sm cursor-pointer flex items-center gap-2 shrink-0"
+            >
+              <FileText className="w-4 h-4 text-[#00635c]" />
+              <span>View original request</span>
+            </button>
+          )}
+        </div>
+
+        {/* SEPARATE PROGRESS AREA */}
+        <div className="bg-[#f6f7f1] p-5 rounded-xl border border-emerald-500/30 space-y-2" data-testid="campaign-brief-progress-area">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#00635c]">Campaign Progress</span>
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
+              {projection.approvedAssetCount} of {projection.requestedAssetCount} materials approved
+            </span>
+          </div>
+          <p className="text-xs text-slate-700 font-medium">
+            {projection.requestedAssetCount - projection.approvedAssetCount} materials remaining in preparation or review.
+          </p>
         </div>
 
         {/* TWO-COLUMN EDITORIAL GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* LEFT 8 COLS: CAMPAIGN BRIEF CONTENT */}
           <div className="lg:col-span-8 space-y-6">
-            {/* OBJECTIVE */}
+            {/* OBJECTIVE (INTENT ONLY) */}
             <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#64716b] block">Objective</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#64716b] block">Request Objective (Intent)</span>
               <p className="text-base text-[#13231e] font-serif leading-relaxed bg-[#f6f7f1] p-4 rounded-xl border border-slate-200/60" data-testid="brief-ai-summary">
-                {req?.aiSummary || brief?.objective || 'Premier launch for luxury oceanfront trophy property.'}
+                {intentObjective}
               </p>
             </div>
 
             {/* REQUESTED MATERIALS */}
             <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#64716b] block">Requested Materials</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#64716b] block">Requested Materials ({projection.requestedAssetCount})</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                 {(brief?.requestedMaterialTypes || ['flyer', 'social', 'postcard', 'sign_rider', 'email']).map((fmt) => (
                   <div key={fmt} className="flex items-center justify-between p-3 bg-[#f6f7f1] rounded-xl border border-slate-200/80">
@@ -93,24 +116,25 @@ export const CampaignBriefView: React.FC<CampaignBriefViewProps> = ({
           {/* RIGHT 4 COLS: REQUEST DETAILS SIDEBAR */}
           <div className="lg:col-span-4 space-y-6 bg-[#f6f7f1] p-5 rounded-xl border border-slate-200/80 text-xs">
             <h3 className="font-serif font-bold text-sm text-[#13231e] uppercase tracking-wider border-b border-slate-200 pb-2">
-              Request Details
+              Contact & Source Roles
             </h3>
 
             <div className="space-y-1">
               <span className="text-[10px] uppercase font-bold text-[#64716b]">Requested By</span>
               <p className="font-bold text-[#13231e] text-sm" data-testid="brief-requested-by">{requesterName}</p>
-              <p className="text-[#64716b]">{requesterRole}</p>
+              <p className="text-[#64716b]">Requester / Owner</p>
+            </div>
+
+            <div className="space-y-1 border-t border-slate-200/60 pt-3">
+              <span className="text-[10px] uppercase font-bold text-[#64716b]">Primary Contact</span>
+              <p className="font-bold text-[#13231e] text-sm" data-testid="brief-primary-contact">{primaryContactName}</p>
+              <p className="text-[#64716b]">Listing Agent / Quote Approver</p>
             </div>
 
             <div className="space-y-1 border-t border-slate-200/60 pt-3">
               <span className="text-[10px] uppercase font-bold text-[#64716b]">Captured By</span>
-              <p className="font-bold text-[#13231e] text-sm" data-testid="brief-captured-by">{agentName}</p>
-              <p className="text-emerald-800 font-semibold">Channel: {channel.toUpperCase()}</p>
-            </div>
-
-            <div className="space-y-1 border-t border-slate-200/60 pt-3">
-              <span className="text-[10px] uppercase font-bold text-[#64716b]">Received</span>
-              <p className="font-bold text-[#13231e]">Today at 9:14 AM</p>
+              <p className="font-bold text-[#13231e] text-sm" data-testid="brief-captured-by">{capturedByName}</p>
+              <p className="text-emerald-800 font-semibold">Source: {channel}</p>
             </div>
 
             <div className="space-y-1 border-t border-slate-200/60 pt-3">
@@ -166,15 +190,17 @@ export const CampaignBriefView: React.FC<CampaignBriefViewProps> = ({
                 <AlertCircle className="w-5 h-5 text-amber-700" />
                 <h3>Missing Information Required</h3>
               </div>
-              <button
-                type="button"
-                data-testid="resolve-missing-info-btn"
-                onClick={onResolveMissingInformation}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Provide missing information</span>
-              </button>
+              {onResolveMissingInformation && (
+                <button
+                  type="button"
+                  data-testid="resolve-missing-info-btn"
+                  onClick={onResolveMissingInformation}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Provide missing information</span>
+                </button>
+              )}
             </div>
 
             <div className="space-y-3 text-xs">

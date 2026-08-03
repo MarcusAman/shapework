@@ -181,7 +181,8 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
           id: resolvedUser.id,
           email: resolvedUser.email,
           name: resolvedUser.name,
-          role: resolvedUser.role
+          role: resolvedUser.role,
+          workspaceId: resolvedUser.workspaceId
         };
         return next();
       }
@@ -202,7 +203,10 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     const liveUsers = workspaceUsersResolver();
     const resolvedUser = liveUsers.find(u => u.id === payload.userId || u.email === payload.email) || SEEDED_USERS.find(u => u.id === payload.userId || u.email === payload.email);
     if (resolvedUser) {
-      req.authUser = resolvedUser;
+      req.authUser = {
+        ...resolvedUser,
+        workspaceId: (resolvedUser as any).workspaceId || payload.workspaceId
+      };
       return next();
     }
   }
@@ -222,38 +226,47 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
 // Middleware: Resolve Active Workspace Tenant Context
 export function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  let requestedWsId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string) || 'nest-realty-demo';
+  let requestedWsId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
+
+  const user = req.authUser || SEEDED_USERS[0];
+  const userWsId = (user as any).workspaceId || 'nest-realty-demo';
+  if (!requestedWsId) {
+    requestedWsId = userWsId;
+  }
 
   if (requestedWsId === 'nest-realty-wilmington') {
     requestedWsId = 'nest-realty-demo';
   }
 
-  const user = req.authUser || SEEDED_USERS[0];
-
   // Query live workspace user memberships dynamically
   const liveUsers = workspaceUsersResolver();
   const activeMembership = liveUsers.find(u => 
     (u.id === user.id || u.email === user.email) && u.workspaceId === requestedWsId
-  ) || SEEDED_MEMBERSHIPS.find(m => m.userId === user.id || m.id === `m_${user.id.replace('usr_', '')}`)
-    || { id: `m_${user.id}`, userId: user.id, workspaceId: requestedWsId, role: user.role || 'owner' };
+  ) || SEEDED_MEMBERSHIPS.find(m => (m.userId === user.id || m.id === `m_${user.id.replace('usr_', '')}`) && m.workspaceId === requestedWsId);
 
-  const basePermissions = ROLE_PERMISSIONS[activeMembership.role] || ROLE_PERMISSIONS.owner;
+  // Check explicit membership match
+  const isMember = (activeMembership && activeMembership.workspaceId === requestedWsId) || (userWsId === requestedWsId) || user.role === 'admin';
+
+  const memberRole = activeMembership?.role || user.role || 'owner';
+  const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner;
   const permissions = [...basePermissions, 'directory.read', 'directory.manage', 'directory.sync'];
 
   req.workspace = { id: requestedWsId, name: 'Active Brokerage Workspace' };
   req.membership = {
-    id: activeMembership.id,
-    userId: activeMembership.userId || user.id,
+    id: activeMembership?.id || `m_${user.id}`,
+    userId: user.id,
     workspaceId: requestedWsId,
-    role: activeMembership.role || 'owner',
-    permissions
-  };
+    role: memberRole,
+    permissions,
+    hasValidMembership: isMember
+  } as any;
   return next();
 }
 
 // Middleware: Require Workspace Membership
 export function requireWorkspaceMembership(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.workspace || !req.membership || req.workspace.id !== req.membership.workspaceId) {
+  const membership = req.membership as any;
+  if (!req.workspace || !membership || !membership.hasValidMembership || req.workspace.id !== membership.workspaceId) {
     return res.status(403).json({ error: 'Forbidden', message: 'Workspace membership is required.' });
   }
   next();

@@ -697,9 +697,9 @@ export default function NestOpsHub({ state, mode = 'full' }: NestOpsHubProps) {
             { id: 'google_drive', name: 'Drive', connected: true },
             { id: 'flex_mls', name: 'FlexMLS', connected: true },
             { id: 'quickbooks', name: 'QuickBooks', connected: true },
-            { id: 'dotloop', name: 'Dotloop', connected: true },
-            { id: 'rechat', name: 'Rechat', connected: true },
-            { id: 'canva_pro', name: 'Canva Pro', connected: true },
+            { id: 'dotloop', name: 'Dotloop', connected: false, comingSoon: true },
+            { id: 'rechat', name: 'Rechat', connected: false, comingSoon: true },
+            { id: 'canva_pro', name: 'Canva Pro', connected: false, comingSoon: true },
           ].map((app) => {
             return (
               <button

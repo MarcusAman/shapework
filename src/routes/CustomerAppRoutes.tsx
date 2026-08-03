@@ -3103,8 +3103,12 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/marketing')) {
+      setOpsLoading(false);
+      return;
+    }
     fetchOpsData();
-    const interval = setInterval(fetchOpsData, 4000);
+    const interval = setInterval(fetchOpsData, 10000);
     return () => clearInterval(interval);
   }, [state.activeProfile]);
 

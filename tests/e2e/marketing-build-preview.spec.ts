@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing Build View - Interactive Asset Previews', () => {
   test('clicking ready asset thumbnail updates central preview and URL state', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_990_inspiration&mode=review');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_990_inspiration&mode=review');
 
     // Wait for Flyer tab/button
     const flyerBtn = page.locator('#asset-nav-flyer');

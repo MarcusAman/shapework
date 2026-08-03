@@ -182,33 +182,6 @@ export function getGenerationJobFromStore(jobId: string): MarketingGenerationJob
     console.error('Failed to read generation job from disk:', err);
   }
 
-  if (jobId === 'job_demo_990') {
-    const now = new Date().toISOString();
-    const demoJob: MarketingGenerationJob = {
-      id: 'job_demo_990',
-      idempotencyKey: 'campaign_990_inspiration_rev1_1.0_nest_v1',
-      workspaceId: 'ws_nest_wilmington',
-      campaignId: 'campaign_990_inspiration',
-      campaignRevision: 1,
-      status: 'completed',
-      completedMaterialsCount: 5,
-      totalMaterialsCount: 5,
-      requestedAssetTypes: ['flyer', 'carousel', 'postcard', 'sign_rider', 'email'],
-      assetStatuses: {
-        flyer: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/flyer/raw', updatedAt: now },
-        carousel: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/carousel/raw', updatedAt: now },
-        postcard: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/postcard/raw', updatedAt: now },
-        sign_rider: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/sign_rider/raw', updatedAt: now },
-        email: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/email/raw', updatedAt: now },
-      },
-      initiatedBy: 'Ryan Crecelius',
-      createdAt: now,
-      updatedAt: now,
-    };
-    saveGenerationJob(demoJob);
-    return demoJob;
-  }
-
   return null;
 }
 

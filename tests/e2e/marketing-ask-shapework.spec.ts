@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Ask Shapework Campaign Assistant (Campaign-Scoped)', () => {
   test('Ask Shapework responds to campaign-scoped questions and edit proposals', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing');
+    await page.goto('http://localhost:3049/app/marketing');
     
     // Type question into Ask Shapework box
     const askInput = page.locator('input[placeholder*="Ask a question"]').first();
@@ -15,7 +15,7 @@ test.describe('Ask Shapework Campaign Assistant (Campaign-Scoped)', () => {
   });
 
   test('Ask Shapework prompt chip triggers campaign-scoped answer', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing');
+    await page.goto('http://localhost:3049/app/marketing');
     
     const chip = page.locator('button:has-text("Which photos are being used?")').first();
     if (await chip.isVisible()) {

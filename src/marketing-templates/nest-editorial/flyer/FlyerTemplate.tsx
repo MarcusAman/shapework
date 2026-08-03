@@ -276,14 +276,14 @@ export function generateNestEditorialFlyerHtml(content: FlyerTemplateContent): s
     legal,
   } = content;
 
-  const factsHtml = facts
+  const factsHtml = (facts || [])
     .map(
       (f, i) =>
-        `${i > 0 ? `<span class="fact-divider">•</span>` : ''}<span class="fact-item">${f.value} ${f.label}</span>`
+        `${i > 0 ? `<span class="fact-divider">•</span>` : ''}<span class="fact-item">${f?.value || ''} ${f?.label || ''}</span>`
     )
     .join('');
 
-  const featuresHtml = features
+  const featuresHtml = (features || [])
     .map((feat) => `<li class="feature-item"><span class="feature-bullet">•</span><span>${feat}</span></li>`)
     .join('');
 

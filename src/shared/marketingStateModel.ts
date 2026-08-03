@@ -396,3 +396,238 @@ export function getCampaignStatusBadge(state: MarketingCampaignState): {
       return { label: 'Preparation Failed', badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
   }
 }
+
+export type MarketingExecutionMode =
+  | 'automate'
+  | 'automate_with_review'
+  | 'assign_to_va'
+  | 'assign_to_melissa'
+  | 'assign_to_ann'
+  | 'assign_to_hq'
+  | 'external_vendor'
+  | 'hybrid';
+
+export type MarketingExecutorType =
+  | 'shapework_automation'
+  | 'virtual_assistant'
+  | 'melissa'
+  | 'ann'
+  | 'nest_hq'
+  | 'print_vendor'
+  | 'other';
+
+export type MarketingPriority =
+  | 'needs_triage'
+  | 'urgent'
+  | 'high'
+  | 'standard'
+  | 'low';
+
+export type MarketingWorkItemStatus =
+  | 'new'
+  | 'needs_triage'
+  | 'needs_scope'
+  | 'ready'
+  | 'in_progress'
+  | 'waiting_on_agent'
+  | 'waiting_on_approval'
+  | 'waiting_on_quote'
+  | 'waiting_on_vendor'
+  | 'ready_for_review'
+  | 'ready_to_send'
+  | 'sent'
+  | 'printing'
+  | 'ready_for_pickup'
+  | 'physically_delivered'
+  | 'complete'
+  | 'blocked'
+  | 'deferred'
+  | 'cancelled';
+
+export type PrintWorkflowStatus =
+  | 'not_required'
+  | 'specifications_needed'
+  | 'quote_required'
+  | 'quote_requested'
+  | 'quote_received'
+  | 'waiting_for_quote_approval'
+  | 'approved_for_print'
+  | 'sent_to_vendor'
+  | 'proof_received'
+  | 'proof_approved'
+  | 'printing'
+  | 'ready_for_pickup'
+  | 'picked_up'
+  | 'physically_delivered'
+  | 'cancelled';
+
+export type VAReadinessStatus =
+  | 'not_assessed'
+  | 'not_ready'
+  | 'training_required'
+  | 'ready_with_review'
+  | 'ready'
+  | 'not_applicable';
+
+export type MarketingNoteVisibility =
+  | 'requester_visible'
+  | 'team_visible'
+  | 'melissa_private'
+  | 'leadership_only';
+
+export type AutomationLevel =
+  | 'manual'
+  | 'assist'
+  | 'prepare_for_review'
+  | 'auto_complete'
+  | 'auto_complete_and_deliver';
+
+export interface BasecampReference {
+  projectId?: string;
+  taskId?: string;
+  url?: string;
+  sourceSystem?: string;
+  owner?: string;
+  lastCheckedAt?: string;
+  label?: string;
+}
+
+export interface MarketingQuote {
+  id: string;
+  workItemId: string;
+  amount: number;
+  currency: string;
+  vendorId: string;
+  vendorName: string;
+  status:
+    | 'needed'
+    | 'requested'
+    | 'received'
+    | 'sent_for_approval'
+    | 'approved'
+    | 'declined'
+    | 'expired';
+  sentVia?: string;
+  approvalCommunicationId?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
+export interface VAReadiness {
+  workstreamId: string;
+  status: VAReadinessStatus;
+  requiredSopUrl?: string;
+  templateAccess: boolean;
+  brandKitAccess: boolean;
+  platformAccess: boolean;
+  sampleWorkReviewed: boolean;
+  requiredTraining?: string;
+  reviewerId?: string;
+  readinessDate?: string;
+}
+
+export interface MarketingPrivateNote {
+  id: string;
+  workItemId?: string;
+  requestId?: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  visibility: MarketingNoteVisibility;
+  createdAt: string;
+}
+
+export interface RoutingPolicyOverride {
+  recommendedRoute: MarketingExecutionMode;
+  selectedRoute: MarketingExecutionMode;
+  changedBy: string;
+  reason: string;
+  timestamp: string;
+}
+
+export interface MarketingWorkItem {
+  id: string;
+  requestId: string;
+  campaignId?: string;
+  workType:
+    | 'flyer'
+    | 'social_graphic'
+    | 'email_campaign'
+    | 'website_update'
+    | 'sop_documentation'
+    | 'custom_brochure'
+    | 'new_construction_sign'
+    | 'print_asset'
+    | 'price_quote'
+    | 'basecamp_task'
+    | 'other';
+  title: string;
+  propertyAddress?: string;
+  sopTitle?: string;
+  basecampRef?: string;
+  description?: string;
+  priority: MarketingPriority;
+  executionMode: MarketingExecutionMode;
+  executorType: MarketingExecutorType;
+  executorId?: string;
+  executorName?: string;
+
+  requestOwnerId: string; // Melissa by default
+  reviewerId?: string;
+  approverId?: string;
+
+  status: MarketingWorkItemStatus;
+  nextAction: string;
+  blockedReason?: string;
+
+  quoteRequired: boolean;
+  printRequired: boolean;
+  approvalRequired: boolean;
+
+  requestedDueAt?: string;
+  internalTargetAt?: string;
+  hardDeadline?: string;
+  listingDate?: string;
+  eventDate?: string;
+
+  printWorkflowStatus?: PrintWorkflowStatus;
+  printSpecs?: {
+    dimensions?: string;
+    paperStock?: string;
+    quantity?: number;
+    finish?: string;
+    vendorName?: string;
+    pickupLocation?: string;
+    targetDeliveryDate?: string;
+  };
+
+  quote?: MarketingQuote;
+  vaReadiness?: VAReadiness;
+  basecampRef?: BasecampReference;
+  sopUrl?: string;
+  sopTitle?: string;
+  automationLevel?: AutomationLevel;
+
+  routingOverrides?: RoutingPolicyOverride[];
+  privateNotes?: MarketingPrivateNote[];
+
+  producedAssetIds?: string[];
+
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyPlanningSnapshot {
+  id: string;
+  date: string;
+  plannedBy: string;
+  overdueCount: number;
+  dueTodayCount: number;
+  waitingCount: number;
+  vaAssignedCount: number;
+  plannedWorkItemIds: string[];
+  notes?: string;
+  createdAt: string;
+}
+

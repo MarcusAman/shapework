@@ -15,4 +15,6 @@ scratch/
 *.png
 scratch_capture.mjs
 test-results/
+backups/
+data/operations_directory.json
 

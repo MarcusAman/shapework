@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing Home Redesign', () => {
   test('renders clean campaign inbox without operator hotline or simulate controls', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing');
+    await page.goto('http://localhost:3049/app/marketing');
     await page.waitForTimeout(500);
 
     // Verify customer header text

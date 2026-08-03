@@ -137,10 +137,10 @@ export default function TopBar({
           ) : isMarketingPage ? (
             <div className="flex flex-col text-left">
               <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
-                Marketing Intake & Delegation Hub
+                Marketing
               </h1>
               <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
-                Inbound marketing requests captured via phone hotline, summarized by AI.
+                Requests and work handled by Shapework.
               </p>
             </div>
           ) : isSopPage ? (

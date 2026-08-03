@@ -31,7 +31,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(componentImport: () =
 }
 
 // Route-level lazy loading for code splitting bundle hygiene
-const WorkspaceConsole = lazyWithRetry(() => import('./components/demo/WorkspaceConsole'));
+import WorkspaceConsole from './components/demo/WorkspaceConsole';
 const InternalConsole = lazyWithRetry(() => import('./components/console/InternalConsole'));
 const DemoConsole = lazyWithRetry(() => import('./components/console/DemoConsole'));
 const PublicHome = lazyWithRetry(() => import('./components/public/PublicHome'));

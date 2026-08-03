@@ -55,8 +55,58 @@ import { CampaignWorkspaceViewport } from "./CampaignWorkspaceViewport";
 import { MissingInformationModal } from "./MissingInformationModal";
 import { RequestChangeDrawer } from "./RequestChangeDrawer";
 import { RedesignedDeliveryDrawer } from "./RedesignedDeliveryDrawer";
+import { MelissaTodayView } from "./MelissaTodayView";
+import { MarketingErrorBoundary } from "./MarketingErrorBoundary";
+import { VAWorkspaceView } from "./VAWorkspaceView";
 import { useMarketingBuildStream } from "../../hooks/useMarketingBuildStream";
 import { NEST_FULL_ROSTER_72 } from "../../../server/persistence/nestRosterSeed";
+
+export type MarketingSubtab =
+  | "today"
+  | "requests"
+  | "workboard"
+  | "va"
+  | "intake"
+  | "templates";
+
+export const MARKETING_SUBTABS: { id: MarketingSubtab; label: string; secondaryLabel?: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "requests", label: "Requests" },
+  { id: "workboard", label: "Workboard" },
+  { id: "va", label: "VA Workspace" },
+  { id: "intake", label: "Intake Log" },
+  { id: "templates", label: "Templates" },
+] satisfies Array<{
+  id: MarketingSubtab;
+  label: string;
+  secondaryLabel?: string;
+}>;
+
+export const LEGACY_SUBTAB_ALIASES: Record<string, MarketingSubtab> = {
+  campaigns: "requests",
+  queue: "today",
+  va_workspace: "va",
+  intake_log: "intake",
+  calls: "intake",
+  "intake-log": "intake",
+  studio: "templates",
+  sandbox: "requests",
+  workspace: "requests",
+};
+
+export function getSubtabFromUrl(): MarketingSubtab {
+  if (typeof window === "undefined") return "requests";
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("subtab") || params.get("tab");
+  if (!raw) return "requests";
+  const clean = raw.toLowerCase().trim();
+  if (LEGACY_SUBTAB_ALIASES[clean]) {
+    return LEGACY_SUBTAB_ALIASES[clean];
+  }
+  const match = MARKETING_SUBTABS.find((t) => t.id === clean);
+  if (match) return match.id;
+  return "requests";
+}
 
 interface MarketingIntakeConsoleProps {
   state: any;
@@ -66,9 +116,10 @@ export default function MarketingIntakeConsole({
   state,
 }: MarketingIntakeConsoleProps) {
   const currentUserRole = (
+    state?.activeProfile?.role ||
     state?.currentUser?.role ||
     state?.role ||
-    "agent"
+    "owner"
   ).toLowerCase();
   const isOperator = [
     "shapework_admin",
@@ -82,59 +133,61 @@ export default function MarketingIntakeConsole({
   const canAccessTemplates = isOperator;
   const canAccessIntakeLog = isOperator;
   const canAccessAdvancedEditor = ["shapework_admin", "administrator"].includes(
-    currentUserRole,
+    currentUserRole
   );
 
-  const [activeTab, setActiveTab] = useState<
-    "campaigns" | "workboard" | "calls" | "templates"
-  >(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab") || params.get("subtab");
+  const showMarketingDebug =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("debug") === "1";
 
-      // Direct URL permission enforcement: non-operators are strictly limited to campaigns
-      if (!isOperator) {
-        return "campaigns";
+  const [showDebugDrawer, setShowDebugDrawer] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<MarketingSubtab>(() => getSubtabFromUrl());
+
+  // Reactive URL listener & normalizer effect for browser Back / Forward history & direct URLs
+  useEffect(() => {
+    const handleUrlSync = () => {
+      const canonical = getSubtabFromUrl();
+      setActiveTab(canonical);
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get("subtab") || params.get("tab");
+        const clean = raw ? raw.toLowerCase().trim() : "";
+
+        // Normalize URL if missing or using legacy alias or invalid value
+        if (!raw || LEGACY_SUBTAB_ALIASES[clean] || !MARKETING_SUBTABS.some(t => t.id === clean)) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("subtab", canonical);
+          url.searchParams.delete("tab");
+          window.history.replaceState({}, "", url.toString());
+        }
       }
+    };
 
-      if (tabParam === "workboard" || tabParam === "kanban") return "workboard";
-      if (tabParam === "calls" || tabParam === "intake-log") return "calls";
-      if (tabParam === "templates" || tabParam === "studio") return "templates";
-      if (
-        tabParam === "campaigns" ||
-        tabParam === "sandbox" ||
-        tabParam === "workspace"
-      )
-        return "campaigns";
-    }
-    return "campaigns";
-  });
+    handleUrlSync();
+    window.addEventListener("popstate", handleUrlSync);
+    return () => window.removeEventListener("popstate", handleUrlSync);
+  }, []);
 
-  const handleTabSwitch = (
-    tab: "campaigns" | "workboard" | "calls" | "templates",
-  ) => {
-    // Non-operators cannot switch to operator views
-    const targetTab = !isOperator && tab !== "campaigns" ? "campaigns" : tab;
-    setActiveTab(targetTab);
+  const handleTabSwitch = (targetTab: string) => {
+    const canonical = (LEGACY_SUBTAB_ALIASES[targetTab] || targetTab) as MarketingSubtab;
+    setActiveTab(canonical);
+    setSelectedCampaignId(null);
+
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      url.searchParams.set("subtab", targetTab);
-      window.history.replaceState({}, "", url.toString());
+      url.searchParams.set("subtab", canonical);
+      url.searchParams.delete("tab");
+      url.searchParams.delete("campaign");
+      url.searchParams.delete("campaignId");
+      url.searchParams.delete("mode");
+      url.searchParams.delete("asset");
+      url.searchParams.delete("jobId");
+
+      window.history.pushState({}, "", url.toString());
     }
   };
-
-  // URL Sanitization Effect on mount or role change
-  useEffect(() => {
-    if (typeof window !== "undefined" && !isOperator) {
-      const params = new URLSearchParams(window.location.search);
-      const subtab = params.get("subtab") || params.get("tab");
-      if (subtab && subtab !== "campaigns" && subtab !== "completed") {
-        const url = new URL(window.location.href);
-        url.searchParams.set("subtab", "campaigns");
-        window.history.replaceState({}, "", url.toString());
-      }
-    }
-  }, [isOperator]);
   const [customerFilter, setCustomerFilter] = useState<
     "all" | "needs_attention" | "in_progress" | "ready_review" | "completed"
   >("all");
@@ -229,27 +282,29 @@ export default function MarketingIntakeConsole({
     }
   };
 
-  // Synchronize campaign selection with browser history
+  // Synchronize campaign selection with canonical browser history
   const handleSelectCampaign = (
     id: string | null,
-    mode: "overview" | "review" | "activity" = "review",
+    view: "overview" | "work" | "review" | "communications" | "history" = "review",
     asset: "flyer" | "carousel" | "postcard" | "sign_rider" | "email" = "flyer"
   ) => {
     setSelectedCampaignId(id);
-    setCampaignWorkspaceMode(mode);
     setSelectedReviewAsset(asset);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       if (id) {
+        url.searchParams.delete("subtab");
         url.searchParams.set("campaign", id);
-        url.searchParams.set("mode", mode);
+        url.searchParams.set("view", view);
         url.searchParams.set("asset", asset);
       } else {
         url.searchParams.delete("campaign");
+        url.searchParams.delete("view");
         url.searchParams.delete("mode");
         url.searchParams.delete("asset");
+        url.searchParams.set("subtab", activeTab || "requests");
       }
-      window.history.pushState({ campaignId: id, mode, asset }, "", url.toString());
+      window.history.pushState({ campaignId: id, view, asset }, "", url.toString());
     }
   };
 
@@ -1774,185 +1829,163 @@ export default function MarketingIntakeConsole({
         </div>
       )}
 
-      {/* Main Workspace & Docked VM Studio Flex Container */}
-      <div className="flex flex-col xl:flex-row gap-6 items-start w-full relative">
-        <div className="flex-1 min-w-0 space-y-4 w-full">
-          {/* COMPACT PAGE HEADER & CONTEXTUAL PRIMARY ACTION ROW (SECTION 3 & 4) */}
-          {(activeTab !== "campaigns" ||
-            activeCampaign?.status === "approved" ||
-            activeCampaign?.status === "ready_review" ||
-            isOperator) && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-[rgba(208,214,187,0.14)]">
-              <div>
-                {activeTab === "templates" ? (
-                  <>
-                    <h1 className="font-serif text-2xl sm:text-[28px] font-bold text-[#FFFDF8] tracking-tight leading-tight">
-                      Marketing Templates
-                    </h1>
-                    <p className="text-xs sm:text-[14px] text-[rgba(246,247,241,0.74)] font-sans mt-0.5">
-                      Approved layouts and package definitions used when
-                      Shapework prepares marketing materials.
-                    </p>
-                  </>
-                ) : activeTab === "workboard" ? (
-                  <>
-                    <h1 className="font-serif text-2xl sm:text-[28px] font-bold text-[#FFFDF8] tracking-tight leading-tight">
-                      Workboard
-                    </h1>
-                    <p className="text-xs sm:text-[14px] text-[rgba(246,247,241,0.74)] font-sans mt-0.5">
-                      Operational queue and outcome stages for active listing
-                      collateral.
-                    </p>
-                  </>
-                ) : activeTab === "calls" ? (
-                  <>
-                    <h1 className="font-serif text-2xl sm:text-[28px] font-bold text-[#FFFDF8] tracking-tight leading-tight">
-                      Intake Log
-                    </h1>
-                  </>
-                ) : null}
-              </div>
+      {/* SHARED MARKETING SHELL (STRETCHED FULL WIDTH) */}
+      <div data-testid="marketing-shell" className="w-full px-4 sm:px-6 lg:px-8 py-4 space-y-5 relative">
+        {/* SHARED MARKETING TOP NAVIGATION ROW */}
+        {!selectedCampaignId && (
+          <nav
+            aria-label="Marketing views"
+            data-testid="marketing-top-navigation"
+            className="flex w-full items-center justify-between gap-2 overflow-x-auto border-b border-[rgba(208,214,187,0.14)] pb-3 pt-1 no-scrollbar"
+          >
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
+              {MARKETING_SUBTABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                let countBadge: number | null = null;
+                if (tab.id === "workboard") countBadge = tasks.length;
+                if (tab.id === "intake") countBadge = calls.length;
 
-              {/* SEPARATE CONTEXTUAL PRIMARY ACTION ALIGNED RIGHT (SECTION 4) */}
-              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                {activeCampaign?.status === "approved" ? (
+                return (
                   <button
+                    key={tab.id}
                     type="button"
-                    onClick={() => setShowDeliveryDrawer(true)}
-                    className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl text-xs font-bold transition-all shadow-md border border-emerald-400/30 cursor-pointer flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleTabSwitch(tab.id);
+                    }}
+                    aria-current={isActive ? "page" : undefined}
+                    data-testid={`marketing-nav-${tab.id}`}
+                    className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                      isActive
+                        ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)] shadow-xs"
+                        : "text-[rgba(246,247,241,0.7)] hover:text-[#FFFDF8] hover:bg-[#0B4A3F]/50 font-semibold"
+                    }`}
                   >
-                    <CheckCircle className="w-4 h-4 text-emerald-300" />
-                    <span>Deliver Package</span>
+                    <span>
+                      {tab.id === "today" ? "⭐ " : tab.id === "va" ? "👤 " : ""}
+                      {tab.label} {tab.secondaryLabel ? `(${tab.secondaryLabel})` : ""}
+                    </span>
+                    {countBadge !== null && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/30 text-emerald-300 font-bold">
+                        {countBadge}
+                      </span>
+                    )}
                   </button>
-                ) : activeCampaign?.status === "ready_review" ? (
-                  <button
-                    type="button"
-                    onClick={() => handleTabSwitch("campaigns")}
-                    className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl text-xs font-bold transition-all shadow-md border border-emerald-400/30 cursor-pointer flex items-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4 text-emerald-200" />
-                    <span>Review Package</span>
-                  </button>
-                ) : null}
+                );
+              })}
+            </div>
 
-                {isOperator && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSimulateCallModal(true)}
-                    className="px-3.5 py-2 bg-[#073F35] hover:bg-[#115548] text-[rgba(246,247,241,0.85)] border border-[rgba(208,214,187,0.24)] rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Operator Demo Action"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Run Demo Intake</span>
-                  </button>
-                )}
-              </div>
+            {/* PRIMARY ACTION ALIGNED RIGHT IN TOP NAVIGATION ROW */}
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              <button
+                type="button"
+                onClick={() => setShowNaturalLanguageChangeModal(true)}
+                data-testid="new-marketing-request-btn"
+                className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl text-xs sm:text-sm font-bold transition-all shadow-md border border-emerald-400/30 cursor-pointer flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4 text-emerald-300" />
+                <span>New Marketing Request</span>
+              </button>
+
+              {isOperator && (
+                <button
+                  type="button"
+                  onClick={() => setShowSimulateCallModal(true)}
+                  className="px-3 py-2 bg-[#073F35] hover:bg-[#115548] text-[rgba(246,247,241,0.85)] border border-[rgba(208,214,187,0.24)] rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Operator Demo Action"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Run Demo Intake</span>
+                </button>
+              )}
+
+              {showMarketingDebug && (
+                <button
+                  type="button"
+                  onClick={() => setShowDebugDrawer(!showDebugDrawer)}
+                  className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-mono font-bold hover:bg-amber-500/30"
+                >
+                  DEV
+                </button>
+              )}
+            </div>
+          </nav>
+        )}
+
+        {/* MAIN MARKETING VIEW CONTENT (STRETCHED 100% FULL WIDTH) */}
+        <main data-testid="marketing-view-content" className="w-full min-w-0 space-y-6 pt-1">
+
+          {/* MELISSA TODAY PRIORITY WORKSPACE VIEW */}
+          {activeTab === "today" && !selectedCampaignId && (
+            <div data-testid="marketing-today-view" className="w-full">
+              <MarketingErrorBoundary fallbackTitle="Unable to render Today's Priority Workspace">
+                <MelissaTodayView
+                  workItems={state?.workItems || []}
+                  onOpenItem={(item) => {
+                    if (item.campaignId) {
+                      handleSelectCampaign(item.campaignId, 'review');
+                    } else {
+                      handleSelectCampaign('campaign_990_inspiration', 'review');
+                    }
+                  }}
+                  onOpenPlanTomorrow={() => setShowNaturalLanguageChangeModal(true)}
+                  onOverrideRoute={(item, newMode, reason) => {
+                    if (state?.handleOverrideRoute) state.handleOverrideRoute(item, newMode, reason);
+                  }}
+                  onApproveQuote={(item) => {
+                    if (state?.handleApproveQuote) {
+                      state.handleApproveQuote(item);
+                    } else {
+                      fetch(`/api/marketing/work-items/${item.id}/quote-status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'approved' })
+                      }).catch(() => {});
+                    }
+                  }}
+                  onAddPrivateNote={(item, noteText) => {
+                    if (state?.handleAddPrivateNote) state.handleAddPrivateNote(item, noteText);
+                  }}
+                />
+              </MarketingErrorBoundary>
             </div>
           )}
-
-          {/* SEGMENTED NAVIGATION CONTROL (SECTION 4) */}
-          {isOperator && !selectedCampaignId && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#073F35] border border-[rgba(208,214,187,0.14)] p-1.5 rounded-2xl shadow-sm">
-              <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleTabSwitch("campaigns");
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === "campaigns"
-                      ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)] shadow-xs"
-                      : "text-[rgba(246,247,241,0.74)] hover:text-[#FFFDF8] hover:bg-[#0B4A3F]/50 font-semibold"
-                  }`}
-                >
-                  Campaigns
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleTabSwitch("workboard");
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === "workboard"
-                      ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)] shadow-xs"
-                      : "text-[rgba(246,247,241,0.74)] hover:text-[#FFFDF8] hover:bg-[#0B4A3F]/50 font-semibold"
-                  }`}
-                >
-                  Workboard ({tasks.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleTabSwitch("calls");
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === "calls"
-                      ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)] shadow-xs"
-                      : "text-[rgba(246,247,241,0.74)] hover:text-[#FFFDF8] hover:bg-[#0B4A3F]/50 font-semibold"
-                  }`}
-                >
-                  Intake Log ({calls.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleTabSwitch("templates");
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === "templates"
-                      ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)] shadow-xs"
-                      : "text-[rgba(246,247,241,0.74)] hover:text-[#FFFDF8] hover:bg-[#0B4A3F]/50 font-semibold"
-                  }`}
-                >
-                  Marketing Templates
-                </button>
-              </div>
-            </div>
-          )}
-
-
-
-          {/* OPERATOR WORKBOARD VIEW (TONAL GREEN OUTCOME-BASED COLUMNS & GROUPING) */}
           {activeTab === "workboard" && (
-            <div className="space-y-4 text-left font-sans">
-              {/* Workboard Sub-Header Bar & Grouping Toggle */}
+            <div data-testid="marketing-workboard-view" className="space-y-4 text-left font-sans w-full">
+              {/* Workboard Compact Utility Bar */}
               <div className="flex items-center justify-between bg-[#073F35] border border-[rgba(208,214,187,0.14)] px-4 py-2.5 rounded-2xl">
-                <div className="flex items-center gap-2">
-                  <span className="font-serif font-bold text-xs text-[#FFFDF8]">
-                    Workboard Layout:
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-sm text-[#FFFDF8]" data-testid="workboard-active-count">
+                    {tasks.length + 3} active items
                   </span>
-                  <div className="flex items-center gap-1 bg-[#0B4A3F] p-1 rounded-xl border border-[rgba(208,214,187,0.14)]">
+                  <div className="flex items-center gap-1 bg-[#0B4A3F] p-1 rounded-xl border border-[rgba(208,214,187,0.14)] text-xs">
                     <button
                       type="button"
                       onClick={() => setWorkboardViewMode("grouped")}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                         workboardViewMode === "grouped"
                           ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)]"
                           : "text-[rgba(246,247,241,0.6)] hover:text-[#FFFDF8]"
                       }`}
                     >
-                      Grouped Stages (4 Columns)
+                      Grouped stages
                     </button>
                     <button
                       type="button"
                       onClick={() => setWorkboardViewMode("all")}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                         workboardViewMode === "all"
                           ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)]"
                           : "text-[rgba(246,247,241,0.6)] hover:text-[#FFFDF8]"
                       }`}
                     >
-                      All 7 Stages
+                      All stages
                     </button>
                   </div>
                 </div>
 
                 <span className="text-xs text-[rgba(246,247,241,0.7)] font-mono">
-                  Total Active Items: {tasks.length + 3}
+                  SOP-enforced pipeline
                 </span>
               </div>
 
@@ -2424,193 +2457,394 @@ export default function MarketingIntakeConsole({
           )}
 
           {/* TAB 2: INBOUND CALL LOG & TRANSCRIPTS */}
-          {activeTab === "calls" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left List: Calls */}
-              <div className="bg-[#01362D]/60 border border-[#00635C]/40 rounded-3xl p-4 space-y-3 shadow-lg backdrop-blur-md">
-                <h3 className="font-bold text-xs text-white font-mono uppercase tracking-wider border-b border-white/10 pb-2">
-                  Inbound Phone Recordings
-                </h3>
-
-                <div className="space-y-2">
-                  {calls.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedCallId(c.id)}
-                      className={`w-full p-3 rounded-2xl text-left border transition-all cursor-pointer space-y-1 ${
-                        selectedCallId === c.id
-                          ? "bg-[#00635C] text-white border-emerald-400/40 shadow-md"
-                          : "bg-black/20 hover:bg-white/5 border-white/10 text-white"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs truncate">
-                          {c.callerName}
-                        </span>
-                        <span
-                          className={`text-[10px] font-mono ${selectedCallId === c.id ? "text-emerald-200" : "text-[#D0D6BB]/70"}`}
-                        >
-                          {c.timestamp}
-                        </span>
-                      </div>
-                      <p
-                        className={`text-[11px] truncate ${selectedCallId === c.id ? "text-[#F6F7F1]" : "text-[#D0D6BB]"}`}
-                      >
-                        {c.propertyAddress}
-                      </p>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold inline-block ${
-                          selectedCallId === c.id
-                            ? "bg-white/20 text-white"
-                            : "bg-white/10 text-[#D0D6BB]"
-                        }`}
-                      >
-                        {c.requestType}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+          {(activeTab === "intake" || activeTab === "calls") && (
+            <div data-testid="marketing-intake-view" className="space-y-4 w-full text-left">
+              {/* Compact View Label */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <h2 className="font-bold text-sm text-[#D0D6BB] font-mono uppercase tracking-wider">
+                  Inbound requests
+                </h2>
+                <span className="text-xs text-[#D0D6BB]/70 font-mono">{calls.length} Phone & Multi-Channel Recordings</span>
               </div>
 
-              {/* Right Area: Selected Call Transcript & AI Summary */}
-              {selectedCall && (
-                <div className="md:col-span-2 bg-[#01362D]/60 border border-[#00635C]/40 rounded-3xl p-6 shadow-lg backdrop-blur-md space-y-5">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                    <div>
-                      <h3 className="font-bold text-base text-white">
-                        {selectedCall.callerName} — Inbound Call
-                      </h3>
-                      <p className="text-xs text-[#D0D6BB] mt-0.5">
-                        {selectedCall.office} • {selectedCall.phone} •{" "}
-                        {selectedCall.duration}
-                      </p>
-                    </div>
+              <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6">
+                {/* Left List: Calls */}
+                <div className="bg-[#01362D]/60 border border-[#00635C]/40 rounded-3xl p-4 space-y-3 shadow-lg backdrop-blur-md">
+                  <h3 className="font-bold text-xs text-white font-mono uppercase tracking-wider border-b border-white/10 pb-2">
+                    Inbound Recordings ({calls.length})
+                  </h3>
 
-                    <button
-                      onClick={() => {
-                        const matchedTask = tasks.find(
-                          (t) => t.callId === selectedCall.id,
-                        );
-                        if (matchedTask) handleDelegateToVA(matchedTask.id);
-                        alert(
-                          `Task delegated to Virtual Assistant (Jessica) for ${selectedCall.propertyAddress}`,
-                        );
-                      }}
-                      className="px-4 py-2 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer font-sans border border-emerald-500/30"
-                    >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      <span>1-Click Delegate to VA (Jessica)</span>
-                    </button>
-                  </div>
-
-                  {/* Audio Waveform Player Simulation */}
-                  <div className="p-4 bg-black/30 border border-white/10 rounded-2xl flex items-center gap-4">
-                    <button className="w-9 h-9 rounded-xl bg-[#00635C] text-white flex items-center justify-center shrink-0 cursor-pointer hover:bg-[#007c73] transition-all">
-                      <Play className="w-4 h-4 fill-white ml-0.5" />
-                    </button>
-                    <div className="flex-grow space-y-1">
-                      <div className="flex justify-between text-[10px] font-mono text-[#D0D6BB]">
-                        <span>Audio Recording ({selectedCall.duration})</span>
-                        <span>0:00 / {selectedCall.duration}</span>
-                      </div>
-                      <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden flex items-center">
-                        <div className="bg-emerald-400 h-full w-1/3 rounded-full"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* AI Transcript Extraction Card */}
-                  <div className="p-4 bg-[#003B33]/80 border border-emerald-500/30 rounded-2xl space-y-2">
-                    <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider font-mono block">
-                      AI Key Details Extraction
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
-                      <div>
-                        <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
-                          Property Price
+                  <div className="space-y-2">
+                    {calls.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedCallId(c.id)}
+                        className={`w-full p-3 rounded-2xl text-left border transition-all cursor-pointer space-y-1 ${
+                          selectedCallId === c.id
+                            ? "bg-[#00635C] text-white border-emerald-400/40 shadow-md"
+                            : "bg-black/20 hover:bg-white/5 border-white/10 text-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs truncate">
+                            {c.callerName}
+                          </span>
+                          <span
+                            className={`text-[10px] font-mono ${selectedCallId === c.id ? "text-emerald-200" : "text-[#D0D6BB]/70"}`}
+                          >
+                            {c.timestamp}
+                          </span>
+                        </div>
+                        <p
+                          className={`text-[11px] truncate ${selectedCallId === c.id ? "text-[#F6F7F1]" : "text-[#D0D6BB]"}`}
+                        >
+                          {c.propertyAddress}
+                        </p>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold inline-block ${
+                            selectedCallId === c.id
+                              ? "bg-white/20 text-white"
+                              : "bg-white/10 text-[#D0D6BB]"
+                          }`}
+                        >
+                          {c.requestType}
                         </span>
-                        <strong className="text-white">
-                          {selectedCall.aiExtractedDetails.price}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
-                          Bedrooms / Baths
-                        </span>
-                        <strong className="text-white">
-                          {selectedCall.aiExtractedDetails.bedrooms} /{" "}
-                          {selectedCall.aiExtractedDetails.bathrooms}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
-                          Open House Schedule
-                        </span>
-                        <strong className="text-white">
-                          {selectedCall.aiExtractedDetails.openHouseDate}
-                        </strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Raw Transcript */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider font-mono block">
-                      Call Transcript
-                    </span>
-                    <div className="p-4 bg-black/30 border border-white/10 rounded-2xl font-mono text-xs text-[#F6F7F1] leading-relaxed italic">
-                      "{selectedCall.transcript}"
-                    </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
+
+                {/* Right Area: Selected Call Transcript & AI Summary */}
+                {selectedCall && (
+                  <div className="bg-[#01362D]/60 border border-[#00635C]/40 rounded-3xl p-6 shadow-lg backdrop-blur-md space-y-5">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                      <div>
+                        <h3 className="font-bold text-base text-white">
+                          {selectedCall.callerName} — Inbound Call
+                        </h3>
+                        <p className="text-xs text-[#D0D6BB] mt-0.5">
+                          {selectedCall.office} • {selectedCall.phone} •{" "}
+                          {selectedCall.duration}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const matchedTask = tasks.find(
+                            (t) => t.callId === selectedCall.id,
+                          );
+                          if (matchedTask) handleDelegateToVA(matchedTask.id);
+                          alert(
+                            `Task assigned to Virtual Assistant (Jessica) for ${selectedCall.propertyAddress}`,
+                          );
+                        }}
+                        className="px-4 py-2 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer font-sans border border-emerald-500/30"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>Assign to Jessica</span>
+                      </button>
+                    </div>
+
+                    {/* Proposed Execution Details */}
+                    <div className="p-4 bg-[#003B33]/80 border border-emerald-500/30 rounded-2xl space-y-2">
+                      <div className="flex items-center justify-between text-xs text-[#D0D6BB]">
+                        <span className="font-mono font-bold text-emerald-300 uppercase">Proposed Execution Route</span>
+                        <span>Due Target: <strong className="text-white">Today 5:00 PM</strong></span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
+                        <div>
+                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">Proposed Work Items</span>
+                          <strong className="text-white">Flyer, Postcard, Email</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">Reviewer</span>
+                          <strong className="text-white">HQ Operations</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">VA Readiness</span>
+                          <strong className="text-emerald-300">✓ 100% Certified</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Audio Waveform Player Simulation */}
+                    <div className="p-4 bg-black/30 border border-white/10 rounded-2xl flex items-center gap-4">
+                      <button className="w-9 h-9 rounded-xl bg-[#00635C] text-white flex items-center justify-center shrink-0 cursor-pointer hover:bg-[#007c73] transition-all">
+                        <Play className="w-4 h-4 fill-white ml-0.5" />
+                      </button>
+                      <div className="flex-grow space-y-1">
+                        <div className="flex justify-between text-[10px] font-mono text-[#D0D6BB]">
+                          <span>Audio Recording ({selectedCall.duration})</span>
+                          <span>0:00 / {selectedCall.duration}</span>
+                        </div>
+                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden flex items-center">
+                          <div className="bg-emerald-400 h-full w-1/3 rounded-full"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Transcript Extraction Card */}
+                    <div className="p-4 bg-[#003B33]/80 border border-emerald-500/30 rounded-2xl space-y-2">
+                      <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider font-mono block">
+                        AI Key Details Extraction
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
+                        <div>
+                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
+                            Property Price
+                          </span>
+                          <strong className="text-white">
+                            {selectedCall.aiExtractedDetails.price}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
+                            Bedrooms / Baths
+                          </span>
+                          <strong className="text-white">
+                            {selectedCall.aiExtractedDetails.bedrooms} /{" "}
+                            {selectedCall.aiExtractedDetails.bathrooms}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
+                            Open House Schedule
+                          </span>
+                          <strong className="text-white">
+                            {selectedCall.aiExtractedDetails.openHouseDate}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Raw Transcript */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider font-mono block">
+                        Call Transcript
+                      </span>
+                      <div className="p-4 bg-black/30 border border-white/10 rounded-2xl font-mono text-xs text-[#F6F7F1] leading-relaxed italic">
+                        "{selectedCall.transcript}"
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* CUSTOMER CAMPAIGN LIST VIEW (WHEN NO CAMPAIGN IS SELECTED) */}
-          {activeTab === "campaigns" && !selectedCampaignId && (
-            <MarketingHomeInbox
-              campaigns={allCampaigns.length > 0 ? allCampaigns : [
-                {
-                  id: "campaign_990_inspiration",
-                  propertyAddress: "990 Inspiration Drive",
-                  agentName: "Ryan Crecelius",
-                  targetDate: "August 3, 2026",
-                  status: "approved",
-                },
-                {
-                  id: "campaign_304_ocean",
-                  propertyAddress: "304 Ocean Blvd",
-                  agentName: "Eric",
-                  targetDate: "August 6, 2026",
-                  status: "needs_information",
-                  missingInformation: {
-                    field: "open_house_hours",
-                    prompt: "Please specify open house hours",
+          {/* VA WORKSPACE VIEW */}
+          {(activeTab === "va" || activeTab === "va_workspace") && (
+            <div data-testid="marketing-va-view" className="w-full">
+              <VAWorkspaceView
+                workItems={state?.workItems || []}
+                onOpenItem={(item) => {
+                  if (item.campaignId) {
+                    handleSelectCampaign(item.campaignId, 'review');
+                  } else {
+                    handleSelectCampaign('campaign_990_inspiration', 'review');
+                  }
+                }}
+                onSubmitProof={(id, proofUrl, notes) => {
+                  alert(`Proof submitted for work item ${id}`);
+                }}
+              />
+            </div>
+          )}
+
+          {/* TEMPLATES VIEW */}
+          {activeTab === "templates" && (
+            <div data-testid="marketing-templates-view" className="space-y-6 text-left w-full">
+              {/* Compact Header & Filter Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-serif font-bold text-xl text-white">Approved templates</h2>
+                  <span className="text-xs font-bold text-emerald-300 bg-emerald-900/50 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                    3 active templates
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/10 text-xs">
+                    <button type="button" className="px-3 py-1 rounded-lg font-bold bg-[#176457] text-white">All formats</button>
+                    <button type="button" className="px-3 py-1 rounded-lg font-medium text-[#D0D6BB] hover:text-white">Active</button>
+                  </div>
+
+                  {isOperator && (
+                    <button
+                      type="button"
+                      onClick={() => alert('Create Template modal')}
+                      className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-white text-xs font-bold rounded-xl border border-emerald-400/30 shadow transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create template</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Visual Template Previews Grid (3-4 columns) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {/* Template Card 1: Nest Editorial Property Flyer */}
+                <div className="bg-[#062f28] border border-[rgba(208,214,187,0.16)] hover:border-emerald-500/50 rounded-2xl p-4 space-y-3 shadow-md flex flex-col justify-between transition-all">
+                  <div className="space-y-3">
+                    <div className="w-full aspect-[3/4] bg-slate-900 rounded-xl overflow-hidden relative border border-white/10 shadow-inner group">
+                      <img
+                        src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw"
+                        alt="Nest Editorial Property Flyer Preview"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3">
+                        <span className="text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-wider">8.5 × 11 Letter</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-white">Nest Editorial Property Flyer</h3>
+                      <p className="text-xs text-[#D0D6BB] mt-0.5">Letter · Active</p>
+                      <p className="text-[11px] font-mono text-[#D0D6BB]/70 mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => alert('Opening preview for Nest Editorial Property Flyer')}
+                      className="flex-1 py-1.5 bg-black/30 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all text-center border border-white/10"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowNaturalLanguageChangeModal(true)}
+                      className="flex-1 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-xs font-bold transition-all text-center border border-emerald-400/30 shadow-sm"
+                    >
+                      Use template
+                    </button>
+                  </div>
+                </div>
+
+                {/* Template Card 2: Social Media Carousel Package */}
+                <div className="bg-[#062f28] border border-[rgba(208,214,187,0.16)] hover:border-emerald-500/50 rounded-2xl p-4 space-y-3 shadow-md flex flex-col justify-between transition-all">
+                  <div className="space-y-3">
+                    <div className="w-full aspect-square bg-slate-900 rounded-xl overflow-hidden relative border border-white/10 shadow-inner group">
+                      <img
+                        src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_pool/raw"
+                        alt="Social Media Carousel Package Preview"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3">
+                        <span className="text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-wider">1080 × 1080 Square</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-white">Social Media Carousel Package</h3>
+                      <p className="text-xs text-[#D0D6BB] mt-0.5">3-Slide Carousel · Active</p>
+                      <p className="text-[11px] font-mono text-[#D0D6BB]/70 mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => alert('Opening preview for Social Media Carousel Package')}
+                      className="flex-1 py-1.5 bg-black/30 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all text-center border border-white/10"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowNaturalLanguageChangeModal(true)}
+                      className="flex-1 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-xs font-bold transition-all text-center border border-emerald-400/30 shadow-sm"
+                    >
+                      Use template
+                    </button>
+                  </div>
+                </div>
+
+                {/* Template Card 3: Direct Mail Glossy Postcard */}
+                <div className="bg-[#062f28] border border-[rgba(208,214,187,0.16)] hover:border-emerald-500/50 rounded-2xl p-4 space-y-3 shadow-md flex flex-col justify-between transition-all">
+                  <div className="space-y-3">
+                    <div className="w-full aspect-[3/2] bg-slate-900 rounded-xl overflow-hidden relative border border-white/10 shadow-inner group">
+                      <img
+                        src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_patio/raw"
+                        alt="Direct Mail Glossy Postcard Preview"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-3">
+                        <span className="text-[10px] font-mono font-bold text-emerald-300 uppercase tracking-wider">6 × 9 Direct Mail</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-white">Direct Mail Glossy Postcard</h3>
+                      <p className="text-xs text-[#D0D6BB] mt-0.5">6x9 Postcard · Active</p>
+                      <p className="text-[11px] font-mono text-[#D0D6BB]/70 mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => alert('Opening preview for Direct Mail Glossy Postcard')}
+                      className="flex-1 py-1.5 bg-black/30 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all text-center border border-white/10"
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowNaturalLanguageChangeModal(true)}
+                      className="flex-1 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-xs font-bold transition-all text-center border border-emerald-400/30 shadow-sm"
+                    >
+                      Use template
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CUSTOMER CAMPAIGN LIST VIEW (REQUESTS) */}
+          {(activeTab === "requests" || activeTab === "campaigns") && !selectedCampaignId && (
+            <div data-testid="marketing-requests-view" className="w-full">
+              <MarketingHomeInbox
+                campaigns={allCampaigns.length > 0 ? allCampaigns : [
+                  {
+                    id: "campaign_990_inspiration",
+                    propertyAddress: "990 Inspiration Drive",
+                    agentName: "Ryan Crecelius",
+                    targetDate: "August 3, 2026",
+                    status: "approved",
                   },
-                },
-                {
-                  id: "campaign_212_wetland",
-                  propertyAddress: "212 Wetland Court",
-                  agentName: "Sarah Jenkins",
-                  targetDate: "August 1, 2026",
-                  status: "preparing",
-                },
-              ]}
-              activeJob={activeBuildJob}
-              onSelectCampaign={(cId, mode) => {
-                handleSelectCampaign(cId, mode || "review");
-                if (cId === "campaign_304_ocean" && mode === "brief") {
-                  setShowMissingInfoModal(true);
-                }
-              }}
-              onNewRequest={() => setShowNaturalLanguageChangeModal(true)}
-              isOperator={isOperator}
-            />
+                  {
+                    id: "campaign_304_ocean",
+                    propertyAddress: "304 Ocean Blvd",
+                    agentName: "Eric",
+                    targetDate: "August 6, 2026",
+                    status: "needs_information",
+                    missingInformation: {
+                      field: "open_house_hours",
+                      prompt: "Please specify open house hours",
+                    },
+                  },
+                  {
+                    id: "campaign_212_wetland",
+                    propertyAddress: "212 Wetland Court",
+                    agentName: "Sarah Jenkins",
+                    targetDate: "August 1, 2026",
+                    status: "preparing",
+                  },
+                ]}
+                activeJob={activeBuildJob}
+                onSelectCampaign={(cId, mode) => {
+                  handleSelectCampaign(cId, mode || "review");
+                  if (cId === "campaign_304_ocean" && mode === "brief") {
+                    setShowMissingInfoModal(true);
+                  }
+                }}
+                onNewRequest={() => setShowNaturalLanguageChangeModal(true)}
+                isOperator={isOperator}
+              />
+            </div>
           )}
 
           {/* DEDICATED CAMPAIGN WORKSPACE VIEW (WHEN A CAMPAIGN IS SELECTED) */}
-          {activeTab === "campaigns" && selectedCampaignId && (
+          {(activeTab === "campaigns" || selectedCampaignId) && selectedCampaignId && (
             campaignNotFoundError ? (
               /* SECTION 1: CAMPAIGN UNAVAILABLE ERROR STATE */
               <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 max-w-md mx-auto my-12 bg-[#0B4A3F] border border-rose-500/30 rounded-3xl text-white shadow-2xl">
@@ -2646,8 +2880,9 @@ export default function MarketingIntakeConsole({
               />
             )
           )}
+        </main>
 
-          {/* NON-ALERT MISSING INFORMATION MODAL */}
+        {/* NON-ALERT MISSING INFORMATION MODAL */}
           <MissingInformationModal
             isOpen={showMissingInfoModal}
             onClose={() => setShowMissingInfoModal(false)}
@@ -8507,22 +8742,20 @@ export default function MarketingIntakeConsole({
             </div>
           </div>
         )}
-
-        {/* Development Identity Strip (Hidden in production) */}
-        {(import.meta.env.DEV || process.env.NODE_ENV !== 'production') && (
+        {/* Development Identity Strip (Hidden by default unless debug=1 is explicitly set) */}
+        {showMarketingDebug && (
           <div
             data-testid="dev-identity-strip"
-            className="w-full bg-[#062f28] border-t border-[rgba(208,214,187,0.15)] px-6 py-2 flex flex-wrap items-center justify-between text-[11px] font-mono text-[#d0d6bb]/80 shrink-0"
+            className="w-full bg-[#062f28] border-t border-amber-500/30 px-6 py-3 flex flex-wrap items-center justify-between text-[11px] font-mono text-[#d0d6bb]/90 shrink-0 mt-6 rounded-2xl"
           >
             <div className="flex items-center gap-4">
-              <span>requestId: {activeCampaign?.request?.id || 'req_304_ocean_phone'}</span>
-              <span>brandKitVersion: {activeCampaign?.brandKit?.version || '2.1.0'}</span>
-              <span>complianceVersion: {activeCampaign?.compliancePolicySet?.version || '2026.1'}</span>
+              <span>requestId: <strong className="text-white">{activeCampaign?.request?.id || 'req_304_ocean_phone'}</strong></span>
+              <span>brandKitVersion: <strong className="text-white">{activeCampaign?.brandKit?.version || '2.1.0'}</strong></span>
+              <span>complianceVersion: <strong className="text-white">{activeCampaign?.compliancePolicySet?.version || '2026.1'}</strong></span>
             </div>
-            <span className="text-emerald-400 font-bold">Development Mode</span>
+            <span className="text-amber-400 font-bold bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">Explicit Debug Mode (debug=1)</span>
           </div>
         )}
       </div>
-    </div>
   );
 }

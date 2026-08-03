@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing Build View - SSE Reconnection & Event Replay', () => {
   test('reconnects SSE stream and replays missed events with Last-Event-ID', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_990_inspiration&mode=review');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_990_inspiration&mode=review');
 
     const sidecarHeading = page.locator('text=Shapework is preparing your package');
     await expect(sidecarHeading).toBeVisible({ timeout: 10000 });

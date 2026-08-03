@@ -39,7 +39,7 @@ export const CampaignActivityView: React.FC<CampaignActivityViewProps> = ({ camp
     ...auditTrail.map(a => ({
       time: new Date(a.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       actor: a.performedBy,
-      title: a.action.replace(/_/g, ' '),
+      title: (a.action || 'Activity').replace(/_/g, ' '),
       description: a.details,
       icon: <CheckCircle2 className="w-4 h-4 text-emerald-700" />
     }))

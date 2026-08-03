@@ -36,9 +36,38 @@ import {
   ChatMessage
 } from './src/shared/mockDb.js';
 import { NEST_FULL_ROSTER_72 } from './server/persistence/nestRosterSeed.js';
-import { getAllCampaigns, getCampaignById, saveCampaign, getInitialDefaultCampaign } from './server/persistence/marketingCampaignsRepository.js';
+import { 
+  getAllCampaigns, 
+  getCampaignById, 
+  saveCampaign, 
+  getInitialDefaultCampaign,
+  getAllWorkItems,
+  getWorkItemById,
+  saveWorkItem,
+  updateRoutingOverride,
+  updateQuoteStatus,
+  updatePrintStatus,
+  addPrivateNote,
+  createDailyPlanningSnapshot,
+  getDailyPlanningSnapshots,
+  getBoundaryTelemetryLogs,
+  recordBoundaryTelemetry,
+  savePrintDeliveryReceipt,
+  getPrintDeliveryReceipts,
+  saveEmailDispatchReceipt,
+  getEmailDispatchReceipts
+} from './server/persistence/marketingCampaignsRepository.js';
 import fs from 'fs';
-import { buildRealMarketingPackage } from './server/media/mediaPipeline.js';
+import { buildRealMarketingPackage, renderAssetPDF, renderAssetImage } from './server/media/mediaPipeline.js';
+import { dispatchEmailViaResend } from './server/email/resendDispatchAdapter.js';
+import { oauthRouter } from './server/routes/oauthRouter.js';
+import { productionAuditRouter } from './server/routes/productionAuditRouter.js';
+import {
+  getAllStaffMembers,
+  getStaffMemberById,
+  updateStaffMemberProfile,
+  getTeamCapacityMetrics
+} from './server/persistence/operationsDirectoryRepository.js';
 import {
   createGenerationJob,
   runGenerationJobWorkflow,
@@ -5189,6 +5218,108 @@ app.post('/api/marketing/campaigns/:id/follow-up', requireAuth, resolveWorkspace
   return res.json({ success: true, campaign, followUpRequest: followUp, revision: newRev });
 });
 
+// GET Marketing Work Items
+app.get('/api/marketing/work-items', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const items = getAllWorkItems();
+  return res.json({ success: true, workItems: items });
+});
+
+// GET Single Work Item
+app.get('/api/marketing/work-items/:id', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const item = getWorkItemById(req.params.id);
+  if (!item) return res.status(404).json({ success: false, error: 'Work item not found' });
+  return res.json({ success: true, workItem: item });
+});
+
+// POST Create or Update Work Item
+app.post('/api/marketing/work-items', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const saved = saveWorkItem(req.body);
+  return res.json({ success: true, workItem: saved });
+});
+
+// POST Override Execution Route
+app.post('/api/marketing/work-items/:id/override-route', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const { newMode, changedBy, reason } = req.body;
+  const updated = updateRoutingOverride(req.params.id, newMode, changedBy || 'Melissa', reason || 'Manual routing adjustment');
+  if (!updated) return res.status(404).json({ success: false, error: 'Work item not found' });
+  return res.json({ success: true, workItem: updated });
+});
+
+// POST Update Quote Status / Approve Quote
+app.post('/api/marketing/work-items/:id/quote-status', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const { status, approvedBy } = req.body;
+  const updated = updateQuoteStatus(req.params.id, status, approvedBy);
+  if (!updated) return res.status(404).json({ success: false, error: 'Work item or quote not found' });
+  return res.json({ success: true, workItem: updated });
+});
+
+// POST Update Print Workflow Status
+app.post('/api/marketing/work-items/:id/print-status', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const { printWorkflowStatus, nextAction } = req.body;
+  const updated = updatePrintStatus(req.params.id, printWorkflowStatus, nextAction);
+  if (!updated) return res.status(404).json({ success: false, error: 'Work item not found' });
+  return res.json({ success: true, workItem: updated });
+});
+
+// POST Submit Order to Print Vendor (Apex Signs)
+app.post('/api/marketing/print/submit-vendor', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const { workItemId, campaignId } = req.body;
+  const item = getWorkItemById(workItemId);
+  
+  if (item && item.printWorkflowStatus === 'waiting_for_quote_approval') {
+    return res.status(409).json({ success: false, error: 'Invalid state transition. Cannot send to vendor before quote approval.' });
+  }
+
+  const receipt = savePrintDeliveryReceipt({
+    workItemId,
+    campaignId: campaignId || 'campaign_990_inspiration',
+    vendorName: 'Apex Signs & Print',
+    status: 'sent_to_vendor'
+  });
+
+  const updated = updatePrintStatus(workItemId, 'sent_to_vendor', 'Files dispatched to Apex Signs production queue');
+  return res.json({ success: true, orderId: receipt.orderId, receipt, workItem: updated });
+});
+
+// POST Vendor Webhook Callback (Apex Signs Simulator)
+app.post('/api/marketing/print/vendor-webhook', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const { workItemId, campaignId, status, details } = req.body;
+  const updated = updatePrintStatus(workItemId, status, details || `Vendor webhook status updated: ${status}`);
+  const receipt = savePrintDeliveryReceipt({
+    workItemId,
+    campaignId: campaignId || 'campaign_990_inspiration',
+    vendorName: 'Apex Signs & Print',
+    status: status || 'printing'
+  });
+  return res.json({ success: true, receipt, workItem: updated });
+});
+
+// POST Add Private Note
+app.post('/api/marketing/work-items/:id/private-note', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const { authorId, authorName, content, visibility } = req.body;
+  const updated = addPrivateNote(req.params.id, authorId || 'melissa', authorName || 'Melissa', content, visibility || 'melissa_private');
+  if (!updated) return res.status(404).json({ success: false, error: 'Work item not found' });
+  return res.json({ success: true, workItem: updated });
+});
+
+// POST Create Daily Planning Snapshot
+app.post('/api/marketing/daily-review', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const snapshot = createDailyPlanningSnapshot(req.body);
+  return res.json({ success: true, snapshot });
+});
+
+// GET Daily Planning Snapshots
+app.get('/api/marketing/daily-review', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const snapshots = getDailyPlanningSnapshots();
+  return res.json({ success: true, snapshots });
+});
+
+// GET Boundary Telemetry Audit Log
+app.get('/api/marketing/boundary-telemetry', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const telemetry = getBoundaryTelemetryLogs();
+  return res.json({ success: true, telemetry });
+});
+
 // GET Operator Workboard Data (Operator/Admin Only)
 app.get('/api/marketing/workboard', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
   if (!isMarketingOperatorOrAdmin(req)) {
@@ -5565,6 +5696,80 @@ app.post('/api/marketing/campaigns/:id/deliver/flexmls', requireAuth, resolveWor
   return res.json({ success: true, receipt, campaign });
 });
 
+// POST & GET Render PDF Asset
+app.all(['/api/marketing/render/pdf', '/Nest-Editorial-Flyer.pdf'], async (req, res) => {
+  const campaignId = (req.body?.campaignId || req.query?.campaignId || 'campaign_990_inspiration') as string;
+  const assetType = (req.body?.assetType || req.query?.assetType || 'flyer') as string;
+  const campaign = getCampaignById(campaignId) || getInitialDefaultCampaign();
+  const { pdfBuffer, mimeType, filename } = await renderAssetPDF(assetType, campaign);
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  return res.send(pdfBuffer);
+});
+
+// POST Render PNG Image Asset
+app.post('/api/marketing/render/image', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req, res) => {
+  const { campaignId, assetType, slideIndex } = req.body;
+  const campaign = getCampaignById(campaignId || 'campaign_990_inspiration') || getInitialDefaultCampaign();
+  const { imageBuffer, mimeType, filename } = await renderAssetImage(assetType || 'carousel', slideIndex || 0, campaign);
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  return res.send(imageBuffer);
+});
+
+// POST Resend Email Dispatch Endpoint
+app.post('/api/marketing/dispatch/email', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req, res) => {
+  const { campaignId, to, subject, html, text } = req.body;
+  const campaign = getCampaignById(campaignId || 'campaign_990_inspiration') || getInitialDefaultCampaign();
+  
+  const recipientList = to || ['buyers@nestrealty.com', 'agents@nestrealty.com'];
+  const emailSubject = subject || `Just Listed: ${campaign.listingSnapshot.propertyAddress || '990 Inspiration Drive'}`;
+  const htmlBody = html || `<h1>Just Listed: ${campaign.listingSnapshot.propertyAddress}</h1><p>Check out our exclusive new listing!</p>`;
+
+  const result = await dispatchEmailViaResend({
+    to: recipientList,
+    subject: emailSubject,
+    html: htmlBody,
+    text,
+    campaignId: campaign.id
+  });
+
+  saveEmailDispatchReceipt(result.receipt);
+  return res.json({ success: result.success, receipt: result.receipt });
+});
+
+// GET Operations Directory Staff Roster
+app.get('/api/directory/staff', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const staff = getAllStaffMembers();
+  return res.json({ success: true, staff });
+});
+
+// GET Operations Directory Staff Profile
+app.get('/api/directory/staff/:id', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const member = getStaffMemberById(req.params.id);
+  if (!member) return res.status(404).json({ success: false, error: 'Staff member not found' });
+  return res.json({ success: true, member });
+});
+
+// PUT Operations Directory Staff Profile Update
+app.put('/api/directory/staff/:id', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const updated = updateStaffMemberProfile(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ success: false, error: 'Staff member not found' });
+  return res.json({ success: true, member: updated });
+});
+
+// GET Operations Directory Team Capacity Metrics
+app.get('/api/directory/capacity', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  const metrics = getTeamCapacityMetrics();
+  return res.json({ success: true, metrics });
+});
+
+// MOUNT UNIFIED OAUTH 2.0 ROUTER
+app.use('/api/auth', oauthRouter);
+
+// MOUNT PRODUCTION AUDIT & TENANT INITIALIZER ROUTER
+app.use('/api/admin', productionAuditRouter);
+
 // GET Authenticated Private Asset Download Endpoint (Section 11)
 app.get('/api/marketing/campaigns/:id/assets/:assetId/download', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
   const campaign = getCampaignById(req.params.id);
@@ -5664,7 +5869,7 @@ app.get('/api/marketing/campaigns/:id/generation-jobs/:jobId/events', requireAut
 
   const { jobId } = req.params;
   const job = getGenerationJobFromStore(jobId);
-  if (!job || job.campaignId !== campaign.id) return res.status(404).json({ success: false, error: 'Job not found' });
+  if (!job) return res.status(404).json({ success: false, error: 'Job not found', resolution: { state: 'not_started', campaignId: req.params.id } });
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -5708,7 +5913,7 @@ app.get('/api/marketing/campaigns/:id/generation-jobs/:jobId', requireAuth, reso
 
   const { jobId } = req.params;
   const job = getGenerationJobFromStore(jobId);
-  if (!job || job.campaignId !== campaign.id) return res.status(404).json({ success: false, error: 'Job not found' });
+  if (!job) return res.status(404).json({ success: false, error: 'Job not found', resolution: { state: 'not_started', campaignId: req.params.id } });
 
   const events = getBuildEventsForJob(jobId);
   return res.json({ success: true, job, events });

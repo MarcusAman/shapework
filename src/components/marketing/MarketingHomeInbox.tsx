@@ -67,31 +67,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#01362d] text-[#13231e] font-sans p-6 md:p-10 space-y-8" data-testid="marketing-home-inbox">
-      {/* CUSTOMER PAGE HEADER */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[rgba(208,214,187,0.2)] pb-6 max-w-7xl mx-auto">
-        <div className="space-y-1 text-left">
-          <h1 className="text-3xl md:text-4xl font-serif font-bold text-[#fffdf8] tracking-tight" data-testid="marketing-home-title">
-            Marketing
-          </h1>
-          <p className="text-sm md:text-base text-[#d0d6bb]/90 font-medium">
-            Requests and listing campaigns handled by Shapework.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          data-testid="btn-new-marketing-request"
-          onClick={onOpenNewRequestModal}
-          className="px-5 py-3 bg-[#00635c] hover:bg-[#004d48] text-[#fffdf8] font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 border border-emerald-400/30 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Marketing Request</span>
-        </button>
-      </header>
-
-      {/* TWO-COLUMN DELEGATED-WORK INBOX LAYOUT */}
-      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl mx-auto items-start">
+    <div className="w-full text-[#13231e] font-sans p-0 space-y-6" data-testid="marketing-home-inbox">
+      {/* TWO-COLUMN DELEGATED-WORK INBOX LAYOUT (FULL WIDTH) */}
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
         {/* LEFT COLUMN: REQUEST QUEUE (8 COLS) */}
         <section className="lg:col-span-8 space-y-8 text-left">
           {/* 1. NEEDS ATTENTION SECTION */}

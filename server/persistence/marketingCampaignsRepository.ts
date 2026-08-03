@@ -996,3 +996,493 @@ export function saveCampaign(campaign: ListingMarketingCampaign): ListingMarketi
   }
   return campaign;
 }
+
+// Work Items Persistence & Store
+let workItemsStore: any[] = [];
+let dailyPlanningSnapshotsStore: any[] = [];
+
+export function getInitialWorkItems(): any[] {
+  return [
+    {
+      id: 'work_item_flow_a',
+      requestId: 'req_990_inspiration',
+      campaignId: 'campaign_990_inspiration',
+      workType: 'flyer',
+      title: '990 Inspiration Drive — Listing Flyer PDF',
+      description: 'Standard 2-page editorial listing flyer for luxury estate',
+      priority: 'high',
+      executionMode: 'automate_with_review',
+      executorType: 'shapework_automation',
+      executorName: 'Shapework Build Engine',
+      requestOwnerId: 'melissa',
+      reviewerId: 'melissa',
+      approverId: 'eric_anderson',
+      status: 'ready_for_review',
+      nextAction: 'Melissa to review rendered PDF proof and email to Eric Anderson',
+      quoteRequired: false,
+      printRequired: true,
+      approvalRequired: true,
+      requestedDueAt: '2026-08-03T17:00:00Z',
+      internalTargetAt: '2026-08-02T16:00:00Z',
+      hardDeadline: '2026-08-04T12:00:00Z',
+      listingDate: '2026-08-04',
+      printWorkflowStatus: 'specifications_needed',
+      producedAssetIds: ['asset_flyer_990'],
+      privateNotes: [
+        {
+          id: 'note_a_01',
+          authorId: 'melissa',
+          authorName: 'Melissa',
+          content: 'Eric requested extra emphasis on the custom wine cellar photos in the flyer.',
+          visibility: 'melissa_private',
+          createdAt: '2026-08-02T09:15:00Z'
+        }
+      ],
+      createdAt: '2026-08-02T08:00:00Z',
+      updatedAt: '2026-08-02T09:30:00Z'
+    },
+    {
+      id: 'work_item_flow_b',
+      requestId: 'req_304_ocean',
+      campaignId: 'campaign_304_ocean',
+      workType: 'social_graphic',
+      title: '304 Ocean Boulevard — Instagram & Facebook Carousel',
+      description: '3-slide social graphic highlighting oceanfront deck and master suite',
+      priority: 'urgent',
+      executionMode: 'assign_to_va',
+      executorType: 'virtual_assistant',
+      executorId: 'va_maria',
+      executorName: 'Maria (Virtual Assistant)',
+      requestOwnerId: 'melissa',
+      reviewerId: 'melissa',
+      approverId: 'sarah_jenkins',
+      status: 'ready_for_review',
+      nextAction: 'Melissa to review VA submitted proof v2 after headline correction',
+      quoteRequired: false,
+      printRequired: false,
+      approvalRequired: true,
+      requestedDueAt: '2026-08-02T14:00:00Z',
+      internalTargetAt: '2026-08-02T12:00:00Z',
+      hardDeadline: '2026-08-02T18:00:00Z',
+      vaReadiness: {
+        workstreamId: 'ws_social_graphics',
+        status: 'ready',
+        requiredSopUrl: 'https://sop.nest.internal/va/social-graphics-v2',
+        templateAccess: true,
+        brandKitAccess: true,
+        platformAccess: true,
+        sampleWorkReviewed: true,
+        readinessDate: '2026-07-15'
+      },
+      sopUrl: 'https://sop.nest.internal/va/social-graphics-v2',
+      sopTitle: 'SOP-014: Nest Social Media Post Guidelines',
+      producedAssetIds: ['asset_social_304'],
+      routingOverrides: [
+        {
+          recommendedRoute: 'automate_with_review',
+          selectedRoute: 'assign_to_va',
+          changedBy: 'melissa',
+          reason: 'Custom layout requested by Sarah Jenkins requires VA design touch',
+          timestamp: '2026-08-02T08:30:00Z'
+        }
+      ],
+      privateNotes: [
+        {
+          id: 'note_b_01',
+          authorId: 'melissa',
+          authorName: 'Melissa',
+          content: 'Maria adjusted font spacing per my morning note. Looks crisp.',
+          visibility: 'melissa_private',
+          createdAt: '2026-08-02T10:00:00Z'
+        }
+      ],
+      createdAt: '2026-08-02T08:15:00Z',
+      updatedAt: '2026-08-02T09:45:00Z'
+    },
+    {
+      id: 'work_item_flow_c',
+      requestId: 'req_212_wetland',
+      campaignId: 'campaign_212_wetland',
+      workType: 'email_campaign',
+      title: '212 Wetland Court — Broker e-Blast Announcement',
+      description: 'HTML email blast to regional broker network announcing new marshfront listing',
+      priority: 'standard',
+      executionMode: 'hybrid',
+      executorType: 'virtual_assistant',
+      executorId: 'va_maria',
+      executorName: 'Maria (Virtual Assistant)',
+      requestOwnerId: 'melissa',
+      reviewerId: 'melissa',
+      approverId: 'sarah_jenkins',
+      status: 'in_progress',
+      nextAction: 'VA performing final link QA check on Shapework drafted HTML template',
+      quoteRequired: false,
+      printRequired: false,
+      approvalRequired: true,
+      requestedDueAt: '2026-08-04T12:00:00Z',
+      internalTargetAt: '2026-08-03T15:00:00Z',
+      vaReadiness: {
+        workstreamId: 'ws_email_qa',
+        status: 'ready_with_review',
+        requiredSopUrl: 'https://sop.nest.internal/va/email-qa',
+        templateAccess: true,
+        brandKitAccess: true,
+        platformAccess: true,
+        sampleWorkReviewed: true
+      },
+      sopUrl: 'https://sop.nest.internal/va/email-qa',
+      sopTitle: 'SOP-009: Email Template QA & Testing Checklist',
+      producedAssetIds: ['asset_email_212'],
+      createdAt: '2026-08-02T08:45:00Z',
+      updatedAt: '2026-08-02T09:00:00Z'
+    },
+    {
+      id: 'work_item_flow_d',
+      requestId: 'req_990_sign_print',
+      campaignId: 'campaign_990_inspiration',
+      workType: 'new_construction_sign',
+      title: '990 Inspiration Drive — Heavy-Duty Aluminum Yard Sign (36x24)',
+      description: 'Physical custom yard sign rider with QR code for architectural rendering walkthrough',
+      priority: 'urgent',
+      executionMode: 'external_vendor',
+      executorType: 'print_vendor',
+      executorName: 'Apex Print & Signs',
+      requestOwnerId: 'melissa',
+      reviewerId: 'melissa',
+      approverId: 'eric_anderson',
+      status: 'waiting_on_quote',
+      nextAction: 'Awaiting client SMS approval for $185.00 vendor print quote',
+      quoteRequired: true,
+      printRequired: true,
+      approvalRequired: true,
+      requestedDueAt: '2026-08-05T17:00:00Z',
+      internalTargetAt: '2026-08-03T12:00:00Z',
+      printWorkflowStatus: 'waiting_for_quote_approval',
+      printSpecs: {
+        dimensions: '36" x 24"',
+        paperStock: '3mm Dibond Aluminum',
+        quantity: 2,
+        finish: 'UV Gloss Weather Resistant',
+        vendorName: 'Apex Print & Signs',
+        pickupLocation: 'Nest HQ Front Desk',
+        targetDeliveryDate: '2026-08-05'
+      },
+      quote: {
+        id: 'quote_990_sign',
+        workItemId: 'work_item_flow_d',
+        amount: 185.0,
+        currency: 'USD',
+        vendorId: 'vendor_apex',
+        vendorName: 'Apex Print & Signs',
+        status: 'sent_for_approval',
+        sentVia: 'SMS to Eric Anderson (+1-910-555-0199)'
+      },
+      privateNotes: [
+        {
+          id: 'note_d_01',
+          authorId: 'melissa',
+          authorName: 'Melissa',
+          content: 'Apex confirmed 48-hour turn time after quote approval.',
+          visibility: 'melissa_private',
+          createdAt: '2026-08-02T09:20:00Z'
+        }
+      ],
+      createdAt: '2026-08-02T09:00:00Z',
+      updatedAt: '2026-08-02T09:50:00Z'
+    },
+    {
+      id: 'work_item_flow_e',
+      requestId: 'req_basecamp_hq',
+      workType: 'basecamp_task',
+      title: 'Q3 Coastal Region Brand Kit Audit & Signage Compliance',
+      description: 'Review updated Wilmington & Wrightsville Beach municipal sign ordinances in Basecamp',
+      priority: 'standard',
+      executionMode: 'assign_to_hq',
+      executorType: 'nest_hq',
+      executorName: 'Nest HQ Compliance Team',
+      requestOwnerId: 'melissa',
+      reviewerId: 'melissa',
+      approverId: 'melissa',
+      status: 'in_progress',
+      nextAction: 'Review sign ordinance updates attached in Basecamp project #88412',
+      quoteRequired: false,
+      printRequired: false,
+      approvalRequired: false,
+      requestedDueAt: '2026-08-10T17:00:00Z',
+      internalTargetAt: '2026-08-08T17:00:00Z',
+      basecampRef: {
+        projectId: '88412',
+        taskId: '99201',
+        url: 'https://3.basecamp.com/nest/projects/88412/todolists/99201',
+        owner: 'Ann Smith (HQ)',
+        lastCheckedAt: '2026-08-02T08:00:00Z',
+        label: 'Managed in Basecamp'
+      },
+      createdAt: '2026-08-01T10:00:00Z',
+      updatedAt: '2026-08-02T08:00:00Z'
+    },
+    {
+      id: 'work_item_flow_f',
+      requestId: 'req_sop_openhouse',
+      workType: 'sop_documentation',
+      title: 'Create SOP for Virtual Assistant Open House Collateral Packages',
+      description: 'Draft step-by-step SOP and checklist for VA setup of open house directional flyers & social teasers',
+      priority: 'standard',
+      executionMode: 'assign_to_va',
+      executorType: 'virtual_assistant',
+      executorId: 'va_maria',
+      executorName: 'Maria (Virtual Assistant)',
+      requestOwnerId: 'melissa',
+      reviewerId: 'melissa',
+      approverId: 'melissa',
+      status: 'in_progress',
+      nextAction: 'VA assembling initial draft outline in shared Google Drive folder',
+      quoteRequired: false,
+      printRequired: false,
+      approvalRequired: true,
+      requestedDueAt: '2026-08-07T17:00:00Z',
+      internalTargetAt: '2026-08-06T17:00:00Z',
+      sopUrl: 'https://sop.nest.internal/va/drafts/open-house-collateral-v1',
+      sopTitle: 'SOP Candidate: Open House Collateral Execution Protocol',
+      vaReadiness: {
+        workstreamId: 'ws_sop_creation',
+        status: 'training_required',
+        requiredTraining: 'Standard Operating Procedure Documentation Workshop',
+        templateAccess: true,
+        brandKitAccess: true,
+        platformAccess: true,
+        sampleWorkReviewed: false
+      },
+      createdAt: '2026-08-01T14:00:00Z',
+      updatedAt: '2026-08-02T09:00:00Z'
+    }
+  ];
+}
+
+export function getAllWorkItems(): any[] {
+  if (workItemsStore.length === 0) {
+    workItemsStore = getInitialWorkItems();
+  }
+  return workItemsStore;
+}
+
+export function getWorkItemById(id: string): any | undefined {
+  const items = getAllWorkItems();
+  return items.find(w => w.id === id);
+}
+
+export function saveWorkItem(item: any): any {
+  const items = getAllWorkItems();
+  item.updatedAt = new Date().toISOString();
+  const index = items.findIndex(w => w.id === item.id);
+  if (index >= 0) {
+    items[index] = item;
+  } else {
+    items.unshift(item);
+  }
+  return item;
+}
+
+export function getWorkItemsByRequestId(requestId: string): any[] {
+  const items = getAllWorkItems();
+  return items.filter(w => w.requestId === requestId);
+}
+
+export function updateRoutingOverride(workItemId: string, newMode: any, changedBy: string, reason: string): any {
+  const item = getWorkItemById(workItemId);
+  if (!item) return null;
+  if (!item.routingOverrides) {
+    item.routingOverrides = [];
+  }
+  item.routingOverrides.push({
+    recommendedRoute: item.executionMode,
+    selectedRoute: newMode,
+    changedBy,
+    reason,
+    timestamp: new Date().toISOString()
+  });
+  item.executionMode = newMode;
+
+  // Update executor type derived from execution mode
+  if (newMode === 'assign_to_va') {
+    item.executorType = 'virtual_assistant';
+    item.executorName = item.executorName || 'Maria (Virtual Assistant)';
+  } else if (newMode === 'automate' || newMode === 'automate_with_review') {
+    item.executorType = 'shapework_automation';
+    item.executorName = 'Shapework Build Engine';
+  } else if (newMode === 'assign_to_melissa') {
+    item.executorType = 'melissa';
+    item.executorName = 'Melissa';
+  } else if (newMode === 'assign_to_ann') {
+    item.executorType = 'ann';
+    item.executorName = 'Ann Smith';
+  } else if (newMode === 'assign_to_hq') {
+    item.executorType = 'nest_hq';
+    item.executorName = 'Nest HQ';
+  } else if (newMode === 'external_vendor') {
+    item.executorType = 'print_vendor';
+    item.executorName = item.printSpecs?.vendorName || 'Print Vendor';
+  }
+
+  return saveWorkItem(item);
+}
+
+export function updateQuoteStatus(workItemId: string, status: string, approvedBy?: string): any {
+  const item = getWorkItemById(workItemId);
+  if (!item || !item.quote) return null;
+  item.quote.status = status;
+  if (status === 'approved') {
+    item.quote.approvedBy = approvedBy || 'Client';
+    item.quote.approvedAt = new Date().toISOString();
+    item.status = 'printing';
+    item.printWorkflowStatus = 'approved_for_print';
+    item.nextAction = 'Vendor printing in progress. Expected completion: ' + (item.printSpecs?.targetDeliveryDate || 'in 48 hours');
+  }
+  return saveWorkItem(item);
+}
+
+export function updatePrintStatus(workItemId: string, status: any, nextAction?: string): any {
+  const item = getWorkItemById(workItemId);
+  if (!item) return null;
+  item.printWorkflowStatus = status;
+  if (nextAction) {
+    item.nextAction = nextAction;
+  }
+  if (status === 'ready_for_pickup') {
+    item.status = 'ready_for_pickup';
+    item.nextAction = 'Physical pickup ready at ' + (item.printSpecs?.pickupLocation || 'Nest HQ Front Desk');
+  } else if (status === 'physically_delivered') {
+    item.status = 'physically_delivered';
+    item.completedAt = new Date().toISOString();
+    item.nextAction = 'Physical delivery confirmed and completed';
+  }
+  return saveWorkItem(item);
+}
+
+export function addPrivateNote(workItemId: string, authorId: string, authorName: string, content: string, visibility: any = 'melissa_private'): any {
+  const item = getWorkItemById(workItemId);
+  if (!item) return null;
+  if (!item.privateNotes) {
+    item.privateNotes = [];
+  }
+  const note = {
+    id: 'note_' + Date.now(),
+    workItemId,
+    authorId,
+    authorName,
+    content,
+    visibility,
+    createdAt: new Date().toISOString()
+  };
+  item.privateNotes.unshift(note);
+  return saveWorkItem(item);
+}
+
+export function createDailyPlanningSnapshot(snapshotData: any): any {
+  const snapshot = {
+    id: 'snap_' + Date.now(),
+    date: snapshotData.date || new Date().toISOString().split('T')[0],
+    plannedBy: snapshotData.plannedBy || 'melissa',
+    overdueCount: snapshotData.overdueCount || 0,
+    dueTodayCount: snapshotData.dueTodayCount || 0,
+    waitingCount: snapshotData.waitingCount || 0,
+    vaAssignedCount: snapshotData.vaAssignedCount || 0,
+    plannedWorkItemIds: snapshotData.plannedWorkItemIds || [],
+    notes: snapshotData.notes || '',
+    createdAt: new Date().toISOString()
+  };
+  dailyPlanningSnapshotsStore.unshift(snapshot);
+  return snapshot;
+}
+
+export function getDailyPlanningSnapshots(): any[] {
+  return dailyPlanningSnapshotsStore;
+}
+
+// BOUNDARY TELEMETRY AUDIT STORE
+export interface BoundaryTelemetryEvent {
+  id: string;
+  timestamp: string;
+  type: 'validated' | 'normalized_legacy' | 'rejected';
+  recordId: string;
+  details: string;
+  rawRecord?: any;
+}
+
+const boundaryTelemetryStore: BoundaryTelemetryEvent[] = [];
+
+export function recordBoundaryTelemetry(type: 'validated' | 'normalized_legacy' | 'rejected', recordId: string, details: string, rawRecord?: any): BoundaryTelemetryEvent {
+  const event: BoundaryTelemetryEvent = {
+    id: 'telemetry_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    timestamp: new Date().toISOString(),
+    type,
+    recordId,
+    details,
+    rawRecord
+  };
+  boundaryTelemetryStore.unshift(event);
+  return event;
+}
+
+export function getBoundaryTelemetryLogs(): BoundaryTelemetryEvent[] {
+  return boundaryTelemetryStore;
+}
+
+// PRINT VENDOR DELIVERY RECEIPT STORE
+export interface PrintDeliveryReceipt {
+  receiptId: string;
+  orderId: string;
+  workItemId: string;
+  campaignId: string;
+  vendorName: string;
+  status: 'sent_to_vendor' | 'printing' | 'ready_for_pickup' | 'physically_delivered';
+  pickupCode?: string;
+  invoiceHash?: string;
+  proofUrl?: string;
+  timestamp: string;
+}
+
+const printDeliveryReceiptsStore: PrintDeliveryReceipt[] = [];
+
+export function savePrintDeliveryReceipt(receiptData: Partial<PrintDeliveryReceipt>): PrintDeliveryReceipt {
+  const receipt: PrintDeliveryReceipt = {
+    receiptId: 'rcpt_print_' + Date.now(),
+    orderId: receiptData.orderId || ('apex_ord_' + Date.now()),
+    workItemId: receiptData.workItemId || '',
+    campaignId: receiptData.campaignId || 'campaign_990_inspiration',
+    vendorName: receiptData.vendorName || 'Apex Signs & Print',
+    status: receiptData.status || 'sent_to_vendor',
+    pickupCode: receiptData.pickupCode || 'PK-8849',
+    invoiceHash: receiptData.invoiceHash || ('sha256_' + Date.now().toString(16)),
+    proofUrl: receiptData.proofUrl || '/assets/print-proof-rider.png',
+    timestamp: new Date().toISOString()
+  };
+  printDeliveryReceiptsStore.unshift(receipt);
+  return receipt;
+}
+
+export function getPrintDeliveryReceipts(campaignId?: string): PrintDeliveryReceipt[] {
+  if (campaignId) {
+    return printDeliveryReceiptsStore.filter(r => r.campaignId === campaignId);
+  }
+  return printDeliveryReceiptsStore;
+}
+
+// EMAIL DISPATCH RECEIPT STORE
+const emailDispatchReceiptsStore: any[] = [];
+
+export function saveEmailDispatchReceipt(receipt: any): any {
+  emailDispatchReceiptsStore.unshift(receipt);
+  return receipt;
+}
+
+export function getEmailDispatchReceipts(campaignId?: string): any[] {
+  if (campaignId) {
+    return emailDispatchReceiptsStore.filter(r => r.campaignId === campaignId);
+  }
+  return emailDispatchReceiptsStore;
+}
+
+
+
+

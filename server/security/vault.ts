@@ -42,33 +42,36 @@ class AesGcmCredentialVault implements CredentialVault {
   private encryptionKey: string;
   private isDevFallback = false;
 
-  constructor() {
+  private getEncryptionKey(): string {
     const key = process.env.CREDENTIAL_ENCRYPTION_KEY;
-    const mode = process.env.APP_MODE || 'development';
+    const appMode = process.env.APP_MODE || 'development';
+    const allowInsecureDev = process.env.ALLOW_INSECURE_DEV_VAULT === 'true' && appMode === 'development';
 
     if (!key || key.length < 32) {
-      if (mode === 'production') {
+      if (!allowInsecureDev) {
+        const errMsg = 'FATAL SECURITY VAULT ERROR: CREDENTIAL_ENCRYPTION_KEY is required and must be at least 32 characters long. Set CREDENTIAL_ENCRYPTION_KEY in environment or ALLOW_INSECURE_DEV_VAULT=true for local dev.';
         console.error('========================================================================');
-        console.error('FATAL ERROR: CREDENTIAL_ENCRYPTION_KEY is NOT set or is less than 32 characters long!');
-        console.error('Production mode requires a secure encryption key of at least 32 characters.');
+        console.error(errMsg);
         console.error('========================================================================');
-        process.exit(1);
+        throw new Error(errMsg);
       } else {
-        console.warn('[Security Vault] CREDENTIAL_ENCRYPTION_KEY is unconfigured or less than 32 characters. Falling back to local Base64 dev encoder.');
+        console.warn('[Security Vault] CREDENTIAL_ENCRYPTION_KEY unconfigured (<32 chars). Using ALLOW_INSECURE_DEV_VAULT fallback.');
         this.isDevFallback = true;
-        this.encryptionKey = key || 'dev_fallback_secret_key_placeholder';
+        this.encryptionKey = key || 'dev_fallback_secret_key_32_characters_minimum!';
       }
     } else {
       this.encryptionKey = key;
     }
+    return this.encryptionKey;
   }
 
   private getKeyBuffer(): Buffer {
-    // Derive a secure 32-byte key from the configured password string
-    return crypto.scryptSync(this.encryptionKey, 'shapework_salt_123', 32);
+    const key = this.getEncryptionKey();
+    return crypto.scryptSync(key, 'shapework_salt_123', 32);
   }
 
   public async encrypt(value: unknown): Promise<string> {
+    this.getEncryptionKey();
     const serialized = JSON.stringify(value);
 
     if (this.isDevFallback) {

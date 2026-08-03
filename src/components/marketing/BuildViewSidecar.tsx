@@ -17,24 +17,32 @@ export interface BuildViewSidecarProps {
   campaign: ListingMarketingCampaign;
   job: any;
   events: any[];
+  resolution?: any;
   selectedAsset: string;
   onSelectAsset: (assetId: any) => void;
   onSubmitInterventionInput?: (reqId: string, input: string) => Promise<void>;
+  onStartPreparation?: () => void;
 }
 
 export const BuildViewSidecar: React.FC<BuildViewSidecarProps> = ({
   campaign,
   job,
   events,
+  resolution,
   selectedAsset,
   onSelectAsset,
   onSubmitInterventionInput,
+  onStartPreparation,
 }) => {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
   const req = campaign?.request;
   const requesterName = req?.requestedByName || campaign?.listingSnapshot?.listingAgentName || 'Eric Anderson';
   const agentName = req?.capturedByAgentName || 'Ava · AI Phone Agent';
+
+  const isNotStarted = !job || resolution?.state === 'not_started';
+  const isInterrupted = resolution?.state === 'interrupted' || (job && (job.status === 'failed' || job.status === 'cancelled'));
+  const isUnavailable = resolution?.state === 'unavailable';
 
   const materialList = [
     { id: 'flyer', label: 'Property Flyer' },
@@ -63,15 +71,72 @@ export const BuildViewSidecar: React.FC<BuildViewSidecarProps> = ({
     <aside
       className="bg-[#f6f7f1] border-l border-slate-200 p-5 space-y-6 overflow-y-auto shrink-0 text-left font-sans h-full shadow-inner"
       data-testid="build-view-sidecar"
+      role="region"
+      aria-label="Build View Progress Panel"
     >
+      {/* HONEST NO-JOB & STATUS BANNERS */}
+      {isNotStarted && (
+        <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl space-y-2 text-amber-900" data-testid="job-status-not-started">
+          <div className="flex items-center gap-2 font-bold text-xs">
+            <Clock className="w-4 h-4 text-amber-700" />
+            <span>Ready to prepare</span>
+          </div>
+          <p className="text-xs text-amber-800">
+            This work has not been started yet. Click below to begin generation.
+          </p>
+          {onStartPreparation && (
+            <button
+              type="button"
+              onClick={onStartPreparation}
+              className="w-full mt-2 px-3 py-2 bg-[#00635c] hover:bg-[#004d48] text-white text-xs font-bold rounded-lg transition-all shadow-sm cursor-pointer"
+            >
+              Start preparation
+            </button>
+          )}
+        </div>
+      )}
+
+      {isInterrupted && (
+        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl space-y-2 text-rose-950" data-testid="job-status-interrupted">
+          <div className="flex items-center gap-2 font-bold text-xs text-rose-800">
+            <AlertTriangle className="w-4 h-4 text-rose-700" />
+            <span>Preparation was interrupted</span>
+          </div>
+          <p className="text-xs text-rose-900">
+            Completed materials were preserved. You can resume or restart preparation.
+          </p>
+          {onStartPreparation && (
+            <button
+              type="button"
+              onClick={onStartPreparation}
+              className="w-full mt-2 px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold rounded-lg transition-all shadow-sm cursor-pointer"
+            >
+              Resume preparation
+            </button>
+          )}
+        </div>
+      )}
+
+      {isUnavailable && (
+        <div className="bg-slate-500/10 border border-slate-400/30 p-4 rounded-xl space-y-2 text-slate-800" data-testid="job-status-unavailable">
+          <div className="flex items-center gap-2 font-bold text-xs">
+            <AlertTriangle className="w-4 h-4 text-slate-600" />
+            <span>Preparation status unavailable</span>
+          </div>
+          <p className="text-xs text-slate-600">
+            Unable to connect to generation status. Please try refreshing.
+          </p>
+        </div>
+      )}
+
       {/* SIDECAR HEADER */}
       <div className="space-y-1 border-b border-slate-200 pb-4" data-testid="build-view-header">
         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#00635c]">
           <Sparkles className="w-3.5 h-3.5 text-[#00635c]" />
-          <span>Active Preparation</span>
+          <span>{isNotStarted ? 'Pending Preparation' : 'Active Preparation'}</span>
         </div>
         <h3 className="text-xl font-serif font-bold text-[#13231e]">
-          Preparing {requesterName}’s request
+          {isNotStarted ? `Request from ${requesterName}` : `Preparing ${requesterName}’s request`}
         </h3>
         <p className="text-xs text-[#64716b]">
           Captured by {agentName} at 9:14 AM
