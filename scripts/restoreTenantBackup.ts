@@ -127,6 +127,9 @@ const restoreReceipt = {
   status: 'RESTORE_SUCCESSFUL'
 };
 
+if (!fs.existsSync(targetTenantDir)) {
+  fs.mkdirSync(targetTenantDir, { recursive: true });
+}
 const receiptOutPath = path.join(targetTenantDir, 'uat_restore_receipt.json');
 fs.writeFileSync(receiptOutPath, JSON.stringify(restoreReceipt, null, 2));
 const restoreReceiptSha = crypto.createHash('sha256').update(fs.readFileSync(receiptOutPath)).digest('hex');
