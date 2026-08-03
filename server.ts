@@ -81,7 +81,12 @@ import {
 } from './server/media/generationJobStore.js';
 
 // Load environment variables
+const initialPort = process.env.PORT;
 dotenv.config();
+if (initialPort) {
+  process.env.PORT = initialPort;
+}
+const PORT = process.env.PORT || 3049;
 
 import { getRechatRouter } from './server/integrations/rechat/rechatRoutes';
 import { getApiNationDotloopRouter } from './server/integrations/apinationDotloop/apinationDotloopRoutes';
