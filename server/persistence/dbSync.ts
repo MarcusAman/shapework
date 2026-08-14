@@ -23,9 +23,15 @@ const resolvedDirname = typeof import.meta !== 'undefined' && import.meta.url
 // Run database schema migrations
 export async function initDatabaseSchema(pool: pg.Pool) {
   try {
-    const migrationPath = path.resolve(resolvedDirname, '../db/migrations/20260701000000_init_relational.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
-    await pool.query(sql);
+    const migrationsDir = path.resolve(resolvedDirname, '../db/migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+      for (const file of files) {
+        const filePath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(filePath, 'utf8');
+        await pool.query(sql);
+      }
+    }
 
     // 1. Create directory_people first in a separate call to avoid PostgreSQL compilation/dependency errors
     await pool.query(`

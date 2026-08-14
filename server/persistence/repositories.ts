@@ -10,13 +10,38 @@ import { initDatabaseSchema } from './dbSync.js';
 
 // Setup active storage driver from environment
 export type StorageDriver = 'memory' | 'local' | 'database';
-export const storageDriver: StorageDriver = (process.env.STORAGE_DRIVER as StorageDriver) || 'memory';
+const envDriver = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').toLowerCase();
+export const storageDriver: StorageDriver = (envDriver === 'postgres' || envDriver === 'database') 
+  ? 'database' 
+  : (envDriver === 'local' ? 'local' : 'memory');
 
-// Production mode startup check
-const APP_MODE = process.env.APP_MODE || 'development';
-if (APP_MODE === 'production') {
+const APP_ENV = process.env.APP_ENV || process.env.APP_MODE || 'development';
+const isProductionOrUat = APP_ENV === 'production' || APP_ENV === 'uat';
+const isTestEnv = process.env.NODE_ENV === 'test';
+
+// Fail-Closed Validation Guard for Production and UAT
+if (isProductionOrUat && !isTestEnv) {
+  if (storageDriver !== 'database') {
+    console.error("==================================================================");
+    console.error(`FATAL STARTUP ERROR: Ephemeral persistence driver '${storageDriver}' is forbidden in ${APP_ENV}!`);
+    console.error("PERSISTENCE_DRIVER must be set to 'postgres'.");
+    console.error("==================================================================");
+    process.exit(1);
+  }
+
   if (!process.env.DATABASE_URL) {
-    console.warn('DATABASE_URL not set in production. Operating in fallback storage mode.');
+    console.error("==================================================================");
+    console.error(`FATAL CONFIGURATION ERROR: DATABASE_URL is required in ${APP_ENV}!`);
+    console.error("==================================================================");
+    process.exit(1);
+  }
+
+  const outboundMode = (process.env.OUTBOUND_MODE || '').toLowerCase();
+  if (APP_ENV === 'uat' && outboundMode === 'enabled') {
+    console.error("==================================================================");
+    console.error("FATAL SAFETY ERROR: Real outbound delivery (OUTBOUND_MODE=enabled) is strictly forbidden in UAT!");
+    console.error("==================================================================");
+    process.exit(1);
   }
 }
 
@@ -33,11 +58,16 @@ if (storageDriver === 'database') {
     process.exit(1);
   }
 
-  dbPool = new pg.Pool({ connectionString });
+  dbPool = new pg.Pool({ 
+    connectionString,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000
+  });
 
   // Fail closed if database is unreachable
   dbInitPromise = dbPool.query('SELECT 1').then(async () => {
-    console.log('[Database] Connected to PostgreSQL database successfully.');
+    console.log(`[Database] Connected to PostgreSQL datastore in ${APP_ENV} mode.`);
     if (dbPool) {
       await initDatabaseSchema(dbPool);
     }
