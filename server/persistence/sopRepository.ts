@@ -241,6 +241,71 @@ function saveAllSops(data: Record<string, SopDocument>): void {
 
 export const sopRepository = {
   async saveDraft(sop: SopDocument): Promise<SopDocument> {
+    const { dbPool } = await import('./repositories.js');
+    if (dbPool) {
+      const now = new Date().toISOString();
+      const status = sop.status === 'published' ? 'published' : 'draft';
+      const wsId = sop.workspaceId || 'ws_wilmington';
+      const tenantId = sop.tenantId || 'tenant_nest_uat';
+      
+      const res = await dbPool.query(`
+        INSERT INTO sop_drafts (
+          id, workspace_id, tenant_id, title, purpose, trigger, process_owner, reviewer,
+          status, version, ordered_steps, systems_used, completion_evidence, expected_timing, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          title = EXCLUDED.title,
+          purpose = EXCLUDED.purpose,
+          trigger = EXCLUDED.trigger,
+          process_owner = EXCLUDED.process_owner,
+          reviewer = EXCLUDED.reviewer,
+          status = EXCLUDED.status,
+          version = EXCLUDED.version,
+          ordered_steps = EXCLUDED.ordered_steps,
+          systems_used = EXCLUDED.systems_used,
+          completion_evidence = EXCLUDED.completion_evidence,
+          expected_timing = EXCLUDED.expected_timing,
+          updated_at = NOW()
+        RETURNING *;
+      `, [
+        sop.id,
+        wsId,
+        tenantId,
+        sop.title,
+        sop.purpose || '',
+        sop.trigger || '',
+        sop.processOwner || 'Staff Member',
+        sop.reviewer || null,
+        status,
+        String(sop.version || 1),
+        JSON.stringify(sop.orderedSteps || []),
+        sop.systemsUsed || [],
+        sop.completionEvidence || null,
+        sop.expectedTiming || null
+      ]);
+
+      const row = res.rows[0];
+      return {
+        id: row.id,
+        workspaceId: row.workspace_id,
+        tenantId: row.tenant_id,
+        title: row.title,
+        purpose: row.purpose,
+        trigger: row.trigger,
+        processOwner: row.process_owner,
+        reviewer: row.reviewer,
+        status: row.status,
+        version: parseInt(row.version, 10) || 1,
+        orderedSteps: Array.isArray(row.ordered_steps) ? row.ordered_steps : (typeof row.ordered_steps === 'string' ? JSON.parse(row.ordered_steps) : []),
+        systemsUsed: row.systems_used || [],
+        completionEvidence: row.completion_evidence,
+        expectedTiming: row.expected_timing,
+        createdAt: row.created_at?.toISOString?.() || now,
+        updatedAt: row.updated_at?.toISOString?.() || now
+      } as SopDocument;
+    }
+
     const all = loadAllSops();
     const existing = all[sop.id];
     
@@ -260,6 +325,34 @@ export const sopRepository = {
   },
 
   async getDraftById(id: string, tenantId: string): Promise<SopDocument | null> {
+    const { dbPool } = await import('./repositories.js');
+    if (dbPool) {
+      const res = await dbPool.query(
+        'SELECT * FROM sop_drafts WHERE id = $1 AND (tenant_id = $2 OR workspace_id = $2)',
+        [id, tenantId]
+      );
+      if (res.rows.length === 0) return null;
+      const row = res.rows[0];
+      return {
+        id: row.id,
+        workspaceId: row.workspace_id,
+        tenantId: row.tenant_id,
+        title: row.title,
+        purpose: row.purpose,
+        trigger: row.trigger,
+        processOwner: row.process_owner,
+        reviewer: row.reviewer,
+        status: row.status,
+        version: parseInt(row.version, 10) || 1,
+        orderedSteps: Array.isArray(row.ordered_steps) ? row.ordered_steps : (typeof row.ordered_steps === 'string' ? JSON.parse(row.ordered_steps) : []),
+        systemsUsed: row.systems_used || [],
+        completionEvidence: row.completion_evidence,
+        expectedTiming: row.expected_timing,
+        createdAt: row.created_at?.toISOString?.() || new Date().toISOString(),
+        updatedAt: row.updated_at?.toISOString?.() || new Date().toISOString()
+      } as SopDocument;
+    }
+
     const all = loadAllSops();
     const item = all[id];
     if (!item) return null;
@@ -270,15 +363,80 @@ export const sopRepository = {
   listDraftsSync(tenantId: string, workspaceId: string): SopDocument[] {
     const all = loadAllSops();
     return Object.values(all).filter(
-      (s) => s.tenantId === tenantId && s.workspaceId === workspaceId
+      (s) => (s.tenantId === tenantId || s.workspaceId === workspaceId)
     );
   },
 
   async listDrafts(tenantId: string, workspaceId: string): Promise<SopDocument[]> {
+    const { dbPool } = await import('./repositories.js');
+    if (dbPool) {
+      const res = await dbPool.query(
+        'SELECT * FROM sop_drafts WHERE workspace_id = $1 OR tenant_id = $2 ORDER BY updated_at DESC',
+        [workspaceId, tenantId]
+      );
+      return res.rows.map(row => ({
+        id: row.id,
+        workspaceId: row.workspace_id,
+        tenantId: row.tenant_id,
+        title: row.title,
+        purpose: row.purpose,
+        trigger: row.trigger,
+        processOwner: row.process_owner,
+        reviewer: row.reviewer,
+        status: row.status,
+        version: parseInt(row.version, 10) || 1,
+        orderedSteps: Array.isArray(row.ordered_steps) ? row.ordered_steps : (typeof row.ordered_steps === 'string' ? JSON.parse(row.ordered_steps) : []),
+        systemsUsed: row.systems_used || [],
+        completionEvidence: row.completion_evidence,
+        expectedTiming: row.expected_timing,
+        createdAt: row.created_at?.toISOString?.() || new Date().toISOString(),
+        updatedAt: row.updated_at?.toISOString?.() || new Date().toISOString()
+      })) as SopDocument[];
+    }
+
     return this.listDraftsSync(tenantId, workspaceId);
   },
 
   async publishSop(id: string, tenantId: string, publisherUser: string): Promise<SopDocument> {
+    const { dbPool } = await import('./repositories.js');
+    if (dbPool) {
+      const existing = await this.getDraftById(id, tenantId);
+      if (!existing) throw new Error(`SOP with ID ${id} not found.`);
+      
+      const now = new Date().toISOString();
+      const res = await dbPool.query(`
+        UPDATE sop_drafts
+        SET status = 'published', reviewer = $1, version = version + 1, updated_at = NOW()
+        WHERE id = $2 AND (tenant_id = $3 OR workspace_id = $3)
+        RETURNING *;
+      `, [publisherUser, id, tenantId]);
+
+      await dbPool.query(`
+        INSERT INTO sop_audits (id, workspace_id, timestamp, action, sop_id, performed_by, reason, snapshot)
+        VALUES ($1, $2, NOW(), 'publish_sop', $3, $4, 'Published via governance lifecycle', $5);
+      `, [`audit_pub_${Date.now()}`, existing.workspaceId || 'ws_wilmington', id, publisherUser, JSON.stringify(res.rows[0])]);
+
+      const row = res.rows[0];
+      return {
+        id: row.id,
+        workspaceId: row.workspace_id,
+        tenantId: row.tenant_id,
+        title: row.title,
+        purpose: row.purpose,
+        trigger: row.trigger,
+        processOwner: row.process_owner,
+        reviewer: row.reviewer,
+        status: row.status,
+        version: parseInt(row.version, 10) || 1,
+        orderedSteps: Array.isArray(row.ordered_steps) ? row.ordered_steps : (typeof row.ordered_steps === 'string' ? JSON.parse(row.ordered_steps) : []),
+        systemsUsed: row.systems_used || [],
+        completionEvidence: row.completion_evidence,
+        expectedTiming: row.expected_timing,
+        createdAt: row.created_at?.toISOString?.() || now,
+        updatedAt: row.updated_at?.toISOString?.() || now
+      } as SopDocument;
+    }
+
     const all = loadAllSops();
     const existing = all[id];
     if (!existing) {
@@ -319,6 +477,32 @@ export const sopRepository = {
   },
 
   async deleteDraft(id: string, tenantId: string, user: string = 'system'): Promise<boolean> {
+    const { dbPool } = await import('./repositories.js');
+    if (dbPool) {
+      const existing = await this.getDraftById(id, tenantId);
+      if (!existing) throw new Error(`SOP with ID "${id}" not found.`);
+      if (existing.status !== 'draft') {
+        throw new Error(`Governance violation: Cannot delete SOP with status "${existing.status}". Only Draft SOPs may be deleted.`);
+      }
+
+      await dbPool.query(
+        'DELETE FROM sop_drafts WHERE id = $1 AND (tenant_id = $2 OR workspace_id = $2)',
+        [id, tenantId]
+      );
+
+      await dbPool.query(`
+        INSERT INTO sop_audits (id, workspace_id, timestamp, action, sop_id, performed_by, reason)
+        VALUES ($1, $2, NOW(), 'delete_draft', $3, $4, 'Deleted draft SOP');
+      `, [`audit_del_${Date.now()}`, existing.workspaceId || 'ws_wilmington', id, user]);
+
+      try {
+        await sopAuthoringRequestRepository.handleDraftDeleted(id, user);
+      } catch (e) {
+        console.error('Failed to notify authoring request repository of draft deletion:', e);
+      }
+      return true;
+    }
+
     const all = loadAllSops();
     const existing = all[id];
     if (!existing) {
