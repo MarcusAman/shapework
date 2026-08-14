@@ -269,7 +269,7 @@ export function getInitialDefaultCampaign(): ListingMarketingCampaign {
     darkCharcoal: '#0F172A',
     approvedFonts: ['Inter', 'Outfit', 'Playfair Display'],
     logoUrl: '/nest-realty-logo.png',
-    fairHousingLogoUrl: '/nest_n.png',
+    fairHousingLogoUrl: '/nest_n_green.png',
     logoAssets: {
       primaryLogoId: 'logo_nest_primary_v2',
       primaryLogoUrl: '/nest-realty-logo.png'
@@ -641,7 +641,7 @@ Eric: Perfect, thanks Ava!`
       darkCharcoal: '#0F172A',
       approvedFonts: ['Inter', 'Outfit'],
       logoUrl: '/nest-realty-logo.png',
-      fairHousingLogoUrl: '/nest_n.png',
+      fairHousingLogoUrl: '/nest_n_green.png',
       logoAssets: {
         primaryLogoId: 'logo_nest_primary_v2',
         primaryLogoUrl: '/nest-realty-logo.png'
@@ -859,7 +859,7 @@ Nest Realty Wilmington`
       darkCharcoal: '#0F172A',
       approvedFonts: ['Inter', 'Outfit'],
       logoUrl: '/nest-realty-logo.png',
-      fairHousingLogoUrl: '/nest_n.png',
+      fairHousingLogoUrl: '/nest_n_green.png',
       logoAssets: {
         primaryLogoId: 'logo_nest_primary_v2',
         primaryLogoUrl: '/nest-realty-logo.png'

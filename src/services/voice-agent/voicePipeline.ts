@@ -31,6 +31,7 @@ export interface VoicePipelineCallbacks {
   onTranscriptReceived: (payload: TranscriptPayload) => void;
   onFrequencyUpdate: (bars: number[]) => void;
   onUserInterrupted?: () => void;
+  onSpeechStarted?: (utteranceId: string) => void;
 }
 
 /**
@@ -51,6 +52,14 @@ export function isLikelyIncompleteUtterance(text: string): boolean {
     'i want',
     'help me',
     'can you help me',
+    'can you help me find',
+    'help me find',
+    'can you find',
+    'could you find',
+    'i need to find',
+    'i need to check',
+    'how do i find',
+    'where do i find',
     'do you know',
     'what is the',
     'where can i',
@@ -76,19 +85,23 @@ export function isLikelyIncompleteUtterance(text: string): boolean {
     return true;
   }
 
-  // If the utterance begins with an incomplete prelude and has 4 words or fewer without specific domain keywords
-  const domainKeywords = ['sop', 'protocol', 'procedure', 'policy', 'contract', 'listing', 'cda', 'roster', 'agent', 'vendor', 'escrow'];
+  // If the utterance begins with an incomplete prelude and has 6 words or fewer without specific domain keywords
+  const domainKeywords = [
+    'sop', 'protocol', 'procedure', 'policy', 'contract', 'listing', 'cda', 'roster', 
+    'agent', 'vendor', 'escrow', 'phone', 'number', 'email', 'contact', 'address', 'office', 'cell'
+  ];
   const hasDomainKeyword = domainKeywords.some(k => clean.includes(k));
-  if (words.length <= 4 && !hasDomainKeyword && incompletePrefixes.some(p => clean.startsWith(p))) {
+  if (words.length <= 6 && !hasDomainKeyword && incompletePrefixes.some(p => clean.startsWith(p))) {
     return true;
   }
 
-  // Trailing grammatical continuations (conjunctions, prepositions, determiners)
+  // Trailing grammatical continuations (conjunctions, prepositions, determiners, transitive verbs)
   const lastWord = words[words.length - 1];
   const trailingContinuations = new Set([
     'and', 'or', 'but', 'for', 'with', 'to', 'about', 'in', 'on', 'at',
     'the', 'a', 'an', 'of', 'by', 'from', 'as', 'into', 'like', 'through',
-    'after', 'before', 'between', 'under', 'during', 'without', 'because'
+    'after', 'before', 'between', 'under', 'during', 'without', 'because',
+    'find', 'check', 'get', 'see', 'show', 'look', 'view', 'open', 'draft', 'send', 'prepare'
   ]);
 
   if (trailingContinuations.has(lastWord)) {
@@ -112,6 +125,14 @@ export class VoicePipeline {
   private lastSpokenTexts: Set<string> = new Set();
   private currentUtteranceId: string | null = null;
   private hasPlayedWakeChimeForUtterance = false;
+
+  // Lifecycle & Session State Flags
+  private isListeningActive = false;
+  private isExplicitStopRequested = false;
+  private isCancelRequested = false;
+  private fatalErrorOccurred = false;
+  private restartAttempts = 0;
+  private lastRestartTimestamp = 0;
 
   // Authoritative Turn & Aggregation Buffer State
   private finalizedSegments: string[] = [];
@@ -179,9 +200,9 @@ export class VoicePipeline {
   }
 
   /**
-   * Authoritative Turn Commit: Called when silence endpointing elapses or explicit submit occurs.
+   * Authoritative Turn Commit: Single authoritative exit path.
    */
-  public commitCurrentTurn(reason: string = 'endpointing_silence'): void {
+  public commitCurrentTurn(reason: string = 'adaptive_silence'): void {
     this.clearFinalizationTimer();
 
     if (this.isTurnCommitted) {
@@ -223,10 +244,11 @@ export class VoicePipeline {
    * Cancel and discard uncommitted speech turn completely.
    */
   public cancelCurrentTurn(): void {
+    this.isCancelRequested = true;
     this.clearFinalizationTimer();
     const uttId = this.currentUtteranceId;
     this.resetUtteranceId();
-    VoiceDiagnostics.log('turn_cancelled', uttId || undefined, 'User or system cancelled uncommitted turn');
+    VoiceDiagnostics.log('turn_cancelled', uttId || undefined, 'Reason: cancel | User explicitly cancelled uncommitted turn');
     this.callbacks.onStatusChange('idle');
   }
 
@@ -236,6 +258,11 @@ export class VoicePipeline {
       this.callbacks.onStatusChange('error');
       return;
     }
+
+    this.isListeningActive = true;
+    this.isCancelRequested = false;
+    this.isExplicitStopRequested = false;
+    this.fatalErrorOccurred = false;
 
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia && !this.mediaStream) {
@@ -264,30 +291,59 @@ export class VoicePipeline {
       rec.lang = 'en-US';
 
       rec.onstart = () => {
-        this.callbacks.onStatusChange('listening');
+        this.restartAttempts = 0;
+        if (this.finalizedSegments.length > 0 || this.currentInterimText.length > 0) {
+          this.callbacks.onStatusChange('collecting');
+        } else {
+          this.callbacks.onStatusChange('listening');
+        }
+      };
+
+      rec.onspeechstart = () => {
+        const uttId = this.getUtteranceId();
+        if (this.callbacks.onSpeechStarted) {
+          this.callbacks.onSpeechStarted(uttId);
+        }
+      };
+
+      rec.onsoundstart = () => {
+        const uttId = this.getUtteranceId();
+        if (this.callbacks.onSpeechStarted) {
+          this.callbacks.onSpeechStarted(uttId);
+        }
       };
 
       rec.onresult = (event: any) => {
-        // Strict Acoustic Echo & Playback Guard: Drop all microphone input while NORA is speaking or in post-playback tail cooldown (600ms)
+        // Strict Acoustic Echo & Playback Guard: Drop input while NORA is speaking or during 600ms tail cooldown
         if (this.isSpeaking || (Date.now() - this.lastSpeakingEndTime < 600)) {
           return;
         }
 
-        let newFinalSegments: string[] = [];
+        const uttId = this.getUtteranceId();
+        this.lastSpeechTimestamp = Date.now();
+
+        // Notify speech start so in-flight requests and stale TTS audio are immediately aborted!
+        if (this.callbacks.onSpeechStarted) {
+          this.callbacks.onSpeechStarted(uttId);
+        }
+
+        let newSessionFinalSegments: string[] = [];
         let liveInterim = '';
 
         for (let i = 0; i < event.results.length; i++) {
           const transcriptChunk = event.results[i][0]?.transcript || '';
           if (event.results[i].isFinal) {
             if (transcriptChunk.trim()) {
-              newFinalSegments.push(transcriptChunk.trim());
+              newSessionFinalSegments.push(transcriptChunk.trim());
             }
           } else {
             liveInterim += ' ' + transcriptChunk;
           }
         }
 
-        this.finalizedSegments = newFinalSegments;
+        // Deduplicate and merge segments across restarts without duplicate concatenation
+        const mergedFinal = Array.from(new Set([...this.finalizedSegments, ...newSessionFinalSegments])).filter(Boolean);
+        this.finalizedSegments = mergedFinal;
         this.currentInterimText = liveInterim.trim();
 
         const accumulatedText = [...this.finalizedSegments, this.currentInterimText]
@@ -296,9 +352,6 @@ export class VoicePipeline {
           .trim();
 
         if (!accumulatedText) return;
-
-        const uttId = this.getUtteranceId();
-        this.lastSpeechTimestamp = Date.now();
 
         // Self-Echo Filter: Discard transcripts matching recently spoken assistant audio
         if (this.isSelfEcho(accumulatedText)) {
@@ -353,25 +406,85 @@ export class VoicePipeline {
 
         this.finalizationTimer = setTimeout(() => {
           if (this.isSpeaking || (Date.now() - this.lastSpeakingEndTime < 600)) return;
-          this.commitCurrentTurn('silence_endpoint_reached');
+          this.commitCurrentTurn('adaptive_silence');
         }, endpointDelayMs);
       };
 
       rec.onerror = (e: any) => {
-        if (e.error === 'no-speech' || e.error === 'aborted') {
+        if (e.error === 'no-speech') {
           // If no speech, return to idle without error unless a turn was in progress
           if (!this.finalizedSegments.length && !this.currentInterimText) {
             this.callbacks.onStatusChange('idle');
           }
           return;
         }
-        this.callbacks.onStatusChange('error');
+        if (e.error === 'aborted') {
+          return;
+        }
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') {
+          this.fatalErrorOccurred = true;
+          this.isListeningActive = false;
+          VoiceDiagnostics.log('fatal_recognition_error' as any, this.currentUtteranceId || undefined, `Error: ${e.error}`);
+          this.callbacks.onStatusChange('error');
+        }
       };
 
       rec.onend = () => {
-        // When recognition ends: if uncommitted text exists, finalize it; otherwise go idle
-        if ((this.finalizedSegments.length > 0 || this.currentInterimText.length > 0) && !this.isTurnCommitted) {
-          this.commitCurrentTurn('recognition_session_ended');
+        VoiceDiagnostics.log('recognition_session_ended' as any, this.currentUtteranceId || undefined, `ListeningActive: ${this.isListeningActive} | CancelRequested: ${this.isCancelRequested} | ExplicitStop: ${this.isExplicitStopRequested}`);
+
+        // 1. User explicitly cancelled -> discard and go idle
+        if (this.isCancelRequested) {
+          this.resetUtteranceId();
+          this.callbacks.onStatusChange('idle');
+          return;
+        }
+
+        // 2. User explicitly clicked stop/send -> commit buffered turn immediately
+        if (this.isExplicitStopRequested) {
+          this.isExplicitStopRequested = false;
+          if (this.finalizedSegments.length > 0 || this.currentInterimText.length > 0) {
+            this.commitCurrentTurn('explicit_stop');
+          } else {
+            this.callbacks.onStatusChange('idle');
+          }
+          return;
+        }
+
+        // 3. Spontaneous/Browser-triggered session end while listening is active:
+        // DO NOT COMMIT TURN PREMATURELY!
+        // Preserve buffered segments, keep endpoint timer running, and restart recognition safely.
+        if (this.isListeningActive && !this.fatalErrorOccurred && !this.isSpeaking) {
+          const bufferedText = [...this.finalizedSegments, this.currentInterimText].filter(Boolean).join(' ').trim();
+
+          // If buffered text exists and no endpointing timer is active, schedule one
+          if (bufferedText && !this.finalizationTimer) {
+            const isIncomplete = isLikelyIncompleteUtterance(bufferedText);
+            const endpointDelayMs = isIncomplete ? 2000 : 1200;
+            this.finalizationTimer = setTimeout(() => {
+              if (this.isSpeaking || (Date.now() - this.lastSpeakingEndTime < 600)) return;
+              this.commitCurrentTurn('adaptive_silence');
+            }, endpointDelayMs);
+          }
+
+          // Debounced safe automatic restart
+          const now = Date.now();
+          if (now - this.lastRestartTimestamp < 1000) {
+            this.restartAttempts++;
+          } else {
+            this.restartAttempts = 1;
+          }
+          this.lastRestartTimestamp = now;
+
+          if (this.restartAttempts <= 5) {
+            try {
+              rec.start();
+              VoiceDiagnostics.log('recognition_restarted' as any, this.currentUtteranceId || undefined, `Attempt: ${this.restartAttempts} | PreservedBuffer: "${bufferedText}"`);
+            } catch (err) {
+              console.warn('[VoicePipeline Safe Restart Warning]:', err);
+            }
+          } else {
+            VoiceDiagnostics.log('restart_limit_reached' as any, this.currentUtteranceId || undefined, `Preserving buffer for adaptive endpointing`);
+          }
         } else if (!this.isSpeaking) {
           this.callbacks.onStatusChange('idle');
         }
@@ -385,8 +498,19 @@ export class VoicePipeline {
     }
   }
 
-  public stopListening(): void {
+  public stopListening(explicitSubmit: boolean = false): void {
+    this.isListeningActive = false;
     this.clearFinalizationTimer();
+    
+    if (explicitSubmit) {
+      this.commitCurrentTurn('explicit_submit');
+    } else {
+      this.isExplicitStopRequested = true;
+      if (this.finalizedSegments.length > 0 || this.currentInterimText.length > 0) {
+        this.commitCurrentTurn('explicit_stop');
+      }
+    }
+
     if (this.recognition) {
       try { 
         this.recognition.onresult = null;

@@ -281,18 +281,15 @@ export default function CollapsibleNavigationRail({
         ) : (
           <div className="mx-auto flex items-center justify-center py-2 w-full">
             {!collapsedLogoFailed ? (
-              <picture className="flex items-center justify-center">
-                <source srcSet="/nest_n_green.png" type="image/png" />
-                <img 
-                  src="/nest_n_green.png" 
-                  alt="Nest"
-                  className="h-7 w-7 object-contain shrink-0 mx-auto"
-                  onError={() => setCollapsedLogoFailed(true)}
-                />
-              </picture>
+              <img 
+                src="/nest_n_green.svg" 
+                alt="Nest"
+                className="h-8 w-8 object-contain shrink-0 mx-auto rounded-full"
+                onError={() => setCollapsedLogoFailed(true)}
+              />
             ) : (
-              <div className="w-8 h-8 rounded-xl bg-[#00635C] text-white flex items-center justify-center font-sans text-xs font-black shadow-sm mx-auto">
-                N
+              <div className="w-8 h-8 rounded-full bg-[#00635C] text-white flex items-center justify-center font-serif text-sm font-bold shadow-sm mx-auto select-none">
+                n
               </div>
             )}
           </div>

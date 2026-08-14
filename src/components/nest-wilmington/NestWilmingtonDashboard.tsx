@@ -321,7 +321,7 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
       {/* Mobile Bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-5 border-b border-[var(--border-soft)] bg-[var(--app-bg)] z-30">
         <div className="flex items-center gap-2">
-          <img src="/nest_n.png" alt="Nest" className="h-6 w-auto" />
+          <img src="/nest_n_green.png" alt="Nest" className="h-6 w-auto" />
           <span className="text-xs font-serif font-black text-white">Nest Wilmington</span>
         </div>
         <div className="flex items-center gap-3">

@@ -201,6 +201,15 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
       },
       onUserInterrupted: () => {
         dispatch({ type: 'SET_STATUS', payload: 'interrupted' });
+      },
+      onSpeechStarted: (uttId: string) => {
+        // Immediate in-flight abort & audio halt upon user speech onset
+        if (activeAbortControllerRef.current) {
+          activeAbortControllerRef.current.abort();
+          activeAbortControllerRef.current = null;
+          VoiceDiagnostics.log('backend_request_aborted', activeTurnIdRef.current || undefined, 'Aborted immediately upon speech start');
+        }
+        activeTurnIdRef.current = null;
       }
     });
 

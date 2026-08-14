@@ -15528,13 +15528,13 @@ Object.entries(marketingPageMap).forEach(([routePath, relativeHtmlPath]) => {
 // 4. Marketing Site Static Assets (images, SVGs, favicon, sitemap, etc.)
 app.use(express.static(marketingSiteDir));
 
-// 5. Application Assets & Static Files
-app.use('/assets', express.static(assetsPath, { maxAge: '1y', immutable: true }));
-app.use(express.static(distPath, { index: false }));
-
 const isProdEnvironment = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
 const hasDistBuild = isProdEnvironment && fs.existsSync(path.join(distPath, 'index.html'));
 if (hasDistBuild) {
+  // 5. Application Assets & Static Files (Production Only)
+  app.use('/assets', express.static(assetsPath, { maxAge: '1y', immutable: true }));
+  app.use(express.static(distPath, { index: false }));
+
   // Asset 404 guard for stale build hashes
   app.use((req, res, next) => {
     if (req.path.match(/\.(js|mjs|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|map)$/i)) {

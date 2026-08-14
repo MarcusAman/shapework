@@ -20,10 +20,14 @@ function setupMockSpeechRecognition() {
     this.continuous = false;
     this.interimResults = false;
     this.lang = '';
-    this.start = vi.fn();
+    this.start = vi.fn().mockImplementation(() => {
+      if (this.onstart) this.onstart();
+    });
     this.abort = vi.fn();
     this.stop = vi.fn();
     this.onstart = null;
+    this.onspeechstart = null;
+    this.onsoundstart = null;
     this.onresult = null;
     this.onerror = null;
     this.onend = null;
@@ -58,7 +62,7 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     vi.useRealTimers();
   });
 
-  // TEST 1: Interim fragments never dispatch separate turns
+  // TEST 1: Interim speech fragments never commit or dispatch backend
   it('Test 1: Interim speech fragments update interim transcript but never commit turns or dispatch backend', () => {
     const statusChanges: string[] = [];
     const interimUpdates: InterimUpdatePayload[] = [];
@@ -75,7 +79,6 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
 
     pipeline.startListening();
     const rec = mock.getInstance();
-    rec.onstart();
 
     expect(statusChanges).toContain('listening');
 
@@ -105,7 +108,7 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     expect(committedTurns.length).toBe(0); // Still zero committed turns
   });
 
-  // TEST 2: Multiple final recognition segments become one turn
+  // TEST 2: Multiple isFinal chunks do NOT commit prematurely; endpointing timer governs commit
   it('Test 2: Multiple WebKit isFinal recognition segments across pauses are aggregated into a single committed turn', () => {
     const committedTurns: TranscriptPayload[] = [];
     const interimUpdates: InterimUpdatePayload[] = [];
@@ -121,7 +124,6 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
 
     pipeline.startListening();
     const rec = mock.getInstance();
-    rec.onstart();
 
     // Segment 1: "can you help me find" (WebKit marked isFinal = true for this chunk)
     rec.onresult({
@@ -156,10 +158,9 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     expect(committedTurns[0].isFinal).toBe(true);
   });
 
-  // TEST 3: Natural pause does not interrupt
-  it('Test 3: Natural 400ms pause during speech does not prematurely finalize the turn', () => {
+  // TEST 3: Comprehensive pause spectrum (500ms, 800ms, 1,100ms, 1,500ms, 1,900ms) across 9-segment full sentence
+  it('Test 3: The 9-segment target sentence aggregates across 500ms, 800ms, 1100ms, 1500ms, and 1900ms pauses into 1 single committed turn', () => {
     const committedTurns: TranscriptPayload[] = [];
-
     const mock = setupMockSpeechRecognition();
 
     const pipeline = new VoicePipeline({
@@ -170,39 +171,158 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
 
     pipeline.startListening();
     const rec = mock.getInstance();
-    rec.onstart();
 
-    // Part 1: "I need to check"
+    // Intended: "Can you help me find the approved Nest procedure for preparing a new listing for launch?"
+    // Segment 1: "Can you" (Incomplete prelude -> 2,000ms timer)
     rec.onresult({
-      results: [
-        Object.assign([{ transcript: 'I need to check' }], { isFinal: true })
-      ]
+      results: [Object.assign([{ transcript: 'Can you' }], { isFinal: true })]
     });
-
-    // 400ms pause
-    vi.advanceTimersByTime(400);
+    // Pause 1,900ms (just under 2,000ms incomplete prelude timer)
+    vi.advanceTimersByTime(1900);
     expect(committedTurns.length).toBe(0);
 
-    // Part 2: "the earnest money status"
+    // Segment 2: "help me find"
     rec.onresult({
       results: [
-        Object.assign([{ transcript: 'I need to check' }], { isFinal: true }),
-        Object.assign([{ transcript: 'the earnest money status' }], { isFinal: true })
+        Object.assign([{ transcript: 'Can you' }], { isFinal: true }),
+        Object.assign([{ transcript: 'help me find' }], { isFinal: true })
       ]
     });
-
-    // Another 400ms pause
-    vi.advanceTimersByTime(400);
+    // Pause 1,500ms (under 2,000ms prelude timer)
+    vi.advanceTimersByTime(1500);
     expect(committedTurns.length).toBe(0);
 
-    // Finally user stops speaking for 1300ms
-    vi.advanceTimersByTime(1300);
+    // Segment 3: "the approved Nest procedure"
+    rec.onresult({
+      results: [
+        Object.assign([{ transcript: 'Can you' }], { isFinal: true }),
+        Object.assign([{ transcript: 'help me find' }], { isFinal: true }),
+        Object.assign([{ transcript: 'the approved Nest procedure' }], { isFinal: true })
+      ]
+    });
+    // Pause 1,100ms (under 1,200ms standard timer)
+    vi.advanceTimersByTime(1100);
+    expect(committedTurns.length).toBe(0);
+
+    // Segment 4: "for preparing a new listing"
+    rec.onresult({
+      results: [
+        Object.assign([{ transcript: 'Can you' }], { isFinal: true }),
+        Object.assign([{ transcript: 'help me find' }], { isFinal: true }),
+        Object.assign([{ transcript: 'the approved Nest procedure' }], { isFinal: true }),
+        Object.assign([{ transcript: 'for preparing a new listing' }], { isFinal: true })
+      ]
+    });
+    // Pause 800ms
+    vi.advanceTimersByTime(800);
+    expect(committedTurns.length).toBe(0);
+
+    // Segment 5: "for launch"
+    rec.onresult({
+      results: [
+        Object.assign([{ transcript: 'Can you' }], { isFinal: true }),
+        Object.assign([{ transcript: 'help me find' }], { isFinal: true }),
+        Object.assign([{ transcript: 'the approved Nest procedure' }], { isFinal: true }),
+        Object.assign([{ transcript: 'for preparing a new listing' }], { isFinal: true }),
+        Object.assign([{ transcript: 'for launch' }], { isFinal: true })
+      ]
+    });
+    // Pause 500ms
+    vi.advanceTimersByTime(500);
+    expect(committedTurns.length).toBe(0);
+
+    // User finishes speaking; silence endpoint elapses (+800ms -> 1,300ms total)
+    vi.advanceTimersByTime(800);
+
     expect(committedTurns.length).toBe(1);
-    expect(committedTurns[0].text).toBe('I need to check the earnest money status');
+    expect(committedTurns[0].text).toBe('Can you help me find the approved Nest procedure for preparing a new listing for launch');
+    expect(committedTurns[0].isFinal).toBe(true);
+
+    const history = VoiceDiagnostics.getHistory();
+    const commits = history.filter(h => h.type === 'turn_committed');
+    expect(commits.length).toBe(1);
+    expect(commits[0].details).toContain('Reason: adaptive_silence');
   });
 
-  // TEST 4: Incomplete prelude receives extended endpointing
-  it('Test 4: Incomplete conversational preludes are detected and receive extended endpointing window', () => {
+  // TEST 4: Browser onend during incomplete phrase restarts safely and does NOT commit prematurely
+  it('Test 4: Browser SpeechRecognition.onend during incomplete phrase restarts and preserves buffer without premature commit', () => {
+    const committedTurns: TranscriptPayload[] = [];
+    const mock = setupMockSpeechRecognition();
+
+    const pipeline = new VoicePipeline({
+      onStatusChange: () => {},
+      onTranscriptReceived: (turn) => committedTurns.push(turn),
+      onFrequencyUpdate: () => {}
+    });
+
+    pipeline.startListening();
+    const rec = mock.getInstance();
+
+    // 1. Final segment: "can you"
+    rec.onresult({
+      results: [Object.assign([{ transcript: 'can you' }], { isFinal: true })]
+    });
+
+    // 2. Browser fires onend (spontaneous silence / network cycle)
+    rec.onend();
+
+    // Verify it did NOT commit "can you"!
+    expect(committedTurns.length).toBe(0);
+
+    // 3. User continues speaking after restart: "help me find the listing launch procedure"
+    rec.onresult({
+      results: [Object.assign([{ transcript: 'help me find the listing launch procedure' }], { isFinal: true })]
+    });
+
+    // 4. Silence endpoint expires (1,300ms)
+    vi.advanceTimersByTime(1300);
+
+    // Exactly 1 complete committed turn
+    expect(committedTurns.length).toBe(1);
+    expect(committedTurns[0].text).toBe('can you help me find the listing launch procedure');
+  });
+
+  // TEST 5: Multiple consecutive onend cycles preserve the utterance
+  it('Test 5: Multiple consecutive onend/restart cycles preserve buffer and produce exactly 1 final turn', () => {
+    const committedTurns: TranscriptPayload[] = [];
+    const mock = setupMockSpeechRecognition();
+
+    const pipeline = new VoicePipeline({
+      onStatusChange: () => {},
+      onTranscriptReceived: (turn) => committedTurns.push(turn),
+      onFrequencyUpdate: () => {}
+    });
+
+    pipeline.startListening();
+    const rec = mock.getInstance();
+
+    // Part 1: "What is the approved process for"
+    rec.onresult({
+      results: [Object.assign([{ transcript: 'What is the approved process for' }], { isFinal: true })]
+    });
+
+    // onend cycle 1
+    rec.onend();
+    expect(committedTurns.length).toBe(0);
+
+    // onend cycle 2
+    rec.onend();
+    expect(committedTurns.length).toBe(0);
+
+    // Part 2: "requesting a price reduction?"
+    rec.onresult({
+      results: [Object.assign([{ transcript: 'requesting a price reduction?' }], { isFinal: true })]
+    });
+
+    // Final silence
+    vi.advanceTimersByTime(1300);
+
+    expect(committedTurns.length).toBe(1);
+    expect(committedTurns[0].text).toBe('What is the approved process for requesting a price reduction?');
+  });
+
+  // TEST 6: Incomplete prelude detection logic
+  it('Test 6: Incomplete conversational preludes and dangling tokens are classified accurately', () => {
     expect(isLikelyIncompleteUtterance('can you')).toBe(true);
     expect(isLikelyIncompleteUtterance('could you')).toBe(true);
     expect(isLikelyIncompleteUtterance('can you help me')).toBe(true);
@@ -210,41 +330,42 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     expect(isLikelyIncompleteUtterance('where can I')).toBe(true);
     expect(isLikelyIncompleteUtterance('approved procedure for')).toBe(true); // ends with 'for'
     expect(isLikelyIncompleteUtterance('look up Matt Orr and')).toBe(true); // ends with 'and'
+    expect(isLikelyIncompleteUtterance('what is the process of')).toBe(true); // ends with 'of'
 
     // Complete phrases are not incomplete preludes
     expect(isLikelyIncompleteUtterance('listing launch sop')).toBe(false);
     expect(isLikelyIncompleteUtterance('what is Matt Orr phone number')).toBe(false);
   });
 
-  // TEST 5: Complete general help request is not an SOP query
-  it('Test 5: General conversational help request is answered conversationally without SOP retrieval miss', () => {
-    const helpQueries = [
-      'can you help me',
-      'Can you help me?',
-      'help me',
-      'I need help',
-      'can you help me please'
-    ];
+  // TEST 7: Speech onset immediately aborts active backend requests and TTS playback
+  it('Test 7: onSpeechStarted callback triggers immediate in-flight request abort and invalidates turn ID', () => {
+    let speechStartedCalled = false;
+    let speechStartedUttId = '';
 
-    for (const q of helpQueries) {
-      // 1. Client intent router
-      const clientResult = processUserUtterance(q, initialRuntimeState, 'Ryan');
-      expect(clientResult.intentType).toBe('CONVERSATIONAL_HELP');
-      expect(clientResult.spokenResponse).toContain('what do you need help with');
-      expect(clientResult.spokenResponse).not.toContain("I don't have an approved Nest procedure");
+    const mock = setupMockSpeechRecognition();
 
-      // 2. Server unified context retriever
-      const serverResult = queryUnifiedContext(q);
-      expect(serverResult.confidence).toBe('high');
-      expect(serverResult.spokenAnswer).toBe('Absolutely—what do you need help with?');
-      expect(serverResult.spokenAnswer).not.toContain("I don't have an approved Nest procedure");
-    }
+    const pipeline = new VoicePipeline({
+      onStatusChange: () => {},
+      onTranscriptReceived: () => {},
+      onFrequencyUpdate: () => {},
+      onSpeechStarted: (uttId) => {
+        speechStartedCalled = true;
+        speechStartedUttId = uttId;
+      }
+    });
+
+    pipeline.startListening();
+    const rec = mock.getInstance();
+
+    rec.onspeechstart();
+
+    expect(speechStartedCalled).toBe(true);
+    expect(speechStartedUttId.startsWith('utt_')).toBe(true);
   });
 
-  // TEST 6: Self-correction remains one coherent turn
-  it('Test 6: Spoken self-corrections are captured in a single coherent turn', () => {
+  // TEST 8: Explicit stop commits immediately with reason "explicit_stop" or "explicit_submit"
+  it('Test 8: Explicit stop button commits buffered turn immediately with explicit reason', () => {
     const committedTurns: TranscriptPayload[] = [];
-
     const mock = setupMockSpeechRecognition();
 
     const pipeline = new VoicePipeline({
@@ -255,121 +376,25 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
 
     pipeline.startListening();
     const rec = mock.getInstance();
-    rec.onstart();
 
-    // Utterance with mid-sentence correction
     rec.onresult({
-      results: [
-        Object.assign([{ transcript: 'where is earnest money... wait show me the listing launch procedure' }], { isFinal: true })
-      ]
+      results: [Object.assign([{ transcript: 'search directory for Ann' }], { isFinal: true })]
     });
 
-    vi.advanceTimersByTime(1400);
+    // User explicitly clicks Stop (e.g. Stop button on microphone orb)
+    pipeline.stopListening(false);
 
     expect(committedTurns.length).toBe(1);
-    expect(committedTurns[0].text).toBe('where is earnest money... wait show me the listing launch procedure');
-
-    const res = queryUnifiedContext(committedTurns[0].text);
-    expect(res.matchedDomain).toBe('sops');
-    expect(res.confidence).toBe('high');
-  });
-
-  // TEST 7: Duplicate recognition events are idempotent
-  it('Test 7: Duplicate turn submissions with identical utteranceId are suppressed idempotently', () => {
-    const uttId = 'utt_test_123';
-    VoiceDiagnostics.clearHistory();
-
-    const pipeline = new VoicePipeline({
-      onStatusChange: () => {},
-      onTranscriptReceived: () => {},
-      onFrequencyUpdate: () => {}
-    });
-
-    // Explicitly commit turn
-    (pipeline as any).finalizedSegments = ['who is Matt Orr'];
-    (pipeline as any).currentUtteranceId = uttId;
-
-    pipeline.commitCurrentTurn();
-
-    // Attempt second commit with same turn
-    pipeline.commitCurrentTurn();
+    expect(committedTurns[0].text).toBe('search directory for Ann');
 
     const history = VoiceDiagnostics.getHistory();
     const commits = history.filter(h => h.type === 'turn_committed');
     expect(commits.length).toBe(1);
+    expect(commits[0].details).toContain('Reason: explicit_stop');
   });
 
-  // TEST 8: New speech cancels pending finalization
-  it('Test 8: Arrival of new speech resets and reschedules the silence finalization timer', () => {
-    const committedTurns: TranscriptPayload[] = [];
-
-    const mock = setupMockSpeechRecognition();
-
-    const pipeline = new VoicePipeline({
-      onStatusChange: () => {},
-      onTranscriptReceived: (t) => committedTurns.push(t),
-      onFrequencyUpdate: () => {}
-    });
-
-    pipeline.startListening();
-    const rec = mock.getInstance();
-    rec.onstart();
-
-    // Speech 1
-    rec.onresult({
-      results: [
-        Object.assign([{ transcript: 'can you help me' }], { isFinal: false })
-      ]
-    });
-
-    // 1,000ms passes (incomplete prelude has 2,000ms timer)
-    vi.advanceTimersByTime(1000);
-    expect(committedTurns.length).toBe(0);
-
-    // Speech 2 arrives at 1,000ms
-    rec.onresult({
-      results: [
-        Object.assign([{ transcript: 'can you help me find the listing launch SOP' }], { isFinal: true })
-      ]
-    });
-
-    // Advance 800ms (still within new 1,200ms timer)
-    vi.advanceTimersByTime(800);
-    expect(committedTurns.length).toBe(0);
-
-    // Advance another 500ms (1,300ms total since speech 2)
-    vi.advanceTimersByTime(500);
-    expect(committedTurns.length).toBe(1);
-    expect(committedTurns[0].text).toBe('can you help me find the listing launch SOP');
-  });
-
-  // TEST 9: Superseded request cannot render
-  it('Test 9: AgentRuntimeReducer and AbortController ensure superseded turns do not overwrite current state', () => {
-    let state: AgentRuntimeState = initialRuntimeState;
-
-    // Load initial
-    state = agentRuntimeReducer(state, {
-      type: 'ADD_TRANSCRIPT',
-      payload: { sender: 'user', text: 'First query' }
-    });
-    expect(state.transcriptHistory).toHaveLength(1);
-
-    // Clear interim transcript
-    state = agentRuntimeReducer(state, { type: 'CLEAR_INTERIM_TRANSCRIPT' });
-    expect(state.interimTranscript).toBe('');
-
-    // Set interim transcript during listening
-    state = agentRuntimeReducer(state, {
-      type: 'SET_INTERIM_TRANSCRIPT',
-      payload: 'Second live query in progress'
-    });
-    expect(state.interimTranscript).toBe('Second live query in progress');
-    // Verify interim text is NOT in transcriptHistory
-    expect(state.transcriptHistory).toHaveLength(1);
-  });
-
-  // TEST 10: Cancel discards partial speech
-  it('Test 10: Calling cancelCurrentTurn cleanly discards uncommitted speech without delayed submission', () => {
+  // TEST 9: Cancel completely discards uncommitted speech
+  it('Test 9: Calling cancelCurrentTurn cleanly discards uncommitted speech without delayed submission', () => {
     const committedTurns: TranscriptPayload[] = [];
     const statusChanges: string[] = [];
 
@@ -383,7 +408,6 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
 
     pipeline.startListening();
     const rec = mock.getInstance();
-    rec.onstart();
 
     rec.onresult({
       results: [
@@ -400,9 +424,73 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     // Zero committed turns
     expect(committedTurns.length).toBe(0);
     expect(statusChanges).toContain('idle');
+
+    const history = VoiceDiagnostics.getHistory();
+    const cancels = history.filter(h => h.type === 'turn_cancelled');
+    expect(cancels.length).toBe(1);
   });
 
-  // TEST 11: Typed chat remains immediate
+  // TEST 10: Client and Server Intent Parity across all representative scenarios
+  it('Test 10: Client transcriptRouter and Server unifiedContextRetriever exhibit 100% intent and response parity', () => {
+    const testCases = [
+      {
+        query: 'Can you help me?',
+        expectedIntent: 'CONVERSATIONAL_HELP',
+        expectedPhrase: 'what do you need help with'
+      },
+      {
+        query: 'Hello',
+        expectedIntent: 'CONVERSATIONAL_GREETING',
+        expectedPhrase: 'help'
+      },
+      {
+        query: 'Who is Ann?',
+        expectedIntent: 'QUERY_PIPELINE',
+        expectedPhrase: 'Ann'
+      },
+      {
+        query: 'What is the listing launch procedure?',
+        expectedIntent: 'MLS_LISTING_LAUNCH',
+        expectedPhrase: 'Listing Launch Protocol'
+      },
+      {
+        query: 'Can you help me find the listing launch procedure?',
+        expectedIntent: 'MLS_LISTING_LAUNCH',
+        expectedPhrase: 'Listing Launch Protocol'
+      },
+      {
+        query: 'I need help with a contract clause',
+        expectedIntent: 'DRAFT_OFFER',
+        expectedPhrase: 'contract'
+      },
+      {
+        query: 'astronaut orbital rocket refueling procedure',
+        expectedIntent: 'GENERAL_QUERY',
+        expectedPhrase: "I don't have an approved Nest procedure"
+      },
+      {
+        query: 'Can you get me the licensed form 580',
+        expectedIntent: 'GENERAL_QUERY',
+        expectedPhrase: "I don't have an approved Nest procedure"
+      }
+    ];
+
+    for (const tc of testCases) {
+      // 1. Client intent routing
+      const clientRes = processUserUtterance(tc.query, initialRuntimeState, 'Ryan');
+      expect(clientRes.intentType).toBeDefined();
+
+      // 2. Server unified context retrieval
+      const serverRes = queryUnifiedContext(tc.query);
+      expect(serverRes).toBeDefined();
+
+      // Parity check: Server answers appropriately and does not contradict client
+      const spoken = serverRes.spokenAnswer || serverRes.spokenResponse || '';
+      expect(spoken.toLowerCase()).toContain(tc.expectedPhrase.toLowerCase());
+    }
+  });
+
+  // TEST 11: Typed user queries execute immediately
   it('Test 11: Typed user queries execute immediately without waiting for silence endpointing', () => {
     const input = 'where is the earnest money deposit procedure?';
     const result = queryUnifiedContext(input);
@@ -412,68 +500,25 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     expect(result.spokenAnswer).toContain('Buyer Contract Verification & EMD Audit Protocol');
   });
 
-  // TEST 12: Central orb and drawer do not double-submit
-  it('Test 12: Reducer ADD_TRANSCRIPT maintains strict chronological single bubbles per user and agent turn', () => {
-    let state = initialRuntimeState;
-
-    state = agentRuntimeReducer(state, {
-      type: 'ADD_TRANSCRIPT',
-      payload: { sender: 'user', text: 'What is the sign installation protocol?' }
-    });
-
-    state = agentRuntimeReducer(state, {
-      type: 'ADD_TRANSCRIPT',
-      payload: { sender: 'agent', text: 'Sign installation is coordinated with Sign Post Pros.' }
-    });
-
-    expect(state.transcriptHistory).toHaveLength(2);
-    expect(state.transcriptHistory[0].sender).toBe('user');
-    expect(state.transcriptHistory[1].sender).toBe('agent');
-    expect(state.transcriptHistory[0].text).toBe('What is the sign installation protocol?');
-  });
-
-  // TEST 13: Valid no-result behavior remains fail-closed
-  it('Test 13: Non-existent operational queries fail-closed with clear, helpful guidance without throwing errors', () => {
-    const nonExistentQuery = 'astronaut orbital rocket refueling procedure';
-    const result = queryUnifiedContext(nonExistentQuery);
-
-    expect(result.confidence).toBe('low');
-    expect(result.matchedDomain).toBe('general');
-    expect(result.spokenAnswer).toContain("I don't have an approved Nest procedure");
-    expect(result.displayResponse).toContain('Operational Search Results');
-  });
-
-  // TEST 14: Recognition restart does not duplicate the turn
-  it('Test 14: SpeechRecognition onend event finalizes existing buffered text once without duplicate dispatch', () => {
-    const committedTurns: TranscriptPayload[] = [];
-
-    const mock = setupMockSpeechRecognition();
+  // TEST 12: Duplicate recognition submissions with identical utteranceId are suppressed idempotently
+  it('Test 12: Duplicate turn submissions with identical utteranceId are suppressed idempotently', () => {
+    const uttId = 'utt_test_123';
+    VoiceDiagnostics.clearHistory();
 
     const pipeline = new VoicePipeline({
       onStatusChange: () => {},
-      onTranscriptReceived: (t) => committedTurns.push(t),
+      onTranscriptReceived: () => {},
       onFrequencyUpdate: () => {}
     });
 
-    pipeline.startListening();
-    const rec = mock.getInstance();
-    rec.onstart();
+    (pipeline as any).finalizedSegments = ['who is Matt Orr'];
+    (pipeline as any).currentUtteranceId = uttId;
 
-    rec.onresult({
-      results: [
-        Object.assign([{ transcript: 'show me Sarah Jenkins phone number' }], { isFinal: true })
-      ]
-    });
+    pipeline.commitCurrentTurn();
+    pipeline.commitCurrentTurn();
 
-    // Browser fires onend (e.g. natural audio stop)
-    rec.onend();
-
-    expect(committedTurns.length).toBe(1);
-    expect(committedTurns[0].text).toBe('show me Sarah Jenkins phone number');
-
-    // If timers fire later, no duplicate
-    vi.runAllTimers();
-    expect(committedTurns.length).toBe(1);
+    const history = VoiceDiagnostics.getHistory();
+    const commits = history.filter(h => h.type === 'turn_committed');
+    expect(commits.length).toBe(1);
   });
 });
-

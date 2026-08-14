@@ -3773,7 +3773,7 @@ export default function MarketingIntakeConsole({
                                 <div className="border-b border-white/10 pb-3 flex justify-between items-center">
                                   <div className="flex items-center gap-2">
                                     <img
-                                      src="/nest_n.png"
+                                      src="/nest_n_green.png"
                                       alt="Nest"
                                       className="h-6 w-auto"
                                     />
@@ -3871,7 +3871,7 @@ export default function MarketingIntakeConsole({
                                       src={
                                         mediaLibraryPhotos.find(
                                           (p) => p.category === "headshots",
-                                        )?.url || "/nest_n.png"
+                                        )?.url || "/nest_n_green.png"
                                       }
                                       alt="Agent"
                                       className="w-8 h-8 rounded-full border border-emerald-400 object-cover"
@@ -5238,7 +5238,7 @@ export default function MarketingIntakeConsole({
                               <div className="border-b border-white/10 pb-2 flex justify-between items-center">
                                 <div className="flex items-center gap-1.5">
                                   <img
-                                    src="/nest_n.png"
+                                    src="/nest_n_green.png"
                                     alt="Nest"
                                     className="h-4 w-auto"
                                   />
