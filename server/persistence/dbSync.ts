@@ -1295,6 +1295,7 @@ export async function seedDatabaseIfEmpty(pool: pg.Pool, state: any) {
 export async function ensureSuperAdminsExist(pool: pg.Pool) {
   const superAdmins = [
     { id: 'usr_admin', email: 'admin@shapework.co', name: 'Platform Admin', password: 'shapework2026' },
+    { id: 'usr_admin_invalid', email: 'admin@shapework.invalid', name: 'Platform Admin', password: 'shapework2026' },
     { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus', password: 'shapework2026' },
     { id: 'usr_adam', email: 'adam@shapework.co', name: 'Adam', password: 'shapework2026' },
     { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', password: 'shapework2026' }
@@ -1322,26 +1323,38 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
         );
       }
 
-      // Check workspace membership
-      const wsId = 'nest-realty-demo';
-      // Ensure workspace exists
-      const wsRes = await pool.query('SELECT 1 FROM workspaces WHERE id = $1', [wsId]);
-      if (wsRes.rows.length > 0) {
-        const memRes = await pool.query(
-          'SELECT 1 FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2',
-          [wsId, userId]
-        );
-        const permissions = ['view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals', 'view_compliance', 'manage_compliance', 'approve_actions', 'manage_integrations', 'manage_users', 'configure_routing', 'view_audit', 'export_audit', 'manage_workspace', 'access_developer_tools'];
-        if (memRes.rows.length === 0) {
-          await pool.query(
-            'INSERT INTO workspace_memberships (id, workspace_id, user_id, role, permissions) VALUES ($1, $2, $3, $4, $5)',
-            [`m_${userId}_${wsId}`, wsId, userId, 'admin', permissions]
+      // Check workspace membership for both canonical ws_wilmington and demo
+      const targetWorkspaces = ['ws_wilmington', 'nest-realty-demo'];
+      for (const wsId of targetWorkspaces) {
+        // Ensure workspace exists
+        const wsRes = await pool.query('SELECT 1 FROM workspaces WHERE id = $1', [wsId]);
+        if (wsRes.rows.length > 0) {
+          const memRes = await pool.query(
+            'SELECT 1 FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2',
+            [wsId, userId]
           );
-        } else {
-          await pool.query(
-            'UPDATE workspace_memberships SET role = $1, permissions = $2 WHERE workspace_id = $3 AND user_id = $4',
-            ['admin', permissions, wsId, userId]
-          );
+          const permissions = [
+            'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
+            'view_compliance', 'manage_compliance', 'approve_actions', 'manage_integrations',
+            'manage_users', 'configure_routing', 'view_audit', 'export_audit',
+            'manage_workspace', 'access_developer_tools',
+            'directory.read', 'directory.manage', 'directory.sync',
+            'org_chart.read', 'org_chart.write', 'org_chart.audit.read',
+            'sops.read', 'sops.write', 'sops.delete',
+            'owner_digest.read', 'owner_digest.configure',
+            'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts'
+          ];
+          if (memRes.rows.length === 0) {
+            await pool.query(
+              'INSERT INTO workspace_memberships (id, workspace_id, user_id, role, permissions) VALUES ($1, $2, $3, $4, $5)',
+              [`m_${userId}_${wsId}`, wsId, userId, 'admin', permissions]
+            );
+          } else {
+            await pool.query(
+              'UPDATE workspace_memberships SET role = $1, permissions = $2 WHERE workspace_id = $3 AND user_id = $4',
+              ['admin', permissions, wsId, userId]
+            );
+          }
         }
       }
     } catch (err) {

@@ -31,9 +31,9 @@ export async function runFullPlaywrightMutationSuite() {
   });
 
   const sessionToken = signJwt({
-    userId: 'usr_ryan_bic',
-    email: 'ryan@nestrealty.com',
-    name: 'Ryan Crecelius',
+    userId: 'usr_admin',
+    email: 'admin@shapework.invalid',
+    name: 'Platform Admin',
     role: 'owner',
     workspaceId: 'ws_wilmington',
     securityVersion: 1

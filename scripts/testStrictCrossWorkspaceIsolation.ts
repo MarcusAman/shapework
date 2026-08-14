@@ -96,8 +96,8 @@ export async function runStrictCrossWorkspaceIsolationSuite() {
 
   // Active Authenticated User in Workspace A (ws_wilmington)
   const tokenUserA = signJwt({
-    userId: 'usr_ryan_bic',
-    email: 'ryan@nestrealty.com',
+    userId: 'usr_admin',
+    email: 'admin@shapework.invalid',
     role: 'owner',
     workspaceId: 'ws_wilmington',
     securityVersion: 1

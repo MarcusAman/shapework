@@ -1,0 +1,72 @@
+<svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg" width="900" height="520">
+  <defs>
+    <marker id="arrow-moss" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4A6741" />
+    </marker>
+    <marker id="arrow-mid" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8A9186" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="#F5F2EC" />
+
+  <!-- Section label top -->
+  <text x="450" y="38" text-anchor="middle" font-size="11" fill="#8A9186" letter-spacing="3" font-style="italic" font-family="Georgia, serif">Operational Intelligence</text>
+  <line x1="180" y1="44" x2="340" y2="44" stroke="#8A9186" stroke-width="0.5" opacity="0.5"/>
+  <line x1="560" y1="44" x2="720" y2="44" stroke="#8A9186" stroke-width="0.5" opacity="0.5"/>
+
+  <!-- ORCHESTRATOR -->
+  <rect x="330" y="70" width="240" height="72" rx="4" fill="#1C1F1A" />
+  <text x="450" y="100" text-anchor="middle" font-size="13" fill="#F5F2EC" font-family="Georgia, serif" letter-spacing="0.5">Orchestrator</text>
+  <text x="450" y="120" text-anchor="middle" font-size="10" fill="#4A6741" font-style="italic" font-family="Georgia, serif">receives task · routes to agents</text>
+
+  <!-- Lines from orchestrator down to agents -->
+  <line x1="370" y1="142" x2="112" y2="238" stroke="#4A6741" stroke-width="1.5" marker-end="url(#arrow-moss)" />
+  <line x1="400" y1="142" x2="272" y2="238" stroke="#4A6741" stroke-width="1.5" marker-end="url(#arrow-moss)" />
+  <line x1="450" y1="142" x2="450" y2="238" stroke="#4A6741" stroke-width="1.5" marker-end="url(#arrow-moss)" />
+  <line x1="500" y1="142" x2="628" y2="238" stroke="#4A6741" stroke-width="1.5" marker-end="url(#arrow-moss)" />
+  <line x1="530" y1="142" x2="788" y2="238" stroke="#4A6741" stroke-width="1.5" marker-end="url(#arrow-moss)" />
+
+  <!-- AGENT NODES -->
+  <rect x="52" y="238" width="120" height="64" rx="4" fill="white" stroke="#4A6741" stroke-width="1.5" />
+  <text x="112" y="264" text-anchor="middle" font-size="11" fill="#1C1F1A" font-family="Georgia, serif">Intake Agent</text>
+  <text x="112" y="281" text-anchor="middle" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">classifies request</text>
+
+  <rect x="212" y="238" width="120" height="64" rx="4" fill="white" stroke="#4A6741" stroke-width="1.5" />
+  <text x="272" y="264" text-anchor="middle" font-size="11" fill="#1C1F1A" font-family="Georgia, serif">Research Agent</text>
+  <text x="272" y="281" text-anchor="middle" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">gathers context</text>
+
+  <rect x="390" y="238" width="120" height="64" rx="4" fill="white" stroke="#4A6741" stroke-width="1.5" />
+  <text x="450" y="264" text-anchor="middle" font-size="11" fill="#1C1F1A" font-family="Georgia, serif">Draft Agent</text>
+  <text x="450" y="281" text-anchor="middle" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">generates output</text>
+
+  <rect x="568" y="238" width="120" height="64" rx="4" fill="white" stroke="#4A6741" stroke-width="1.5" />
+  <text x="628" y="264" text-anchor="middle" font-size="11" fill="#1C1F1A" font-family="Georgia, serif">Review Agent</text>
+  <text x="628" y="281" text-anchor="middle" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">checks for errors</text>
+
+  <rect x="728" y="238" width="120" height="64" rx="4" fill="white" stroke="#4A6741" stroke-width="1.5" />
+  <text x="788" y="264" text-anchor="middle" font-size="11" fill="#1C1F1A" font-family="Georgia, serif">Notify Agent</text>
+  <text x="788" y="281" text-anchor="middle" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">delivers result</text>
+
+  <!-- Return lines (dashed) -->
+  <line x1="112" y1="302" x2="370" y2="358" stroke="#8A9186" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-mid)" />
+  <line x1="272" y1="302" x2="400" y2="358" stroke="#8A9186" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-mid)" />
+  <line x1="450" y1="302" x2="450" y2="358" stroke="#8A9186" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-mid)" />
+  <line x1="628" y1="302" x2="500" y2="358" stroke="#8A9186" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-mid)" />
+  <line x1="788" y1="302" x2="530" y2="358" stroke="#8A9186" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-mid)" />
+
+  <!-- RESULT NODE -->
+  <rect x="330" y="358" width="240" height="68" rx="4" fill="#B85C38" />
+  <text x="450" y="386" text-anchor="middle" font-size="13" fill="white" font-family="Georgia, serif" letter-spacing="0.5">Coordinated Output</text>
+  <text x="450" y="406" text-anchor="middle" font-size="10" fill="#f5d8ce" font-style="italic" font-family="Georgia, serif">one result · no dropped handoffs</text>
+
+  <!-- Legend -->
+  <line x1="310" y1="462" x2="340" y2="462" stroke="#4A6741" stroke-width="1.5" marker-end="url(#arrow-moss)"/>
+  <text x="348" y="466" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">orchestrator directs agent</text>
+  <line x1="495" y1="462" x2="525" y2="462" stroke="#8A9186" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-mid)"/>
+  <text x="533" y="466" font-size="9" fill="#8A9186" font-style="italic" font-family="Georgia, serif">agent reports back</text>
+
+  <!-- Bottom brand mark -->
+  <text x="450" y="500" text-anchor="middle" font-size="10" fill="#8A9186" letter-spacing="2" font-style="italic" font-family="Georgia, serif">shapework.</text>
+</svg>

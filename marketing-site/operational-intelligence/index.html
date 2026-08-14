@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Operational Intelligence — shapework.</title>
+<meta name="description" content="Field notes on how growing businesses actually operate. Experience-led writing on operational design, workflow, automation, and the patterns we keep finding." />
+<meta name="keywords" content="operational intelligence, operations insights, workflow design writing, operational design articles, business operations blog, operations consulting insights" />
+<meta name="author" content="shapework." />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://shapework.co/operational-intelligence" />
+<meta property="og:title" content="Operational Intelligence — shapework." />
+<meta property="og:description" content="Field notes on how growing businesses actually operate." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://shapework.co/operational-intelligence" />
+<meta property="og:site_name" content="shapework." />
+<meta property="og:locale" content="en_US" />
+<meta property="og:image" content="https://shapework.co/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://shapework.co/og-image.png" />
+<meta name="twitter:title" content="Operational Intelligence — shapework." />
+<meta name="twitter:description" content="Field notes on how growing businesses actually operate." />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "Operational Intelligence",
+  "description": "Field notes on how growing businesses actually operate. Experience-led writing on operational design, workflow, and automation.",
+  "url": "https://shapework.co/operational-intelligence",
+  "publisher": {
+    "@type": "Organization",
+    "name": "shapework.",
+    "url": "https://shapework.co"
+  },
+  "blogPost": [
+    {
+      "@type": "BlogPosting",
+      "headline": "What Is AI Agent Orchestration?",
+      "url": "https://shapework.co/operational-intelligence/what-is-ai-agent-orchestration",
+      "datePublished": "2026-05-27",
+      "image": "https://shapework.co/oi-agent-orchestration.svg"
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "What We Keep Finding Inside Growing Businesses",
+      "url": "https://shapework.co/operational-intelligence/what-we-keep-finding",
+      "datePublished": "2026-05-22",
+      "image": "https://shapework.co/oi-what-we-find.png"
+    }
+  ]
+}
+</script>
+<style>
+  :root {
+    --paper: #f5f2ec;
+    --paper-deep: #ebe6dc;
+    --ink: #14140f;
+    --ink-soft: #4a4a44;
+    --ink-mute: #8a8a82;
+    --rule: #d6d0c2;
+    --green: #1f3a2e;
+    --green-light: #8fb09f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper); color: var(--ink);
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; }
+
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 28px 56px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(245, 242, 236, 0.85);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav-wordmark {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 24px; font-weight: 500; letter-spacing: -0.03em;
+    color: var(--ink); text-decoration: none;
+  }
+  .nav-wordmark .dot { color: var(--green); }
+  .nav-links { display: flex; gap: 36px; align-items: center; }
+  .nav-link { color: var(--ink-soft); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+  .nav-link:hover { color: var(--ink); }
+  .nav-cta {
+    padding: 10px 22px; border: 1px solid var(--ink);
+    color: var(--ink); border-radius: 100px;
+    font-size: 13px; font-weight: 500; text-decoration: none;
+    white-space: nowrap; transition: all 0.25s ease;
+  }
+  .nav-cta:hover { background: var(--ink); color: var(--paper); }
+
+  .nav-dropdown { position: relative; }
+  .nav-dropdown-toggle {
+    color: var(--ink-soft); text-decoration: none;
+    font-size: 14px; transition: color 0.2s;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; display: inline-flex; align-items: center; gap: 5px;
+    padding: 0;
+  }
+  .nav-dropdown-toggle:hover { color: var(--ink); }
+  .nav-dropdown-toggle .caret {
+    width: 7px; height: 7px; border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-1px);
+    transition: transform 0.2s;
+  }
+  .nav-dropdown:hover .caret, .nav-dropdown:focus-within .caret { transform: rotate(-135deg) translateY(-1px); }
+  .nav-dropdown-menu {
+    position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%) translateY(-6px);
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 10px; min-width: 260px;
+    display: flex; flex-direction: column; gap: 2px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 12px 40px rgba(20, 20, 15, 0.08);
+  }
+  .nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu {
+    opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0);
+  }
+  .nav-dropdown-menu a {
+    display: block; padding: 10px 14px; border-radius: 8px;
+    color: var(--ink); text-decoration: none; font-size: 14px;
+    transition: background 0.18s ease;
+  }
+  .nav-dropdown-menu a:hover { background: var(--paper-deep); }
+  .nav-dropdown-menu a.nav-dd-primary {
+    background: var(--green); color: var(--paper);
+  }
+  .nav-dropdown-menu a.nav-dd-primary:hover { background: #16281f; }
+  .nav-dropdown-menu a.nav-dd-primary .nav-dd-sub { color: var(--green-light); }
+  .nav-dropdown-menu a .nav-dd-sub {
+    display: block; font-size: 12px; color: var(--ink-mute); margin-top: 2px;
+  }
+  .nav-hamburger {
+    display: none; flex-direction: column; justify-content: center;
+    gap: 5px; width: 28px; height: 28px;
+    background: none; border: none; cursor: pointer; padding: 0; z-index: 110;
+  }
+  .nav-hamburger span {
+    display: block; width: 24px; height: 1.5px; background: var(--ink);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+  body.menu-open .nav-hamburger span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  body.menu-open .nav-hamburger span:nth-child(2) { opacity: 0; }
+  body.menu-open .nav-hamburger span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+  .mobile-menu {
+    position: fixed; inset: 0; background: var(--paper); z-index: 105;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    gap: 8px; opacity: 0; pointer-events: none; transition: opacity 0.35s ease;
+  }
+  body.menu-open .mobile-menu { opacity: 1; pointer-events: auto; }
+  .mobile-menu a {
+    font-family: 'Fraunces', Georgia, serif; font-size: 32px;
+    letter-spacing: -0.02em; color: var(--ink); text-decoration: none; padding: 12px 0;
+  }
+  .mobile-menu a.menu-cta {
+    margin-top: 24px; font-family: 'Inter', sans-serif; font-size: 15px;
+    font-weight: 500; padding: 14px 32px; border: 1px solid var(--ink); border-radius: 100px;
+  }
+  .mobile-menu .menu-email {
+    font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink-mute); margin-top: 16px;
+  }
+
+  .hub-head {
+    max-width: 880px; margin: 0 auto; padding: 200px 56px 64px; text-align: center;
+  }
+  .hub-head .eyebrow {
+    font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--green); font-weight: 500; margin-bottom: 32px;
+  }
+  .hub-head h1 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 400;
+    font-size: clamp(40px, 7vw, 80px); line-height: 1.02;
+    letter-spacing: -0.03em; margin-bottom: 32px;
+  }
+  .hub-head-rule { width: 64px; height: 1px; background: var(--ink); margin: 0 auto 32px; }
+  .hub-head p {
+    font-family: 'Fraunces', Georgia, serif; font-style: italic;
+    font-size: clamp(18px, 2.2vw, 24px); color: var(--ink-soft);
+    line-height: 1.5; letter-spacing: -0.01em; max-width: 600px; margin: 0 auto;
+  }
+
+  .articles {
+    max-width: 1080px; margin: 0 auto; padding: 40px 56px 80px;
+  }
+  .article-card {
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px;
+    align-items: center;
+    padding: 48px 0; border-top: 1px solid var(--rule);
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+  }
+  .article-card:last-child { border-bottom: 1px solid var(--rule); }
+  .article-card:hover { opacity: 0.78; }
+  .article-card-img {
+    width: 100%; height: auto; display: block;
+    border: 1px solid var(--rule); border-radius: 2px;
+  }
+  .article-card-meta {
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--green); font-weight: 500; margin-bottom: 16px;
+  }
+  .article-card h2 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 400;
+    font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15;
+    letter-spacing: -0.02em; margin-bottom: 16px; color: var(--ink);
+  }
+  .article-card p {
+    font-size: 16px; line-height: 1.6; color: var(--ink-soft);
+  }
+  .article-card-readmore {
+    margin-top: 18px; font-size: 14px; color: var(--green); font-weight: 500;
+  }
+
+  .hub-more {
+    max-width: 680px; margin: 0 auto; padding: 0 56px 100px; text-align: center;
+  }
+  .hub-more p {
+    font-family: 'Fraunces', Georgia, serif; font-style: italic;
+    font-size: 18px; color: var(--ink-mute);
+  }
+
+  .page-cta {
+    padding: 120px 56px; text-align: center;
+    border-top: 1px solid var(--rule); max-width: 1280px; margin: 0 auto;
+  }
+  .page-cta .eyebrow {
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--green); font-weight: 500; margin-bottom: 24px;
+  }
+  .page-cta h2 {
+    font-family: 'Fraunces', Georgia, serif; font-weight: 400;
+    font-size: clamp(36px, 6vw, 72px); line-height: 1;
+    letter-spacing: -0.04em; margin-bottom: 28px;
+  }
+  .page-cta h2 em { color: var(--green); font-style: italic; }
+  .cta-sub { font-size: 18px; color: var(--ink-soft); max-width: 540px; margin: 0 auto 40px; line-height: 1.6; }
+  .cta-button {
+    display: inline-block; padding: 18px 36px; background: var(--ink);
+    color: var(--paper); text-decoration: none; border-radius: 100px;
+    font-size: 15px; font-weight: 500; letter-spacing: 0.02em; transition: all 0.25s ease;
+  }
+  .cta-button:hover { background: var(--green); transform: translateY(-2px); }
+
+  footer {
+    border-top: 1px solid var(--rule); padding: 64px 56px 48px; background: var(--paper-deep);
+  }
+  .footer-inner {
+    max-width: 1280px; margin: 0 auto;
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 48px; align-items: start;
+  }
+  .footer-brand { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 500; letter-spacing: -0.03em; }
+  .footer-brand .dot { color: var(--green); }
+  .footer-tag { font-size: 13px; color: var(--ink-mute); margin-top: 4px; letter-spacing: 0.02em; }
+  .footer-geo { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-size: 13px; color: var(--ink-mute); margin-top: 16px; line-height: 1.5; }
+  .footer-col-label { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); font-weight: 500; margin-bottom: 20px; }
+  .footer-nav-col a, .footer-contact-col a { display: block; font-size: 14px; color: var(--ink-soft); text-decoration: none; margin-bottom: 12px; transition: color 0.2s; }
+  .footer-nav-col a:hover, .footer-contact-col a:hover { color: var(--ink); }
+  .footer-copyright { font-size: 13px; color: var(--ink-mute); margin-top: 24px; }
+
+  @media (max-width: 767px) {
+    nav { padding: 18px 24px; }
+    .nav-links { gap: 16px; }
+    .nav-link { display: none; }
+    .nav-dropdown { display: none; }
+    .nav-cta { display: none; }
+    .nav-hamburger { display: flex; }
+    .nav-wordmark { font-size: 20px; }
+    .hub-head { padding: 140px 24px 48px; }
+    .articles { padding: 24px 24px 64px; }
+    .article-card { grid-template-columns: 1fr; gap: 24px; padding: 40px 0; }
+    .hub-more { padding: 0 24px 80px; }
+    .page-cta { padding: 80px 24px; }
+    .cta-sub { font-size: 16px; margin-bottom: 32px; }
+    .cta-button { padding: 16px 28px; font-size: 14px; }
+    footer { padding: 48px 24px 32px; }
+    .footer-inner { grid-template-columns: 1fr; gap: 40px; }
+  }
+</style>
+  <link rel="alternate" type="application/rss+xml" title="Operational Intelligence — shapework." href="https://shapework.co/feed.xml" />
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-wordmark">shapework<span class="dot">.</span></a>
+      <div class="nav-links">
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-toggle" aria-haspopup="true" aria-expanded="false">What We Do <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown-menu">
+        <a href="/discovery">Workflow Discovery<span class="nav-dd-sub">The diagnostic. Find the friction.</span></a>
+        <a href="/method">Workflow Design<span class="nav-dd-sub">Redesign how the work moves.</span></a>
+        <a href="/workflow-automation">Systems &amp; Automation<span class="nav-dd-sub">Build the solution. Remove the busywork.</span></a>
+        <a href="/ai-implementation">AI Implementation<span class="nav-dd-sub">AI where it earns its place.</span></a>
+      </div>
+    </div>
+    <div class="nav-dropdown">
+      <button class="nav-dropdown-toggle" aria-haspopup="true" aria-expanded="false">Industries <span class="caret" aria-hidden="true"></span></button>
+      <div class="nav-dropdown-menu">
+        <a href="/for-real-estate-brokerages" class="nav-dd-primary">Real Estate Brokerages<span class="nav-dd-sub">Our first specialty. Deepest domain knowledge.</span></a>
+        <a href="/for-professional-services">Professional Services<span class="nav-dd-sub">Consistent delivery, scale without chaos</span></a>
+        <a href="/for-healthcare-practices">Healthcare Practices<span class="nav-dd-sub">Patient experience, less admin burden</span></a>
+      </div>
+    </div>
+    <a href="/method" class="nav-link">The Method</a>
+    <a href="/operational-intelligence" class="nav-link">Operational Intelligence</a>
+    <a href="/about" class="nav-link">About</a>
+    <a href="/login" class="nav-link" style="margin-right: 4px; font-weight: 500;">Login</a>
+    <a href="/discovery" class="nav-cta">Request Workflow Discovery</a>
+  </div>
+  <button class="nav-hamburger" id="navHamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="/discovery">Workflow Discovery</a>
+  <a href="/method">Workflow Design</a>
+  <a href="/workflow-automation">Systems &amp; Automation</a>
+  <a href="/ai-implementation">AI Implementation</a>
+  <a href="/for-real-estate-brokerages">Real Estate Brokerages</a>
+  <a href="/for-professional-services">Professional Services</a>
+  <a href="/for-healthcare-practices">Healthcare Practices</a>
+  <a href="/operational-intelligence">Operational Intelligence</a>
+  <a href="/about">About</a>
+  <a href="/discovery" class="menu-cta">Request Workflow Discovery</a>
+  <a href="mailto:hello@shapework.co" class="menu-email">hello@shapework.co</a>
+</div>
+
+<header class="hub-head">
+  <p class="eyebrow">Operational Intelligence</p>
+  <h1>Field notes on how businesses <em style="font-style:italic;color:var(--green);">actually run.</em></h1>
+  <div class="hub-head-rule"></div>
+  <p>What we see inside real operations, and what it teaches us about designing them better.</p>
+</header>
+
+<section class="articles">
+  <a class="article-card" href="/operational-intelligence/what-is-ai-agent-orchestration">
+    <img class="article-card-img" src="/oi-agent-orchestration.svg" alt="Diagram of an orchestrator coordinating multiple AI agents into a single coordinated output." />
+    <div>
+      <div class="article-card-meta">Field Notes</div>
+      <h2>What is AI agent orchestration?</h2>
+      <p>A plain-language explanation of one of the most important shifts in how AI actually gets used inside a business, and what it means for owners who are not engineers.</p>
+      <div class="article-card-readmore">Read →</div>
+    </div>
+  </a>
+  <a class="article-card" href="/operational-intelligence/what-we-keep-finding">
+    <img class="article-card-img" src="/oi-what-we-find.png" alt="A diagram contrasting tangled operational chaos with a clean designed workflow." />
+    <div>
+      <div class="article-card-meta">Field Notes</div>
+      <h2>What we keep finding inside growing businesses.</h2>
+      <p>The logos change. The industries change. The problems do not. The patterns we see again and again, and what they reveal about how operations actually break.</p>
+      <div class="article-card-readmore">Read →</div>
+    </div>
+  </a>
+</section>
+
+<section class="page-cta">
+  <p class="eyebrow">Start here</p>
+  <h2>See what we'd find in <em>your operation.</em></h2>
+  <p class="cta-sub">Workflow Discovery is a one-week diagnostic. A complete review of how your business runs today, with a ranked list of opportunities and one quick win implemented.</p>
+  <a href="/discovery" class="cta-button">Request Workflow Discovery →</a>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-col footer-brand-col">
+      <div class="footer-brand">shapework<span class="dot">.</span></div>
+      <div class="footer-tag">Modern Workflow Design</div>
+      <div class="footer-geo">Born in Wilmington, NC.<br>Serving clients worldwide.</div>
+    </div>
+    <div class="footer-col footer-nav-col">
+      <div class="footer-col-label">Explore</div>
+      <a href="/">Home</a>
+      <a href="/method">The Method</a>
+      <a href="/beliefs">Beliefs</a>
+      <a href="/about">About</a>
+      <a href="/operational-intelligence">Operational Intelligence</a>
+      <a href="/discovery">Workflow Discovery</a>
+    </div>
+    <div class="footer-col footer-contact-col">
+      <div class="footer-col-label">Get in touch</div>
+      <a href="https://calendar.app.google/hAijcuGXPPjWjwmV7" target="_blank" rel="noopener">Schedule an intro call</a>
+      <a href="mailto:hello@shapework.co">hello@shapework.co</a>
+      <div class="footer-copyright">© 2026 shapework.</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function() {
+    var hamburger = document.getElementById('navHamburger');
+    var menu = document.getElementById('mobileMenu');
+    if (hamburger) {
+      hamburger.addEventListener('click', function() {
+        document.body.classList.toggle('menu-open');
+        var expanded = document.body.classList.contains('menu-open');
+        hamburger.setAttribute('aria-label', expanded ? 'Close menu' : 'Open menu');
+      });
+      menu.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() { document.body.classList.remove('menu-open'); });
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

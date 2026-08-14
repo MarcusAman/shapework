@@ -27,8 +27,8 @@ export async function runCompleteInvitationAndResetLifecycleSuite() {
   console.log('==================================================================\n');
 
   const adminToken = signJwt({
-    userId: 'usr_ryan_bic',
-    email: 'ryan@nestrealty.com',
+    userId: 'usr_admin',
+    email: 'admin@shapework.invalid',
     role: 'owner',
     workspaceId: 'ws_wilmington',
     securityVersion: 1
