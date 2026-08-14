@@ -46,6 +46,9 @@ if (isProductionOrUat && !isTestEnv) {
 }
 
 export let dbPool: pg.Pool | null = null;
+export function getDbPool(): pg.Pool | null {
+  return dbPool;
+}
 export let dbInitPromise: Promise<void> = Promise.resolve();
 
 if (storageDriver === 'database') {

@@ -132,7 +132,7 @@ import { approveApproval } from './server/headless/approvalService.js';
 import { dispatchActionForStep, setOnStepCompleted } from './server/headless/actionDispatchService.js';
 import { createOutcomeForStep } from './server/headless/outcomeService.js';
 import { createOwnerBriefItem } from './server/headless/ownerBriefService.js';
-import { loadStateFromStorage, saveStateToStorage, dbPool, storageDriver, dbInitPromise } from './server/persistence/repositories.js';
+import { loadStateFromStorage, saveStateToStorage, dbPool, getDbPool, storageDriver, dbInitPromise } from './server/persistence/repositories.js';
 import { loadWorkspaceState, saveWorkspaceState, seedDatabaseIfEmpty, ensureSuperAdminsExist } from './server/persistence/dbSync.js';
 import { convertKeysToCamel, convertKeysToSnake } from './server/persistence/databaseRepositories.js';
 import { parseNestRechatRow } from './server/persistence/nestRechatParser.js';
@@ -3860,15 +3860,16 @@ app.get('/api/directory', requireAuth, resolveWorkspaceContext, requireWorkspace
   const wsId = (req as any).workspace?.id;
   if (!wsId) return res.status(403).json({ error: 'Forbidden', message: 'Workspace context missing' });
   try {
-    if (storageDriver === 'database' && !dbPool) {
+    const activePool = getDbPool() || dbPool;
+    if (storageDriver === 'database' && !activePool) {
       return res.status(503).json({
         error: 'directory_service_unavailable',
         message: 'Directory data is temporarily unavailable.'
       });
     }
-    if (storageDriver === 'database' && dbPool) {
+    if (storageDriver === 'database' && activePool) {
       try {
-        await dbPool.query('SELECT 1');
+        await activePool.query('SELECT 1');
       } catch (dbErr) {
         return res.status(503).json({
           error: 'directory_service_unavailable',

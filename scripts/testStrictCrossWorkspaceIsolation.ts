@@ -110,12 +110,14 @@ export async function runStrictCrossWorkspaceIsolationSuite() {
   await testIsolationPair('Directory Roster', '/api/directory', 'GET', tokenUserA, wsA, wsB, undefined, 200, 403);
 
   // 2. Org Chart Read
-  await testIsolationPair('Org Chart Structure', '/api/org-chart', 'GET', tokenUserA, wsA, wsB, undefined, 200, 403);
+  const orgRes = await testIsolationPair('Org Chart Structure', '/api/org-chart', 'GET', tokenUserA, wsA, wsB, undefined, 200, 403);
+  const posA = orgRes?.model?.positions?.[0]?.id || 'pos_wilm_bic_ryan';
+  const posB = orgRes?.model?.positions?.[1]?.id || 'pos_wilm_ops_sarah';
 
   // 3. Positions Read/Write
   await testIsolationPair(
     'Position Details Update',
-    '/api/org-chart/positions/pos_ryan_bic',
+    `/api/org-chart/positions/${posA}`,
     'PUT',
     tokenUserA,
     wsA,
@@ -128,12 +130,12 @@ export async function runStrictCrossWorkspaceIsolationSuite() {
   // 4. Reports-to Relationship
   await testIsolationPair(
     'Reports-to Relationship',
-    '/api/org-chart/positions/pos_sarah_ops',
+    `/api/org-chart/positions/${posB}`,
     'PUT',
     tokenUserA,
     wsA,
     wsB,
-    { reportsToId: 'pos_ryan_bic' },
+    { reportsToPositionId: posA },
     200,
     403
   );
@@ -163,6 +165,7 @@ export async function runStrictCrossWorkspaceIsolationSuite() {
     wsA,
     wsB,
     {
+      id: `sop_iso_${Date.now()}`,
       title: 'Positive/Negative Isolation Verification SOP',
       purpose: 'Verify tenant boundary enforcement',
       processOwner: 'Ryan Crecelius',
