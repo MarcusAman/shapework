@@ -161,19 +161,27 @@ export async function initDatabaseSchema(pool: pg.Pool) {
     // Candidate search paths for migration files
     const candidateDirs = [
       path.resolve(process.cwd(), 'server/db/migrations'),
-      path.resolve(resolvedDirname, '../db/migrations'),
+      path.resolve('/app/server/db/migrations'),
       path.resolve(resolvedDirname, '../server/db/migrations'),
-      path.resolve('/app/server/db/migrations')
+      path.resolve(resolvedDirname, '../db/migrations')
     ];
-    const migrationsDir = candidateDirs.find(d => fs.existsSync(d));
+    const migrationsDir = candidateDirs.find(d => {
+      try {
+        return fs.existsSync(d) && fs.statSync(d).isDirectory() && fs.readdirSync(d).some(f => f.endsWith('.sql'));
+      } catch {
+        return false;
+      }
+    });
 
     if (migrationsDir) {
       const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
       for (const file of files) {
         try {
           const filePath = path.join(migrationsDir, file);
-          const sql = fs.readFileSync(filePath, 'utf8');
-          await pool.query(sql);
+          if (fs.existsSync(filePath)) {
+            const sql = fs.readFileSync(filePath, 'utf8');
+            await pool.query(sql);
+          }
         } catch (mErr: any) {
           console.warn(`[Migration Notice] Non-fatal migration notice in ${file}:`, mErr.message);
         }

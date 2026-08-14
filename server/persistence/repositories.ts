@@ -70,7 +70,11 @@ if (storageDriver === 'database') {
   dbInitPromise = dbPool.query('SELECT 1').then(async () => {
     console.log(`[Database] Connected to PostgreSQL datastore in ${APP_ENV} mode.`);
     if (dbPool) {
-      await initDatabaseSchema(dbPool);
+      try {
+        await initDatabaseSchema(dbPool);
+      } catch (schemaErr) {
+        console.error('[Database Schema] Notice during schema sync:', schemaErr);
+      }
     }
   }).catch((err) => {
     console.error("==================================================================");
