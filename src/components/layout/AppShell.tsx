@@ -54,7 +54,7 @@ interface AppShellProps {
   auditEvents?: any[];
   decisions?: any[];
   integrations?: any[];
-  aiAgents?: any[];
+  isTableHeavy?: boolean;
   appMode?: string;
   workspaceId?: string;
   onOpenPitchDemo?: () => void;
@@ -94,6 +94,7 @@ export default function AppShell({
   decisions,
   integrations,
   aiAgents,
+  isTableHeavy = false,
   appMode,
   workspaceId
 }: AppShellProps) {
