@@ -182,6 +182,33 @@ export function getGenerationJobFromStore(jobId: string): MarketingGenerationJob
     console.error('Failed to read generation job from disk:', err);
   }
 
+  if (jobId === 'job_demo_990') {
+    const demoJob: MarketingGenerationJob = {
+      id: 'job_demo_990',
+      idempotencyKey: 'idem_demo_990',
+      workspaceId: 'nest-realty-demo',
+      campaignId: 'campaign_990_inspiration',
+      campaignRevision: 1,
+      status: 'completed',
+      currentStage: 'Campaign rendering complete. All 5 collateral items ready for broker review.',
+      completedMaterialsCount: 5,
+      totalMaterialsCount: 5,
+      requestedAssetTypes: ['flyer', 'carousel', 'postcard', 'sign_rider', 'email'],
+      assetStatuses: {
+        flyer: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() },
+        carousel: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_pool/raw', updatedAt: new Date().toISOString() },
+        postcard: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() },
+        sign_rider: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() },
+        email: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() }
+      },
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      initiatedBy: 'Sarah Jenkins'
+    };
+    jobsMemoryStore.set('job_demo_990', demoJob);
+    return demoJob;
+  }
+
   return null;
 }
 

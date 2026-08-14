@@ -2,7 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { NEST_FULL_ROSTER_72 } from '../server/persistence/nestRosterSeed.js';
 
-const tenantDir = path.join(process.cwd(), 'data-tenant_nest_uat');
+const args = process.argv.slice(2);
+const tenantIdArg = args.find(a => a.startsWith('--tenant-id='))?.split('=')[1];
+
+if (!tenantIdArg || tenantIdArg === 'tenant_nest_uat' || tenantIdArg === 'data-tenant_nest_uat') {
+  console.error('🚨 FATAL TENANT SAFETY ERROR: Cannot populate fixture records into final customer tenant "tenant_nest_uat".');
+  console.error('You must specify a disposable tenant ID via --tenant-id=tenant_nest_acceptance_<run-id>');
+  process.exit(1);
+}
+
+const tenantDir = path.join(process.cwd(), `data-${tenantIdArg}`);
 if (!fs.existsSync(tenantDir)) {
   fs.mkdirSync(tenantDir, { recursive: true });
 }

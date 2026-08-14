@@ -1,6 +1,5 @@
 import pg from 'pg';
 import crypto from 'crypto';
-import { hashPassword } from '../server/auth/password.js';
 import { NEST_FULL_ROSTER_72 } from '../server/persistence/nestRosterSeed.js';
 
 export async function seedUatData(connectionString?: string): Promise<{ success: boolean; counts: Record<string, number> }> {
@@ -15,6 +14,7 @@ export async function seedUatData(connectionString?: string): Promise<{ success:
     workspaces: 0,
     users: 0,
     memberships: 0,
+    invitations: 0,
     directory: 0,
     orgPositions: 0,
     sops: 0,
@@ -42,23 +42,24 @@ export async function seedUatData(connectionString?: string): Promise<{ success:
       counts.workspaces++;
     }
 
-    // 2. USERS & MEMBERSHIPS
-    const defaultPasswordHash = await hashPassword('NestUAT2026!Secure');
+    // 2. USERS (Pending activation with NO preassigned / shared passwords)
     const uatUsers = [
       { id: 'usr_ryan_bic', email: 'ryan@nestrealty.com', name: 'Ryan Crecelius', role: 'owner', wsId: 'ws_wilmington' },
       { id: 'usr_matt_orr', email: 'matt.orr@nestrealty.com', name: 'Matt Orr', role: 'admin', wsId: 'ws_wilmington' },
       { id: 'usr_melissa_ops', email: 'melissa@nestrealty.com', name: 'Melissa Operations', role: 'admin', wsId: 'ws_wilmington' },
       { id: 'usr_taylor_morgan', email: 'taylor.morgan@nestrealty.com', name: 'Taylor Morgan', role: 'events', wsId: 'ws_wilmington' },
-      { id: 'usr_uat_admin', email: 'uat-admin@nestrealty.com', name: 'UAT Test Administrator', role: 'admin', wsId: 'uat_workspace_a' },
-      { id: 'usr_uat_member', email: 'uat-member@nestrealty.com', name: 'UAT Standard Member', role: 'events', wsId: 'uat_workspace_a' }
+      // Synthetic test accounts on non-deliverable .invalid domain
+      { id: 'usr_uat_admin', email: 'uat-admin@shapework.invalid', name: 'UAT Test Administrator', role: 'admin', wsId: 'uat_workspace_a' },
+      { id: 'usr_uat_member', email: 'uat-member@shapework.invalid', name: 'UAT Standard Member', role: 'events', wsId: 'uat_workspace_a' },
+      { id: 'usr_uat_attacker_b', email: 'uat-tenant-b@shapework.invalid', name: 'UAT Tenant B User', role: 'admin', wsId: 'uat_workspace_b' }
     ];
 
     for (const u of uatUsers) {
       await client.query(`
-        INSERT INTO users (id, email, name, password_hash, status)
-        VALUES ($1, $2, $3, $4, 'active')
-        ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, status = 'active';
-      `, [u.id, u.email, u.name, defaultPasswordHash]);
+        INSERT INTO users (id, email, name, password_hash, status, security_version)
+        VALUES ($1, $2, $3, NULL, 'pending_activation', 1)
+        ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = NULL, status = 'pending_activation', security_version = users.security_version + 1;
+      `, [u.id, u.email, u.name]);
       counts.users++;
 
       const perms = u.role === 'owner' 
@@ -73,6 +74,19 @@ export async function seedUatData(connectionString?: string): Promise<{ success:
         ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role, permissions = EXCLUDED.permissions;
       `, [`mem_${u.id}_${u.wsId}`, u.wsId, u.id, u.role, perms]);
       counts.memberships++;
+
+      // Create cryptographically random invitation token (hashed at rest)
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const invId = `inv_${u.id}_${Date.now()}`;
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      await client.query(`
+        INSERT INTO invitation_tokens (id, user_id, workspace_id, token_hash, role, permissions, expires_at, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        ON CONFLICT (token_hash) DO NOTHING;
+      `, [invId, u.id, u.wsId, tokenHash, u.role, perms, expiresAt]);
+      counts.invitations++;
     }
 
     // 3. DIRECTORY PEOPLE
@@ -121,42 +135,92 @@ export async function seedUatData(connectionString?: string): Promise<{ success:
       counts.orgPositions++;
     }
 
-    // 5. STANDARD OPERATING PROCEDURES (SOPS)
+    // 5. STANDARD OPERATING PROCEDURES (SOPs)
     const sops = [
       {
         id: 'sop_listing_launch_001',
+        workspaceId: 'ws_wilmington',
+        tenantId: 'ws_wilmington',
         title: 'Listing Launch Protocol',
-        purpose: 'End-to-end execution protocol for launching residential real estate listings from professional photography to MLS activation and marketing distribution.',
-        trigger: 'Executed listing agreement signed and returned by seller.',
-        processOwner: 'Melissa — Transaction Coordinator',
-        reviewer: 'Matt Orr — Broker-in-Charge',
+        purpose: 'Defines the end-to-end steps required to launch a new residential listing for Nest Realty Wilmington.',
+        trigger: 'Signed Listing Agreement Received',
+        processOwner: 'Melissa Operations',
+        reviewer: 'Matt Orr',
         status: 'published',
         version: '2.0',
-        steps: [
-          { stepNumber: 1, action: 'Validate executed Exclusive Right to Sell Listing Agreement & WWREA in Dotloop.', role: 'Transaction Coordinator' },
-          { stepNumber: 2, action: 'Schedule HDR photography, floor plan scan, and drone videography.', role: 'Listing Agent' },
-          { stepNumber: 3, action: 'Dispatch Coastal Sign Post Co. work order for yard post & brochure box installation.', role: 'Admin Coordinator' },
-          { stepNumber: 4, action: 'Install Bluetooth Supra lockbox on property and verify shackle code.', role: 'Listing Agent' },
-          { stepNumber: 5, action: 'Collect Seller Property Disclosures (RPOADS & MOG) and upload to Dotloop.', role: 'Transaction Coordinator' },
-          { stepNumber: 6, action: 'Draft MLS listing in NC Regional MLS with room dimensions and tax PIN.', role: 'Transaction Coordinator' },
-          { stepNumber: 7, action: 'Submit listing draft to BIC Matt Orr for compliance review and approval.', role: 'Broker-in-Charge' },
-          { stepNumber: 8, action: 'Trigger automated Just Listed social media campaign blitz and direct mail.', role: 'Marketing Coordinator' }
-        ]
+        orderedSteps: [
+          { order: 1, title: 'Intake and Document Audit', description: 'Confirm MLS Exclusive Right to Sell is fully executed.', role: 'Transaction Coordinator' },
+          { order: 2, title: 'Photography and Media Dispatch', description: 'Schedule twilight and HDR photography shoot.', role: 'Marketing Coordinator' },
+          { order: 3, title: 'Sign Vendor Post Installation', description: 'Submit work order for post installation in yard.', role: 'Operations Assistant' },
+          { order: 4, title: 'MLS Entry & Broker-in-Charge Review', description: 'Input all property details into NCRMLS as Incoming.', role: 'Listing Agent / BIC' }
+        ],
+        systemsUsed: ['NCRMLS', 'Dotloop', 'Marketing Studio', 'Sign Post Dispatch']
       },
       {
         id: 'sop_contract_verification_002',
+        workspaceId: 'ws_wilmington',
+        tenantId: 'ws_wilmington',
         title: 'Buyer Contract Verification & EMD Audit Protocol',
-        purpose: 'Auditing executed NC REALTORS® Form 2-T purchase offers, verifying earnest money escrow timelines, and establishing closing compliance ledgers.',
-        trigger: 'Executed Form 2-T Offer to Purchase and Contract received.',
-        processOwner: 'Matt Orr — Broker-in-Charge',
-        reviewer: 'Matt Orr — BIC',
+        purpose: 'Ensures strict compliance with NC Real Estate Commission rules for Earnest Money Deposits and Due Diligence Fees.',
+        trigger: 'Executed Form 2-T Offer Received',
+        processOwner: 'Matt Orr',
+        reviewer: 'Ryan Crecelius',
         status: 'published',
         version: '1.0',
-        steps: [
-          { stepNumber: 1, action: 'Audit Form 2-T execution dates, signature initials, and DD fee delivery confirmation.', role: 'Broker-in-Charge' },
-          { stepNumber: 2, action: 'Verify Initial Earnest Money Deposit (EMD) is deposited into attorney escrow trust within 72 hours.', role: 'Transaction Coordinator' },
-          { stepNumber: 3, action: 'Calculate critical milestone deadlines: Due Diligence expiration and Settlement Date.', role: 'Transaction Coordinator' }
-        ]
+        orderedSteps: [
+          { order: 1, title: 'Verify Due Diligence & EMD Deliverables', description: 'Confirm escrow agent receipt within 3 banking days.', role: 'Broker-in-Charge' },
+          { order: 2, title: 'Dotloop File Compliance Review', description: 'Check all disclosures, Working With Real Estate Agents brochure, and addenda.', role: 'Transaction Coordinator' }
+        ],
+        systemsUsed: ['Dotloop', 'NC REC Escrow Ledger']
+      },
+      {
+        id: 'sop_marketing_intake_003',
+        workspaceId: 'ws_wilmington',
+        tenantId: 'ws_wilmington',
+        title: 'Marketing Intake & Campaign Dispatch Protocol',
+        purpose: 'Standardizes property marketing brochures, digital assets, and social campaigns.',
+        trigger: 'New Listing Status Active in MLS',
+        processOwner: 'Sarah Jenkins',
+        reviewer: 'Melissa Operations',
+        status: 'draft',
+        version: '1.0',
+        orderedSteps: [
+          { order: 1, title: 'Generate Print Assets', description: 'Create 4-page property brochure.', role: 'Marketing Coordinator' }
+        ],
+        systemsUsed: ['Canva', 'Print Partner Portal']
+      },
+      {
+        id: 'sop_sign_vendor_004',
+        workspaceId: 'ws_wilmington',
+        tenantId: 'ws_wilmington',
+        title: 'Sign Vendor Dispatch & Post Retrieval Protocol',
+        purpose: 'Coordinates sign post installation, maintenance, and post-closing retrieval.',
+        trigger: 'Listing Under Contract or Closed',
+        processOwner: 'Melissa Operations',
+        reviewer: 'Matt Orr',
+        status: 'draft',
+        version: '1.0',
+        orderedSteps: [
+          { order: 1, title: 'Submit Removal Order', description: 'Notify sign vendor of closing date for pickup.', role: 'Operations Assistant' }
+        ],
+        systemsUsed: ['Sign Post Portal']
+      },
+      {
+        id: 'sop_buyer_onboarding_005',
+        workspaceId: 'ws_wilmington',
+        tenantId: 'ws_wilmington',
+        title: 'Buyer Representation & Agency Onboarding Protocol',
+        purpose: 'Mandates agency disclosure and representation agreement execution prior to showing properties.',
+        trigger: 'New Buyer Consultation',
+        processOwner: 'Ryan Crecelius',
+        reviewer: 'Matt Orr',
+        status: 'published',
+        version: '1.0',
+        orderedSteps: [
+          { order: 1, title: 'Present Working with Real Estate Agents', description: 'Review agency options at first substantial contact.', role: 'Buyer Agent' },
+          { order: 2, title: 'Execute Exclusive Buyer Agency Agreement', description: 'Establish legal agency before showing properties.', role: 'Buyer Agent' }
+        ],
+        systemsUsed: ['Dotloop']
       }
     ];
 
@@ -164,30 +228,51 @@ export async function seedUatData(connectionString?: string): Promise<{ success:
       await client.query(`
         INSERT INTO sop_drafts (
           id, workspace_id, tenant_id, title, purpose, trigger, process_owner, reviewer,
-          status, version, ordered_steps, created_at, updated_at
+          status, version, ordered_steps, systems_used, revision_count, updated_at
         )
-        VALUES ($1, 'ws_wilmington', 'ws_wilmington', $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, ordered_steps = EXCLUDED.ordered_steps, status = EXCLUDED.status;
-      `, [sop.id, sop.title, sop.purpose, sop.trigger, sop.processOwner, sop.reviewer, sop.status, sop.version, JSON.stringify(sop.steps)]);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1, NOW())
+        ON CONFLICT (id) DO UPDATE SET 
+          title = EXCLUDED.title,
+          status = EXCLUDED.status,
+          ordered_steps = EXCLUDED.ordered_steps,
+          updated_at = NOW();
+      `, [
+        sop.id,
+        sop.workspaceId,
+        sop.tenantId,
+        sop.title,
+        sop.purpose,
+        sop.trigger,
+        sop.processOwner,
+        sop.reviewer,
+        sop.status,
+        sop.version,
+        JSON.stringify(sop.orderedSteps),
+        sop.systemsUsed
+      ]);
       counts.sops++;
     }
 
     // 6. OWNER DIGEST CONFIGURATION (Disabled by default, no recipients)
-    await client.query(`
-      INSERT INTO owner_digest_configs (
-        workspace_id, enabled, recipients, day_of_week, delivery_time, workspace_timezone
-      )
-      VALUES ('ws_wilmington', FALSE, '{}', 'monday', '08:00', 'America/New_York')
-      ON CONFLICT (workspace_id) DO UPDATE SET enabled = FALSE, recipients = '{}';
-    `);
-    counts.digestConfigs++;
+    for (const ws of workspaces) {
+      await client.query(`
+        INSERT INTO owner_digest_configs (
+          workspace_id, enabled, recipients, day_of_week, delivery_time,
+          workspace_timezone, include_needs_attention, include_open_requests,
+          include_resolved_last_week, version, updated_at, updated_by
+        )
+        VALUES ($1, FALSE, '{}', 'monday', '08:00', 'America/New_York', TRUE, TRUE, TRUE, 1, NOW(), 'system_init')
+        ON CONFLICT (workspace_id) DO UPDATE SET enabled = FALSE, recipients = '{}', updated_at = NOW();
+      `, [ws.id]);
+      counts.digestConfigs++;
+    }
 
     await client.query('COMMIT');
-    console.log('[UAT Seed Runner] Seed completed successfully:', counts);
+    console.log('[UAT Seed Runner] Seed completed successfully with counts:', counts);
     return { success: true, counts };
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[UAT Seed Runner] Seed failed, transaction rolled back:', err);
+    console.error('[UAT Seed Runner] Seed failed with error:', err);
     throw err;
   } finally {
     client.release();
@@ -195,8 +280,11 @@ export async function seedUatData(connectionString?: string): Promise<{ success:
   }
 }
 
-if (process.argv[1] && process.argv[1].endsWith('seedUatData.ts')) {
+if (process.argv[1]?.endsWith('seedUatData.ts')) {
   seedUatData()
     .then(() => process.exit(0))
-    .catch(() => process.exit(1));
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }

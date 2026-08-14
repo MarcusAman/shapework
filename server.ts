@@ -1787,19 +1787,23 @@ function getGeminiClient(): GoogleGenAI | null {
 // Active AppMode and workspace extraction middleware
 const APP_MODE = process.env.APP_MODE || 'development';
 
-/// Auth endpoints for cryptographically signed session tokens
+//// Auth endpoints for cryptographically signed session tokens
 app.post('/api/auth/login', loginRateLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Bad Request', message: 'Email and password are required.' });
   }
 
+  const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim();
+  const userAgent = req.headers['user-agent'] || '';
+
   let foundUser: any = null;
 
   // Resolve user globally in database mode
   if (storageDriver === 'database' && dbPool) {
     try {
-      const dbUserRes = await dbPool.query('SELECT * FROM users WHERE email = $1', [email]);
+      const dbUserRes = await dbPool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
       if (dbUserRes.rows.length > 0) {
         const userRow = convertKeysToCamel(dbUserRes.rows[0]);
         const memRes = await dbPool.query('SELECT role, permissions, workspace_id FROM workspace_memberships WHERE user_id = $1', [userRow.id]);
@@ -1809,7 +1813,7 @@ app.post('/api/auth/login', loginRateLimiter, async (req, res) => {
           ...userRow,
           role: membership ? membership.role : 'owner',
           permissions: membership ? membership.permissions : [],
-          workspaceId: membership ? membership.workspaceId : 'nest-realty-demo'
+          workspaceId: membership ? membership.workspaceId : 'ws_wilmington'
         };
       }
     } catch (err) {
@@ -1818,31 +1822,105 @@ app.post('/api/auth/login', loginRateLimiter, async (req, res) => {
   } else {
     // Memory fallback for development/demo mode
     const users = dbState.workspaceUsers || [];
-    foundUser = users.find((u: any) => u.email === email);
+    foundUser = users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase().trim());
   }
 
-  const isValidPassword = foundUser && foundUser.passwordHash && verifyPassword(password, foundUser.passwordHash);
-
-  if (!foundUser || !isValidPassword || foundUser.status !== 'active') {
-    console.warn(`[Auth] Failed login attempt for user: ${email}`);
+  if (!foundUser) {
+    const { logAuthEvent } = await import('./server/auth/invitationService.js');
+    await logAuthEvent('login_failure_unknown_user', null, email, null, ip, userAgent);
     return res.status(401).json({ error: 'Unauthorized', message: 'Invalid email or password.' });
   }
 
-  // Generate JWT token containing the user details
-  const token = signJwt({ userId: foundUser.id, email: foundUser.email, role: foundUser.role });
+  // Check user status
+  if (foundUser.status === 'disabled') {
+    const { logAuthEvent } = await import('./server/auth/invitationService.js');
+    await logAuthEvent('login_rejected_disabled_account', foundUser.id, foundUser.email, foundUser.workspaceId, ip, userAgent);
+    return res.status(403).json({ error: 'account_disabled', message: 'This account has been disabled. Please contact an administrator.' });
+  }
+
+  if (foundUser.status === 'pending_activation') {
+    const { logAuthEvent } = await import('./server/auth/invitationService.js');
+    await logAuthEvent('login_rejected_unactivated', foundUser.id, foundUser.email, foundUser.workspaceId, ip, userAgent);
+    return res.status(401).json({ 
+      error: 'activation_required', 
+      message: 'This account has not yet been activated. Please use your secure invitation link to activate your account.' 
+    });
+  }
+
+  // Check temporary lockout
+  if (foundUser.lockedUntil && new Date(foundUser.lockedUntil) > new Date()) {
+    const { logAuthEvent } = await import('./server/auth/invitationService.js');
+    await logAuthEvent('login_rejected_locked', foundUser.id, foundUser.email, foundUser.workspaceId, ip, userAgent);
+    return res.status(403).json({ 
+      error: 'account_locked', 
+      message: 'Account is temporarily locked due to multiple failed login attempts. Please try again later.' 
+    });
+  }
+
+  const isValidPassword = foundUser.passwordHash && verifyPassword(password, foundUser.passwordHash);
+
+  if (!isValidPassword) {
+    if (storageDriver === 'database' && dbPool) {
+      const attempts = (foundUser.failedLoginAttempts || 0) + 1;
+      const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+      await dbPool.query(
+        'UPDATE users SET failed_login_attempts = $1, last_failed_login_at = NOW(), locked_until = $2 WHERE id = $3',
+        [attempts, lockedUntil, foundUser.id]
+      );
+    }
+    const { logAuthEvent } = await import('./server/auth/invitationService.js');
+    await logAuthEvent('login_failure_invalid_password', foundUser.id, foundUser.email, foundUser.workspaceId, ip, userAgent);
+    return res.status(401).json({ error: 'Unauthorized', message: 'Invalid email or password.' });
+  }
+
+  // Reset failed attempts on success
+  if (storageDriver === 'database' && dbPool) {
+    await dbPool.query(
+      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1',
+      [foundUser.id]
+    );
+  }
+
+  const { logAuthEvent } = await import('./server/auth/invitationService.js');
+  await logAuthEvent('login_success', foundUser.id, foundUser.email, foundUser.workspaceId, ip, userAgent);
+
+  // Generate JWT token containing the user details and current securityVersion
+  const token = signJwt({
+    userId: foundUser.id,
+    email: foundUser.email,
+    role: foundUser.role,
+    workspaceId: foundUser.workspaceId,
+    securityVersion: foundUser.securityVersion || 1
+  }, { expiresInSeconds: 8 * 3600, securityVersion: foundUser.securityVersion || 1 });
 
   // Set as HttpOnly secure cookie
-  const isSecure = process.env.COOKIE_SECURE === 'true' || process.env.APP_MODE === 'production';
+  const isSecure = process.env.COOKIE_SECURE === 'true' || process.env.APP_MODE === 'production' || process.env.APP_ENV === 'uat';
   res.setHeader(
     'Set-Cookie',
-    `shapework_session=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=3600${isSecure ? '; Secure' : ''}`
+    `shapework_session=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800${isSecure ? '; Secure' : ''}`
   );
 
-  res.json({ success: true, user: foundUser });
+  const safeUser = {
+    id: foundUser.id,
+    email: foundUser.email,
+    name: foundUser.name,
+    role: foundUser.role,
+    workspaceId: foundUser.workspaceId,
+    status: foundUser.status
+  };
+
+  res.json({ success: true, user: safeUser, token });
 });
 
-app.post('/api/auth/logout', (req, res) => {
-  const isSecure = process.env.COOKIE_SECURE === 'true' || process.env.APP_MODE === 'production';
+app.post('/api/auth/logout', async (req, res) => {
+  const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim();
+  const userAgent = req.headers['user-agent'] || '';
+
+  const { logAuthEvent } = await import('./server/auth/invitationService.js');
+  await logAuthEvent('logout', null, null, null, ip, userAgent);
+
+  const isSecure = process.env.COOKIE_SECURE === 'true' || process.env.APP_MODE === 'production' || process.env.APP_ENV === 'uat';
   res.setHeader(
     'Set-Cookie',
     `shapework_session=; HttpOnly; Path=/; SameSite=Strict; Max-Age=0${isSecure ? '; Secure' : ''}`
@@ -1854,115 +1932,91 @@ app.get('/api/auth/session', requireAuth, (req, res) => {
   res.json({ user: (req as any).authUser });
 });
 
-app.post('/api/auth/forgot-password', loginRateLimiter, async (req, res) => {
+// Secure Account Activation Endpoint
+app.post('/api/auth/activate', activationRateLimiter, async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Token and new password are required.' });
+  }
+
+  const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim();
+  const userAgent = req.headers['user-agent'] || '';
+
+  try {
+    const { activateAccountWithToken } = await import('./server/auth/invitationService.js');
+    const result = await activateAccountWithToken(token, password, ip, userAgent);
+
+    const isSecure = process.env.COOKIE_SECURE === 'true' || process.env.APP_MODE === 'production' || process.env.APP_ENV === 'uat';
+    res.setHeader(
+      'Set-Cookie',
+      `shapework_session=${result.token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800${isSecure ? '; Secure' : ''}`
+    );
+
+    res.json({ success: true, user: result.user, token: result.token });
+  } catch (err: any) {
+    res.status(400).json({ error: 'Bad Request', message: err.message });
+  }
+});
+
+// Secure Password Reset Request Endpoint
+app.post('/api/auth/forgot-password', resetRateLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Bad Request', message: 'Email address is required.' });
   }
 
-  let foundUser: any = null;
+  const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim();
+  const userAgent = req.headers['user-agent'] || '';
 
-  if (storageDriver === 'database' && dbPool) {
-    try {
-      const dbUserRes = await dbPool.query('SELECT * FROM users WHERE email = $1', [email]);
-      if (dbUserRes.rows.length > 0) {
-        const userRow = convertKeysToCamel(dbUserRes.rows[0]);
-        const memRes = await dbPool.query('SELECT role, permissions, workspace_id FROM workspace_memberships WHERE user_id = $1', [userRow.id]);
-        const membership = memRes.rows.length > 0 ? convertKeysToCamel(memRes.rows[0]) : null;
-        foundUser = {
-          ...userRow,
-          role: membership ? membership.role : 'owner',
-          permissions: membership ? membership.permissions : [],
-          workspaceId: membership ? membership.workspaceId : 'nest-realty-demo'
-        };
-      }
-    } catch (err) {
-      console.error('[Auth] Failed to query user during forgot password:', err);
-    }
-  } else {
-    const users = dbState.workspaceUsers || [];
-    foundUser = users.find((u: any) => u.email === email);
-  }
+  const { createPasswordResetToken } = await import('./server/auth/invitationService.js');
+  await createPasswordResetToken(email.toLowerCase().trim(), ip, userAgent);
 
-  // Security: Always show generic success response even if email does not exist
-  if (foundUser && foundUser.status === 'active') {
-    try {
-      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '';
-      const userAgent = req.headers['user-agent'] || '';
-      
-      const token = await createPasswordResetToken(foundUser.id, ip, userAgent);
-      
-      // Build the reset URL using APP_URL configuration
-      const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || '3000'}`;
-      const resetUrl = `${appUrl}/reset-password?token=${token}`;
-      
-      const emailSent = await sendPasswordResetEmail(foundUser.email, resetUrl);
-      if (emailSent) {
-        logAuditEvent(foundUser.name, foundUser.role, 'Requested secure password reset link', 'Security');
-      }
-    } catch (err) {
-      console.error('[Auth] Failed to generate/dispatch password reset token:', err);
-    }
-  } else {
-    console.log(`[Auth] Forgot password request for non-existent or inactive email: ${email}`);
-  }
-
-  res.json({ ok: true });
+  // Always return generic 200 OK without disclosing account existence
+  res.json({ ok: true, message: 'If this email address is registered, instructions have been prepared.' });
 });
 
-app.post('/api/auth/reset-password', loginRateLimiter, async (req, res) => {
+// Secure Password Reset Confirmation Endpoint
+app.post('/api/auth/reset-password', resetRateLimiter, async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) {
-    return res.status(400).json({ error: 'Bad Request', message: 'Token and password are required.' });
+    return res.status(400).json({ error: 'Bad Request', message: 'Token and new password are required.' });
   }
 
-  if (password.length < 12) {
-    return res.status(400).json({ error: 'Bad Request', message: 'Password must be at least 12 characters.' });
+  const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+  const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim();
+  const userAgent = req.headers['user-agent'] || '';
+
+  try {
+    const { resetPasswordWithToken } = await import('./server/auth/invitationService.js');
+    await resetPasswordWithToken(token, password, ip, userAgent);
+
+    res.json({ 
+      success: true, 
+      message: 'Password has been reset successfully. Please log in with your new password.' 
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: 'Bad Request', message: err.message });
+  }
+});
+
+// Admin-Only Invitation Creation Endpoint
+app.post('/api/auth/invitations', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_users'), async (req: any, res) => {
+  const { userId, role, permissions } = req.body;
+  const wsId = req.workspace?.id;
+
+  if (!userId || !wsId) {
+    return res.status(400).json({ error: 'Bad Request', message: 'userId and workspace context are required.' });
   }
 
-  const userId = await verifyAndConsumePasswordResetToken(token);
-  if (!userId) {
-    return res.status(400).json({ error: 'Bad Request', message: 'The reset link is invalid or has expired.' });
+  try {
+    const { createInvitationToken } = await import('./server/auth/invitationService.js');
+    const result = await createInvitationToken(userId, wsId, role || 'member', permissions || []);
+    res.json({ success: true, invitation: { id: result.id, userId: result.userId, expiresAt: result.expiresAt, rawToken: result.rawToken } });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: err.message });
   }
-
-  const pwdHash = hashPassword(password);
-  let updatedUser: any = null;
-
-  if (storageDriver === 'database' && dbPool) {
-    try {
-      await dbPool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [pwdHash, userId]);
-      const resUser = await dbPool.query('SELECT * FROM users WHERE id = $1', [userId]);
-      if (resUser.rows.length > 0) {
-        const userRow = convertKeysToCamel(resUser.rows[0]);
-        const memRes = await dbPool.query('SELECT role, permissions, workspace_id FROM workspace_memberships WHERE user_id = $1', [userRow.id]);
-        const membership = memRes.rows.length > 0 ? convertKeysToCamel(memRes.rows[0]) : null;
-        updatedUser = {
-          ...userRow,
-          role: membership ? membership.role : 'owner',
-          permissions: membership ? membership.permissions : [],
-          workspaceId: membership ? membership.workspaceId : 'nest-realty-demo'
-        };
-      }
-    } catch (err) {
-      console.error('[Auth] Failed to update password in database:', err);
-      return res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update password.' });
-    }
-  } else {
-    const userIndex = (dbState.workspaceUsers || []).findIndex((u: any) => u.id === userId);
-    if (userIndex !== -1) {
-      dbState.workspaceUsers[userIndex].passwordHash = pwdHash;
-      updatedUser = dbState.workspaceUsers[userIndex];
-      persistState();
-    }
-  }
-
-  if (updatedUser) {
-    logAuditEvent(updatedUser.name, updatedUser.role, 'Password updated via reset link', 'Security');
-  } else {
-    console.warn(`[Auth] Updated password for user ID ${userId} but could not resolve user details for logging`);
-  }
-
-  res.json({ ok: true });
 });
 
 // Block all demo/debug/test utilities in production, except public access gate endpoints

@@ -37,7 +37,20 @@ async function main() {
     }
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 6000));
+  let ready = false;
+  for (let i = 0; i < 30; i++) {
+    try {
+      const hRes = await fetch(`http://localhost:${PORT}/api/health`);
+      if (hRes.ok) {
+        ready = true;
+        break;
+      }
+    } catch (e) {}
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!ready) {
+    console.error('Server failed to start within timeout');
+  }
 
   const authHeaders = {
     'Cookie': 'shapework_session=usr_sarah',

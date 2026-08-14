@@ -172,8 +172,8 @@ export function setWorkspaceUsersResolver(resolver: () => any[]) {
 }
 
 // Middleware: Authenticate Session Token
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  const APP_MODE = process.env.APP_MODE || 'development';
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const APP_MODE = process.env.APP_MODE || process.env.APP_ENV || 'development';
   
   // 1. Extract token from Cookie, Bearer header, or query parameters
   let token = '';
@@ -191,8 +191,8 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   if (!token && req.query.token) {
     token = String(req.query.token);
   }
-  if (APP_MODE === 'production' && process.env.AUTH_PROVIDER_CONFIGURED === 'true') {
-    // Reject query token auth in production
+  if ((APP_MODE === 'production' || APP_MODE === 'uat') && process.env.AUTH_PROVIDER_CONFIGURED === 'true') {
+    // Reject query token auth in production/UAT
     if (req.query.token) {
       return res.status(401).json({ error: 'authentication_required', message: 'Query token authentication is disabled in production.' });
     }
@@ -207,6 +207,52 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   if (payload && (payload.userId || payload.id || payload.email)) {
     const uId = payload.userId || payload.id || `usr_${(payload.email || 'user').split('@')[0]}`;
     const uEmail = payload.email || `${uId}@nestrealty.com`;
+
+    // In database mode, verify user status and security_version directly against DB
+    const { dbPool } = await import('../persistence/repositories.js');
+    if (dbPool) {
+      try {
+        const dbUserRes = await dbPool.query(
+          'SELECT id, email, name, status, security_version, locked_until FROM users WHERE id = $1 OR email = $2',
+          [uId, uEmail]
+        );
+        if (dbUserRes.rows.length === 0) {
+          return res.status(401).json({ error: 'authentication_required', message: 'User account not found.' });
+        }
+        const dbUser = dbUserRes.rows[0];
+
+        // Check if user is locked or disabled
+        if (dbUser.status === 'disabled') {
+          return res.status(403).json({ error: 'account_disabled', message: 'This user account has been disabled.' });
+        }
+        if (dbUser.status === 'pending_activation') {
+          return res.status(401).json({ error: 'activation_required', message: 'Account must be activated before login.' });
+        }
+        if (dbUser.locked_until && new Date(dbUser.locked_until) > new Date()) {
+          return res.status(403).json({ error: 'account_locked', message: 'Account is temporarily locked. Please try again later.' });
+        }
+
+        // Check security version (session revocation on password reset or incident containment)
+        const tokenSecVer = payload.securityVersion !== undefined ? payload.securityVersion : 1;
+        if (dbUser.security_version > tokenSecVer) {
+          return res.status(401).json({ error: 'session_revoked', message: 'Session has been revoked. Please log in again.' });
+        }
+
+        req.authUser = {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          role: payload.role || 'member',
+          workspaceId: payload.workspaceId || 'ws_wilmington',
+          status: dbUser.status
+        };
+        (req as any).user = req.authUser;
+        return next();
+      } catch (err) {
+        console.error('[Auth Middleware] Database auth check error:', err);
+      }
+    }
+
     const liveUsers = workspaceUsersResolver();
     const resolvedUser = liveUsers.find(u => u.id === uId || u.email === uEmail) || SEEDED_USERS.find(u => u.id === uId || u.email === uEmail);
 
@@ -244,7 +290,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 }
 
 // Middleware: Resolve Active Workspace Tenant Context
-export function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   if (!req.authUser) {
     return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
   }
@@ -254,11 +300,44 @@ export function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response
   const user = req.authUser;
   const userWsId = (user as any).workspaceId;
   if (!requestedWsId) {
-    requestedWsId = userWsId || 'nest-realty-demo';
+    requestedWsId = userWsId || 'ws_wilmington';
   }
 
   if (requestedWsId === 'nest-realty-wilmington') {
-    requestedWsId = 'nest-realty-demo';
+    requestedWsId = 'ws_wilmington';
+  }
+
+  // In database mode, verify membership via workspace_memberships table
+  const { dbPool } = await import('../persistence/repositories.js');
+  if (dbPool) {
+    try {
+      const memRes = await dbPool.query(
+        'SELECT id, workspace_id, user_id, role, permissions FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2',
+        [requestedWsId, user.id]
+      );
+
+      if (memRes.rows.length === 0 && user.role !== 'admin' && user.role !== 'owner') {
+        return res.status(403).json({ error: 'Forbidden', message: 'User is not a member of the requested workspace.' });
+      }
+
+      const membershipRow = memRes.rows[0];
+      const memberRole = membershipRow?.role || user.role || 'member';
+      const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner || [];
+      const permissions = membershipRow?.permissions || [...basePermissions, 'directory.read', 'directory.manage', 'directory.sync'];
+
+      req.workspace = { id: requestedWsId, name: 'Active Brokerage Workspace' };
+      req.membership = {
+        id: membershipRow?.id || `mem_${user.id}_${requestedWsId}`,
+        userId: user.id,
+        workspaceId: requestedWsId,
+        role: memberRole,
+        permissions,
+        hasValidMembership: true
+      } as any;
+      return next();
+    } catch (err) {
+      console.error('[Auth Middleware] Workspace membership check error:', err);
+    }
   }
 
   // Query live workspace user memberships dynamically
@@ -268,14 +347,14 @@ export function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response
   ) || SEEDED_MEMBERSHIPS.find(m => (m.userId === user.id || m.id === `m_${user.id.replace('usr_', '')}`) && m.workspaceId === requestedWsId);
 
   // Check explicit membership match
-  const isMember = (activeMembership && activeMembership.workspaceId === requestedWsId) || (userWsId === requestedWsId) || user.role === 'admin';
+  const isMember = (activeMembership && activeMembership.workspaceId === requestedWsId) || (userWsId === requestedWsId) || user.role === 'admin' || user.role === 'owner';
 
   if (!isMember) {
     return res.status(403).json({ error: 'Forbidden', message: 'User is not a member of the requested workspace.' });
   }
 
   const memberRole = activeMembership?.role || user.role || 'owner';
-  const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner;
+  const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner || [];
   const permissions = [...basePermissions, 'directory.read', 'directory.manage', 'directory.sync'];
 
   req.workspace = { id: requestedWsId, name: 'Active Brokerage Workspace' };

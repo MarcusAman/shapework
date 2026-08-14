@@ -60,9 +60,11 @@ if (storageDriver === 'database') {
 
   dbPool = new pg.Pool({ 
     connectionString,
-    max: parseInt(process.env.DB_POOL_MAX || '5', 10),
-    idleTimeoutMillis: 30000,
+    max: parseInt(process.env.DB_POOL_MAX || '3', 10),
+    idleTimeoutMillis: 15000,
     connectionTimeoutMillis: 5000,
+    statement_timeout: 10000,
+    query_timeout: 10000,
     ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
   });
 

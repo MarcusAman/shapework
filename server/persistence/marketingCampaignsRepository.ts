@@ -959,7 +959,8 @@ export function initializeCampaignsStore(initialData?: ListingMarketingCampaign[
   if (initialData && initialData.length > 0) {
     campaignsStore = initialData;
   } else {
-    campaignsStore = [];
+    const defaultCamp = getInitialDefaultCampaign();
+    campaignsStore = defaultCamp ? [defaultCamp] : [];
   }
   return campaignsStore;
 }
@@ -999,8 +1000,7 @@ let dailyPlanningSnapshotsStore: any[] = [];
 
 export function getInitialWorkItems(): any[] {
   return [];
-}
-    {
+  const _items = [{
       id: 'work_item_flow_b',
       requestId: 'req_304_ocean',
       campaignId: 'campaign_304_ocean',
@@ -1408,7 +1408,7 @@ export function savePrintDeliveryReceipt(receiptData: Partial<PrintDeliveryRecei
     receiptId: 'rcpt_print_' + Date.now(),
     orderId: receiptData.orderId || ('apex_ord_' + Date.now()),
     workItemId: receiptData.workItemId || '',
-    campaignId: receiptData.campaignId || 'campaign_990_inspiration',
+    campaignId: receiptData.campaignId || '',
     vendorName: receiptData.vendorName || 'Apex Signs & Print',
     status: receiptData.status || 'sent_to_vendor',
     pickupCode: receiptData.pickupCode || 'PK-8849',

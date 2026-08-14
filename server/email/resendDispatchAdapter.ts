@@ -35,7 +35,7 @@ export async function dispatchEmailViaResend(options: ResendDispatchOptions): Pr
   const toList = Array.isArray(options.to) ? options.to : [options.to];
   const fromAddress = options.from || process.env.RESEND_FROM_EMAIL || 'Nest Realty <marketing@nestrealty.com>';
   const htmlChecksum = 'sha256_' + crypto.createHash('sha256').update(options.html || '').digest('hex');
-  const campaignId = options.campaignId || 'campaign_990_inspiration';
+  const campaignId = options.campaignId || '';
 
   if (apiKey) {
     try {

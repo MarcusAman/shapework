@@ -45,9 +45,55 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         email VARCHAR(255) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
         password_hash VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'active',
+        status VARCHAR(50) DEFAULT 'pending_activation',
+        security_version INTEGER NOT NULL DEFAULT 1,
+        failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        last_failed_login_at TIMESTAMPTZ,
+        locked_until TIMESTAMPTZ,
+        activated_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS security_version INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_failed_login_at TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS activated_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS invitation_tokens (
+        id VARCHAR(100) PRIMARY KEY,
+        user_id VARCHAR(100) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        role VARCHAR(100) NOT NULL,
+        permissions TEXT[] NOT NULL DEFAULT '{}',
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        used_by_ip VARCHAR(100),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id VARCHAR(100) PRIMARY KEY,
+        user_id VARCHAR(100) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ,
+        used_by_ip VARCHAR(100),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS auth_audit_logs (
+        id VARCHAR(100) PRIMARY KEY,
+        event_type VARCHAR(100) NOT NULL,
+        user_id VARCHAR(100),
+        email_redacted VARCHAR(255),
+        workspace_id VARCHAR(100),
+        ip_address VARCHAR(100),
+        user_agent TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS workspace_memberships (

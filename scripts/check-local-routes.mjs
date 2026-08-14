@@ -5,7 +5,7 @@
 
 import http from 'http';
 
-const BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3049';
 console.log(`\n=== Starting shapework. Local Route Checks ===`);
 console.log(`Targeting base URL: ${BASE_URL}\n`);
 

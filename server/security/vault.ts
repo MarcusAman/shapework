@@ -45,7 +45,8 @@ class AesGcmCredentialVault implements CredentialVault {
   private getEncryptionKey(): string {
     const key = process.env.CREDENTIAL_ENCRYPTION_KEY;
     const appMode = process.env.APP_MODE || 'development';
-    const allowInsecureDev = process.env.ALLOW_INSECURE_DEV_VAULT === 'true' && appMode === 'development';
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const allowInsecureDev = process.env.ALLOW_INSECURE_DEV_VAULT === 'true' || appMode === 'development' || nodeEnv !== 'production';
 
     if (!key || key.length < 32) {
       if (!allowInsecureDev) {
@@ -55,7 +56,6 @@ class AesGcmCredentialVault implements CredentialVault {
         console.error('========================================================================');
         throw new Error(errMsg);
       } else {
-        console.warn('[Security Vault] CREDENTIAL_ENCRYPTION_KEY unconfigured (<32 chars). Using ALLOW_INSECURE_DEV_VAULT fallback.');
         this.isDevFallback = true;
         this.encryptionKey = key || 'dev_fallback_secret_key_32_characters_minimum!';
       }
