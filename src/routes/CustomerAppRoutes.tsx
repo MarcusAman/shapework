@@ -58,6 +58,7 @@ import DealIntakeGuard from '../components/transactions/DealIntakeGuard';
 import ClosingComplianceGuard from '../components/transactions/ClosingComplianceGuard';
 import ListingLaunchBoard from '../components/listings/ListingLaunchBoard';
 import AgentOnboardingBoard from '../components/people/AgentOnboardingBoard';
+import SurfaceCard from '../components/ui/SurfaceCard';
 import OfficeReadinessSignInventory from '../components/workflows/OfficeReadinessSignInventory';
 import ReviewRequestTrigger from '../components/transactions/ReviewRequestTrigger';
 import DiscoveryPrioritiesView from '../components/settings/DiscoveryPrioritiesView';
@@ -131,7 +132,7 @@ function EmptyState({ title, description, actionText, onAction }: EmptyStateProp
 
 function TodayPage({ state }: { state: any }) {
   return (
-    <div className="space-y-6 text-left font-sans text-xs text-[#F6F7F1]">
+    <div className="space-y-6 text-left font-sans text-xs text-[#17231F]">
       <NestOpsHub state={state} mode="full" />
     </div>
   );
@@ -1522,11 +1523,11 @@ function AuditPage({ state }: { state: any }) {
   const [auditTab, setAuditTab] = useState<'timeline' | 'log' | 'approvals'>('timeline');
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Audit" subtitle="Operations audit ledger" />
+    <div className="space-y-6 text-left font-sans text-slate-800">
+      <PageHeader title="Brokerage Activity" subtitle="Real-time operational activity log, timeline, and decision audit trail." />
       
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--sw-border)] pb-2 select-none">
-        <div className="flex gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-2 select-none">
+        <div className="flex gap-6">
           {[
             { id: 'timeline', label: 'Timeline' },
             { id: 'log', label: 'Audit Log' },
@@ -1535,10 +1536,10 @@ function AuditPage({ state }: { state: any }) {
             <button
               key={tab.id}
               onClick={() => setAuditTab(tab.id as any)}
-              className={`pb-2 text-xs font-mono font-bold tracking-wider uppercase border-b-2 transition-all focus:outline-none cursor-pointer ${
+              className={`pb-2.5 text-xs font-bold tracking-wider uppercase border-b-2 transition-all focus:outline-none cursor-pointer ${
                 auditTab === tab.id
-                  ? 'border-[var(--sw-green-900)] text-[var(--sw-green-900)] font-bold'
-                  : 'border-transparent text-[var(--sw-muted)] hover:text-[var(--sw-text)]'
+                  ? 'border-[#01362D] text-[#01362D]'
+                  : 'border-transparent text-[#52605B] hover:text-[#17231F]'
               }`}
             >
               {tab.label}
@@ -1548,10 +1549,10 @@ function AuditPage({ state }: { state: any }) {
       </div>
 
       {auditTab === 'timeline' && (
-        <div className="bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-2xl p-6 shadow-card space-y-4">
-          <h3 className="text-xs font-bold text-[var(--sw-text)] uppercase tracking-wider">Timeline</h3>
+        <SurfaceCard className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+          <h3 className="text-xs font-bold text-[#01362D] uppercase tracking-wider">Operational Timeline</h3>
           <LiveOperationsTimeline onInspectRecord={() => {}} maxCount={15} />
-        </div>
+        </SurfaceCard>
       )}
 
       {auditTab === 'log' && (
@@ -1562,23 +1563,23 @@ function AuditPage({ state }: { state: any }) {
       )}
 
       {auditTab === 'approvals' && (
-        <div className="bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-2xl p-6 shadow-card space-y-4">
-          <h3 className="text-xs font-bold text-[var(--sw-text)] uppercase tracking-wider">Resolved Approvals</h3>
-          <div className="divide-y divide-[var(--sw-border)]/60">
-            <div className="py-3 text-xs flex justify-between">
-              <span className="text-[var(--sw-success)] font-semibold">Approved: Foundation Contingency Crack Waiver</span>
-              <span className="text-[var(--sw-muted)]">Sarah Jenkins · 15m ago</span>
+        <SurfaceCard className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+          <h3 className="text-xs font-bold text-[#01362D] uppercase tracking-wider">Resolved Approvals</h3>
+          <div className="divide-y divide-slate-200/80">
+            <div className="py-3 text-xs flex justify-between items-center">
+              <span className="text-[#00635C] font-bold">Approved: Foundation Contingency Crack Waiver</span>
+              <span className="text-[#52605B] font-mono text-[11px]">Sarah Jenkins · 15m ago</span>
             </div>
-            <div className="py-3 text-xs flex justify-between">
-              <span className="text-[var(--sw-success)] font-semibold">Approved: Wire Ingest Matching Exception Close</span>
-              <span className="text-[var(--sw-muted)]">Sarah Jenkins · 1h ago</span>
+            <div className="py-3 text-xs flex justify-between items-center">
+              <span className="text-[#00635C] font-bold">Approved: Wire Ingest Matching Exception Close</span>
+              <span className="text-[#52605B] font-mono text-[11px]">Sarah Jenkins · 1h ago</span>
             </div>
-            <div className="py-3 text-xs flex justify-between">
-              <span className="text-[var(--sw-text)]">Auto-logged: Lockbox opened at 109 Woodlawn</span>
-              <span className="text-[var(--sw-muted)]">System Gateway · 2h ago</span>
+            <div className="py-3 text-xs flex justify-between items-center">
+              <span className="text-[#17231F] font-medium">Auto-logged: Lockbox opened at 109 Woodlawn</span>
+              <span className="text-[#52605B] font-mono text-[11px]">System Gateway · 2h ago</span>
             </div>
           </div>
-        </div>
+        </SurfaceCard>
       )}
     </div>
   );
@@ -3667,51 +3668,39 @@ function PhysicalAssetsTab({
     .reduce((sum, a) => sum + (Number(a.replacementCost) || 0), 0);
 
   return (
-    <div className="space-y-6 text-left font-sans text-xs text-[#F6F7F1]">
+    <div className="space-y-6 text-left font-sans text-xs text-[var(--sw-text-primary)]">
       <PageHeader title="Physical Assets" subtitle="Manage sign and lockbox checkouts for Nest Realty Wilmington." />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 select-none">
         {[
-          { label: 'Available Assets', val: `${availableAssets} Items`, color: 'text-emerald-300' },
-          { label: 'Checked Out', val: `${checkedOutAssets} Items`, color: 'text-blue-300' },
-          { label: 'Overdue Checkout', val: `${overdueAssets} Items`, color: 'text-amber-300' },
-          { label: 'Missing / Lost', val: `${missingAssets} Items`, color: 'text-rose-300' },
-          { label: 'Replacement Exposure', val: `$${replacementExposure}`, color: 'text-white' }
+          { label: 'Available Assets', val: `${availableAssets} Items`, color: 'text-[var(--brand-primary)]' },
+          { label: 'Checked Out', val: `${checkedOutAssets} Items`, color: 'text-blue-700' },
+          { label: 'Overdue Checkout', val: `${overdueAssets} Items`, color: 'text-[var(--state-warning)]' },
+          { label: 'Missing / Lost', val: `${missingAssets} Items`, color: 'text-[var(--state-danger)]' },
+          { label: 'Replacement Exposure', val: `$${replacementExposure}`, color: 'text-[var(--sw-text-primary)]' }
         ].map((stat, idx) => (
           <div 
             key={idx} 
-            className="p-4 rounded-2xl flex flex-col justify-between space-y-1.5"
-            style={{
-              background: 'rgba(246, 247, 241, 0.10)',
-              border: '1px solid rgba(246, 247, 241, 0.18)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
-            }}
+            className="p-4 rounded-2xl flex flex-col justify-between space-y-1.5 bg-[var(--sw-surface)] border border-[var(--sw-border)] shadow-xs"
           >
-            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] tracking-wider">{stat.label}</span>
+            <span className="text-[10px] uppercase font-bold text-[var(--sw-text-secondary)] tracking-wider">{stat.label}</span>
             <strong className={`text-base font-bold ${stat.color} block mt-1`}>{stat.val}</strong>
           </div>
         ))}
       </div>
 
-      <div 
-        className="rounded-[28px] shadow-lg overflow-hidden"
-        style={{
-          background: 'rgba(246, 247, 241, 0.10)',
-          border: '1px solid rgba(246, 247, 241, 0.18)',
-          backdropFilter: 'blur(18px)'
-        }}
-      >
-        <div className="p-4 border-b border-[rgba(246,247,241,0.12)] bg-[rgba(246,247,241,0.04)] flex items-center justify-between">
-          <span className="text-[10px] font-bold text-white uppercase font-mono tracking-wider">Physical Sign & Lockbox Ledger</span>
+      <div className="rounded-[28px] p-6 text-left shadow-xs space-y-4 bg-[var(--sw-surface)] border border-[var(--sw-border)]">
+        <div className="p-4 border-b border-[var(--sw-border)] flex items-center justify-between">
+          <span className="text-xs font-bold text-[var(--sw-text-primary)] uppercase tracking-wider">Physical Sign & Lockbox Ledger</span>
         </div>
 
-        <div className="divide-y divide-[rgba(246,247,241,0.12)]">
+        <div className="divide-y divide-[var(--sw-border)]">
           {opsAssets.map(asset => (
             <div key={asset.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
-                <span className="font-serif font-black text-sm text-white block">{asset.label}</span>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#D0D6BB] font-mono">
+                <span className="font-bold text-sm text-[var(--sw-text-primary)] block">{asset.label}</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--sw-text-secondary)] font-mono">
                   <span>Code: {asset.assetCode}</span>
                   <span>•</span>
                   <span>Type: {asset.assetType}</span>
@@ -3720,18 +3709,18 @@ function PhysicalAssetsTab({
                   {asset.currentHolder && (
                     <>
                       <span>•</span>
-                      <span className="text-[#F6F7F1] font-bold">Holder: {asset.currentHolder}</span>
+                      <span className="text-[var(--sw-text-primary)] font-bold">Holder: {asset.currentHolder}</span>
                     </>
                   )}
                 </div>
               </div>
 
               <div className="flex items-center gap-4">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${
-                  asset.status === 'available' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' :
-                  asset.status === 'checked_out' ? 'bg-blue-950/40 text-blue-300 border-blue-800/40' :
-                  asset.status === 'overdue' ? 'bg-amber-950/40 text-amber-350 border-amber-800/40' :
-                  'bg-rose-950/40 text-rose-300 border-rose-800/40'
+                <span className={`px-2.5 py-1 rounded text-xs font-bold uppercase font-mono border ${
+                  asset.status === 'available' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                  asset.status === 'checked_out' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+                  asset.status === 'overdue' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                  'bg-rose-50 text-rose-800 border-rose-200'
                 }`}>
                   {asset.status}
                 </span>
@@ -3740,22 +3729,22 @@ function PhysicalAssetsTab({
                   {asset.status === 'available' ? (
                     <button 
                       onClick={() => setSelectedAsset(asset)}
-                      className="px-3 py-1 bg-[#00635C] hover:bg-[#007c73] text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors shadow-sm"
+                      className="px-3.5 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs"
                     >
                       Checkout
                     </button>
                   ) : (
                     <button 
                       onClick={() => handleCheckinAsset(asset.id)}
-                      className="px-3 py-1 bg-[rgba(246,247,241,0.05)] border border-[rgba(246,247,241,0.15)] hover:bg-[rgba(246,247,241,0.12)] text-[#F6F7F1] rounded-lg text-[10px] font-bold cursor-pointer transition-all shadow-sm"
+                      className="px-3.5 py-1.5 bg-[var(--sw-canvas)] border border-[var(--sw-border)] hover:bg-stone-100 text-[var(--sw-text-primary)] rounded-xl text-xs font-bold cursor-pointer transition-all shadow-xs"
                     >
                       Checkin
                     </button>
                   )}
                   {asset.status !== 'missing' && (
-                    <button
+                    <button 
                       onClick={() => handleMarkMissing(asset.id)}
-                      className="px-3 py-1 bg-rose-955/40 text-rose-300 border border-rose-800/40 hover:bg-rose-900/40 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                      className="px-3.5 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-xl text-xs font-bold cursor-pointer transition-colors"
                     >
                       Mark Missing
                     </button>
@@ -3765,60 +3754,60 @@ function PhysicalAssetsTab({
             </div>
           ))}
           {opsAssets.length === 0 && (
-            <p className="text-xs text-[#D0D6BB] p-6 text-center italic">No physical assets registered in this workspace.</p>
+            <p className="text-xs text-[var(--sw-text-secondary)] p-6 text-center italic">No physical assets registered in this workspace.</p>
           )}
         </div>
       </div>
 
       {selectedAsset && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-[#01362D] border border-[rgba(246,247,241,0.18)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
-            <h3 className="font-serif font-black text-sm text-white">Checkout {selectedAsset.label}</h3>
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left font-sans">
+            <h3 className="font-bold text-sm text-[var(--sw-text-primary)] tracking-tight">Checkout {selectedAsset.label}</h3>
             <form onSubmit={handleCheckoutSubmit} className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block">Agent Name</label>
+                <label className="text-[10px] font-bold text-[var(--sw-text-secondary)] uppercase tracking-wider block">Agent Name</label>
                 <input 
                   type="text" 
                   value={agentName} 
                   onChange={e => setAgentName(e.target.value)} 
                   required
                   placeholder="e.g. Todd"
-                  className="w-full px-3 py-2 border border-[rgba(246,247,241,0.18)] rounded-xl bg-[#01362D] text-white text-xs placeholder-[rgba(246,247,241,0.3)] focus:outline-none focus:border-emerald-500/50"
+                  className="w-full px-3 py-2 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-[var(--sw-text-primary)] text-xs placeholder:text-[var(--sw-text-secondary)]/50 focus:outline-none focus:border-[var(--brand-primary)]"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block">Property Address</label>
+                <label className="text-[10px] font-bold text-[var(--sw-text-secondary)] uppercase tracking-wider block">Property Address</label>
                 <input 
                   type="text" 
                   value={propertyAddr} 
                   onChange={e => setPropertyAddr(e.target.value)} 
                   required
                   placeholder="e.g. 102 Pine St"
-                  className="w-full px-3 py-2 border border-[rgba(246,247,241,0.18)] rounded-xl bg-[#01362D] text-white text-xs placeholder-[rgba(246,247,241,0.3)] focus:outline-none focus:border-emerald-500/50"
+                  className="w-full px-3 py-2 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-[var(--sw-text-primary)] text-xs placeholder:text-[var(--sw-text-secondary)]/50 focus:outline-none focus:border-[var(--brand-primary)]"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block">Expected Return Date</label>
+                <label className="text-[10px] font-bold text-[var(--sw-text-secondary)] uppercase tracking-wider block">Expected Return Date</label>
                 <input 
                   type="date" 
                   value={returnDate} 
                   onChange={e => setReturnDate(e.target.value)} 
-                  className="w-full px-3 py-2 border border-[rgba(246,247,241,0.18)] rounded-xl bg-[#01362D] text-white text-xs focus:outline-none focus:border-emerald-500/50"
+                  className="w-full px-3 py-2 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-[var(--sw-text-primary)] text-xs focus:outline-none focus:border-[var(--brand-primary)]"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button 
                   type="button" 
                   onClick={() => setSelectedAsset(null)}
-                  className="px-3 py-1.5 border border-[rgba(246,247,241,0.18)] text-white hover:bg-[rgba(246,247,241,0.08)] rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  className="px-3 py-1.5 border border-[var(--sw-border)] bg-[var(--sw-canvas)] text-[var(--sw-text-secondary)] hover:bg-stone-100 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-3 py-1.5 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-sm"
+                  className="px-4 py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
                 >
-                  Checkout
+                  Confirm Checkout
                 </button>
               </div>
             </form>

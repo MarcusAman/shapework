@@ -7,8 +7,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, Shield, AlertTriangle, CheckCircle, RefreshCw, Cpu, Database, 
   Terminal, Key, Lock, Wrench, Layers, Server, Globe, Zap, AlertCircle, 
-  Search, Sliders, Play, Phone, Inbox, ArrowRight, UserCheck, FileText, ChevronRight, Mail, Smartphone
+  Search, Sliders, Play, Phone, Inbox, ArrowRight, UserCheck, FileText, ChevronRight, Mail, Smartphone, X
 } from 'lucide-react';
+import { orgChartService } from '../services/orgChartService';
 import { 
   InternalShell, 
   IntegrationHealthCard, 
@@ -363,7 +364,7 @@ export default function InternalRoutes({ state }: InternalRoutesProps) {
                   lastEvent={conn.lastEvent}
                   lastOutbound={conn.lastOutbound}
                   failCount={conn.failCount}
-                  warning={conn.warning}
+                  warning={(conn as any).warning}
                   onRetry={() => alert(`Synchronized connection and re-validated software integration.`)}
                 />
               ))}
@@ -397,7 +398,7 @@ export default function InternalRoutes({ state }: InternalRoutesProps) {
                   <option value="webhook_failed">Webhook Failed</option>
                 </select>
                 <button 
-                  onClick={() => fetchState()}
+                  onClick={() => window.location.reload()}
                   className="p-2 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-all cursor-pointer shadow-xs"
                   title="Reload event stream"
                 >

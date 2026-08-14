@@ -277,9 +277,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             <div className="space-y-4" data-testid="section-ready-for-review">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <h2 className="text-lg font-serif font-bold text-[#fffdf8]">Ready for Review & Completed</h2>
-                  <span className="text-xs font-bold text-slate-900 bg-emerald-300 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-4 h-4 text-[#00635C]" />
+                  <h2 className="text-base font-bold text-[var(--sw-text-primary)] tracking-tight">Ready for Review & Completed</h2>
+                  <span className="text-xs font-bold text-[#00635C] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                     {readyForReview.length}
                   </span>
                 </div>

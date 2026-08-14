@@ -1,7 +1,16 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Canonical EmptyState Primitive — Phase B1 Foundation
+ * Clean empty state container with icon, typography, and call to action buttons.
+ */
+
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
+import Button from './Button';
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon?: LucideIcon;
   title: string;
   description: string;
@@ -13,6 +22,7 @@ interface EmptyStateProps {
     label: string;
     onClick: () => void;
   };
+  className?: string;
 }
 
 export default function EmptyState({
@@ -20,36 +30,39 @@ export default function EmptyState({
   title,
   description,
   primaryAction,
-  secondaryAction
+  secondaryAction,
+  className = ''
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-8 md:p-12 border border-dashed border-border-soft bg-stone-50/50 rounded-2xl text-center max-w-lg mx-auto space-y-4 my-6">
+    <div className={`flex flex-col items-center justify-center p-8 md:p-12 border border-dashed border-[var(--sw-border)] bg-[var(--sw-canvas)] rounded-[var(--radius-lg)] text-center max-w-lg mx-auto space-y-4 my-6 ${className}`}>
       {Icon && (
-        <div className="w-10 h-10 rounded-xl bg-brand-soft/20 flex items-center justify-center text-brand-primary shrink-0 select-none">
-          <Icon className="w-5 h-5 text-brand-primary" />
+        <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--brand-soft)] flex items-center justify-center text-[var(--brand-primary)] shrink-0 select-none">
+          <Icon className="w-5 h-5 text-[var(--brand-primary)]" />
         </div>
       )}
       <div className="space-y-1">
-        <h4 className="text-sm font-bold text-text-primary uppercase tracking-wider font-mono">{title}</h4>
-        <p className="text-xs text-text-secondary leading-relaxed font-medium max-w-sm">{description}</p>
+        <h4 className="text-sm font-bold text-[var(--sw-text-primary)] tracking-tight font-sans">{title}</h4>
+        <p className="text-xs text-[var(--sw-text-secondary)] leading-relaxed font-normal max-w-sm">{description}</p>
       </div>
       {(primaryAction || secondaryAction) && (
         <div className="flex items-center gap-3 pt-2">
           {secondaryAction && (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={secondaryAction.onClick}
-              className="px-4 py-2 border border-border-soft bg-white hover:bg-stone-50 text-text-secondary hover:text-text-primary rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               {secondaryAction.label}
-            </button>
+            </Button>
           )}
           {primaryAction && (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={primaryAction.onClick}
-              className="px-4 py-2 bg-brand-900 hover:bg-brand-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
             >
               {primaryAction.label}
-            </button>
+            </Button>
           )}
         </div>
       )}

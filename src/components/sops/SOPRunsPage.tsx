@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Search, Filter, Play, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface SOPRunsPageProps {
-  state: any;
+  state?: any;
 }
 
 export default function SOPRunsPage({ state }: SOPRunsPageProps) {
-  const wsId = state.workspaceId || 'nest-realty-demo';
+  const safeState = state || {};
+  const wsId = safeState.workspaceId || 'nest-realty-demo';
   const [runs, setRuns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'me' | 'active' | 'blocked' | 'attention' | 'completed'>('active');
@@ -34,8 +35,8 @@ export default function SOPRunsPage({ state }: SOPRunsPageProps) {
   const filteredRuns = runs.filter((run: any) => {
     // 1. Tab filter
     if (activeTab === 'me') {
-      const myRole = state.activeProfile?.role;
-      const myEmail = state.activeProfile?.email;
+      const myRole = safeState.activeProfile?.role;
+      const myEmail = safeState.activeProfile?.email;
       const isAssignedToMe = run.assigneeEmail === myEmail || run.assigneeRole === myRole;
       if (!isAssignedToMe) return false;
     } else if (activeTab === 'active') {

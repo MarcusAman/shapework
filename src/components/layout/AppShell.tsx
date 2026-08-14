@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import CollapsibleNavigationRail from './CollapsibleNavigationRail';
 import TopBar from './TopBar';
 import ContextRail from './ContextRail';
@@ -11,6 +11,7 @@ import OperatorDock from './OperatorDock';
 import { Profile, ChatMessage } from '../../types/shapework';
 import ErrorBoundary from '../system/ErrorBoundary';
 import PitchAhaDemoModal from '../demo/PitchAhaDemoModal';
+import { applyWorkspaceBrandTheme, resolveWorkspaceBrand } from '../../styles/workspaceTheme';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -135,11 +136,22 @@ export default function AppShell({
 
   const allowedRoles = ['admin', 'owner', 'operations_lead', 'transaction_coordinator'];
   const showOperationsPulse = activeProfile ? allowedRoles.includes(activeProfile.role) : false;
-  const isTableHeavy = currentTab === 'Transactions' || currentTab === 'Work Queue';
   const isAppRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/app');
+  const shellRef = useRef<HTMLDivElement>(null);
+  const activeBrand = resolveWorkspaceBrand(workspaceId);
+
+  useEffect(() => {
+    if (shellRef.current) {
+      applyWorkspaceBrandTheme(shellRef.current, workspaceId);
+    }
+  }, [workspaceId]);
 
   return (
-    <div className="flex h-screen bg-[#01362D] overflow-hidden font-sans text-xs text-text-primary">
+    <div 
+      ref={shellRef}
+      data-tenant={activeBrand.id}
+      className="flex h-screen bg-[var(--sw-canvas)] overflow-hidden font-sans text-xs text-[var(--sw-text-primary)]"
+    >
       
       {/* Navigation sidebar */}
       <CollapsibleNavigationRail
@@ -155,7 +167,7 @@ export default function AppShell({
       />
 
       {/* Main viewport */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[var(--sw-canvas)]">
         {/* Top Header (Omitted on Role Map so Org Chart header is the single top bar) */}
         {currentTab !== 'Role Map' && currentTab !== 'Role & Escalation Map' && (
           <TopBar

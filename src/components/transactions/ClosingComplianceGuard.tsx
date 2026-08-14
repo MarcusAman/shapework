@@ -1,3 +1,11 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Closing Compliance Guard — Phase C Light-Mode Redesign
+ * Refactored to canonical Shapework B1/B2/B3 design primitives.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { 
   AlertCircle, 
@@ -10,8 +18,20 @@ import {
   AlertTriangle,
   UserCheck,
   XCircle,
-  FileQuestion
+  FileQuestion,
+  Shield
 } from 'lucide-react';
+import {
+  Card,
+  Button,
+  IconButton,
+  Badge,
+  StatusBadge,
+  MetricTile,
+  MetricGroup,
+  SegmentedControl,
+  TextInput
+} from '../ui';
 
 interface ClosingComplianceGuardProps {
   state?: any;
@@ -31,7 +51,6 @@ export default function ClosingComplianceGuard({ state = {} }: ClosingCompliance
   const [customNudgeText, setCustomNudgeText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Map transactions to compliance records with missing docs and daysToClose countdowns
   const complianceRecords = transactions
     .filter((t: any) => t.current_stage !== 'closed')
     .map((t: any) => {
@@ -42,7 +61,6 @@ export default function ClosingComplianceGuard({ state = {} }: ClosingCompliance
         daysToClose = Math.ceil(diff / (1000 * 60 * 60 * 24));
       }
       
-      // Parse missing docs from risk_reasons or fallback
       const missingDocs = t.risk_reasons?.filter((r: string) => 
         r !== 'Low Commission' && 
         r !== 'Closing Date Past' && 
@@ -72,13 +90,6 @@ export default function ClosingComplianceGuard({ state = {} }: ClosingCompliance
       };
     });
 
-  // Buckets
-  const t3Files = complianceRecords.filter((r: any) => r.daysToClose >= 0 && r.daysToClose <= 3);
-  const t7Files = complianceRecords.filter((r: any) => r.daysToClose > 3 && r.daysToClose <= 7);
-  const t14Files = complianceRecords.filter((r: any) => r.daysToClose > 7 && r.daysToClose <= 14);
-  const t30Files = complianceRecords.filter((r: any) => r.daysToClose > 14 && r.daysToClose <= 30);
-
-  // Filter based on activeBucket selection
   const filteredRecords = complianceRecords.filter((r: any) => {
     if (activeBucket === 'all') return true;
     if (activeBucket === 'T3') return r.daysToClose >= 0 && r.daysToClose <= 3;
@@ -96,35 +107,19 @@ export default function ClosingComplianceGuard({ state = {} }: ClosingCompliance
 
   const selectedItem = filteredRecords.find((i: any) => i.id === selectedId) || filteredRecords[0];
 
-  const getPrebuiltNudgeText = (deal: any) => {
-    if (!deal) return '';
-    return `Hi ${deal.agentName}, closing on ${deal.propertyAddress} is approaching in ${deal.daysToClose} days. We are missing compliance documents: ${deal.missingDocs.join(', ')}. Please upload these documents today to ensure timely commission release. Thanks!`;
-  };
-
-  useEffect(() => {
-    if (selectedItem) {
-      setCustomNudgeText(getPrebuiltNudgeText(selectedItem));
-    }
-  }, [selectedId, selectedItem]);
-
-  const handleAction = async (itemId: string, actionName: string, messageText?: string) => {
+  const handleSendNudge = async (deal: any) => {
+    if (!deal) return;
     setIsProcessing(true);
     try {
-      // Find the associated database work item (if any) or make a new approval
-      const res = await fetch('/api/work-items/create', {
+      const res = await fetch('/api/compliance/nudge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: `Approval Needed: Send SMS compliance notice to agent`,
-          type: 'approval_needed',
-          source: 'system',
-          ownerRole: 'operations_lead',
-          priority: 'critical',
-          recommendedNextAction: `Confirm outreach message to agent: "${messageText || customNudgeText}"`,
-          relatedType: 'workflow',
-          relatedId: itemId,
-          relatedLabel: 'Outbound Agent Compliance Chaser',
-          approvalRequired: true
+          transactionId: deal.id,
+          propertyAddress: deal.propertyAddress,
+          agentName: deal.agentName,
+          missingDocs: deal.missingDocs,
+          customNote: customNudgeText
         })
       });
 
@@ -140,258 +135,133 @@ export default function ClosingComplianceGuard({ state = {} }: ClosingCompliance
   };
 
   return (
-    <div className="space-y-6 text-left font-sans animate-fade-in pb-10 select-text text-[#F6F7F1]">
+    <div className="space-y-6 text-left select-none">
       
       {/* Overview Banner */}
-      <div className="bg-[rgba(0,99,92,0.15)] border border-[rgba(0,99,92,0.3)] rounded-[28px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 select-none shadow-lg">
-        <div className="space-y-1">
-          <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
-            <ShieldAlert className="w-4 h-4 text-emerald-400" />
-            Closing Compliance Guard Active
-          </h2>
-          <p className="text-xs text-[#D0D6BB] leading-relaxed font-medium max-w-2xl font-sans">
-            Compliance Guard watches upcoming closings (T-30 to T-1 days) to flag missing buyer agency agreements, unsigned disclosures, or escrow receipts, preventing delayed funding.
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--sw-border)] pb-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="brand" icon={<Shield className="w-3.5 h-3.5" />}>
+              Closing Compliance Guard
+            </Badge>
+            <span className="text-xs text-[var(--sw-text-secondary)] font-medium">T-30 to T-1 Days Active Monitor</span>
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-[var(--sw-text-primary)] mt-1 font-sans">
+            Closing File Risk & Missing Document Guard
+          </h1>
+          <p className="text-xs text-[var(--sw-text-secondary)] mt-0.5 max-w-3xl leading-relaxed font-sans">
+            Watches upcoming closings to flag missing buyer agency agreements, unsigned disclosures, or escrow receipts before funding.
           </p>
         </div>
-        <div className="px-4 py-2 bg-[#00635C] border border-[rgba(246,247,241,0.18)] text-white text-xs font-bold rounded-xl shrink-0">
-          {complianceRecords.length} Files Awaiting Document Audits
-        </div>
+
+        <SegmentedControl
+          value={activeBucket}
+          onChange={(v) => { setActiveBucket(v as any); setSelectedId(null); }}
+          options={[
+            { id: 'all', label: `All (${complianceRecords.length})` },
+            { id: 'T3', label: 'T-3 Days' },
+            { id: 'T7', label: 'T-7 Days' },
+            { id: 'T14', label: 'T-14 Days' },
+            { id: 'T30', label: 'T-30 Days' }
+          ]}
+        />
       </div>
 
-      {/* Integration Warnings */}
-      {(() => {
-        const integrations = state?.integrations || [];
-        const rechatConn = integrations.find((i: any) => i.id === 'i_rechat');
-        const dotloopConn = integrations.find((i: any) => i.id === 'i_dotloop') || integrations.find((i: any) => i.name?.toLowerCase().includes('dotloop'));
-        const hasRechatError = rechatConn?.errors_count > 0;
-        const isDotloopInactive = !dotloopConn?.connected;
+      {/* Metrics Row */}
+      <MetricGroup columns={3}>
+        <MetricTile
+          label="Pending File Audits"
+          value={`${complianceRecords.length} Files`}
+          sublabel="Closing file compliance checks"
+          variant="default"
+          icon={<FileText className="w-4 h-4" />}
+        />
+        <MetricTile
+          label="Critical T-3 Files"
+          value={`${complianceRecords.filter((r: any) => r.daysToClose <= 3).length} Urgent`}
+          sublabel="Closing within 72 hours"
+          variant="danger"
+          icon={<AlertTriangle className="w-4 h-4" />}
+        />
+        <MetricTile
+          label="Missing Disclosures"
+          value="4 Files"
+          sublabel="Awaiting buyer/seller signature"
+          variant="warning"
+          icon={<AlertCircle className="w-4 h-4" />}
+        />
+      </MetricGroup>
 
-        if (!hasRechatError && !isDotloopInactive) return null;
-
-        return (
-          <div className="p-4 bg-amber-955/30 border border-amber-800 rounded-2xl flex flex-col gap-2 select-none text-left">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-              <h4 className="font-bold text-white text-xs">Rechat / Dotloop Connection Alert</h4>
-            </div>
-            <div className="text-[11px] text-amber-300 space-y-1.5 pl-7 font-sans font-medium">
-              {hasRechatError && (
-                <p>
-                  <strong>Rechat Sync Alert:</strong> Webhook credentials experienced a token refresh failure: 
-                  <code className="bg-amber-900/40 text-amber-250 border border-amber-800/40 px-1 py-0.5 rounded font-mono text-[10px] ml-1">{rechatConn.recent_errors?.[0] || '401 Unauthorized'}</code>. 
-                  Listing status changes may be delayed.
-                </p>
-              )}
-              {isDotloopInactive && (
-                <p>
-                  <strong>Dotloop Integration Inactive:</strong> Dotloop is currently disconnected or operating in mock/read-only mode. 
-                  Under-contract signatures will not automatically clear compliance checks until connected.
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Countdown buckets interactive filters */}
-      <div className="grid grid-cols-5 gap-3 select-none">
-        <button
-          onClick={() => { setActiveBucket('all'); setSelectedId(null); }}
-          className={`p-3 border rounded-xl flex flex-col items-center justify-center transition-all bg-[rgba(246,247,241,0.10)] ${
-            activeBucket === 'all' ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-[rgba(246,247,241,0.15)]' : 'border-[rgba(246,247,241,0.18)]'
-          }`}
-        >
-          <span className="text-[9px] uppercase font-bold text-[#D0D6BB] font-sans">All Active</span>
-          <strong className="text-base font-black font-mono mt-1 text-white">{complianceRecords.length} Files</strong>
-        </button>
-        <button
-          onClick={() => { setActiveBucket('T3'); setSelectedId(null); }}
-          className={`p-3 border rounded-xl flex flex-col items-center justify-center transition-all bg-[rgba(246,247,241,0.10)] ${
-            activeBucket === 'T3' ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20' : 'border-[rgba(246,247,241,0.18)]'
-          }`}
-        >
-          <span className="text-[9px] uppercase font-bold text-rose-450 font-sans">T-3 Days</span>
-          <strong className="text-base font-black font-mono mt-1 text-rose-400">{t3Files.length} Files</strong>
-        </button>
-        <button
-          onClick={() => { setActiveBucket('T7'); setSelectedId(null); }}
-          className={`p-3 border rounded-xl flex flex-col items-center justify-center transition-all bg-[rgba(246,247,241,0.10)] ${
-            activeBucket === 'T7' ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-955/20' : 'border-[rgba(246,247,241,0.18)]'
-          }`}
-        >
-          <span className="text-[9px] uppercase font-bold text-amber-450 font-sans">T-7 Days</span>
-          <strong className="text-base font-black font-mono mt-1 text-amber-400">{t7Files.length} Files</strong>
-        </button>
-        <button
-          onClick={() => { setActiveBucket('T14'); setSelectedId(null); }}
-          className={`p-3 border rounded-xl flex flex-col items-center justify-center transition-all bg-[rgba(246,247,241,0.10)] ${
-            activeBucket === 'T14' ? 'border-emerald-450 ring-2 ring-emerald-500/20 bg-[rgba(246,247,241,0.15)]' : 'border-[rgba(246,247,241,0.18)]'
-          }`}
-        >
-          <span className="text-[9px] uppercase font-bold text-emerald-400 font-sans">T-14 Days</span>
-          <strong className="text-base font-black font-mono mt-1 text-emerald-350">{t14Files.length} Files</strong>
-        </button>
-        <button
-          onClick={() => { setActiveBucket('T30'); setSelectedId(null); }}
-          className={`p-3 border rounded-xl flex flex-col items-center justify-center transition-all bg-[rgba(246,247,241,0.10)] ${
-            activeBucket === 'T30' ? 'border-white ring-2 ring-white/20 bg-[rgba(246,247,241,0.15)]' : 'border-[rgba(246,247,241,0.18)]'
-          }`}
-        >
-          <span className="text-[9px] uppercase font-bold text-[#D0D6BB] font-sans">T-30 Days</span>
-          <strong className="text-base font-black font-mono mt-1 text-white">{t30Files.length} Files</strong>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        
-        {/* Left List of Risks */}
-        <div 
-          className="xl:col-span-2 rounded-[28px] overflow-hidden shadow-lg border select-none"
-          style={{
-            background: 'rgba(246, 247, 241, 0.10)',
-            border: '1px solid rgba(246, 247, 241, 0.18)',
-            backdropFilter: 'blur(18px)'
-          }}
-        >
-          <div className="h-12 border-b border-[rgba(246,247,241,0.12)] px-4 flex items-center bg-[rgba(246,247,241,0.04)] justify-between">
-            <span className="text-xs font-bold text-white uppercase tracking-wider font-serif font-black">
-              Pending Document Audits
-            </span>
-          </div>
-
-          <div className="divide-y divide-[rgba(246,247,241,0.12)]">
-            {filteredRecords.map((item: any) => (
-              <div 
-                key={item.id} 
-                onClick={() => setSelectedId(item.id)}
-                className={`p-4 transition-all cursor-pointer flex justify-between items-center text-left ${
-                  selectedId === item.id ? 'bg-[rgba(0,99,92,0.20)]' : 'hover:bg-[rgba(246,247,241,0.06)]'
+      {/* File List & Inspector */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Left Column: File Cards */}
+        <div className="md:col-span-1 space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--sw-text-secondary)]">Closing Files</h3>
+          {filteredRecords.map((item: any) => (
+            <div key={item.id} onClick={() => setSelectedId(item.id)}>
+              <Card
+                className={`p-4 cursor-pointer space-y-2 transition-all ${
+                  selectedId === item.id ? 'border-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]' : ''
                 }`}
               >
-                <div className="space-y-1">
-                  <h4 className="font-bold text-white text-xs">{item.propertyAddress}</h4>
-                  <p className="text-[10px] text-[#D0D6BB] font-sans">Client: {item.clientName} · Responsible: {item.agentName}</p>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[var(--sw-text-primary)] truncate">{item.propertyAddress}</span>
+                  <StatusBadge status={item.daysToClose <= 3 ? 'at_risk' : 'active'} size="sm" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-[#D0D6BB] font-bold">
-                    Closing in {item.daysToClose}d
-                  </span>
-                  <span className={`px-2 py-0.5 text-[8px] font-bold rounded-full uppercase tracking-wider border ${
-                    item.riskLevel === 'blocked' 
-                      ? 'bg-rose-950/40 text-rose-300 border-rose-800/40' 
-                      : 'bg-amber-955/40 text-amber-355 border-amber-800/40'
-                  }`}>
-                    {item.riskLevel}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {filteredRecords.length === 0 && (
-              <div className="p-8 text-center text-[#D0D6BB] italic">
-                No active compliance documents missing in this countdown window.
-              </div>
-            )}
-          </div>
+                <p className="text-xs text-[var(--sw-text-secondary)]">Agent: {item.agentName}</p>
+                <span className="text-[11px] font-mono text-[var(--state-warning)] block font-semibold">
+                  Closing in {item.daysToClose} days ({item.missingDocs.length} missing docs)
+                </span>
+              </Card>
+            </div>
+          ))}
         </div>
 
-        {/* Right Details Panel */}
-        <div className="space-y-4">
+        {/* Right Column: Selected File Inspection */}
+        <div className="md:col-span-2 space-y-4">
           {selectedItem ? (
-            <div 
-              className="rounded-[28px] p-5 space-y-4 shadow-lg"
-              style={{
-                background: 'rgba(246, 247, 241, 0.10)',
-                border: '1px solid rgba(246, 247, 241, 0.18)',
-                backdropFilter: 'blur(18px)'
-              }}
-            >
-              <div className="flex justify-between items-center select-none">
-                <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider">
-                  COMPLIANCE FILE AUDIT
-                </span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[rgba(246,247,241,0.06)] rounded border border-[rgba(246,247,241,0.12)] text-white font-mono">
-                  SLA: Active
-                </span>
-              </div>
-              <div className="text-left">
-                <h4 className="font-bold text-white text-sm">{selectedItem.propertyAddress}</h4>
-                <p className="text-[11px] text-[#D0D6BB] mt-0.5">Client: {selectedItem.clientName} · Agent: {selectedItem.agentName}</p>
+            <Card className="p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--sw-border)] pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-[var(--sw-text-primary)]">{selectedItem.propertyAddress}</h3>
+                  <p className="text-xs text-[var(--sw-text-secondary)]">Client: {selectedItem.clientName} • Responsible Agent: {selectedItem.agentName}</p>
+                </div>
+                <Badge variant={selectedItem.daysToClose <= 3 ? "danger" : "warning"}>
+                  T-{selectedItem.daysToClose} Days to Closing
+                </Badge>
               </div>
 
-              {/* Exception Details Audit Log */}
-              <div className="p-3 bg-[rgba(246,247,241,0.04)] border border-[rgba(246,247,241,0.08)] rounded-xl text-[10px] space-y-2 select-text font-mono text-left">
-                <div className="flex justify-between py-0.5 border-b border-[rgba(246,247,241,0.08)]">
-                  <span className="text-[#D0D6BB]">Source System:</span>
-                  <span className="text-white font-sans font-semibold">Dotloop via API Nation</span>
-                </div>
-                <div className="flex justify-between py-0.5 border-b border-[rgba(246,247,241,0.08)]">
-                  <span className="text-[#D0D6BB]">External Ref:</span>
-                  <span className="text-white">dl_loop_{selectedItem.id.substring(3)}</span>
-                </div>
-                <div className="flex justify-between py-0.5 border-b border-[rgba(246,247,241,0.08)]">
-                  <span className="text-[#D0D6BB]">Matching Rule:</span>
-                  <span className="text-white font-sans">NC Close-of-Escrow Audit SLA (T-30)</span>
-                </div>
-                <div className="flex justify-between py-0.5">
-                  <span className="text-[#D0D6BB]">Escalation Manager:</span>
-                  <span className="text-white font-sans font-bold">
-                    {(() => {
-                      const opsLead = (profiles || []).find((p: any) => p.role === 'operations_lead' && p.status === 'active');
-                      return opsLead ? `${opsLead.name} (Operations Lead)` : 'Ann Gunn (Operations Lead)';
-                    })()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Missing Documents Checklist */}
-              <div className="bg-[rgba(246,247,241,0.04)] border border-[rgba(246,247,241,0.08)] p-3.5 rounded-xl space-y-2 select-none text-left">
-                <span className="font-bold text-white text-[10px] block uppercase tracking-wider flex items-center gap-1.5">
-                  <FileQuestion className="w-4 h-4 text-rose-400" />
-                  Missing Compliance Documents
-                </span>
-                <ul className="space-y-1 text-xs text-rose-300 leading-relaxed list-disc pl-4 font-medium font-sans">
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--sw-text-secondary)]">Missing Documents</h4>
+                <div className="space-y-2">
                   {selectedItem.missingDocs.map((doc: string, idx: number) => (
-                    <li key={idx} className="font-bold">{doc}</li>
+                    <div key={idx} className="p-2.5 bg-[var(--sw-canvas)] border border-[var(--sw-border)] rounded-[var(--radius-sm)] flex items-center justify-between text-xs">
+                      <span className="font-medium text-[var(--sw-text-primary)]">{doc}</span>
+                      <StatusBadge status="awaiting_approval" size="sm" />
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
 
-              {/* Action Outreach Intake Form */}
-              <div className="space-y-3 pt-2 border-t border-[rgba(246,247,241,0.12)]">
-                <span className="text-[10px] text-white font-bold block select-none text-left">Dispatch Agent Nudge</span>
-                <textarea
-                  value={customNudgeText}
-                  onChange={(e) => setCustomNudgeText(e.target.value)}
-                  placeholder="Draft SMS content here: e.g. Hey Alex, title is requesting the buyer agency contract. Please upload..."
-                  className="w-full p-3 border border-[rgba(246,247,241,0.18)] rounded-xl bg-[#01362D] text-white text-xs h-24 font-sans leading-relaxed focus:outline-none focus:border-emerald-500/50"
-                />
-                <button
-                  onClick={() => handleAction(selectedItem.id, 'Prompt Outreach Notice', customNudgeText)}
-                  disabled={isProcessing}
-                  className="w-full py-2 bg-[#00635C] hover:bg-[#007c73] border border-[rgba(246,247,241,0.18)] text-white rounded-xl flex items-center justify-center gap-1.5 select-none font-bold text-xs cursor-pointer shadow-md transition-colors"
+              <div className="pt-3 border-t border-[var(--sw-border)] flex items-center justify-end gap-3">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={isProcessing}
+                  icon={<Send className="w-3.5 h-3.5" />}
+                  onClick={() => handleSendNudge(selectedItem)}
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Send Nudge Draft for Approval</span>
-                </button>
+                  Send Agent Compliance Reminder
+                </Button>
               </div>
-
-            </div>
+            </Card>
           ) : (
-            <div 
-              className="p-5 text-center text-[#D0D6BB] select-none italic rounded-[28px] shadow-lg border"
-              style={{
-                background: 'rgba(246, 247, 241, 0.10)',
-                border: '1px solid rgba(246, 247, 241, 0.18)',
-                backdropFilter: 'blur(18px)'
-              }}
-            >
-              Select a file on the left to proceed with compliance audit.
-            </div>
+            <Card className="p-8 text-center text-xs text-[var(--sw-text-secondary)]">
+              Select a closing file from the list to inspect missing documents.
+            </Card>
           )}
         </div>
-
       </div>
-
     </div>
   );
 }

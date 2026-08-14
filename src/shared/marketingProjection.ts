@@ -95,6 +95,7 @@ export const PRINT_TRANSITIONS: Record<PrintWorkflowStatus, PrintWorkflowStatus[
   printing: ['ready_for_pickup'],
   ready_for_pickup: ['picked_up'],
   picked_up: ['physically_delivered'],
+  physically_delivered: [],
   cancelled: [],
 };
 

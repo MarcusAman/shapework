@@ -1,6 +1,9 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Inspection Repair Addendum Contractor Dispatch Board — Phase C Light-Mode Redesign
+ * Refactored to canonical Shapework B1/B2/B3 design primitives.
  */
 
 import React, { useState } from 'react';
@@ -8,6 +11,18 @@ import {
   Wrench, CheckCircle, Clock, AlertTriangle, MessageSquare, FileText,
   DollarSign, Shield, Camera, Send, Filter, Search, Plus, UserCheck, ChevronRight, Check
 } from 'lucide-react';
+import {
+  Card,
+  Button,
+  IconButton,
+  Badge,
+  StatusBadge,
+  MetricTile,
+  MetricGroup,
+  DataTable,
+  Modal,
+  SegmentedControl
+} from '../ui';
 
 interface RepairTicket {
   id: string;
@@ -80,9 +95,8 @@ const INITIAL_REPAIR_TICKETS: RepairTicket[] = [
 export default function VendorDispatchBoard() {
   const [tickets, setTickets] = useState<RepairTicket[]>(INITIAL_REPAIR_TICKETS);
   const [selectedTicket, setSelectedTicket] = useState<RepairTicket | null>(null);
-  const [manualOverrideVendor, setManualOverrideVendor] = useState('');
   const [simulatingUpload, setSimulatingUpload] = useState(false);
-  const [officeFilter, setOfficeFilter] = useState<'all' | 'Mayfaire' | 'Carolina Beach' | 'Wilmington'>('all');
+  const [officeFilter, setOfficeFilter] = useState<string>('all');
 
   const handleBicApproveQuote = (ticketId: string) => {
     setTickets(tickets.map(t => 
@@ -112,261 +126,115 @@ export default function VendorDispatchBoard() {
   };
 
   return (
-    <div className="space-y-6 font-sans text-[#F6F7F1]">
+    <div className="space-y-6 text-left select-none">
       
-      {/* Header & Mode Explanation */}
-      <div 
-        className="rounded-[28px] p-7 space-y-3 text-left shadow-xl"
-        style={{
-          background: 'rgba(246, 247, 241, 0.10)',
-          border: '1px solid rgba(246, 247, 241, 0.18)',
-          backdropFilter: 'blur(18px)'
-        }}
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/30">
-                Hybrid Repair Dispatch Engine
-              </span>
-              <span className="text-xs text-[#D0D6BB]">Form 310-T Auto-Parse • $1,000 BIC Threshold</span>
-            </div>
-            <h2 className="font-serif text-2xl font-black text-white tracking-tight mt-2">
-              Inspection Repair Addendum Contractor Dispatch Board
-            </h2>
-            <p className="text-xs text-[#D0D6BB] max-w-3xl leading-relaxed mt-1">
-              Automatically parses repair addendums, dispatches quote requests to vetted local contractors via SMS, enforces $1,000 BIC approvals, and verifies completion photos before closing funds disbursement.
-            </p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--sw-border)] pb-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="brand" icon={<Wrench className="w-3.5 h-3.5" />}>
+              Hybrid Repair Dispatch Engine
+            </Badge>
+            <span className="text-xs text-[var(--sw-text-secondary)] font-medium">Form 310-T Auto-Parse • $1,000 BIC Threshold</span>
           </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-2">
-              <span className="text-[10px] font-mono text-[#D0D6BB] uppercase">Filter Office Location:</span>
-              <button
-                type="button"
-                onClick={() => setOfficeFilter('all')}
-                className={`px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                  officeFilter === 'all' ? 'bg-[#00635C] text-white border border-emerald-400/40' : 'bg-black/30 text-[#D0D6BB] border border-white/10'
-                }`}
-              >
-                All Offices ({tickets.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setOfficeFilter('Mayfaire')}
-                className={`px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                  officeFilter === 'Mayfaire' ? 'bg-[#00635C] text-white border border-emerald-400/40' : 'bg-black/30 text-[#D0D6BB] border border-white/10'
-                }`}
-              >
-                Mayfaire Office
-              </button>
-              <button
-                type="button"
-                onClick={() => setOfficeFilter('Carolina Beach')}
-                className={`px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                  officeFilter === 'Carolina Beach' ? 'bg-[#00635C] text-white border border-emerald-400/40' : 'bg-black/30 text-[#D0D6BB] border border-white/10'
-                }`}
-              >
-                Carolina Beach Office
-              </button>
-              <button
-                type="button"
-                onClick={() => setOfficeFilter('Wilmington')}
-                className={`px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-                  officeFilter === 'Wilmington' ? 'bg-[#00635C] text-white border border-emerald-400/40' : 'bg-black/30 text-[#D0D6BB] border border-white/10'
-                }`}
-              >
-                Downtown Wilmington Office
-              </button>
-            </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="p-3 bg-black/40 border border-white/10 rounded-2xl text-center">
-              <span className="text-[10px] text-[#D0D6BB] block uppercase font-sans">Active Repairs</span>
-              <strong className="text-xl text-white font-black">{tickets.length} Tickets</strong>
-            </div>
-            <div className="p-3 bg-black/40 border border-white/10 rounded-2xl text-center">
-              <span className="text-[10px] text-[#D0D6BB] block uppercase font-sans">BIC Approval Queue</span>
-              <strong className="text-xl text-white font-black">
-                {tickets.filter(t => t.bicApprovalRequired && !t.bicApproved).length} Pending
-              </strong>
-            </div>
-          </div>
+          <h1 className="text-xl font-bold tracking-tight text-[var(--sw-text-primary)] mt-1.5">
+            Inspection Repair Addendum Contractor Dispatch Board
+          </h1>
+          <p className="text-xs text-[var(--sw-text-secondary)] mt-0.5 max-w-3xl leading-relaxed">
+            Parses Form 310-T repair addendums, dispatches quotes via SMS, enforces $1,000 BIC approvals, and verifies completion photos before closing funds disbursement.
+          </p>
         </div>
+
+        <SegmentedControl
+          value={officeFilter}
+          onChange={setOfficeFilter}
+          options={[
+            { id: 'all', label: 'All Offices' },
+            { id: 'Mayfaire', label: 'Mayfaire' },
+            { id: 'Wilmington', label: 'Downtown' },
+          ]}
+        />
       </div>
 
-      {/* Workflow Pillar Badges */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans text-xs">
-        <div 
-          className="rounded-[24px] p-5 space-y-1 shadow-lg"
-          style={{
-            background: 'rgba(246, 247, 241, 0.10)',
-            border: '1px solid rgba(246, 247, 241, 0.18)',
-            backdropFilter: 'blur(18px)'
-          }}
-        >
-          <strong className="text-white font-semibold flex items-center gap-2 font-serif text-sm">
-            <FileText className="w-4 h-4 text-emerald-400" />
-            <span>1. Auto-Extract & Manual Choice</span>
-          </strong>
-          <p className="text-[#D0D6BB] text-[11px] leading-relaxed">
-            Auto-parses Form 310-T addendums while giving agents instant manual override to select preferred contractors.
-          </p>
-        </div>
+      {/* Metrics Row */}
+      <MetricGroup columns={3}>
+        <MetricTile
+          label="Active Repair Tickets"
+          value={`${tickets.length} Tickets`}
+          sublabel="Form 310-T inspection repairs"
+          variant="brand"
+          icon={<Wrench className="w-4 h-4" />}
+        />
+        <MetricTile
+          label="BIC Approval Queue"
+          value={`${tickets.filter(t => t.bicApprovalRequired && !t.bicApproved).length} Pending`}
+          sublabel="Over $1,000 threshold requirement"
+          variant="warning"
+          icon={<AlertTriangle className="w-4 h-4" />}
+        />
+        <MetricTile
+          label="Verified Photos"
+          value={`${tickets.filter(t => t.status === 'photo_verified' || t.status === 'completed').length} Verified`}
+          sublabel="Completion photos & contractor invoices"
+          variant="success"
+          icon={<Camera className="w-4 h-4" />}
+        />
+      </MetricGroup>
 
-        <div 
-          className="rounded-[24px] p-5 space-y-1 shadow-lg"
-          style={{
-            background: 'rgba(246, 247, 241, 0.10)',
-            border: '1px solid rgba(246, 247, 241, 0.18)',
-            backdropFilter: 'blur(18px)'
-          }}
-        >
-          <strong className="text-white font-semibold flex items-center gap-2 font-serif text-sm">
-            <Shield className="w-4 h-4 text-amber-400" />
-            <span>2. $1,000 BIC Approval Queue</span>
-          </strong>
-          <p className="text-[#D0D6BB] text-[11px] leading-relaxed">
-            Any repair quote exceeding $1,000 automatically triggers a 1-click approval ticket to BIC Eric Knight / Jessica Keenan.
-          </p>
-        </div>
+      {/* Tickets List */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--sw-text-secondary)]">Repair Dispatch Tickets ({tickets.length})</h3>
 
-        <div 
-          className="rounded-[24px] p-5 space-y-1 shadow-lg"
-          style={{
-            background: 'rgba(246, 247, 241, 0.10)',
-            border: '1px solid rgba(246, 247, 241, 0.18)',
-            backdropFilter: 'blur(18px)'
-          }}
-        >
-          <strong className="text-white font-semibold flex items-center gap-2 font-serif text-sm">
-            <Camera className="w-4 h-4 text-emerald-300" />
-            <span>3. Contractor Photo Verification</span>
-          </strong>
-          <p className="text-[#D0D6BB] text-[11px] leading-relaxed">
-            Contractors text completion photos & invoices to SMS line. AI OCR verifies details & triggers 1-click agent sign-off.
-          </p>
-        </div>
-      </div>
-
-      {/* Active Repair Tickets Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {tickets.map((ticket) => (
-          <div
-            key={ticket.id}
-            className="rounded-[28px] p-6 flex flex-col justify-between space-y-5 text-left shadow-xl hover:border-white/30 transition-all"
-            style={{
-              background: 'rgba(246, 247, 241, 0.10)',
-              border: '1px solid rgba(246, 247, 241, 0.18)',
-              backdropFilter: 'blur(18px)'
-            }}
-          >
-            {/* Header */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 bg-emerald-950/60 text-emerald-300 text-[10px] font-mono font-bold uppercase rounded-full border border-emerald-500/30">
-                  {ticket.repairCategory} Repair
-                </span>
-                <span className="text-[10px] font-mono text-[#D0D6BB]/60">{ticket.transactionRef}</span>
-              </div>
-
-              <h3 className="text-base font-bold text-white leading-tight">
-                {ticket.propertyAddress}
-              </h3>
-              <p className="text-xs text-[#D0D6BB] leading-relaxed">
-                "{ticket.repairDescription}"
-              </p>
-            </div>
-
-            {/* Contractor & Cost Details */}
-            <div className="p-4 bg-black/30 border border-white/10 rounded-2xl space-y-2 font-mono text-xs">
-              <div className="flex justify-between items-center text-[#D0D6BB]">
-                <span>Assigned Vendor:</span>
-                <strong className="text-white font-sans font-semibold">{ticket.assignedVendor}</strong>
-              </div>
-
-              <div className="flex justify-between items-center text-[#D0D6BB]">
-                <span>Estimated Cost:</span>
-                <strong className="text-emerald-400 font-bold">${ticket.estimatedCost.toLocaleString()}</strong>
-              </div>
-
-              <div className="flex justify-between items-center text-[#D0D6BB]">
-                <span>BIC Threshold (&gt;$1k):</span>
-                {ticket.bicApprovalRequired ? (
-                  ticket.bicApproved ? (
-                    <span className="text-emerald-400 font-bold">✓ Approved</span>
-                  ) : (
-                    <span className="text-amber-300 font-bold">⚠️ Pending Approval</span>
-                  )
-                ) : (
-                  <span className="text-white/60">Not Required (&lt;$1k)</span>
-                )}
-              </div>
-            </div>
-
-            {/* Status & Actions */}
-            <div className="space-y-3">
-              {ticket.bicApprovalRequired && !ticket.bicApproved && (
-                <button
-                  onClick={() => handleBicApproveQuote(ticket.id)}
-                  className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-black font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
-                >
-                  <Shield className="w-4 h-4 fill-black" />
-                  <span>1-Click BIC Approval (${ticket.estimatedCost})</span>
-                </button>
-              )}
-
-              {ticket.status === 'work_in_progress' && (
-                <button
-                  onClick={() => handleSimulateContractorPhotoSMS(ticket.id)}
-                  disabled={simulatingUpload}
-                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
-                >
-                  {simulatingUpload ? (
-                    <>
-                      <Clock className="w-4 h-4 animate-spin" />
-                      <span>Verifying Contractor Photo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-4 h-4" />
-                      <span>Simulate Contractor SMS Photo Upload</span>
-                    </>
-                  )}
-                </button>
-              )}
-
-              {ticket.status === 'photo_verified' && (
-                <div className="space-y-2">
-                  <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-xs space-y-1">
-                    <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Photo & Invoice Verified</span>
-                    </div>
-                    <p className="text-[11px] text-[#D0D6BB]/70 font-mono">Invoice matched quote amount (${ticket.estimatedCost}).</p>
+        <div className="space-y-4">
+          {tickets.map((ticket) => (
+            <Card key={ticket.id} className="p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--sw-border)] pb-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-[var(--sw-text-primary)]">{ticket.propertyAddress}</span>
+                    <Badge variant="neutral">{ticket.repairCategory}</Badge>
+                    <span className="text-xs font-mono text-[var(--sw-text-secondary)]">{ticket.transactionRef}</span>
                   </div>
-                  
-                  <button
-                    onClick={() => handleAgentSignoff(ticket.id)}
-                    className="w-full py-3 bg-[#004d40] hover:bg-[#00635c] border border-emerald-400/40 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
-                  >
-                    <UserCheck className="w-4 h-4 text-amber-300" />
-                    <span>Agent 1-Click Repair Completion Sign-Off</span>
-                  </button>
+                  <p className="text-xs text-[var(--sw-text-secondary)]">{ticket.repairDescription}</p>
                 </div>
-              )}
 
-              {ticket.status === 'completed' && (
-                <div className="p-3.5 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl text-center text-xs font-mono text-emerald-300 font-bold flex items-center justify-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Repair Complete • Ready for Closing Disbursement</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="font-mono font-bold text-sm text-[var(--brand-primary)]">${ticket.estimatedCost.toLocaleString()}</span>
+                  <StatusBadge status={ticket.status === 'photo_verified' ? 'healthy' : ticket.status === 'bic_approval_pending' ? 'awaiting_approval' : 'active'} size="sm" />
                 </div>
-              )}
-            </div>
+              </div>
 
-          </div>
-        ))}
+              {/* Actions & Vendor Detail */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-4 text-[var(--sw-text-secondary)]">
+                  <span>Vendor: <strong className="text-[var(--sw-text-primary)]">{ticket.assignedVendor}</strong></span>
+                  <span>Agent: <strong className="text-[var(--sw-text-primary)]">{ticket.agentName}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {ticket.bicApprovalRequired && !ticket.bicApproved && (
+                    <Button variant="danger" size="sm" onClick={() => handleBicApproveQuote(ticket.id)}>
+                      Approve Quote (${ticket.estimatedCost})
+                    </Button>
+                  )}
+
+                  {ticket.status === 'work_in_progress' && (
+                    <Button variant="secondary" size="sm" loading={simulatingUpload} onClick={() => handleSimulateContractorPhotoSMS(ticket.id)}>
+                      Simulate Contractor Photo SMS 📱
+                    </Button>
+                  )}
+
+                  {ticket.status === 'photo_verified' && (
+                    <Button variant="primary" size="sm" icon={<Check className="w-3.5 h-3.5" />} onClick={() => handleAgentSignoff(ticket.id)}>
+                      Sign Off Repair
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
-
     </div>
   );
 }

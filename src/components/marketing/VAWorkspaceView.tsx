@@ -8,7 +8,7 @@ interface VAWorkspaceViewProps {
 }
 
 export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
-  workItems,
+  workItems = [],
   onOpenItem,
   onSubmitProof
 }) => {
@@ -17,7 +17,7 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   const [proofNotes, setProofNotes] = useState<string>('');
 
   // Filter only items assigned to VA or hybrid QA
-  const vaWorkItems = workItems.filter(
+  const vaWorkItems = (workItems || []).filter(
     item => item.executorType === 'virtual_assistant' || item.executionMode === 'assign_to_va' || item.executionMode === 'hybrid'
   );
 
@@ -26,43 +26,43 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   if (vaWorkItems.length === 0) {
     return (
       <div className="space-y-6 text-left" data-testid="va-empty-state">
-        <div className="bg-[#062f28] border border-[#176457]/60 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-800 border border-purple-200">
                 VA Workspace
               </span>
-              <span className="text-xs text-slate-300">Maria (VA Account)</span>
+              <span className="text-xs text-[var(--sw-text-secondary,#52605B)]">Maria (VA Account)</span>
             </div>
-            <h2 className="text-xl font-serif font-bold text-[#fffdf8] mt-1">VA Workspace</h2>
-            <p className="text-xs text-slate-300 mt-0.5">Assigned work and SOP guidance</p>
+            <h2 className="text-xl font-serif font-bold text-[var(--sw-text-primary,#17231F)] mt-1">VA Workspace</h2>
+            <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">Assigned work and SOP guidance</p>
           </div>
-          <div className="bg-[#01251f] border border-[#176457]/50 rounded-xl px-4 py-2 flex items-center gap-3 text-xs text-slate-300">
-            <span>📋 Assigned Items: <strong className="text-purple-300 font-bold">0</strong></span>
-            <span>| Readiness: <strong className="text-emerald-400 font-bold">100% Certified</strong></span>
+          <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl px-4 py-2 flex items-center gap-3 text-xs text-[var(--sw-text-secondary,#52605B)]">
+            <span>📋 Assigned Items: <strong className="text-purple-800 font-bold">0</strong></span>
+            <span>| Readiness: <strong className="text-[var(--brand-primary,#00635C)] font-bold">100% Certified</strong></span>
           </div>
         </div>
 
-        <div className="bg-[#f6f7f1] text-[#13231e] border border-slate-200 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-md space-y-5">
-          <div className="w-12 h-12 rounded-2xl bg-purple-100 border border-purple-300 text-purple-700 flex items-center justify-center mx-auto text-xl font-bold">
+        <div className="bg-[var(--sw-surface,#FFFFFF)] text-[var(--sw-text-primary,#17231F)] border border-[var(--sw-border,#E2E4DA)] rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xs space-y-5">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center mx-auto text-xl font-bold">
             👤
           </div>
           <div className="space-y-2">
-            <h3 className="font-serif font-bold text-2xl text-[#13231e]">No work assigned to Maria</h3>
-            <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            <h3 className="font-serif font-bold text-2xl text-[var(--sw-text-primary,#17231F)]">No work assigned to Maria</h3>
+            <p className="text-sm text-[var(--sw-text-secondary,#52605B)] leading-relaxed max-w-md mx-auto">
               Maria is currently certified for:
             </p>
-            <div className="inline-block text-left text-xs font-semibold text-slate-700 space-y-1.5 bg-white p-4 rounded-xl border border-slate-200 shadow-xs my-2">
-              <div className="flex items-center gap-2 text-emerald-800"><span className="text-emerald-600 font-bold">✓</span> Standard listing flyers</div>
-              <div className="flex items-center gap-2 text-emerald-800"><span className="text-emerald-600 font-bold">✓</span> Social graphics</div>
-              <div className="flex items-center gap-2 text-emerald-800"><span className="text-emerald-600 font-bold">✓</span> Open-house collateral packages</div>
+            <div className="inline-block text-left text-xs font-semibold text-[var(--sw-text-primary,#17231F)] space-y-1.5 bg-[var(--sw-canvas,#FBF8F0)] p-4 rounded-xl border border-[var(--sw-border,#E2E4DA)] shadow-2xs my-2">
+              <div className="flex items-center gap-2 text-[var(--brand-primary,#00635C)]"><span className="font-bold">✓</span> Standard listing flyers</div>
+              <div className="flex items-center gap-2 text-[var(--brand-primary,#00635C)]"><span className="font-bold">✓</span> Social graphics</div>
+              <div className="flex items-center gap-2 text-[var(--brand-primary,#00635C)]"><span className="font-bold">✓</span> Open-house collateral packages</div>
             </div>
-            <p className="text-xs text-slate-500">New assignments will appear here.</p>
+            <p className="text-xs text-[var(--sw-text-secondary,#52605B)]">New assignments will appear here.</p>
           </div>
           <button
             type="button"
             onClick={() => alert('Routing Policies: Automation handles standard drafts. VA (Maria) handles custom requests & QA.')}
-            className="px-5 py-2.5 bg-[#00635c] hover:bg-[#004d48] text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-md"
+            className="px-5 py-2.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
           >
             View routing policies
           </button>
@@ -74,23 +74,23 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   return (
     <div className="space-y-6 text-left">
       {/* VA Header */}
-      <div className="bg-[#062f28] border border-[#176457]/60 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-800 border border-purple-200">
               VA Workspace
             </span>
-            <span className="text-xs text-slate-400">Maria (VA Account)</span>
+            <span className="text-xs text-[var(--sw-text-secondary,#52605B)]">Maria (VA Account)</span>
           </div>
-          <h2 className="text-xl font-serif font-bold text-[#fffdf8] mt-1">Assigned Tasks & SOP Guidelines</h2>
-          <p className="text-xs text-slate-300 mt-0.5">
+          <h2 className="text-xl font-serif font-bold text-[var(--sw-text-primary,#17231F)] mt-1">Assigned Tasks & SOP Guidelines</h2>
+          <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">
             Role-restricted view displaying assigned work items, briefs, brand rules, SOP checklists, and proof submission.
           </p>
         </div>
 
-        <div className="bg-[#01251f] border border-[#176457]/50 rounded-xl px-4 py-2 flex items-center gap-3 text-xs text-slate-300">
-          <span>📋 Assigned Items: <strong className="text-purple-300 font-bold">{vaWorkItems.length}</strong></span>
-          <span>| Readiness: <strong className="text-emerald-400 font-bold">100% Certified</strong></span>
+        <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl px-4 py-2 flex items-center gap-3 text-xs text-[var(--sw-text-secondary,#52605B)]">
+          <span>📋 Assigned Items: <strong className="text-purple-800 font-bold">{vaWorkItems.length}</strong></span>
+          <span>| Readiness: <strong className="text-[var(--brand-primary,#00635C)] font-bold">100% Certified</strong></span>
         </div>
       </div>
 

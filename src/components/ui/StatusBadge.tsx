@@ -1,49 +1,59 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Canonical StatusBadge Primitive — Phase B1 Foundation
+ * Maps status strings to semantic state badges.
  */
 
 import React from 'react';
+import Badge from './Badge';
 import { safeLower } from '../../utils/string';
 
-interface StatusBadgeProps {
+export interface StatusBadgeProps {
   status: string;
+  size?: 'sm' | 'md';
+  className?: string;
 }
 
-export default function StatusBadge({ status }: StatusBadgeProps) {
-  const getStyles = () => {
+export default function StatusBadge({ status, size = 'md', className = '' }: StatusBadgeProps) {
+  const getVariant = (): 'success' | 'warning' | 'danger' | 'info' | 'ai' | 'neutral' => {
     switch (safeLower(status)) {
       case 'active':
       case 'completed':
       case 'approved':
       case 'healthy':
-        return 'bg-status-healthy-soft text-status-healthy border-status-healthy/10';
+      case 'ready':
+        return 'success';
       case 'preparing':
       case 'pending':
-      case 'suggested':
-      case 'awaiting_approval':
       case 'watch':
-        return 'bg-status-attention-soft text-status-attention border-status-attention/10';
+      case 'awaiting_approval':
+        return 'warning';
       case 'blocked':
       case 'at_risk':
       case 'overdue':
       case 'rejected':
       case 'failed':
-        return 'bg-status-atrisk-soft text-status-atrisk border-status-atrisk/10';
+      case 'risk':
+        return 'danger';
+      case 'ai_suggested':
+      case 'ai_generated':
+      case 'suggested':
+      case 'ai':
+        return 'ai';
       case 'draft':
       case 'archived':
       default:
-        return 'bg-stone-100 text-stone-600 border-stone-200/55';
+        return 'neutral';
     }
   };
 
-  const formatText = () => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  };
+  const formattedText = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border capitalize tracking-wide select-none ${getStyles()}`}>
-      {formatText()}
-    </span>
+    <Badge variant={getVariant()} size={size} className={className}>
+      {formattedText}
+    </Badge>
   );
 }

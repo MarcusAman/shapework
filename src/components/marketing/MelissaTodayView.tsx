@@ -89,13 +89,13 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
   const getPriorityBadge = (priority: MarketingPriority) => {
     switch (priority) {
       case 'urgent':
-        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">Urgent</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Urgent</span>;
       case 'high':
-        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">High Priority</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">High Priority</span>;
       case 'standard':
-        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Standard</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Standard</span>;
       default:
-        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30">Low Priority</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-50 text-slate-700 border border-slate-200">Low Priority</span>;
     }
   };
 
@@ -108,42 +108,42 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
       <div 
         key={item.id}
         data-testid={`marketing-today-card-${item.id}`}
-        className="bg-[#062f28] border border-[#176457]/60 hover:border-emerald-400/50 rounded-2xl p-4 md:p-5 space-y-3.5 shadow-md transition-all text-left"
+        className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-4 md:p-5 space-y-3.5 shadow-xs transition-all text-left"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#176457]/40 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--sw-border,#E2E4DA)] pb-3">
           <div className="flex items-center gap-2">
             {getPriorityBadge(item.priority)}
-            <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wider">
+            <span className="text-xs font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
               {getWorkTypeDisplayLabel((item as any).workType)}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-            <Clock className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-2 text-xs font-sans text-[var(--sw-text-secondary,#52605B)]">
+            <Clock className="w-3.5 h-3.5 text-[var(--brand-primary,#00635C)]" />
             <span>Due: {item.requestedDueAt ? item.requestedDueAt.split('T')[0] : 'Today'}</span>
           </div>
         </div>
 
         <div className="space-y-1">
-          <h3 className="font-serif font-bold text-base md:text-lg text-[#fffdf8]">
+          <h3 className="font-serif font-bold text-base md:text-lg text-[var(--sw-text-primary,#17231F)]">
             {propertyLabel} — {item.title}
           </h3>
-          <p className="text-xs text-slate-300 font-medium">
+          <p className="text-xs text-[var(--sw-text-secondary,#52605B)] font-medium">
             {item.nextAction || item.description || 'Draft ready for review.'}
           </p>
         </div>
 
-        <div className="pt-3 border-t border-[#176457]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-4 text-slate-300 font-medium">
-            <span>Owner: <strong className="text-white font-bold">HQ Operations</strong></span>
-            <span>Executor: <strong className="text-emerald-300 font-bold">{isVaItem ? 'Maria (VA)' : 'Shapework AI'}</strong></span>
+        <div className="pt-3 border-t border-[var(--sw-border,#E2E4DA)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-4 text-[var(--sw-text-secondary,#52605B)] font-medium">
+            <span>Owner: <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">HQ Operations</strong></span>
+            <span>Executor: <strong className="text-[var(--brand-primary,#00635C)] font-bold">{isVaItem ? 'Maria (VA)' : 'Shapework AI'}</strong></span>
           </div>
 
           <button
             type="button"
             data-testid={`open-card-btn-${item.id}`}
             onClick={() => onOpenItem(item)}
-            className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl font-bold text-xs shadow transition-all cursor-pointer border border-emerald-400/30 flex items-center justify-center gap-1.5 shrink-0"
+            className="px-4 py-2 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-xl font-bold text-xs shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
           >
             <span>Open Review</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -156,17 +156,17 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
   return (
     <div className="w-full min-w-0 space-y-6 text-left font-sans" data-testid="marketing-today-view">
       {/* 1. MARKETING TODAY TOP BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#073F35] border border-[rgba(208,214,187,0.14)] p-4 md:p-5 rounded-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] p-4 md:p-5 rounded-2xl shadow-xs">
         <div>
-          <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Marketing Operations Workspace</span>
-          <h1 className="text-xl md:text-2xl font-serif font-bold text-[#FFFDF8] mt-0.5">Today's Priority Marketing Queue</h1>
+          <span className="text-[10px] font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-widest">Marketing Operations Workspace</span>
+          <h1 className="text-xl md:text-2xl font-serif font-bold text-[var(--sw-text-primary,#17231F)] mt-0.5">Today's Priority Marketing Queue</h1>
         </div>
 
         <button
           type="button"
           data-testid="plan-tomorrow-btn"
           onClick={onOpenPlanTomorrow}
-          className="px-4 py-2.5 bg-[#176457] hover:bg-[#00635c] text-[#FFFDF8] rounded-xl font-bold text-xs border border-emerald-400/40 transition-all cursor-pointer flex items-center gap-2 shrink-0 shadow"
+          className="px-4 py-2.5 bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] text-[var(--sw-text-primary,#17231F)] rounded-xl font-bold text-xs border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary)] transition-all cursor-pointer flex items-center gap-2 shrink-0 shadow-2xs"
         >
           <span>📋 Daily Planning Notes</span>
         </button>
@@ -177,54 +177,54 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         data-testid="marketing-summary-counts-bar"
         className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-left"
       >
-        <div className={`rounded-xl py-2.5 px-3 text-center flex flex-col justify-center items-center transition-all ${overdueCount > 0 ? 'bg-[#062f28] border border-rose-500/50 shadow-sm' : 'bg-[#062f28]/40 border border-[rgba(208,214,187,0.1)] opacity-75'}`}>
-          <div className={`text-xl font-extrabold ${overdueCount > 0 ? 'text-rose-300' : 'text-slate-400'}`}>{overdueCount}</div>
-          <div className="text-[11px] font-medium text-[#d0d6bb]/80 mt-0.5">Overdue / Blocked</div>
+        <div className={`rounded-xl py-3 px-3 text-center flex flex-col justify-center items-center transition-all bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] shadow-xs ${overdueCount > 0 ? 'border-rose-300' : ''}`}>
+          <div className={`text-xl font-extrabold ${overdueCount > 0 ? 'text-rose-600' : 'text-[var(--sw-text-secondary,#52605B)]'}`}>{overdueCount}</div>
+          <div className="text-[11px] font-medium text-[var(--sw-text-secondary,#52605B)] mt-0.5">Overdue / Blocked</div>
         </div>
-        <div className={`rounded-xl py-2.5 px-3 text-center flex flex-col justify-center items-center transition-all ${dueTodayCount > 0 ? 'bg-[#062f28] border border-amber-500/50 shadow-sm' : 'bg-[#062f28]/40 border border-[rgba(208,214,187,0.1)] opacity-75'}`}>
-          <div className={`text-xl font-extrabold ${dueTodayCount > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{dueTodayCount}</div>
-          <div className="text-[11px] font-medium text-[#d0d6bb]/80 mt-0.5">Due Today</div>
+        <div className={`rounded-xl py-3 px-3 text-center flex flex-col justify-center items-center transition-all bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] shadow-xs ${dueTodayCount > 0 ? 'border-amber-300' : ''}`}>
+          <div className={`text-xl font-extrabold ${dueTodayCount > 0 ? 'text-amber-600' : 'text-[var(--sw-text-secondary,#52605B)]'}`}>{dueTodayCount}</div>
+          <div className="text-[11px] font-medium text-[var(--sw-text-secondary,#52605B)] mt-0.5">Due Today</div>
         </div>
-        <div className={`rounded-xl py-2.5 px-3 text-center flex flex-col justify-center items-center transition-all ${waitingApprovalCount > 0 ? 'bg-[#062f28] border border-emerald-500/50 shadow-sm' : 'bg-[#062f28]/40 border border-[rgba(208,214,187,0.1)] opacity-75'}`}>
-          <div className={`text-xl font-extrabold ${waitingApprovalCount > 0 ? 'text-emerald-300' : 'text-slate-400'}`}>{waitingApprovalCount}</div>
-          <div className="text-[11px] font-medium text-[#d0d6bb]/80 mt-0.5">Approval Needed</div>
+        <div className={`rounded-xl py-3 px-3 text-center flex flex-col justify-center items-center transition-all bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] shadow-xs ${waitingApprovalCount > 0 ? 'border-emerald-300' : ''}`}>
+          <div className={`text-xl font-extrabold ${waitingApprovalCount > 0 ? 'text-emerald-600' : 'text-[var(--sw-text-secondary,#52605B)]'}`}>{waitingApprovalCount}</div>
+          <div className="text-[11px] font-medium text-[var(--sw-text-secondary,#52605B)] mt-0.5">Approval Needed</div>
         </div>
-        <div className={`rounded-xl py-2.5 px-3 text-center flex flex-col justify-center items-center transition-all ${quotePendingCount > 0 ? 'bg-[#062f28] border border-amber-500/50 shadow-sm' : 'bg-[#062f28]/40 border border-[rgba(208,214,187,0.1)] opacity-75'}`}>
-          <div className={`text-xl font-extrabold ${quotePendingCount > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{quotePendingCount}</div>
-          <div className="text-[11px] font-medium text-[#d0d6bb]/80 mt-0.5">Quote Pending</div>
+        <div className={`rounded-xl py-3 px-3 text-center flex flex-col justify-center items-center transition-all bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] shadow-xs ${quotePendingCount > 0 ? 'border-amber-300' : ''}`}>
+          <div className={`text-xl font-extrabold ${quotePendingCount > 0 ? 'text-amber-600' : 'text-[var(--sw-text-secondary,#52605B)]'}`}>{quotePendingCount}</div>
+          <div className="text-[11px] font-medium text-[var(--sw-text-secondary,#52605B)] mt-0.5">Quote Pending</div>
         </div>
-        <div className={`rounded-xl py-2.5 px-3 text-center flex flex-col justify-center items-center transition-all ${readyToSendCount > 0 ? 'bg-[#062f28] border border-cyan-500/50 shadow-sm' : 'bg-[#062f28]/40 border border-[rgba(208,214,187,0.1)] opacity-75'}`}>
-          <div className={`text-xl font-extrabold ${readyToSendCount > 0 ? 'text-cyan-300' : 'text-slate-400'}`}>{readyToSendCount}</div>
-          <div className="text-[11px] font-medium text-[#d0d6bb]/80 mt-0.5">Ready to Send</div>
+        <div className={`rounded-xl py-3 px-3 text-center flex flex-col justify-center items-center transition-all bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] shadow-xs ${readyToSendCount > 0 ? 'border-cyan-300' : ''}`}>
+          <div className={`text-xl font-extrabold ${readyToSendCount > 0 ? 'text-cyan-600' : 'text-[var(--sw-text-secondary,#52605B)]'}`}>{readyToSendCount}</div>
+          <div className="text-[11px] font-medium text-[var(--sw-text-secondary,#52605B)] mt-0.5">Ready to Send</div>
         </div>
-        <div className={`rounded-xl py-2.5 px-3 text-center flex flex-col justify-center items-center transition-all ${assignedVaCount > 0 ? 'bg-[#062f28] border border-purple-500/50 shadow-sm' : 'bg-[#062f28]/40 border border-[rgba(208,214,187,0.1)] opacity-75'}`}>
-          <div className={`text-xl font-extrabold ${assignedVaCount > 0 ? 'text-purple-300' : 'text-slate-400'}`}>{assignedVaCount}</div>
-          <div className="text-[11px] font-medium text-[#d0d6bb]/80 mt-0.5">Assigned to VA</div>
+        <div className={`rounded-xl py-3 px-3 text-center flex flex-col justify-center items-center transition-all bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] shadow-xs ${assignedVaCount > 0 ? 'border-purple-300' : ''}`}>
+          <div className={`text-xl font-extrabold ${assignedVaCount > 0 ? 'text-purple-600' : 'text-[var(--sw-text-secondary,#52605B)]'}`}>{assignedVaCount}</div>
+          <div className="text-[11px] font-medium text-[var(--sw-text-secondary,#52605B)] mt-0.5">Assigned to VA</div>
         </div>
       </div>
 
       {/* 3. PRIORITY FILTERS & COUNT */}
       <div 
         data-testid="marketing-priority-filters"
-        className="flex w-full min-w-0 flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#176457]/40 pb-4 text-left"
+        className="flex w-full min-w-0 flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--sw-border,#E2E4DA)] pb-4 text-left"
       >
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-slate-300">Priority:</span>
+          <span className="text-xs font-semibold text-[var(--sw-text-secondary,#52605B)]">Priority:</span>
           {['all', 'urgent', 'high', 'standard', 'low'].map(p => (
             <button
               key={p}
               onClick={() => setFilterPriority(p)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg capitalize transition-colors cursor-pointer ${
+              className={`px-3 py-1 text-xs font-semibold rounded-lg capitalize transition-all cursor-pointer ${
                 filterPriority === p 
-                  ? 'bg-[#176457] text-[#fffdf8] border border-emerald-400/40' 
-                  : 'bg-[#062f28] text-slate-300 hover:text-white border border-[#176457]/40'
+                  ? 'bg-[var(--brand-primary,#00635C)] text-white shadow-2xs' 
+                  : 'bg-white text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)] border border-[var(--sw-border,#E2E4DA)] hover:bg-[var(--brand-soft)]'
               }`}
             >
               {p === 'all' ? 'All' : p}
             </button>
           ))}
         </div>
-        <span className="text-xs text-slate-300 font-bold shrink-0" data-testid="today-active-work-count">
+        <span className="text-xs text-[var(--sw-text-secondary,#52605B)] font-bold shrink-0" data-testid="today-active-work-count">
           {filteredItems.length} active marketing work items
         </span>
       </div>
@@ -237,9 +237,9 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         {/* Section 1: Overdue & Blocked */}
         {overdueItems.length > 0 && (
           <section className="space-y-3" data-testid="section-overdue">
-            <div className="flex items-center gap-2 border-b border-rose-500/30 pb-2 text-left">
+            <div className="flex items-center gap-2 border-b border-rose-200 pb-2 text-left">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-              <h2 className="text-sm font-bold text-rose-300 uppercase tracking-wider">Overdue & Blocked ({overdueItems.length})</h2>
+              <h2 className="text-sm font-bold text-rose-800 uppercase tracking-wider">Overdue & Blocked ({overdueItems.length})</h2>
             </div>
             <div className="space-y-3">
               {overdueItems.map(renderItemCard)}
@@ -250,9 +250,9 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         {/* Section 2: Due Today */}
         {dueTodayItems.length > 0 && (
           <section className="space-y-3" data-testid="section-due-today">
-            <div className="flex items-center gap-2 border-b border-amber-500/30 pb-2 text-left">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <h2 className="text-sm font-bold text-amber-300 uppercase tracking-wider">Due Today ({dueTodayItems.length})</h2>
+            <div className="flex items-center gap-2 border-b border-amber-200 pb-2 text-left">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <h2 className="text-sm font-bold text-amber-800 uppercase tracking-wider">Due Today ({dueTodayItems.length})</h2>
             </div>
             <div className="space-y-3">
               {dueTodayItems.map(renderItemCard)}
@@ -263,9 +263,9 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         {/* Section 3: Ready for Review & Approval */}
         {waitingApprovalItems.length > 0 && (
           <section className="space-y-3" data-testid="section-waiting-approval">
-            <div className="flex items-center gap-2 border-b border-emerald-500/40 pb-2 text-left">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <h2 className="text-sm font-bold text-emerald-300 uppercase tracking-wider">Ready for Review & Approval ({waitingApprovalItems.length})</h2>
+            <div className="flex items-center gap-2 border-b border-emerald-200 pb-2 text-left">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <h2 className="text-sm font-bold text-emerald-800 uppercase tracking-wider">Ready for Review & Approval ({waitingApprovalItems.length})</h2>
             </div>
             <div className="space-y-3">
               {waitingApprovalItems.map(renderItemCard)}
@@ -276,9 +276,9 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         {/* Section 4: Print & Quote Follow-up */}
         {quoteItems.length > 0 && (
           <section className="space-y-3" data-testid="section-quote-followup">
-            <div className="flex items-center gap-2 border-b border-amber-500/40 pb-2 text-left">
+            <div className="flex items-center gap-2 border-b border-amber-200 pb-2 text-left">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <h2 className="text-sm font-bold text-amber-300 uppercase tracking-wider">Print & Quote Follow-up ({quoteItems.length})</h2>
+              <h2 className="text-sm font-bold text-amber-800 uppercase tracking-wider">Print & Quote Follow-up ({quoteItems.length})</h2>
             </div>
             <div className="space-y-3">
               {quoteItems.map(renderItemCard)}
@@ -289,9 +289,9 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         {/* Section 5: Virtual Assistant Active Queue */}
         {vaItems.length > 0 && (
           <section className="space-y-3" data-testid="section-va-queue">
-            <div className="flex items-center gap-2 border-b border-purple-500/40 pb-2 text-left">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
-              <h2 className="text-sm font-bold text-purple-300 uppercase tracking-wider">Virtual Assistant Active Queue ({vaItems.length})</h2>
+            <div className="flex items-center gap-2 border-b border-purple-200 pb-2 text-left">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <h2 className="text-sm font-bold text-purple-800 uppercase tracking-wider">Virtual Assistant Active Queue ({vaItems.length})</h2>
             </div>
             <div className="space-y-3">
               {vaItems.map(renderItemCard)}
@@ -302,9 +302,9 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
         {/* Section 6: Upcoming Work Items */}
         {upcomingItems.length > 0 && (
           <section className="space-y-3" data-testid="section-upcoming">
-            <div className="flex items-center gap-2 border-b border-[#176457]/40 pb-2 text-left">
+            <div className="flex items-center gap-2 border-b border-[var(--sw-border,#E2E4DA)] pb-2 text-left">
               <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-              <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Upcoming & Scheduled ({upcomingItems.length})</h2>
+              <h2 className="text-sm font-bold text-[var(--sw-text-secondary,#52605B)] uppercase tracking-wider">Upcoming & Scheduled ({upcomingItems.length})</h2>
             </div>
             <div className="space-y-3">
               {upcomingItems.map(renderItemCard)}

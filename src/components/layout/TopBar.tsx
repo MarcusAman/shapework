@@ -48,6 +48,19 @@ export default function TopBar({
 }: TopBarProps) {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [globalDrawerOpen, setGlobalDrawerOpen] = useState(false);
+  const [globalEvidenceCard, setGlobalEvidenceCard] = useState<GlobalEvidenceCardData | null>(null);
+
+  React.useEffect(() => {
+    const handleVoiceTool = (event: any) => {
+      if (event.detail?.data?.evidenceCard) {
+        setGlobalEvidenceCard(event.detail.data.evidenceCard);
+        setGlobalDrawerOpen(true);
+      }
+    };
+    window.addEventListener('voice_tool_executed', handleVoiceTool);
+    return () => window.removeEventListener('voice_tool_executed', handleVoiceTool);
+  }, []);
 
   const isAskNestOpsPage = currentTab === 'Ask Nest Ops' || currentTab === 'Workboard' || currentTab === 'Nest Ops Hub' || !currentTab;
 
@@ -75,13 +88,13 @@ export default function TopBar({
 
   if (variant === 'minimal') {
     return (
-      <header className="h-16 bg-[rgba(1,54,45,0.75)] border-b border-[rgba(246,247,241,0.12)] flex items-center justify-between px-6 shrink-0 relative z-20 gap-4 select-none backdrop-blur-md">
+      <header className="h-16 bg-[var(--sw-surface)] border-b border-[var(--sw-border)] flex items-center justify-between px-6 shrink-0 relative z-20 gap-4 select-none">
         {/* Left: Mobile Toggle & Page Headers */}
         <div className="flex items-center gap-3.5 shrink-0 min-w-0">
           {onToggleSidebar && (
             <button
               onClick={onToggleSidebar}
-              className="md:hidden p-1.5 rounded-lg hover:bg-[rgba(246,247,241,0.06)] shrink-0 transition-colors text-white"
+              className="md:hidden p-1.5 rounded-lg hover:bg-[var(--sw-canvas)] shrink-0 transition-colors text-[var(--brand-primary)]"
               aria-label="Toggle Navigation Drawer"
             >
               <Menu className="w-5 h-5" />
@@ -90,104 +103,102 @@ export default function TopBar({
 
           {isRyanShieldPage ? (
             <div className="flex flex-col text-left">
-              <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+              <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                 Good morning, Ryan
               </h1>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
-                <span className="text-amber-400 font-bold">2 items</span> need you. The team handled <span className="text-emerald-400 font-bold">24</span> without you.
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
+                <span className="text-amber-700 font-bold">2 items</span> need you. The team handled <span className="text-[var(--brand-secondary)] font-bold">24</span> without you.
               </p>
             </div>
           ) : isRoleMapPage ? (
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-2.5">
-                <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+                <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                   Role & Escalation Map
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#004d40] border border-emerald-500/30 text-emerald-300 text-[10px] font-mono font-bold">
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--brand-soft)] border border-[var(--brand-secondary)]/20 text-[var(--brand-secondary)] text-[10px] font-mono font-bold">
                   Nest Wilmington
                 </span>
               </div>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
                 Who handles what, fallback delegates, and automated escalation guardrails for Ryan.
               </p>
             </div>
           ) : isOwnerBriefPage ? (
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-2.5">
-                <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+                <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                   Owner Weekly Brief
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#004d40] border border-emerald-500/30 text-emerald-300 text-[10px] font-mono font-bold">
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--brand-soft)] border border-[var(--brand-secondary)]/20 text-[var(--brand-secondary)] text-[10px] font-mono font-bold">
                   Week of March 24, 2026
                 </span>
               </div>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
                 A complete summary of what moved through the brokerage this week.
               </p>
             </div>
           ) : isDirectoryPage ? (
             <div className="flex flex-col text-left">
-              <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+              <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                 Directory
               </h1>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
                 Find and contact people across the Wilmington and Carolina Beach offices.
               </p>
             </div>
           ) : isMarketingPage ? (
             <div className="flex flex-col text-left">
-              <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+              <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                 Marketing
               </h1>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
                 Requests and work handled by Shapework.
               </p>
             </div>
           ) : isSopPage ? (
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-2.5">
-                <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+                <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                   SOP Library
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--brand-soft)] border border-[var(--brand-secondary)]/20 text-[var(--brand-secondary)] text-[10px] font-mono font-bold">
                   0 active runs
                 </span>
               </div>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
                 Manage executable standard operating procedure checklists for Nest Realty Wilmington.
               </p>
             </div>
           ) : isSettingsPage ? (
             <div className="flex flex-col text-left">
               <div className="flex items-center gap-2.5">
-                <h1 className="font-serif font-black text-sm md:text-base text-white uppercase tracking-wider leading-tight">
+                <h1 className="font-serif font-black text-sm md:text-base text-[var(--brand-primary)] uppercase tracking-wider leading-tight">
                   Workspace Settings
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#004d40] border border-emerald-500/30 text-emerald-300 text-[10px] font-mono font-bold">
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--brand-soft)] border border-[var(--brand-secondary)]/20 text-[var(--brand-secondary)] text-[10px] font-mono font-bold">
                   Ryan's Dashboard
                 </span>
               </div>
-              <p className="hidden md:block text-[11px] text-[#D0D6BB] font-sans pt-0.5">
+              <p className="hidden md:block text-[11px] text-[var(--sw-text-secondary)] font-sans pt-0.5">
                 Manage brokerage team access, Mercury billing receipts, SLA guardrails, and connected tools.
               </p>
             </div>
           ) : isAskNestOpsPage ? (
             <div className="flex flex-col text-left">
-              <h1 className="font-sans font-bold text-base text-white tracking-tight leading-tight">
+              <h1 className="font-sans font-bold text-base text-[var(--brand-primary)] tracking-tight leading-tight">
                 Today in the Brokerage
               </h1>
-              <div className="hidden sm:flex flex-wrap items-center gap-1.5 text-[11px] text-[#D0D6BB] font-sans pt-0.5">
-                <span className="font-semibold text-emerald-300">Office: All Locations (Mayfaire & Carolina Beach)</span>
-                <span className="text-white/30">•</span>
-                <span className="text-[#F6F7F1] font-medium">Ryan Crecelius (Broker / Owner)</span>
-                <span className="text-white/30">•</span>
-                <span className="text-emerald-200 font-semibold">74 Agents</span>
-                <span className="text-white/30">•</span>
-                <span className="text-amber-300 font-bold">$42.5M Active Pipeline</span>
+              <div className="hidden sm:flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600 font-sans pt-0.5">
+                <span className="font-semibold text-[#00635C]">Office: All Locations (Mayfaire & Carolina Beach)</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-800 font-medium">Ryan Crecelius (Broker / Owner)</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-[#00635C] font-semibold">74 Agents</span>
               </div>
             </div>
           ) : (
-            title && <h1 className="font-sans font-bold text-lg text-white">{title}</h1>
+            title && <h1 className="font-sans font-bold text-lg text-[var(--brand-primary)]">{title}</h1>
           )}
         </div>
 
@@ -249,7 +260,7 @@ export default function TopBar({
             <button
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent('open-staff-sop-template'))}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md border border-white/10"
+              className="px-3 py-1.5 bg-[#00635C] hover:bg-[#01362D] text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md border border-[#00635C]"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>Staff Template</span>
@@ -266,10 +277,10 @@ export default function TopBar({
         ) : (
           <div className="flex items-center gap-3 select-none shrink-0">
             {isAskNestOpsPage && <LocationSelectorDropdown variant="header" />}
-            <div className="hidden sm:flex items-center gap-3.5 text-[10px] font-sans text-[#D0D6BB] font-semibold bg-[rgba(246,247,241,0.04)] px-3.5 py-1.5 border border-[rgba(246,247,241,0.1)] rounded-full backdrop-blur-sm">
-              <span className="text-[#F6F7F1]">AskNestOps@nestrealty.com</span>
-              <span className="text-[rgba(246,247,241,0.22)]">|</span>
-              <span className="text-[#F6F7F1]">+1 (910) -507-2047</span>
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3 text-[9px] xs:text-[10px] font-sans text-[var(--sw-text-secondary)] font-semibold bg-[var(--sw-canvas)] px-2.5 sm:px-3.5 py-1 sm:py-1.5 border border-[var(--sw-border)] rounded-full shadow-xs backdrop-blur-md">
+              <span className="text-[var(--sw-text-primary)] font-bold whitespace-nowrap">AskNestOps@nestrealty.com</span>
+              <span className="text-[var(--sw-text-secondary)] opacity-40">|</span>
+              <span className="text-[var(--sw-text-primary)] font-bold whitespace-nowrap">+1 (910) -507-2047</span>
             </div>
           </div>
         )}
@@ -292,12 +303,10 @@ export default function TopBar({
         )}
         {isAskNestOpsPage && <LocationSelectorDropdown variant="header" />}
         {isAskNestOpsPage && (
-          <div className="hidden lg:flex items-center gap-2 text-xs text-[#D0D6BB] font-sans font-semibold bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
-            <span className="text-emerald-300">All Locations</span>
+          <div className="hidden lg:flex items-center gap-2 text-xs text-[#D0D6BB] font-sans font-semibold bg-white/5 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+            <span className="text-emerald-300 font-bold">All Locations</span>
             <span className="text-white/30">•</span>
             <span className="text-emerald-200">74 Agents</span>
-            <span className="text-white/30">•</span>
-            <span className="text-amber-300 font-bold">$42.5M Active Pipeline</span>
           </div>
         )}
       </div>
@@ -326,10 +335,10 @@ export default function TopBar({
         )}
 
         {/* Contact Info Group */}
-        <div className="hidden lg:flex items-center gap-3.5 text-[10px] font-mono text-[#D0D6BB] font-semibold bg-[rgba(246,247,241,0.05)] px-4 py-1.5 border border-[rgba(246,247,241,0.12)] rounded-full">
-          <span className="text-[#F6F7F1]">askNestOps@nestrealty.com</span>
-          <span className="text-[rgba(246,247,241,0.22)]">|</span>
-          <span className="text-[#F6F7F1]">+1 (910) -507-2047</span>
+        <div className="hidden lg:flex items-center gap-3.5 text-[10px] font-mono text-[var(--sw-text-secondary)] font-semibold bg-[var(--sw-canvas)] px-4 py-1.5 border border-[var(--sw-border)] rounded-full shadow-xs">
+          <span className="text-[var(--sw-text-primary)] font-bold">askNestOps@nestrealty.com</span>
+          <span className="text-[var(--sw-text-secondary)] opacity-40">|</span>
+          <span className="text-[var(--sw-text-primary)] font-bold">+1 (910) -507-2047</span>
         </div>
 
         {/* Pitch & 'Aha!' Demo Launch Button */}
@@ -349,10 +358,10 @@ export default function TopBar({
             onClick={() => {
               window.location.pathname = window.location.pathname.startsWith('/internal') ? '/app' : '/internal';
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400 text-slate-950 font-bold text-xs shadow-md hover:bg-amber-300 transition-all cursor-pointer border border-amber-300/50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400 text-[#01362D] font-bold text-xs shadow-md hover:bg-amber-300 transition-all cursor-pointer border border-amber-300/50"
             title="Switch between Customer App and Operator Control Plane"
           >
-            <Shield className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
+            <Shield className="w-3.5 h-3.5 text-[#01362D] fill-[#01362D]" />
             <span>{window.location.pathname.startsWith('/internal') ? 'Customer App' : 'Operator Console'}</span>
           </button>
         )}
@@ -485,6 +494,12 @@ export default function TopBar({
           );
         })()}
       </div>
+
+      <GlobalEvidenceDrawer
+        isOpen={globalDrawerOpen}
+        onClose={() => setGlobalDrawerOpen(false)}
+        evidenceCard={globalEvidenceCard}
+      />
     </header>
   );
 }

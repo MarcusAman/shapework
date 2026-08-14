@@ -1,111 +1,147 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * SHAPEWORK DESIGN SYSTEM — THREE-LAYER TOKEN ARCHITECTURE (Phase A)
+ * 
+ * Layer 1: Shapework Core UI (Neutral Light Foundation)
+ * Layer 2: Workspace / Brokerage Brand (Tenant Configurable)
+ * Layer 3: Semantic State (Decoupled System States)
  */
 
 :root {
-  /* Base - Deep Forest Green canvas with rich dark glass */
-  --sw-bg: #012b24;           /* Rich Deep Forest Green */
-  --sw-bg-soft: rgba(0, 18, 14, 0.85); /* Rich Dark Translucent Glass */
-  --sw-surface: rgba(0, 24, 18, 0.82);  /* Dark Glass Panel */
-  --sw-card: rgba(0, 28, 22, 0.88);     /* Dark Glass Card */
+  /* Enforce Strict Light Color Scheme */
+  color-scheme: light;
 
-  /* Brand Colors */
-  --sw-green-900: #01362D;    /* Forest Green */
-  --sw-green-700: #00635C;    /* Emerald Accent */
-  --sw-green-500: #8CA08E;    /* Moss Green */
-  --sw-mint-100: #D0D6BB;     /* Pistachio */
+  /* ========================================================================
+     LAYER 1 — SHAPEWORK CORE UI (Neutral Light Foundation)
+     ======================================================================== */
+  --sw-canvas: #F7F8F5;              /* Warm Off-White global app background */
+  --sw-surface: #FFFFFF;             /* Pure White card, container, sidebar surface */
+  --sw-surface-elevated: #FFFFFF;    /* Pure White modal, popover, flyout surface */
+  
+  --sw-text-primary: #17231F;        /* High-contrast charcoal primary text */
+  --sw-text-secondary: #52605B;      /* Muted slate-green secondary text */
+  --sw-text-muted: #8CA08E;          /* Soft helper text and inactive labels */
+  
+  --sw-border: #E5E7EB;              /* Subtle 1px neutral border */
+  --sw-border-strong: #D1D5DB;       /* Interactive control border */
 
-  /* Accent Colors - Calm Pistachio & Soft Coral */
-  --sw-gold-600: #D0D6BB;     /* Pistachio */
-  --sw-amber-500: #D0D6BB;    /* Soft Pistachio Accent (No cheap yellow) */
-  --sw-coral-500: #D96B5F;
+  /* Standardized Subtle Elevation Shadows */
+  --sw-shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  --sw-shadow-raised: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --sw-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --sw-shadow-focus: 0 0 0 3px rgba(0, 99, 92, 0.25);
 
-  /* Nest Dark-Green Tonal Surface Tokens */
-  --nest-canvas: #01362D;
-  --nest-shell: #073F35;
-  --nest-surface: #0B4A3F;
-  --nest-surface-raised: #115548;
-  --nest-surface-selected: #176457;
-  --nest-border-soft: rgba(208, 214, 187, 0.14);
-  --nest-border-medium: rgba(208, 214, 187, 0.24);
-  --nest-text-primary: #FFFDF8;
-  --nest-text-secondary: rgba(246, 247, 241, 0.74);
-  --nest-text-tertiary: rgba(246, 247, 241, 0.52);
-  --nest-accent: #D0D6BB;
-  --nest-action: #00635C;
+  /* Standardized Rounded Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
 
-  /* Typography / Text Colors (Calm Warm Contrast) */
-  --sw-text: #F6F7F1;         /* Mist */
-  --sw-muted: #D0D6BB;        /* Pistachio secondary text */
-  --sw-muted-light: rgba(246, 247, 241, 0.6); /* Soft Muted Mist */
+  /* Control Heights & Interactive States */
+  --control-height-sm: 32px;
+  --control-height-md: 40px;
+  --control-height-lg: 48px;
+  --sw-hover-overlay: rgba(0, 0, 0, 0.03);
+  --sw-pressed-overlay: rgba(0, 0, 0, 0.06);
+  --sw-opacity-disabled: 0.45;
 
-  /* System States */
-  --sw-success: #00635C;      /* Emerald */
-  --sw-warning: #D0D6BB;      /* Pistachio/Gold */
-  --sw-risk: #D96B5F;         /* Muted Coral Red */
-  --sw-info: #D0D6BB;
+  /* Overlay & Z-Index Layer Tokens */
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-popover: 30;
+  --z-backdrop: 40;
+  --z-drawer: 50;
+  --z-modal: 50;
+  --z-toast: 60;
+  --sw-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --sw-backdrop-bg: rgba(15, 23, 42, 0.4);
 
-  /* Organic Borders */
-  --sw-border: rgba(246, 247, 241, 0.14); /* Thin translucent mist line */
-  --sw-border-strong: rgba(208, 214, 187, 0.3);
+  /* ========================================================================
+     LAYER 2 — WORKSPACE BRAND TOKENS (Tenant Configurable Defaults)
+     ======================================================================== */
+  --brand-primary: #01362D;          /* Default to Nest Deep Green when unconfigured */
+  --brand-secondary: #00635C;        /* Default to Nest Teal */
+  --brand-accent: #D0D6BB;           /* Default to Pistachio */
+  --brand-soft: rgba(0, 99, 92, 0.08); /* Soft active selection background */
+  --brand-on-primary: #FFFFFF;       /* Foreground text on brand-primary surface */
 
-  /* Neumorphic Extrusions on Green base background */
-  --sw-shadow-soft:
-    18px 18px 40px rgba(0, 0, 0, 0.28),
-    -10px -10px 28px rgba(255, 255, 255, 0.035),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.08);
+  /* ========================================================================
+     LAYER 3 — SEMANTIC STATE TOKENS (Decoupled System States)
+     ======================================================================== */
+  --state-success: #00635C;
+  --state-success-bg: #E6F4F1;
+  --state-warning: #9A6B1F;
+  --state-warning-bg: #FAF4E8;
+  --state-danger: #C0392B;
+  --state-danger-bg: #FDEDEC;
+  --state-info: #2980B9;
+  --state-info-bg: #EBF5FB;
+  --state-ai: #4A6984;
+  --state-ai-bg: #F0F4F8;
 
-  --sw-shadow-raised:
-    22px 22px 48px rgba(0, 0, 0, 0.32),
-    -12px -12px 32px rgba(255, 255, 255, 0.045),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.12);
+  /* ========================================================================
+     BACKWARD COMPATIBILITY ALIASES (Migration Bridge)
+     ======================================================================== */
+  --sw-bg: var(--sw-canvas);
+  --sw-bg-soft: var(--sw-canvas);
+  --sw-card: var(--sw-surface);
+  --sw-text: var(--sw-text-primary);
+  --sw-muted: var(--sw-text-secondary);
+  --sw-muted-light: var(--sw-text-muted);
+  --sw-green-900: var(--brand-primary);
+  --sw-green-700: var(--brand-secondary);
+  --sw-green-500: #8CA08E;
+  --sw-mint-100: var(--brand-accent);
+  --sw-gold-600: var(--brand-accent);
+  --sw-amber-500: var(--brand-accent);
+  --sw-coral-500: var(--state-danger);
 
-  --sw-shadow-inset:
-    inset 8px 8px 18px rgba(0, 0, 0, 0.28),
-    inset -6px -6px 16px rgba(255, 255, 255, 0.04);
+  --nest-canvas: var(--sw-canvas);
+  --nest-shell: var(--sw-surface);
+  --nest-surface: var(--sw-surface);
+  --nest-surface-raised: var(--sw-surface-elevated);
+  --nest-surface-selected: var(--brand-soft);
+  --nest-border-soft: var(--sw-border);
+  --nest-border-medium: var(--sw-border-strong);
+  --nest-text-primary: var(--sw-text-primary);
+  --nest-text-secondary: var(--sw-text-secondary);
+  --nest-text-tertiary: var(--sw-text-muted);
+  --nest-accent: var(--brand-accent);
+  --nest-action: var(--brand-secondary);
 
-  --sw-shadow-focus:
-    0 0 0 3px rgba(0, 99, 92, 0.4);
-
-  /* Rounded Corner Radii */
-  --radius-sm: 12px;
-  --radius-md: 20px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
-
-  /* Backward Compatibility Mappings */
-  --app-bg: var(--sw-bg);
+  --app-bg: var(--sw-canvas);
   --surface: var(--sw-surface);
-  --surface-muted: var(--sw-card);
-  --surface-subtle: var(--sw-bg-soft);
-  --sidebar-bg: var(--sw-green-900);
+  --surface-muted: var(--sw-surface);
+  --surface-subtle: var(--sw-canvas);
+  --sidebar-bg: var(--sw-surface);
   --border-soft: var(--sw-border);
   --border-medium: var(--sw-border-strong);
-  --text-primary: var(--sw-text);
-  --text-secondary: var(--sw-mint-100);
-  --text-tertiary: var(--sw-muted);
-  --brand-primary: var(--sw-green-900);
-  --brand-primary-hover: var(--sw-green-700);
-  --brand-soft: var(--sw-mint-100);
-  --risk-red: var(--sw-risk);
-  --risk-red-soft: rgba(217, 107, 95, 0.12);
-  --warning: var(--sw-warning);
-  --warning-soft: rgba(208, 214, 187, 0.12);
-  --success: var(--sw-success);
-  --success-soft: rgba(0, 99, 92, 0.12);
-  --info: var(--sw-info);
-  --info-soft: rgba(208, 214, 187, 0.12);
+  --text-primary: var(--sw-text-primary);
+  --text-secondary: var(--sw-text-secondary);
+  --text-tertiary: var(--sw-text-muted);
+  --brand-primary-hover: var(--brand-secondary);
+  --risk-red: var(--state-danger);
+  --risk-red-soft: var(--state-danger-bg);
+  --warning: var(--state-warning);
+  --warning-soft: var(--state-warning-bg);
+  --success: var(--state-success);
+  --success-soft: var(--state-success-bg);
+  --info: var(--state-info);
+  --info-soft: var(--state-info-bg);
   --shadow-card: var(--sw-shadow-soft);
-  
-  --brand-900: var(--brand-primary);
-  --brand-800: var(--brand-primary-hover);
-  --brand-700: #004d47;
-  --brand-100: var(--brand-soft);
-  --accent-blue: var(--info);
-  --accent-amber: var(--warning);
-  --accent-red: var(--risk-red);
-  --accent-green: var(--success);
-  --shadow-soft: var(--shadow-card);
-  --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-soft: var(--sw-shadow-soft);
+  --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Tenant Specific Theme Binding Attributes */
+[data-tenant*="nest-realty"],
+[data-tenant="nest-realty-demo"],
+[data-tenant="nest-realty-wilmington"] {
+  --brand-primary: #01362D;
+  --brand-secondary: #00635C;
+  --brand-accent: #D0D6BB;
+  --brand-soft: rgba(0, 99, 92, 0.08);
 }

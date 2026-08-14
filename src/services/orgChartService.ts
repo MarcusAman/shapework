@@ -241,6 +241,7 @@ export type OrgModel = {
 };
 
 export type RoutingMatrixItem = {
+  id?: string;
   category: string;
   displayName?: string;
   description?: string;
@@ -382,7 +383,7 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     roleIds: ['role_agent_support', 'role_compliance', 'role_contract_questions', 'role_risk_sensitive'],
     x: 1450,
     y: 220,
-    avatarUrl: '/org-avatars/eric2.png',
+    avatarUrl: '/org-avatars/eric.png',
     avatarCrop: { x: 0, y: 35, scale: 0.8, rotation: 0, cropShape: 'circle' },
     status: 'active',
     connectedTools: ['Dotloop', 'Slack', 'Gmail'],
@@ -465,34 +466,40 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
-  ...NEST_FULL_ROSTER_72.map((person, idx) => {
-    const col = idx % 8;
-    const row = Math.floor(idx / 8);
-    return {
-      id: person.id.startsWith('pos_') ? person.id : `pos_${person.id}`,
-      workspaceId: person.workspaceId || 'nest-realty-demo',
-      name: person.displayName,
-      title: person.title || (person.personType === 'agent' ? 'Broker / REALTOR®' : 'Team Member'),
-      department: person.personType === 'leadership' ? 'Leadership' : person.personType === 'staff' ? 'Operations' : 'Brokerage Agents',
-      office: person.primaryOfficeName || 'Wilmington',
-      email: person.email,
-      phone: person.phone,
-      reportsToPositionId: person.isBrokerInCharge
-        ? 'pos_ryan'
-        : person.personType === 'agent'
-        ? ((person.primaryOfficeName || '').toLowerCase().includes('carolina') ? 'pos_bic' : 'pos_eric')
-        : 'pos_coo',
-      visibilityLevel: (person.personType === 'leadership' ? 'leadership' : 'internal') as any,
-      roleIds: person.isBrokerInCharge ? ['role_agent_support', 'role_compliance'] : ['role_agent'],
-      x: 100 + col * 220,
-      y: 700 + row * 180,
-      avatarUrl: `/org-avatars/agent_${(idx % 12) + 1}.png`,
-      status: (person.status === 'active' ? 'active' : 'open') as any,
-      connectedTools: ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
-      createdAt: person.createdAt || new Date().toISOString(),
-      updatedAt: person.updatedAt || new Date().toISOString()
-    };
-  })
+  ...NEST_FULL_ROSTER_72
+    .filter(person => {
+      const name = (person.displayName || '').trim().toLowerCase();
+      const isDuplicateLeadership = ['ryan crecelius', 'ann gunn', 'james fort', 'melissa gagliardi', 'jessica keenen', 'jessica keenan', 'eric knight'].includes(name);
+      return !isDuplicateLeadership;
+    })
+    .map((person, idx) => {
+      const col = idx % 8;
+      const row = Math.floor(idx / 8);
+      return {
+        id: person.id.startsWith('pos_') ? person.id : `pos_${person.id}`,
+        workspaceId: person.workspaceId || 'nest-realty-demo',
+        name: person.displayName,
+        title: person.title || (person.personType === 'agent' ? 'Broker / REALTOR®' : 'Team Member'),
+        department: person.personType === 'leadership' ? 'Leadership' : person.personType === 'staff' ? 'Operations' : 'Brokerage Agents',
+        office: person.primaryOfficeName || 'Wilmington',
+        email: person.email,
+        phone: person.phone,
+        reportsToPositionId: person.isBrokerInCharge
+          ? 'pos_ryan'
+          : person.personType === 'agent'
+          ? ((person.primaryOfficeName || '').toLowerCase().includes('carolina') ? 'pos_bic' : 'pos_eric')
+          : 'pos_coo',
+        visibilityLevel: (person.personType === 'leadership' ? 'leadership' : 'internal') as any,
+        roleIds: person.isBrokerInCharge ? ['role_agent_support', 'role_compliance'] : ['role_agent'],
+        x: 100 + col * 220,
+        y: 700 + row * 180,
+        avatarUrl: undefined,
+        status: (person.status === 'active' ? 'active' : 'open') as any,
+        connectedTools: ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
+        createdAt: person.createdAt || new Date().toISOString(),
+        updatedAt: person.updatedAt || new Date().toISOString()
+      };
+    })
 ];
 
 const DEFAULT_ROLES: OrgRole[] = [
@@ -1335,6 +1342,22 @@ export const orgChartService = {
             return updated;
           });
           
+          // Deduplicate positions by normalized name so duplicate leadership/staff nodes cached in localStorage are cleaned up
+          const primaryLeadershipIds = ['pos_ryan', 'pos_ann', 'pos_james', 'pos_melissa', 'pos_bic', 'pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
+          const seenNames = new Set<string>();
+          parsed.positions = parsed.positions.filter((p: any) => {
+            const normName = (p.name || '').trim().toLowerCase();
+            if (primaryLeadershipIds.includes(p.id)) {
+              seenNames.add(normName);
+              return true;
+            }
+            if (seenNames.has(normName)) {
+              return false; // Remove duplicate position seat
+            }
+            seenNames.add(normName);
+            return true;
+          });
+
           const requiredPosIds = ['pos_bic', 'pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
           requiredPosIds.forEach(id => {
             if (!parsed.positions.some((p: any) => p.id === id)) {
@@ -1402,14 +1425,115 @@ export const orgChartService = {
     };
   },
 
+  validateReportingHierarchy(
+    positions: OrgPosition[], 
+    positionId: string, 
+    newReportsToPositionId?: string
+  ): { valid: boolean; error?: string } {
+    if (!newReportsToPositionId) {
+      return { valid: true };
+    }
+
+    if (newReportsToPositionId === positionId) {
+      return { valid: false, error: 'A position cannot report to itself.' };
+    }
+
+    const targetPos = positions.find(p => p.id === newReportsToPositionId);
+    if (!targetPos) {
+      return { valid: false, error: `Target reporting position does not exist.` };
+    }
+
+    let current: OrgPosition | undefined = targetPos;
+    const visited = new Set<string>();
+
+    while (current) {
+      if (current.id === positionId) {
+        return { 
+          valid: false, 
+          error: `Circular reporting hierarchy: "${targetPos.name || targetPos.title}" directly or indirectly reports to this position.` 
+        };
+      }
+      if (visited.has(current.id)) break;
+      visited.add(current.id);
+      current = current.reportsToPositionId ? positions.find(p => p.id === current?.reportsToPositionId) : undefined;
+    }
+
+    return { valid: true };
+  },
+
   saveOrgChart(workspaceId: string, model: OrgModel): void {
     const key = `org_chart_${workspaceId}`;
-    localStorage.setItem(key, JSON.stringify(model));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, JSON.stringify(model));
+    }
+
+    // Sync to backend asynchronously
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/org-chart', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, model })
+      }).catch(err => console.warn('Background org chart sync notice:', err));
+    }
+
+    // Dispatch notification
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('shapework_orgchart_mutated', { detail: { workspaceId } }));
+    }
+  },
+
+  async fetchFromServer(workspaceId: string): Promise<OrgModel | null> {
+    if (typeof fetch === 'undefined') return null;
+    try {
+      const res = await fetch(`/api/org-chart?workspaceId=${encodeURIComponent(workspaceId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.model && data.model.positions && data.model.positions.length > 0) {
+          const key = `org_chart_${workspaceId}`;
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, JSON.stringify(data.model));
+          }
+          return data.model;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch org chart from server, using local storage cache:', e);
+    }
+    return null;
   },
 
   updatePosition(workspaceId: string, id: string, updates: Partial<OrgPosition>): OrgModel {
     const model = this.getOrgChart(workspaceId);
+    const existingPos = model.positions.find(p => p.id === id);
+
+    if (updates.reportsToPositionId !== undefined && updates.reportsToPositionId !== existingPos?.reportsToPositionId) {
+      const validation = this.validateReportingHierarchy(model.positions, id, updates.reportsToPositionId);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid reporting hierarchy.');
+      }
+    }
+
     model.positions = model.positions.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p);
+
+    // Update connection lines for visual rendering
+    if (updates.reportsToPositionId !== undefined) {
+      model.connections = (model.connections || []).filter(
+        c => !(c.type === 'reporting' && c.fromPositionId === id)
+      );
+      if (updates.reportsToPositionId) {
+        model.connections.push({
+          id: `conn_rep_${id}_${updates.reportsToPositionId}`,
+          workspaceId,
+          type: 'reporting',
+          fromPositionId: id,
+          toPositionId: updates.reportsToPositionId,
+          label: 'Reports To',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+
     this.saveOrgChart(workspaceId, model);
     return model;
   },
@@ -1429,6 +1553,9 @@ export const orgChartService = {
         if (s.ownerPositionId === id) s.ownerPositionId = reassignToPositionId;
       });
     }
+    model.connections = (model.connections || []).filter(
+      c => c.fromPositionId !== id && c.toPositionId !== id
+    );
     this.saveOrgChart(workspaceId, model);
     return model;
   },

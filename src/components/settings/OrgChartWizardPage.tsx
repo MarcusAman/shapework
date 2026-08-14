@@ -787,22 +787,23 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
         if (y + 160 > maxY) maxY = y + 160;
       });
 
-      const boundsWidth = maxX - minX;
-      const boundsHeight = maxY - minY;
+      const boundsWidth = Math.max(200, maxX - minX);
+      const boundsHeight = Math.max(200, maxY - minY);
 
-      const printWidth = 1100;
-      const printHeight = 750;
-      const padding = 40;
+      const printWidth = 1000;
+      const printHeight = 700;
+      const horizontalMargin = 40;
+      const topMargin = 70; // 70px safe margin ensuring top root cards are never cut off by printer margins
+      const bottomMargin = 40;
 
-      const zX = (printWidth - padding * 2) / boundsWidth;
-      const zY = (printHeight - padding * 2) / boundsHeight;
-      const printZoom = Math.min(2.0, Math.max(0.4, Math.min(zX, zY)));
+      const scaleX = (printWidth - horizontalMargin * 2) / boundsWidth;
+      const scaleY = (printHeight - (topMargin + bottomMargin)) / boundsHeight;
+      const printZoom = Math.min(1.2, Math.max(0.35, Math.min(scaleX, scaleY)));
 
       const centerX = minX + boundsWidth / 2;
-      const centerY = minY + boundsHeight / 2;
       const printPan = {
-        x: printWidth / 2 - centerX * printZoom,
-        y: printHeight / 2 - centerY * printZoom
+        x: (printWidth / 2) - (centerX * printZoom),
+        y: topMargin - (minY * printZoom)
       };
 
       setPan(printPan);
@@ -4480,24 +4481,24 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
   return (
     <>
-      <div className="w-full h-full flex flex-col bg-[#01362D] text-[#F6F7F1] font-sans relative overflow-hidden border-none shadow-none role-map-root-container">
+      <div className="w-full h-full flex flex-col bg-[var(--sw-canvas)] text-[var(--sw-text-primary)] font-sans relative overflow-hidden border-none shadow-none role-map-root-container">
       
       {/* --- TOP HEADER BAR (Section Tabs & Metrics) --- */}
-      <div className="h-[56px] min-h-[56px] max-h-[56px] px-6 border-b border-[rgba(246,247,241,0.12)] bg-[#012620] flex items-center justify-between shrink-0 gap-4 text-left visual-org-map-header select-none">
+      <div className="h-auto min-h-[56px] px-4 md:px-6 py-2 border-b border-[var(--sw-border)] bg-[var(--sw-surface)] flex flex-wrap items-center justify-between shrink-0 gap-3 text-left visual-org-map-header select-none text-[var(--sw-text-primary)]">
         {/* Left: Back Button + Section Tabs */}
         <div className="flex items-center gap-3 flex-grow min-w-0">
           {(onClose || !embeddedTab) && (
             <button
               onClick={onClose || (() => window.location.assign('/app/settings'))}
-              className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[#D0D6BB] hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 font-mono text-[9px] font-bold uppercase shrink-0 mr-1"
+              className="p-2 bg-[var(--sw-canvas)] hover:bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-xl text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)] transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium shrink-0 mr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-4 h-4" />
               Back
             </button>
           )}
 
           {/* Org Chart Section Tabs */}
-          <div className="flex gap-1 bg-black/20 p-1 rounded-xl border border-white/10 items-center shrink-0">
+          <div className="flex gap-1 bg-[var(--sw-canvas)] p-1 rounded-xl border border-[var(--sw-border)] items-center shrink-0 overflow-x-auto max-w-full">
             {[
               { id: 'org_chart', label: 'Org Chart' },
               { id: 'overview', label: 'Overview' },
@@ -4509,10 +4510,10 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer border font-medium shrink-0 ${
                   activeTab === tab.id
-                    ? 'bg-[#00635C] text-white shadow-md border-white/20'
-                    : 'bg-transparent text-[#D0D6BB]/70 border-transparent hover:text-white hover:bg-white/5'
+                    ? 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)] shadow-xs border-[var(--brand-primary)] font-semibold'
+                    : 'bg-transparent text-[var(--sw-text-secondary)] border-transparent hover:text-[var(--sw-text-primary)] hover:bg-[var(--sw-surface)]'
                 }`}
               >
                 {tab.label}
@@ -4524,43 +4525,59 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
         {/* Right: Seat Metrics Summary & Save Changes */}
         <div className="flex items-center gap-3 shrink-0">
           
-          <div className="hidden lg:flex items-center gap-2.5 border-l border-white/15 pl-2.5 font-mono text-[8.5px]">
-            <div>
-              <span className="text-[#D0D6BB]/50 uppercase mr-0.5">Total:</span>
-              <span className="font-bold text-white">{model.positions.length}</span>
+          <div className="hidden sm:flex items-center gap-2.5 border-l border-[var(--sw-border)] pl-3 text-xs font-sans">
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--sw-text-secondary)]">Total:</span>
+              <span className="font-semibold text-[var(--sw-text-primary)]">{model.positions.length}</span>
             </div>
-            <div>
-              <span className="text-rose-300/60 uppercase mr-0.5">Vacant:</span>
-              <span className="font-bold text-rose-300">{model.positions.filter(p => p.status === 'open').length}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--sw-text-secondary)]">Vacant:</span>
+              <span className="font-semibold text-[var(--state-danger)] px-1.5 py-0.5 rounded bg-[var(--state-danger-bg)] text-[11px]">{model.positions.filter(p => p.status === 'open').length}</span>
             </div>
-            <div>
-              <span className="text-sky-300/60 uppercase mr-0.5">Planned:</span>
-              <span className="font-bold text-sky-300">{model.positions.filter(p => p.status === 'planned').length}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--sw-text-secondary)]">Planned:</span>
+              <span className="font-semibold text-[var(--state-info)] px-1.5 py-0.5 rounded bg-[var(--state-info-bg)] text-[11px]">{model.positions.filter(p => p.status === 'planned').length}</span>
             </div>
-            <div>
-              <span className="text-emerald-400/60 uppercase mr-0.5">AI:</span>
-              <span className="font-bold text-emerald-300">{model.positions.filter(p => p.status === 'virtual_ai').length}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[var(--sw-text-secondary)]">AI:</span>
+              <span className="font-semibold text-[var(--state-ai)] px-1.5 py-0.5 rounded bg-[var(--state-ai-bg)] text-[11px]">{model.positions.filter(p => p.status === 'virtual_ai').length}</span>
             </div>
           </div>
 
-          {hasChanges ? (
-            <span className="text-[8px] text-amber-300 font-mono font-bold uppercase tracking-wider animate-pulse ml-1">Unsaved</span>
-          ) : (
-            <span className="text-[8px] text-[#D0D6BB]/50 font-mono uppercase tracking-wider ml-1">Saved ✓</span>
-          )}
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
+            {hasChanges ? (
+              <span 
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-[var(--state-warning)] bg-[var(--state-warning-bg)] border border-[var(--state-warning)]/20"
+                aria-live="polite"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--state-warning)] animate-pulse" />
+                Unsaved
+              </span>
+            ) : (
+              <span 
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--state-success)]"
+                aria-live="polite"
+              >
+                <Check className="w-3.5 h-3.5 text-[var(--state-success)]" />
+                Saved
+              </span>
+            )}
 
-          <button
-            onClick={handleSave}
-            disabled={saveStatus === 'saving'}
-            className={`px-4 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ml-1 ${
-              hasChanges 
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border border-white/20' 
-                : 'bg-white/5 border border-white/5 text-[#D0D6BB]/40 cursor-default'
-            }`}
-          >
-            <Check className="w-3.5 h-3.5" />
-            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
-          </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges || saveStatus === 'saving'}
+              aria-disabled={!hasChanges || saveStatus === 'saving'}
+              aria-label={saveStatus === 'saving' ? 'Saving changes' : saveStatus === 'saved' ? 'Changes saved' : hasChanges ? 'Save changes' : 'No changes to save'}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all min-h-[44px] sm:min-h-0 ${
+                hasChanges 
+                  ? 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)] hover:bg-[var(--brand-primary)]/90 border border-[var(--brand-primary)] shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2' 
+                  : 'bg-[var(--sw-canvas)] border border-[var(--sw-border)] text-[var(--sw-text-secondary)] opacity-[var(--sw-opacity-disabled)] cursor-not-allowed'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5" />
+              {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -9254,6 +9271,17 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
           person={activeProfilePerson}
           workspaceId={workspaceId}
           autoDownloadPDF={autoExportPdf}
+          onEdit={(person) => {
+            setActiveProfilePerson(null);
+            const pos = model.positions.find(
+              p => (p.id && p.id === person.id) ||
+                   (p.email && person.email && p.email.toLowerCase() === person.email.toLowerCase()) ||
+                   (p.name && p.name.toLowerCase() === person.displayName?.toLowerCase())
+            );
+            if (pos) {
+              openEditDrawer('position', pos.id);
+            }
+          }}
         />
       )}
     </>

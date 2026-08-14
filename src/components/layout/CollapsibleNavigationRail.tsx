@@ -68,6 +68,8 @@ export default function CollapsibleNavigationRail({
 }: CollapsibleNavigationRailProps) {
   const [counts, setCounts] = useState({ active: 0, approvals: 0 });
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [collapsedLogoFailed, setCollapsedLogoFailed] = useState(false);
 
   // Accordion section open/collapsed state
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -191,41 +193,54 @@ export default function CollapsibleNavigationRail({
           }
         }}
         disabled={isDisabled}
-        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all group relative nav-item-shell ${
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all group relative nav-item-shell focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 focus-visible:outline-none min-h-[40px] cursor-pointer ${
           isDisabled
-            ? 'opacity-40 cursor-not-allowed text-[#F6F7F1]/40'
+            ? 'opacity-40 cursor-not-allowed text-[var(--sw-text-muted)]'
             : isActive
-              ? 'nav-item-active text-white bg-white/10 shadow-sm border border-emerald-500/30'
-              : 'text-[#F6F7F1]/70 hover:bg-white/5 hover:text-white'
+              ? 'nav-item-active text-white bg-[var(--brand-primary)] border border-[var(--brand-primary)] shadow-2xs font-bold'
+              : 'text-[var(--sw-text-secondary)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand-primary)]'
         }`}
         aria-label={item.name}
       >
-        <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${animClass} ${isActive ? 'text-emerald-300' : isDisabled ? 'text-[#F6F7F1]/40' : 'text-[#F6F7F1]/70 group-hover:text-white'}`} />
-        {(!collapsed || isMobileOpen) && <span className="truncate">{item.name}</span>}
+        {item.tab === 'Workboard' || item.tab === 'Nest Ops Hub' || Icon === Brain ? (
+          <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 flex items-center justify-center pointer-events-none shadow-xs">
+            <video
+              src="/nest_ops_orb.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover pointer-events-none motion-reduce:animate-none"
+            />
+          </div>
+        ) : (
+          <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${animClass} ${isActive ? 'text-white' : isDisabled ? 'text-[var(--sw-text-muted)]' : 'text-[var(--brand-primary)] group-hover:text-[var(--brand-primary)]'}`} />
+        )}
+        {(!collapsed || isMobileOpen) && <span className="truncate text-left">{item.name}</span>}
 
         {item.comingSoon && (!collapsed || isMobileOpen) && (
-          <span className="ml-auto px-2 py-0.5 text-[8px] font-extrabold font-mono uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full whitespace-nowrap shadow-sm">
+          <span className="ml-auto px-2 py-0.5 text-[8px] font-extrabold font-mono uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300 rounded-full whitespace-nowrap shadow-2xs">
             Coming Soon
           </span>
         )}
 
         {item.badge && item.badge > 0 && (!collapsed || isMobileOpen) && (
           <span className={`ml-auto px-2 py-0.5 text-[10px] font-bold rounded-full ${
-            isActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/10 text-white/80'
+            isActive ? 'bg-white/20 text-white border border-white/30' : 'bg-[var(--sw-canvas)] text-[var(--sw-text-secondary)] group-hover:bg-white group-hover:text-[var(--brand-primary)]'
           }`}>
             {item.badge}
           </span>
         )}
         {item.badge && item.badge > 0 && collapsed && !isMobileOpen && (
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-400 rounded-full" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--brand-primary)] rounded-full" />
         )}
 
-        {/* Custom CSS tooltips when collapsed */}
+        {/* Custom CSS tooltips when collapsed: light surface with dark readable text */}
         {collapsed && !isMobileOpen && (
-          <div className="absolute left-full ml-2 px-2.5 py-1 bg-stone-900 text-white text-[10px] font-bold font-sans uppercase tracking-wider rounded shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 z-50 whitespace-nowrap">
+          <div className="absolute left-full ml-2.5 px-3 py-1.5 bg-[var(--sw-surface)] text-[var(--sw-text-primary)] border border-[var(--sw-border)] text-[11px] font-bold font-sans uppercase tracking-wider rounded-lg shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 z-50 whitespace-nowrap">
             {item.name} {item.comingSoon ? '(Coming Soon)' : ''}
             {item.badge && item.badge > 0 ? (
-              <span className="ml-1.5 px-1.5 py-0.2 bg-emerald-500 text-white rounded-full text-[9px] font-bold">
+              <span className="ml-1.5 px-1.5 py-0.2 bg-[var(--brand-soft)] text-[var(--brand-primary)] border border-[var(--brand-primary)]/20 rounded-full text-[9px] font-bold">
                 {item.badge}
               </span>
             ) : null}
@@ -236,16 +251,50 @@ export default function CollapsibleNavigationRail({
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#01362D] border-r border-[#01362D] select-none text-white overflow-x-hidden">
+    <div className="flex flex-col h-full bg-[var(--sw-surface)] border-r border-[var(--sw-border)] select-none text-[var(--sw-text-primary)] overflow-x-hidden">
       {/* Branding Header */}
-      <div className="h-16 flex items-center justify-center px-4 border-b border-white/5 shrink-0">
+      <div className="h-16 flex items-center justify-center px-4 border-b border-[var(--sw-border)] shrink-0 bg-[var(--sw-surface)]">
         {(!collapsed || isMobileOpen) ? (
-          <div className="flex items-center justify-center py-2 w-full px-2">
-            <img src="/nest-realty-logo.png" alt="Nest Realty" className="h-8 w-auto object-contain max-w-[130px]" />
+          <div className="flex items-center justify-center gap-2.5 py-2 w-full px-1 mx-auto">
+            {!logoFailed ? (
+              <picture className="flex items-center justify-center">
+                <source srcSet="/grvvh438gkf2xs9ggdjf.avif" type="image/avif" />
+                <img 
+                  src="/nest-realty-logo-green.png" 
+                  alt="Nest Realty"
+                  className="h-8 max-w-[140px] object-contain shrink-0 mx-auto"
+                  onError={() => setLogoFailed(true)}
+                />
+              </picture>
+            ) : (
+              <div className="flex items-center justify-center gap-2.5 font-serif font-bold select-none mx-auto">
+                <div className="w-8 h-8 rounded-xl bg-[#00635C] text-white flex items-center justify-center font-sans text-xs font-black shadow-sm shrink-0">
+                  N
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-xs tracking-tight text-[#00635C] font-extrabold uppercase font-sans leading-none">NEST REALTY</span>
+                  <span className="text-[9px] text-stone-500 font-medium font-sans mt-0.5">Wilmington Ops</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mx-auto flex items-center justify-center py-2 w-full">
-            <img src="/nest_n.png" alt="Nest" className="h-[22px] w-[22px] object-contain" />
+            {!collapsedLogoFailed ? (
+              <picture className="flex items-center justify-center">
+                <source srcSet="/nest_n_green.png" type="image/png" />
+                <img 
+                  src="/nest_n_green.png" 
+                  alt="Nest"
+                  className="h-7 w-7 object-contain shrink-0 mx-auto"
+                  onError={() => setCollapsedLogoFailed(true)}
+                />
+              </picture>
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-[#00635C] text-white flex items-center justify-center font-sans text-xs font-black shadow-sm mx-auto">
+                N
+              </div>
+            )}
           </div>
         )}
 
@@ -253,7 +302,7 @@ export default function CollapsibleNavigationRail({
         {isMobileOpen && (
           <button 
             onClick={() => setIsMobileOpen(false)}
-            className="md:hidden p-1 rounded-lg hover:bg-white/10 text-white/70 hover:text-white shrink-0"
+            className="md:hidden p-1 rounded-lg hover:bg-[var(--sw-canvas)] text-[var(--brand-primary)] shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
@@ -274,9 +323,9 @@ export default function CollapsibleNavigationRail({
 
           if (group.isStandalone) {
             return (
-              <div key={group.category} className="space-y-1 pb-2 border-b border-white/10">
+              <div key={group.category} className="space-y-1 pb-2 border-b border-[var(--sw-border)]">
                 {(!collapsed || isMobileOpen) && (
-                  <div className="px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-emerald-400">
+                  <div className="px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-[var(--brand-secondary)]">
                     {group.category}
                   </div>
                 )}
@@ -293,13 +342,13 @@ export default function CollapsibleNavigationRail({
               {(!collapsed || isMobileOpen) && (
                 <button
                   onClick={() => toggleSection(group.category)}
-                  className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#D0D6BB]/70 hover:text-white transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--sw-text-secondary)] hover:text-[var(--brand-primary)] transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:outline-none rounded-md"
                 >
                   <span>{group.category}</span>
                   {isOpen ? (
-                    <ChevronDown className="w-3 h-3 text-[#D0D6BB]/60" />
+                    <ChevronDown className="w-3 h-3 text-[var(--sw-text-secondary)]" />
                   ) : (
-                    <ChevronRight className="w-3 h-3 text-[#D0D6BB]/60" />
+                    <ChevronRight className="w-3 h-3 text-[var(--sw-text-secondary)]" />
                   )}
                 </button>
               )}
@@ -317,17 +366,17 @@ export default function CollapsibleNavigationRail({
 
       {/* Support Card */}
       {(!collapsed || isMobileOpen) && (
-        <div className="mx-3 my-2 p-3 bg-[rgba(246,247,241,0.08)] border border-[rgba(246,247,241,0.16)] rounded-xl space-y-2 text-left shrink-0">
-          <div className="flex items-center gap-1.5 text-[#F6F7F1] font-sans font-bold text-[11px]">
-            <HelpCircle className="w-3.5 h-3.5 text-[#D0D6BB]" />
+        <div className="mx-3 my-2 p-3 bg-[var(--sw-canvas)] border border-[var(--sw-border)] rounded-xl space-y-2 text-left shrink-0">
+          <div className="flex items-center gap-1.5 text-[var(--sw-text-primary)] font-sans font-bold text-[11px]">
+            <HelpCircle className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
             <span>Need help?</span>
           </div>
-          <p className="text-[10px] text-[#F6F7F1]/60 leading-normal">
+          <p className="text-[10px] text-[var(--sw-text-secondary)] leading-normal">
             Connect with the Ops team.
           </p>
           <button 
             onClick={() => setIsSupportModalOpen(true)}
-            className="w-full py-1.5 bg-[#00635C] hover:bg-[#007c73] text-[#F6F7F1] text-[10px] font-bold rounded-lg transition-colors cursor-pointer text-center shadow-[0_2px_6px_rgba(0,99,92,0.3)] border-none"
+            className="w-full py-1.5 bg-[var(--brand-primary)] hover:bg-[var(--brand-primary)]/90 text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer text-center shadow-xs border border-transparent focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:outline-none"
           >
             Contact Support
           </button>
@@ -341,16 +390,16 @@ export default function CollapsibleNavigationRail({
       />
 
       {/* Integrated Sidebar Footer */}
-      <div className="border-t border-white/5 bg-white/[0.02] shrink-0 flex flex-col overflow-hidden">
+      <div className="border-t border-[var(--sw-border)] bg-[var(--sw-surface)] shrink-0 flex flex-col overflow-hidden">
         {/* Operator Control Plane Link for Admins */}
         {(['marcus@shapework.co', 'adam@shapework.co', 'matt@shapework.co', 'admin@shapework.co'].includes(activeProfile?.email?.toLowerCase() || '') || activeProfile?.role === 'admin') && (
           <div className="px-3 pt-2">
             <a
               href="/internal"
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 rounded-xl text-[10px] font-mono font-bold uppercase transition-all shadow-sm"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl text-[10px] font-mono font-bold uppercase transition-all shadow-xs focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
               title="Switch to Internal Operator Console"
             >
-              <Sliders className="w-3.5 h-3.5 shrink-0 text-amber-300" />
+              <Sliders className="w-3.5 h-3.5 shrink-0 text-amber-700" />
               {(!collapsed || isMobileOpen) && <span className="truncate">Operator Console</span>}
             </a>
           </div>
@@ -358,15 +407,15 @@ export default function CollapsibleNavigationRail({
 
         {/* User Profile Block */}
         {activeProfile && (
-          <div className="flex flex-col border-t border-white/5 bg-black/10">
+          <div className="flex flex-col border-t border-[var(--sw-border)] bg-[var(--sw-surface)]">
             <div className={`flex items-center ${(!collapsed || isMobileOpen) ? 'gap-3 px-4 py-2.5' : 'justify-center py-2.5'} min-w-0`}>
-              <div className="w-8 h-8 rounded-full bg-[#D0D6BB] text-[#01362D] font-bold flex items-center justify-center shrink-0 text-xs shadow-sm border border-[rgba(246,247,241,0.15)]">
+              <div className="w-8 h-8 rounded-full bg-[var(--brand-soft)] text-[var(--brand-primary)] font-bold flex items-center justify-center shrink-0 text-xs shadow-xs border border-[var(--brand-primary)]/20">
                 {activeProfile.name.charAt(0)}
               </div>
               {(!collapsed || isMobileOpen) && (
                 <div className="flex flex-col min-w-0 text-left">
-                  <span className="text-xs font-bold text-white truncate">{activeProfile.name}</span>
-                  <span className="text-[9px] text-[#D0D6BB] capitalize truncate">{activeProfile.role.replace(/_/g, ' ')}</span>
+                  <span className="text-xs font-bold text-[var(--sw-text-primary)] truncate">{activeProfile.name}</span>
+                  <span className="text-[10px] text-[var(--sw-text-secondary)] capitalize font-medium truncate">{activeProfile.role.replace(/_/g, ' ')}</span>
                 </div>
               )}
             </div>
@@ -376,22 +425,22 @@ export default function CollapsibleNavigationRail({
               <button
                 type="button"
                 onClick={() => handleNavClick('Settings')}
-                className={`w-full flex items-center ${(!collapsed || isMobileOpen) ? 'gap-2.5 px-3 py-2' : 'justify-center p-2'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`w-full flex items-center ${(!collapsed || isMobileOpen) ? 'gap-2.5 px-3 py-2' : 'justify-center p-2'} rounded-xl text-xs font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 focus-visible:outline-none ${
                   currentTab === 'Settings' || currentTab === 'Workspace Settings'
-                    ? 'bg-[#00635C] text-white shadow-md border border-emerald-400/40 font-bold'
-                    : 'text-[#D0D6BB] hover:bg-white/5 hover:text-white border border-transparent'
+                    ? 'bg-[var(--brand-primary)] text-white border border-[var(--brand-primary)] font-bold shadow-2xs'
+                    : 'text-[var(--sw-text-secondary)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand-primary)] border border-transparent'
                 }`}
                 title="Workspace Settings"
               >
-                <Settings className="w-4 h-4 text-emerald-300 shrink-0" />
-                {(!collapsed || isMobileOpen) && <span className="truncate font-mono text-[11px]">Workspace Settings</span>}
+                <Settings className={`w-4 h-4 shrink-0 ${currentTab === 'Settings' || currentTab === 'Workspace Settings' ? 'text-white' : 'text-[var(--brand-primary)]'}`} />
+                {(!collapsed || isMobileOpen) && <span className="truncate font-sans font-semibold text-[11px]">Workspace Settings</span>}
               </button>
             </div>
           </div>
         )}
 
         {/* Bottom control rail */}
-        <div className={`p-3 border-t border-white/5 flex ${collapsed && !isMobileOpen ? 'flex-col items-center' : 'flex-row'} gap-2 overflow-hidden`}>
+        <div className={`p-3 border-t border-[var(--sw-border)] bg-[var(--sw-canvas)] flex ${collapsed && !isMobileOpen ? 'flex-col items-center' : 'flex-row'} gap-2 overflow-hidden`}>
           <button
             onClick={async () => {
               sessionStorage.setItem('shapework_logged_out', 'true');
@@ -403,16 +452,16 @@ export default function CollapsibleNavigationRail({
               } catch {}
               window.location.href = '/login';
             }}
-            className={`flex items-center justify-center text-[#D0D6BB] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0 ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'flex-1 py-1.5'}`}
+            className={`flex items-center justify-center text-[var(--sw-text-secondary)] hover:text-[var(--brand-primary)] hover:bg-[var(--brand-soft)] rounded-lg transition-colors cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 focus-visible:outline-none ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'flex-1 py-1.5'}`}
             title="Logout"
           >
-            <LogOut className="w-4 h-4 shrink-0" />
+            <LogOut className="w-4 h-4 shrink-0 text-[var(--sw-text-secondary)]" />
             {(!collapsed || isMobileOpen) && <span className="text-[10px] font-bold uppercase tracking-wider ml-2 truncate">Logout</span>}
           </button>
           
           <button
             onClick={handleToggle}
-            className={`flex text-[#D0D6BB] hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer justify-center items-center shrink-0 ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'p-1.5'}`}
+            className={`flex text-[var(--sw-text-secondary)] hover:text-[var(--brand-primary)] hover:bg-[var(--brand-soft)] rounded-lg transition-colors cursor-pointer justify-center items-center shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 focus-visible:outline-none ${collapsed && !isMobileOpen ? 'w-8 h-8' : 'p-1.5'}`}
             title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             {collapsed ? <ChevronRight className="w-4 h-4 shrink-0" /> : <ChevronLeft className="w-4 h-4 shrink-0" />}

@@ -185,6 +185,7 @@ export function useMarketingBuildStream(
   return {
     job,
     events,
+    resolution,
     isConnected,
     error,
     submitInput,

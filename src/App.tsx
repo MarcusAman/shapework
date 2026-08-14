@@ -48,6 +48,8 @@ const PublicResetPassword = lazyWithRetry(() => import('./components/public/Publ
 const PublicTerms = lazyWithRetry(() => import('./components/public/PublicTerms'));
 const PublicPrivacy = lazyWithRetry(() => import('./components/public/PublicPrivacy'));
 import { ClientDealPortal, AgentActionPortal, SmartIntakeLink } from './components/headless/HeadlessPortals';
+import { ToastProvider, ToastContainer } from './components/ui';
+
 
 export default function App() {
   const [currentPath, setCurrentPath] = React.useState(window.location.pathname);
@@ -181,6 +183,19 @@ export default function App() {
     );
   }
 
+  const isAuthorRoute = currentPath.startsWith('/author/sop/');
+  if (isAuthorRoute) {
+    const EmployeeAuthoringPortal = React.lazy(() => import('./routes/EmployeeAuthoringPortal').then(m => ({ default: m.EmployeeAuthoringPortal })));
+    const token = currentPath.replace('/author/sop/', '').replace(/\/$/, '');
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={<div className="min-h-screen bg-[#01362D] flex items-center justify-center font-sans text-xs text-[#D0D6BB] animate-pulse">Loading SOP authoring portal...</div>}>
+          <EmployeeAuthoringPortal invitationToken={token} onClose={() => navigate('/')} />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   const isIntakeLink = currentPath.startsWith('/request/');
   if (isIntakeLink) {
     const type = currentPath.split('/')[2] || 'support';
@@ -237,66 +252,70 @@ export default function App() {
 
   if (isDemo || isApp || isInternal) {
     return (
-      <React.Suspense fallback={
-        <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
-          Loading shapework...
-        </div>
-      }>
-        {isInternal ? (
-          <ErrorBoundary>
-            <InternalConsole />
-          </ErrorBoundary>
-        ) : isDemo ? (
-          <ErrorBoundary>
-            <DemoConsole />
-          </ErrorBoundary>
-        ) : (
-          <ErrorBoundary>
-            <WorkspaceAccessGate>
-              <WorkspaceConsole />
-            </WorkspaceAccessGate>
-          </ErrorBoundary>
-        )}
-      </React.Suspense>
+      <ToastProvider>
+        <ToastContainer />
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
+            Loading shapework...
+          </div>
+        }>
+          {isInternal ? (
+            <ErrorBoundary>
+              <InternalConsole />
+            </ErrorBoundary>
+          ) : isDemo ? (
+            <ErrorBoundary>
+              <DemoConsole />
+            </ErrorBoundary>
+          ) : (
+            <ErrorBoundary>
+              <WorkspaceAccessGate>
+                <WorkspaceConsole />
+              </WorkspaceAccessGate>
+            </ErrorBoundary>
+          )}
+        </React.Suspense>
+      </ToastProvider>
     );
   }
 
   // Render Public Website
   const renderPublicPage = () => {
-    if (currentPath === '/method') {
+    const cleanPath = currentPath.split('?')[0].replace(/\/$/, '') || '/';
+    if (cleanPath === '/method') {
       return <PublicMethod onNavigate={navigate} />;
     }
-    if (currentPath === '/brokerages') {
+    if (cleanPath === '/brokerages') {
       return <PublicBrokerages onNavigate={navigate} />;
     }
-    if (currentPath === '/operational-intelligence') {
+    if (cleanPath === '/operational-intelligence') {
       return <PublicIntelligence onNavigate={navigate} />;
     }
-    if (currentPath === '/login') {
+    if (cleanPath === '/login') {
       return <PublicLogin onNavigate={navigate} />;
     }
-    if (currentPath === '/forgot-password') {
+    if (cleanPath === '/forgot-password') {
       return <PublicForgotPassword onNavigate={navigate} />;
     }
-    if (currentPath.startsWith('/reset-password')) {
+    if (cleanPath.startsWith('/reset-password')) {
       return <PublicResetPassword onNavigate={navigate} />;
     }
-    if (currentPath === '/discovery' || currentPath === '/request-discovery') {
+    if (cleanPath === '/discovery' || cleanPath === '/request-discovery') {
       return <PublicDiscoveryRequest onNavigate={navigate} />;
     }
-    if (currentPath === '/about') {
+    if (cleanPath === '/about') {
       return <PublicAbout onNavigate={navigate} />;
     }
-    if (currentPath === '/terms') {
+    if (cleanPath === '/terms') {
       return <PublicTerms onNavigate={navigate} />;
     }
-    if (currentPath === '/privacy') {
+    if (cleanPath === '/privacy') {
       return <PublicPrivacy onNavigate={navigate} />;
     }
-    if (currentPath === '/field-notes' || currentPath.startsWith('/field-notes/')) {
+    if (cleanPath === '/field-notes' || cleanPath.startsWith('/field-notes/')) {
       return <PublicFieldNotes currentPath={currentPath} onNavigate={navigate} />;
     }
-    return <PublicLogin onNavigate={navigate} />;
+    return <PublicHome onNavigate={navigate} />;
   };
 
   const isLegalPage = currentPath === '/terms' || currentPath === '/privacy';

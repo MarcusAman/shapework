@@ -10,6 +10,7 @@ import {
   FileText,
   Image,
   Play,
+  Pause,
   Plus,
   ArrowRight,
   Search,
@@ -241,6 +242,7 @@ export default function MarketingIntakeConsole({
   const [showFullScreenPreviewModal, setShowFullScreenPreviewModal] = useState(false);
   const [showRegenerateConfirmModal, setShowRegenerateConfirmModal] = useState(false);
   const [isAskShapeworkOpen, setIsAskShapeworkOpen] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
 
   // Build View sidecar state & stream hook
   const [activeJobId, setActiveJobId] = useState<string | null>(() => {
@@ -1817,12 +1819,12 @@ export default function MarketingIntakeConsole({
     <div className="space-y-4 text-left font-sans text-xs text-[#FFFDF8] relative">
       {/* Toast Notification */}
       {intakeToast && (
-        <div className="fixed top-6 right-6 z-50 bg-[#01362D] border border-emerald-400 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-mono font-bold flex items-center gap-3 animate-bounce max-w-md">
-          <Bot className="w-5 h-5 text-emerald-300 shrink-0" />
+        <div className="fixed top-6 right-6 z-50 bg-[var(--sw-surface,#FFFFFF)] border border-[var(--brand-primary,#00635C)] text-[var(--sw-text-primary,#17231F)] px-5 py-3 rounded-2xl shadow-2xl text-xs font-sans font-bold flex items-center gap-3 animate-bounce max-w-md">
+          <Bot className="w-5 h-5 text-[var(--brand-primary,#00635C)] shrink-0" />
           <span>{intakeToast}</span>
           <button
             onClick={() => setIntakeToast(null)}
-            className="ml-auto text-white/60 hover:text-white"
+            className="ml-auto text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1836,7 +1838,7 @@ export default function MarketingIntakeConsole({
           <nav
             aria-label="Marketing views"
             data-testid="marketing-top-navigation"
-            className="flex w-full items-center justify-between gap-2 overflow-x-auto border-b border-[rgba(208,214,187,0.14)] pb-3 pt-1 no-scrollbar"
+            className="flex w-full items-center justify-between gap-2 overflow-x-auto border-b border-[var(--sw-border,#E2E4DA)] pb-3 pt-1 no-scrollbar"
           >
             <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
               {MARKETING_SUBTABS.map((tab) => {
@@ -1857,8 +1859,8 @@ export default function MarketingIntakeConsole({
                     data-testid={`marketing-nav-${tab.id}`}
                     className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
                       isActive
-                        ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)] shadow-xs"
-                        : "text-[rgba(246,247,241,0.7)] hover:text-[#FFFDF8] hover:bg-[#0B4A3F]/50 font-semibold"
+                        ? "bg-[var(--brand-primary,#00635C)] text-white shadow-2xs"
+                        : "text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)] hover:bg-[var(--brand-soft,#F2F7F5)] border border-[var(--sw-border,#E2E4DA)] font-semibold"
                     }`}
                   >
                     <span>
@@ -1866,7 +1868,9 @@ export default function MarketingIntakeConsole({
                       {tab.label} {tab.secondaryLabel ? `(${tab.secondaryLabel})` : ""}
                     </span>
                     {countBadge !== null && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/30 text-emerald-300 font-bold">
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                        isActive ? "bg-white/20 text-white" : "bg-[var(--sw-canvas,#FBF8F0)] text-[var(--brand-primary,#00635C)]"
+                      }`}>
                         {countBadge}
                       </span>
                     )}
@@ -1993,23 +1997,23 @@ export default function MarketingIntakeConsole({
               {workboardViewMode === "grouped" ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-left">
                   {/* Group 1: INTAKE */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-4 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2.5">
+                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
                       <div>
-                        <h3 className="font-serif font-bold text-sm text-[#FFFDF8]">
+                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
                           Intake Stage
                         </h3>
-                        <p className="text-[10px] text-[rgba(246,247,241,0.6)]">
+                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
                           New Requests & Information Gathering
                         </p>
                       </div>
-                      <span className="px-2.5 py-0.5 bg-[#00635C] text-[#FFFDF8] rounded-full text-xs font-bold border border-emerald-400/30">
+                      <span className="px-2.5 py-0.5 bg-[var(--brand-primary,#00635C)] text-white rounded-full text-xs font-bold shadow-2xs">
                         2
                       </span>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider">
+                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
                         New Intake (1)
                       </div>
                       {tasks
@@ -2017,32 +2021,32 @@ export default function MarketingIntakeConsole({
                         .map((t) => (
                           <div
                             key={t.id}
-                            className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] hover:bg-[#115548] rounded-2xl p-3.5 space-y-2.5 shadow-sm text-[#FFFDF8]"
+                            className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all text-[var(--sw-text-primary,#17231F)]"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md text-[9px] font-bold uppercase">
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md text-[9px] font-bold uppercase">
                                 {t.priority}
                               </span>
-                              <span className="text-[10px] text-[rgba(246,247,241,0.6)] font-mono">
+                              <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
                                 {t.dueDate}
                               </span>
                             </div>
                             <div>
-                              <h4 className="font-bold text-xs text-[#FFFDF8]">
+                              <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
                                 {t.title}
                               </h4>
-                              <p className="text-[11px] text-[rgba(246,247,241,0.74)] mt-0.5">
+                              <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
                                 Caller: {t.caller}
                               </p>
                             </div>
-                            <div className="pt-2 border-t border-[rgba(208,214,187,0.14)] flex items-center justify-between">
-                              <span className="text-[9px] text-[rgba(246,247,241,0.6)]">
+                            <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
+                              <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)]">
                                 Jessica — Assistant
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleDelegateToVA(t.id)}
-                                className="px-2.5 py-1 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer border border-emerald-400/30"
+                                className="px-2.5 py-1 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
                               >
                                 <span>Complete Intake</span>
                                 <ArrowRight className="w-3 h-3" />
@@ -2051,28 +2055,28 @@ export default function MarketingIntakeConsole({
                           </div>
                         ))}
 
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider pt-2 border-t border-[rgba(208,214,187,0.14)]">
+                      <div className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary,#52605B)] uppercase tracking-wider pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
                         Needs Information (1)
                       </div>
-                      <div className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 space-y-2.5 shadow-sm text-[#FFFDF8]">
+                      <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs text-[var(--sw-text-primary,#17231F)]">
                         <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-md text-[9px] font-bold uppercase">
+                          <span className="px-2 py-0.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-md text-[9px] font-bold uppercase">
                             Awaiting Input
                           </span>
-                          <span className="text-[10px] text-[rgba(246,247,241,0.6)] font-mono">
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
                             Aug 6
                           </span>
                         </div>
                         <div>
-                          <h4 className="font-bold text-xs text-[#FFFDF8]">
+                          <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
                             304 Ocean Blvd
                           </h4>
-                          <p className="text-[11px] text-[rgba(246,247,241,0.74)] mt-0.5">
+                          <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
                             Need Open-House Hours
                           </p>
                         </div>
-                        <div className="pt-2 border-t border-[rgba(208,214,187,0.14)] flex items-center justify-between">
-                          <span className="text-[9px] text-[rgba(246,247,241,0.6)]">
+                        <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
+                          <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)]">
                             Eric — Agent
                           </span>
                           <button
@@ -2082,7 +2086,7 @@ export default function MarketingIntakeConsole({
                                 "Requested open-house hours from listing agent!",
                               )
                             }
-                            className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                            className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
                           >
                             Request Info
                           </button>
@@ -2092,23 +2096,23 @@ export default function MarketingIntakeConsole({
                   </div>
 
                   {/* Group 2: PRODUCTION */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-4 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2.5">
+                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
                       <div>
-                        <h3 className="font-serif font-bold text-sm text-[#FFFDF8]">
+                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
                           Production Stage
                         </h3>
-                        <p className="text-[10px] text-[rgba(246,247,241,0.6)]">
+                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
                           Preparing Collateral & Applying Revisions
                         </p>
                       </div>
-                      <span className="px-2.5 py-0.5 bg-cyan-500/20 text-cyan-300 rounded-full text-xs font-bold border border-cyan-500/30">
+                      <span className="px-2.5 py-0.5 bg-cyan-50 text-cyan-800 rounded-full text-xs font-bold border border-cyan-200">
                         1
                       </span>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider">
+                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
                         Preparing (1)
                       </div>
                       {tasks
@@ -2116,63 +2120,63 @@ export default function MarketingIntakeConsole({
                         .map((t) => (
                           <div
                             key={t.id}
-                            className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] hover:bg-[#115548] rounded-2xl p-3.5 space-y-2.5 shadow-sm text-[#FFFDF8]"
+                            className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all text-[var(--sw-text-primary,#17231F)]"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-md text-[9px] font-bold uppercase flex items-center gap-1">
-                                <UserCheck className="w-2.5 h-2.5 text-cyan-300" />{" "}
+                              <span className="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-md text-[9px] font-bold uppercase flex items-center gap-1">
+                                <UserCheck className="w-2.5 h-2.5 text-cyan-800" />{" "}
                                 Rendering
                               </span>
-                              <span className="text-[10px] text-[rgba(246,247,241,0.6)] font-mono">
+                              <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
                                 {t.dueDate}
                               </span>
                             </div>
                             <div>
-                              <h4 className="font-bold text-xs text-[#FFFDF8]">
+                              <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
                                 {t.title}
                               </h4>
-                              <p className="text-[11px] text-[rgba(246,247,241,0.74)] mt-0.5">
+                              <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
                                 Caller: {t.caller}
                               </p>
                             </div>
-                            <div className="pt-2 border-t border-[rgba(208,214,187,0.14)] flex items-center justify-between">
-                              <span className="text-[9px] text-emerald-300 font-bold">
+                            <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
+                              <span className="text-[9px] text-[var(--brand-primary,#00635C)] font-bold">
                                 Jessica — Assistant
                               </span>
-                              <span className="text-[9px] text-[rgba(246,247,241,0.6)] font-mono">
+                              <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)] font-mono">
                                 Hi-Res PDF
                               </span>
                             </div>
                           </div>
                         ))}
 
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider pt-2 border-t border-[rgba(208,214,187,0.14)]">
+                      <div className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary,#52605B)] uppercase tracking-wider pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
                         Changes Requested (0)
                       </div>
-                      <div className="p-3 bg-[#0B4A3F]/40 border border-dashed border-[rgba(208,214,187,0.14)] rounded-2xl text-[10px] text-[rgba(246,247,241,0.5)] italic text-center">
+                      <div className="p-3 bg-[var(--sw-canvas,#FBF8F0)] border border-dashed border-[var(--sw-border,#E2E4DA)] rounded-2xl text-[10px] text-[var(--sw-text-secondary,#52605B)] italic text-center">
                         No active revision requests
                       </div>
                     </div>
                   </div>
 
                   {/* Group 3: REVIEW */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-4 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2.5">
+                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
                       <div>
-                        <h3 className="font-serif font-bold text-sm text-[#FFFDF8]">
+                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
                           Review & Approval Stage
                         </h3>
-                        <p className="text-[10px] text-[rgba(246,247,241,0.6)]">
+                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
                           Ready for Agent Review & Sign-Off
                         </p>
                       </div>
-                      <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold border border-amber-500/30">
+                      <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200">
                         2
                       </span>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider">
+                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
                         Ready for Review (1)
                       </div>
                       {tasks
@@ -2180,32 +2184,32 @@ export default function MarketingIntakeConsole({
                         .map((t) => (
                           <div
                             key={t.id}
-                            className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] hover:bg-[#115548] rounded-2xl p-3.5 space-y-2.5 shadow-sm text-[#FFFDF8]"
+                            className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all text-[var(--sw-text-primary,#17231F)]"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md text-[9px] font-bold uppercase">
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md text-[9px] font-bold uppercase">
                                 5/5 Ready
                               </span>
-                              <span className="text-[10px] text-[rgba(246,247,241,0.6)] font-mono">
+                              <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
                                 {t.dueDate}
                               </span>
                             </div>
                             <div>
-                              <h4 className="font-bold text-xs text-[#FFFDF8]">
+                              <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
                                 {t.title}
                               </h4>
-                              <p className="text-[11px] text-[rgba(246,247,241,0.74)] mt-0.5">
+                              <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
                                 Caller: {t.caller}
                               </p>
                             </div>
-                            <div className="pt-2 border-t border-[rgba(208,214,187,0.14)] flex items-center justify-between">
-                              <span className="text-[9px] text-[rgba(246,247,241,0.6)]">
+                            <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
+                              <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)]">
                                 Ryan Crecelius
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleTabSwitch("campaigns")}
-                                className="px-2.5 py-1 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-[10px] font-bold cursor-pointer border border-emerald-400/30"
+                                className="px-2.5 py-1 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
                               >
                                 Review Package
                               </button>
@@ -2213,20 +2217,20 @@ export default function MarketingIntakeConsole({
                           </div>
                         ))}
 
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider pt-2 border-t border-[rgba(208,214,187,0.14)]">
+                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
                         Approved (1)
                       </div>
-                      <div className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 space-y-2.5 shadow-sm text-[#FFFDF8]">
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-md text-[9px] font-bold uppercase block w-fit">
+                      <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs text-[var(--sw-text-primary,#17231F)]">
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[9px] font-bold uppercase block w-fit">
                           Approved by Agent
                         </span>
-                        <h4 className="font-bold text-xs text-[#FFFDF8]">
+                        <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
                           990 Inspiration Dr
                         </h4>
                         <button
                           type="button"
                           onClick={() => setShowDeliveryDrawer(true)}
-                          className="w-full py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-[10px] font-bold cursor-pointer border border-emerald-400/30"
+                          className="w-full py-1.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
                         >
                           Deliver Package
                         </button>
@@ -2235,17 +2239,17 @@ export default function MarketingIntakeConsole({
                   </div>
 
                   {/* Group 4: DELIVERED */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-4 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2.5">
+                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
                       <div>
-                        <h3 className="font-serif font-bold text-sm text-[#FFFDF8]">
+                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
                           Delivered Stage
                         </h3>
-                        <p className="text-[10px] text-[rgba(246,247,241,0.6)]">
+                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
                           Dispatched to Agent, CRM, & Printers
                         </p>
                       </div>
-                      <span className="px-2.5 py-0.5 bg-slate-500/20 text-[rgba(246,247,241,0.7)] rounded-full text-xs font-bold border border-slate-500/30">
+                      <span className="px-2.5 py-0.5 bg-slate-50 text-slate-700 rounded-full text-xs font-bold border border-slate-200">
                         {tasks.filter((t) => t.column === "completed").length}
                       </span>
                     </div>
@@ -2460,17 +2464,17 @@ export default function MarketingIntakeConsole({
           {(activeTab === "intake" || activeTab === "calls") && (
             <div data-testid="marketing-intake-view" className="space-y-4 w-full text-left">
               {/* Compact View Label */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <h2 className="font-bold text-sm text-[#D0D6BB] font-mono uppercase tracking-wider">
+              <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2">
+                <h2 className="font-bold text-sm text-[var(--sw-text-primary,#17231F)] font-mono uppercase tracking-wider">
                   Inbound requests
                 </h2>
-                <span className="text-xs text-[#D0D6BB]/70 font-mono">{calls.length} Phone & Multi-Channel Recordings</span>
+                <span className="text-xs text-[var(--sw-text-secondary,#52605B)] font-mono">{calls.length} Phone & Multi-Channel Recordings</span>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6">
                 {/* Left List: Calls */}
-                <div className="bg-[#01362D]/60 border border-[#00635C]/40 rounded-3xl p-4 space-y-3 shadow-lg backdrop-blur-md">
-                  <h3 className="font-bold text-xs text-white font-mono uppercase tracking-wider border-b border-white/10 pb-2">
+                <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
+                  <h3 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)] font-mono uppercase tracking-wider border-b border-[var(--sw-border,#E2E4DA)] pb-2">
                     Inbound Recordings ({calls.length})
                   </h3>
 
@@ -2479,10 +2483,10 @@ export default function MarketingIntakeConsole({
                       <button
                         key={c.id}
                         onClick={() => setSelectedCallId(c.id)}
-                        className={`w-full p-3 rounded-2xl text-left border transition-all cursor-pointer space-y-1 ${
+                        className={`w-full p-3 rounded-xl text-left border transition-all cursor-pointer space-y-1 ${
                           selectedCallId === c.id
-                            ? "bg-[#00635C] text-white border-emerald-400/40 shadow-md"
-                            : "bg-black/20 hover:bg-white/5 border-white/10 text-white"
+                            ? "bg-[var(--brand-primary,#00635C)] text-white border-[var(--brand-primary,#00635C)] shadow-2xs"
+                            : "bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] border-[var(--sw-border,#E2E4DA)] text-[var(--sw-text-primary,#17231F)]"
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -2490,13 +2494,13 @@ export default function MarketingIntakeConsole({
                             {c.callerName}
                           </span>
                           <span
-                            className={`text-[10px] font-mono ${selectedCallId === c.id ? "text-emerald-200" : "text-[#D0D6BB]/70"}`}
+                            className={`text-[10px] font-sans ${selectedCallId === c.id ? "text-emerald-100" : "text-[var(--sw-text-secondary,#52605B)]"}`}
                           >
                             {c.timestamp}
                           </span>
                         </div>
                         <p
-                          className={`text-[11px] truncate ${selectedCallId === c.id ? "text-[#F6F7F1]" : "text-[#D0D6BB]"}`}
+                          className={`text-[11px] truncate ${selectedCallId === c.id ? "text-white" : "text-[var(--sw-text-secondary,#52605B)]"}`}
                         >
                           {c.propertyAddress}
                         </p>
@@ -2504,7 +2508,7 @@ export default function MarketingIntakeConsole({
                           className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold inline-block ${
                             selectedCallId === c.id
                               ? "bg-white/20 text-white"
-                              : "bg-white/10 text-[#D0D6BB]"
+                              : "bg-[var(--sw-surface,#FFFFFF)] text-[var(--brand-primary,#00635C)] border border-[var(--sw-border,#E2E4DA)]"
                           }`}
                         >
                           {c.requestType}
@@ -2516,13 +2520,13 @@ export default function MarketingIntakeConsole({
 
                 {/* Right Area: Selected Call Transcript & AI Summary */}
                 {selectedCall && (
-                  <div className="bg-[#01362D]/60 border border-[#00635C]/40 rounded-3xl p-6 shadow-lg backdrop-blur-md space-y-5">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-6 shadow-xs space-y-5">
+                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-4">
                       <div>
-                        <h3 className="font-bold text-base text-white">
+                        <h3 className="font-bold text-base text-[var(--sw-text-primary,#17231F)]">
                           {selectedCall.callerName} — Inbound Call
                         </h3>
-                        <p className="text-xs text-[#D0D6BB] mt-0.5">
+                        <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">
                           {selectedCall.office} • {selectedCall.phone} •{" "}
                           {selectedCall.duration}
                         </p>
@@ -2539,7 +2543,7 @@ export default function MarketingIntakeConsole({
                             `Task assigned to Virtual Assistant (Jessica) for ${selectedCall.propertyAddress}`,
                           );
                         }}
-                        className="px-4 py-2 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer font-sans border border-emerald-500/30"
+                        className="px-4 py-2 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer font-sans"
                       >
                         <UserCheck className="w-3.5 h-3.5" />
                         <span>Assign to Jessica</span>
@@ -2547,83 +2551,89 @@ export default function MarketingIntakeConsole({
                     </div>
 
                     {/* Proposed Execution Details */}
-                    <div className="p-4 bg-[#003B33]/80 border border-emerald-500/30 rounded-2xl space-y-2">
-                      <div className="flex items-center justify-between text-xs text-[#D0D6BB]">
-                        <span className="font-mono font-bold text-emerald-300 uppercase">Proposed Execution Route</span>
-                        <span>Due Target: <strong className="text-white">Today 5:00 PM</strong></span>
+                    <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl space-y-2">
+                      <div className="flex items-center justify-between text-xs text-[var(--sw-text-secondary,#52605B)]">
+                        <span className="font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase">Proposed Execution Route</span>
+                        <span>Due Target: <strong className="text-[var(--sw-text-primary,#17231F)]">Today 5:00 PM</strong></span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
                         <div>
-                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">Proposed Work Items</span>
-                          <strong className="text-white">Flyer, Postcard, Email</strong>
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Proposed Work Items</span>
+                          <strong className="text-[var(--sw-text-primary,#17231F)]">Flyer, Postcard, Email</strong>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">Reviewer</span>
-                          <strong className="text-white">HQ Operations</strong>
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Reviewer</span>
+                          <strong className="text-[var(--brand-primary,#00635C)]">HQ Operations</strong>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">VA Readiness</span>
-                          <strong className="text-emerald-300">✓ 100% Certified</strong>
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">VA Readiness</span>
+                          <strong className="text-[var(--brand-primary,#00635C)]">✓ 100% Certified</strong>
                         </div>
                       </div>
                     </div>
 
-                    {/* Audio Waveform Player Simulation */}
-                    <div className="p-4 bg-black/30 border border-white/10 rounded-2xl flex items-center gap-4">
-                      <button className="w-9 h-9 rounded-xl bg-[#00635C] text-white flex items-center justify-center shrink-0 cursor-pointer hover:bg-[#007c73] transition-all">
-                        <Play className="w-4 h-4 fill-white ml-0.5" />
+                    {/* Audio Player Controls */}
+                    <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setIsPlayingAudio(!isPlayingAudio)}
+                        className="w-10 h-10 rounded-full bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
+                      >
+                        {isPlayingAudio ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5 ml-0.5" />
+                        )}
                       </button>
-                      <div className="flex-grow space-y-1">
-                        <div className="flex justify-between text-[10px] font-mono text-[#D0D6BB]">
+
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-[11px] font-mono text-[var(--sw-text-secondary,#52605B)]">
                           <span>Audio Recording ({selectedCall.duration})</span>
                           <span>0:00 / {selectedCall.duration}</span>
                         </div>
-                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden flex items-center">
-                          <div className="bg-emerald-400 h-full w-1/3 rounded-full"></div>
+                        <div className="w-full h-2 bg-[var(--sw-border,#E2E4DA)] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full bg-[var(--brand-primary,#00635C)] transition-all ${
+                              isPlayingAudio ? "w-1/2 animate-pulse" : "w-0"
+                            }`}
+                          />
                         </div>
                       </div>
                     </div>
 
-                    {/* AI Transcript Extraction Card */}
-                    <div className="p-4 bg-[#003B33]/80 border border-emerald-500/30 rounded-2xl space-y-2">
-                      <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider font-mono block">
+                    {/* Extracted Key Details */}
+                    <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl space-y-2">
+                      <span className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase block">
                         AI Key Details Extraction
                       </span>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                         <div>
-                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
-                            Property Price
-                          </span>
-                          <strong className="text-white">
-                            {selectedCall.aiExtractedDetails.price}
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Property Price</span>
+                          <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">
+                            {selectedCall.aiExtractedDetails?.price || selectedCall.extractedDetails?.listingPrice || '$875,000'}
                           </strong>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
-                            Bedrooms / Baths
-                          </span>
-                          <strong className="text-white">
-                            {selectedCall.aiExtractedDetails.bedrooms} /{" "}
-                            {selectedCall.aiExtractedDetails.bathrooms}
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Bedrooms / Baths</span>
+                          <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">
+                            {selectedCall.aiExtractedDetails ? `${selectedCall.aiExtractedDetails.bedrooms} / ${selectedCall.aiExtractedDetails.bathrooms}` : selectedCall.extractedDetails?.bedsBaths || '4 Beds / 3.5 Baths'}
                           </strong>
                         </div>
                         <div>
-                          <span className="text-[10px] text-[#D0D6BB]/70 font-mono block">
-                            Open House Schedule
-                          </span>
-                          <strong className="text-white">
-                            {selectedCall.aiExtractedDetails.openHouseDate}
+                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Open House Schedule</span>
+                          <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">
+                            {selectedCall.aiExtractedDetails?.openHouseDate || selectedCall.extractedDetails?.openHouse || 'This Sunday 2:00 PM - 4:00 PM'}
                           </strong>
                         </div>
                       </div>
                     </div>
 
-                    {/* Raw Transcript */}
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider font-mono block">
+                    {/* Call Transcript */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary,#52605B)] uppercase block">
                         Call Transcript
                       </span>
-                      <div className="p-4 bg-black/30 border border-white/10 rounded-2xl font-mono text-xs text-[#F6F7F1] leading-relaxed italic">
+                      <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl font-mono text-xs text-[var(--sw-text-primary,#17231F)] leading-relaxed italic">
                         "{selectedCall.transcript}"
                       </div>
                     </div>
@@ -2654,27 +2664,27 @@ export default function MarketingIntakeConsole({
 
           {/* TEMPLATES VIEW */}
           {activeTab === "templates" && (
-            <div data-testid="marketing-templates-view" className="space-y-6 text-left w-full">
+            <div data-testid="marketing-templates-view" className="space-y-6 text-left w-full font-sans">
               {/* Compact Header & Filter Row */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--sw-border,#E2E4DA)] pb-4">
                 <div className="flex items-center gap-3">
-                  <h2 className="font-serif font-bold text-xl text-white">Approved templates</h2>
-                  <span className="text-xs font-bold text-emerald-300 bg-emerald-900/50 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                  <h2 className="font-serif font-bold text-xl text-[var(--sw-text-primary,#17231F)]">Approved templates</h2>
+                  <span className="text-xs font-bold text-[var(--brand-primary,#00635C)] bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] px-2.5 py-0.5 rounded-full shadow-2xs">
                     3 active templates
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/10 text-xs">
-                    <button type="button" className="px-3 py-1 rounded-lg font-bold bg-[#176457] text-white">All formats</button>
-                    <button type="button" className="px-3 py-1 rounded-lg font-medium text-[#D0D6BB] hover:text-white">Active</button>
+                  <div className="flex items-center gap-1 bg-[var(--sw-canvas,#FBF8F0)] p-1 rounded-xl border border-[var(--sw-border,#E2E4DA)] text-xs">
+                    <button type="button" className="px-3 py-1 rounded-lg font-bold bg-[var(--brand-primary,#00635C)] text-white">All formats</button>
+                    <button type="button" className="px-3 py-1 rounded-lg font-medium text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]">Active</button>
                   </div>
 
                   {isOperator && (
                     <button
                       type="button"
                       onClick={() => alert('Create Template modal')}
-                      className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-white text-xs font-bold rounded-xl border border-emerald-400/30 shadow transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-4 py-2 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Create template</span>
@@ -2686,9 +2696,9 @@ export default function MarketingIntakeConsole({
               {/* Visual Template Previews Grid (3-4 columns) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {/* Template Card 1: Nest Editorial Property Flyer */}
-                <div className="bg-[#062f28] border border-[rgba(208,214,187,0.16)] hover:border-emerald-500/50 rounded-2xl p-4 space-y-3 shadow-md flex flex-col justify-between transition-all">
+                <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-4 space-y-3 shadow-2xs flex flex-col justify-between transition-all">
                   <div className="space-y-3">
-                    <div className="w-full aspect-[3/4] bg-slate-900 rounded-xl overflow-hidden relative border border-white/10 shadow-inner group">
+                    <div className="w-full aspect-[3/4] bg-[var(--sw-canvas,#FBF8F0)] rounded-xl overflow-hidden relative border border-[var(--sw-border,#E2E4DA)] shadow-inner group">
                       <img
                         src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw"
                         alt="Nest Editorial Property Flyer Preview"
@@ -2699,23 +2709,23 @@ export default function MarketingIntakeConsole({
                       </div>
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-white">Nest Editorial Property Flyer</h3>
-                      <p className="text-xs text-[#D0D6BB] mt-0.5">Letter · Active</p>
-                      <p className="text-[11px] font-mono text-[#D0D6BB]/70 mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
+                      <h3 className="font-bold text-sm text-[var(--sw-text-primary,#17231F)]">Nest Editorial Property Flyer</h3>
+                      <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">Letter · Active</p>
+                      <p className="text-[11px] font-mono text-[var(--sw-text-secondary,#52605B)] mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center gap-2 pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
                     <button
                       type="button"
                       onClick={() => alert('Opening preview for Nest Editorial Property Flyer')}
-                      className="flex-1 py-1.5 bg-black/30 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all text-center border border-white/10"
+                      className="flex-1 py-1.5 bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] text-[var(--sw-text-primary,#17231F)] rounded-lg text-xs font-bold transition-all text-center border border-[var(--sw-border,#E2E4DA)]"
                     >
                       Preview
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowNaturalLanguageChangeModal(true)}
-                      className="flex-1 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-xs font-bold transition-all text-center border border-emerald-400/30 shadow-sm"
+                      className="flex-1 py-1.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-xs font-bold transition-all text-center shadow-2xs"
                     >
                       Use template
                     </button>
@@ -2723,9 +2733,9 @@ export default function MarketingIntakeConsole({
                 </div>
 
                 {/* Template Card 2: Social Media Carousel Package */}
-                <div className="bg-[#062f28] border border-[rgba(208,214,187,0.16)] hover:border-emerald-500/50 rounded-2xl p-4 space-y-3 shadow-md flex flex-col justify-between transition-all">
+                <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-4 space-y-3 shadow-2xs flex flex-col justify-between transition-all">
                   <div className="space-y-3">
-                    <div className="w-full aspect-square bg-slate-900 rounded-xl overflow-hidden relative border border-white/10 shadow-inner group">
+                    <div className="w-full aspect-square bg-[var(--sw-canvas,#FBF8F0)] rounded-xl overflow-hidden relative border border-[var(--sw-border,#E2E4DA)] shadow-inner group">
                       <img
                         src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_pool/raw"
                         alt="Social Media Carousel Package Preview"
@@ -2736,23 +2746,23 @@ export default function MarketingIntakeConsole({
                       </div>
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-white">Social Media Carousel Package</h3>
-                      <p className="text-xs text-[#D0D6BB] mt-0.5">3-Slide Carousel · Active</p>
-                      <p className="text-[11px] font-mono text-[#D0D6BB]/70 mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
+                      <h3 className="font-bold text-sm text-[var(--sw-text-primary,#17231F)]">Social Media Carousel Package</h3>
+                      <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">3-Slide Carousel · Active</p>
+                      <p className="text-[11px] font-mono text-[var(--sw-text-secondary,#52605B)] mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center gap-2 pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
                     <button
                       type="button"
                       onClick={() => alert('Opening preview for Social Media Carousel Package')}
-                      className="flex-1 py-1.5 bg-black/30 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all text-center border border-white/10"
+                      className="flex-1 py-1.5 bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] text-[var(--sw-text-primary,#17231F)] rounded-lg text-xs font-bold transition-all text-center border border-[var(--sw-border,#E2E4DA)]"
                     >
                       Preview
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowNaturalLanguageChangeModal(true)}
-                      className="flex-1 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-xs font-bold transition-all text-center border border-emerald-400/30 shadow-sm"
+                      className="flex-1 py-1.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-xs font-bold transition-all text-center shadow-2xs"
                     >
                       Use template
                     </button>
@@ -2760,9 +2770,9 @@ export default function MarketingIntakeConsole({
                 </div>
 
                 {/* Template Card 3: Direct Mail Glossy Postcard */}
-                <div className="bg-[#062f28] border border-[rgba(208,214,187,0.16)] hover:border-emerald-500/50 rounded-2xl p-4 space-y-3 shadow-md flex flex-col justify-between transition-all">
+                <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-4 space-y-3 shadow-2xs flex flex-col justify-between transition-all">
                   <div className="space-y-3">
-                    <div className="w-full aspect-[3/2] bg-slate-900 rounded-xl overflow-hidden relative border border-white/10 shadow-inner group">
+                    <div className="w-full aspect-[3/2] bg-[var(--sw-canvas,#FBF8F0)] rounded-xl overflow-hidden relative border border-[var(--sw-border,#E2E4DA)] shadow-inner group">
                       <img
                         src="/api/marketing/campaigns/campaign_990_inspiration/assets/photo_patio/raw"
                         alt="Direct Mail Glossy Postcard Preview"
@@ -2773,23 +2783,23 @@ export default function MarketingIntakeConsole({
                       </div>
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-white">Direct Mail Glossy Postcard</h3>
-                      <p className="text-xs text-[#D0D6BB] mt-0.5">6x9 Postcard · Active</p>
-                      <p className="text-[11px] font-mono text-[#D0D6BB]/70 mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
+                      <h3 className="font-bold text-sm text-[var(--sw-text-primary,#17231F)]">Direct Mail Glossy Postcard</h3>
+                      <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">6x9 Postcard · Active</p>
+                      <p className="text-[11px] font-mono text-[var(--sw-text-secondary,#52605B)] mt-0.5">Brand Kit: Nest Wilmington 2.1</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                  <div className="flex items-center gap-2 pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
                     <button
                       type="button"
                       onClick={() => alert('Opening preview for Direct Mail Glossy Postcard')}
-                      className="flex-1 py-1.5 bg-black/30 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all text-center border border-white/10"
+                      className="flex-1 py-1.5 bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] text-[var(--sw-text-primary,#17231F)] rounded-lg text-xs font-bold transition-all text-center border border-[var(--sw-border,#E2E4DA)]"
                     >
                       Preview
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowNaturalLanguageChangeModal(true)}
-                      className="flex-1 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-xs font-bold transition-all text-center border border-emerald-400/30 shadow-sm"
+                      className="flex-1 py-1.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-xs font-bold transition-all text-center shadow-2xs"
                     >
                       Use template
                     </button>

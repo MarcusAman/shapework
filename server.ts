@@ -139,7 +139,7 @@ import { parseNestRechatRow } from './server/persistence/nestRechatParser.js';
 import { csrfProtection } from './server/auth/csrf.js';
 import { signJwt } from './server/auth/jwt.js';
 import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver, requireInternal } from './server/auth/auth.js';
-import { hashPassword, verifyPassword, loginRateLimiter } from './server/auth/password.js';
+import { hashPassword, verifyPassword, loginRateLimiter, resetRateLimiter, activationRateLimiter } from './server/auth/password.js';
 import { sendPasswordResetEmail } from './server/email/emailProvider.js';
 import { createPasswordResetToken, verifyAndConsumePasswordResetToken } from './server/auth/passwordReset.js';
 import { blockDemoToolsInProduction } from './server/auth/blockDemo';

@@ -140,7 +140,7 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
 
   const renderPage = () => {
     if (activeNav === 'shield') {
-      return <RyanShieldPage data={shieldData || buildRyanShieldSummary(rawModel || fallbackModel as any)} />;
+      return <RyanShieldPage data={shieldData || buildRyanShieldSummary(rawModel || fallbackModel as any)} state={state} />;
     }
     if (activeNav === 'roles') {
       return (
@@ -178,11 +178,11 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
       <div className="h-16 flex items-center justify-center px-4 border-b border-white/5 shrink-0">
         {!collapsed || mobileOpen ? (
           <div className="flex items-center justify-center py-2 w-full px-2">
-            <img src="/nest-realty-logo.png" alt="Nest Realty" className="h-8 w-auto object-contain max-w-[130px]" />
+            <img src="/nest-realty-logo-green.png" alt="Nest Realty" className="h-8 w-auto object-contain max-w-[130px]" />
           </div>
         ) : (
           <div className="mx-auto flex items-center justify-center py-2 w-full">
-            <img src="/nest_n.png" alt="Nest" className="h-[22px] w-[22px] object-contain" />
+            <img src="/nest_n_green.png" alt="Nest" className="h-[22px] w-[22px] object-contain" />
           </div>
         )}
 
@@ -210,15 +210,15 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
               }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all group relative nav-item-shell cursor-pointer ${
                 isActive
-                  ? 'nav-item-active text-white'
-                  : 'text-[#F6F7F1]/70 hover:bg-white/5 hover:text-white'
+                  ? 'nav-item-active text-white bg-[var(--brand-primary)]'
+                  : 'text-[var(--sw-text-secondary)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand-primary)]'
               }`}
             >
-              <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 nav-icon-motion ${isActive ? 'text-white' : 'text-[#F6F7F1]/70 group-hover:text-white'}`} />
+              <Icon className={`w-5 h-5 shrink-0 transition-transform duration-200 nav-icon-motion ${isActive ? 'text-white' : 'text-[var(--brand-primary)]'}`} />
               {(!collapsed || mobileOpen) && <span className="truncate">{item.label}</span>}
               
               {collapsed && !mobileOpen && (
-                <div className="absolute left-full ml-2 px-2.5 py-1 bg-stone-900 text-white text-[10px] font-bold font-sans uppercase tracking-wider rounded shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 z-50 whitespace-nowrap">
+                <div className="absolute left-full ml-2.5 px-3 py-1.5 bg-[var(--sw-surface)] text-[var(--sw-text-primary)] border border-[var(--sw-border)] text-[10px] font-bold font-sans uppercase tracking-wider rounded shadow-md opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 z-50 whitespace-nowrap">
                   {item.label}
                 </div>
               )}

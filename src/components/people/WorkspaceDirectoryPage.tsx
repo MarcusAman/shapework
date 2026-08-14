@@ -32,6 +32,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { orgChartService } from '../../services/orgChartService';
+import { invalidateWorkspaceDirectoryCache } from '../../utils/directoryCache';
 import RoleProfileModal from './RoleProfileModal';
 
 class ApiResponseError extends Error {
@@ -923,10 +924,23 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       setIsDuplicateWarningOpen(false);
       setBypassDuplicateCheck(false);
       setPossibleDuplicatePerson(null);
-      loadPeople();
-      if (selectedPerson && selectedPerson.id === formPersonId) {
-        setSelectedPerson(data.person);
+      
+      if (data && data.person) {
+        setPeople(prev => {
+          const exists = prev.some(p => p.id === data.person.id);
+          if (exists) {
+            return prev.map(p => p.id === data.person.id ? { ...p, ...data.person } : p);
+          }
+          return [...prev, data.person];
+        });
+        if (selectedPerson && (selectedPerson.id === formPersonId || selectedPerson.id === data.person.id)) {
+          setSelectedPerson(data.person);
+        }
       }
+      
+      invalidateWorkspaceDirectoryCache(workspaceId);
+      window.dispatchEvent(new CustomEvent('shapework_directory_mutated', { detail: { workspaceId, person: data.person } }));
+      loadPeople();
     } catch (err: any) {
       setNotification({ message: err.message || 'Error saving contact information.', type: 'error' });
     }
@@ -946,6 +960,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       setNotification({ message: 'Person deactivated successfully.', type: 'success' });
       setIsDrawerOpen(false);
       setSelectedPerson(null);
+      setPeople(prev => prev.map(p => p.id === id ? { ...p, status: 'inactive' } : p));
+      invalidateWorkspaceDirectoryCache(workspaceId);
+      window.dispatchEvent(new CustomEvent('shapework_directory_mutated', { detail: { workspaceId, id } }));
       loadPeople();
     } catch (err: any) {
       setNotification({ message: err.message || 'Error deactivating person.', type: 'error' });
@@ -964,37 +981,36 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
   };
 
   return (
-    <div className="space-y-6 text-left animate-fade-in relative min-h-screen p-6 bg-[#01362D] text-[#F6F7F1]">
+    <div className="space-y-6 text-left animate-fade-in relative min-h-screen p-6 bg-[var(--sw-canvas)] text-[var(--sw-text-primary)]">
       <style>{`
         .directory-panel {
-          background-color: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          backdrop-filter: blur(8px);
-          color: #ffffff !important;
+          background-color: var(--sw-surface);
+          border: 1px solid var(--sw-border) !important;
+          color: var(--sw-text-primary) !important;
         }
         .directory-text-primary {
-          color: #ffffff !important;
+          color: var(--sw-text-primary) !important;
         }
         .directory-text-secondary {
-          color: #D0D6BB !important;
+          color: var(--sw-text-secondary) !important;
         }
         .directory-placeholder::placeholder {
-          color: rgba(246, 247, 241, 0.4) !important;
+          color: var(--sw-text-muted) !important;
         }
         .directory-border {
-          border-color: rgba(255, 255, 255, 0.1) !important;
+          border-color: var(--sw-border) !important;
         }
         .directory-input {
-          background-color: rgba(0, 0, 0, 0.25) !important;
-          border: 1px solid rgba(255, 255, 255, 0.1) !important;
-          color: #ffffff !important;
+          background-color: var(--sw-surface) !important;
+          border: 1px solid var(--sw-border) !important;
+          color: var(--sw-text-primary) !important;
         }
         .directory-control-active {
-          background-color: #00635C !important;
+          background-color: var(--brand-secondary) !important;
           color: #ffffff !important;
         }
         .directory-btn-disabled {
-          color: rgba(208, 214, 187, 0.4) !important;
+          color: var(--sw-text-muted) !important;
         }
         
         /* Modal Overrides */
@@ -1074,10 +1090,10 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
         {/* Status Tabs */}
         <div className="flex border-b border-white/10 pb-1.5 overflow-x-auto gap-6 text-xs">
           {[
-            { value: 'active', label: 'Active', count: stats.active, color: 'text-emerald-400 border-emerald-500' },
-            { value: 'needs_review', label: 'Needs Review', count: stats.needsReview, color: 'text-amber-400 border-amber-500' },
-            { value: 'inactive', label: 'Inactive / Archived', count: stats.inactive, color: 'text-red-300 border-red-400' },
-            { value: 'all', label: 'All Contacts', count: stats.total, color: 'text-white border-white' }
+            { value: 'active', label: 'Active', count: stats.active, color: 'text-[#00635C] border-[#00635C]' },
+            { value: 'needs_review', label: 'Needs Review', count: stats.needsReview, color: 'text-amber-700 border-amber-600' },
+            { value: 'inactive', label: 'Inactive / Archived', count: stats.inactive, color: 'text-rose-700 border-rose-600' },
+            { value: 'all', label: 'All Contacts', count: stats.total, color: 'text-[var(--sw-text-primary)] border-[var(--sw-text-primary)]' }
           ].map(tab => {
             const isActive = filterStatus === tab.value;
             return (
@@ -1085,11 +1101,11 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                 key={tab.value}
                 id={`status-tab-${tab.value}`}
                 onClick={() => setFilterStatus(tab.value)}
-                className={`pb-2 font-semibold transition-all relative border-b-2 ${isActive ? `${tab.color} font-bold opacity-100` : 'border-transparent text-[#D0D6BB] hover:text-white opacity-70'}`}
+                className={`pb-2 font-bold transition-all relative border-b-2 ${isActive ? `${tab.color} opacity-100` : 'border-transparent text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)] opacity-90'}`}
               >
                 <span className="flex items-center gap-1.5 whitespace-nowrap">
                   {tab.label}
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/10' : 'bg-white/5'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-emerald-50 border border-emerald-200' : 'bg-stone-100 border border-stone-200'}`}>
                     {tab.count}
                   </span>
                 </span>

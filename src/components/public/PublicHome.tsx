@@ -1,11 +1,9 @@
 import React from 'react';
-import { ChevronRight, ArrowRight, CheckCircle } from 'lucide-react';
+import { ChevronRight, ArrowRight, CheckCircle, ShieldCheck, Zap, Layers, Cpu, Users } from 'lucide-react';
 import HeroOrb from './HeroOrb';
 import SectionHeader from './SectionHeader';
 import FrictionGrid from './FrictionGrid';
 import MethodTimeline from './MethodTimeline';
-import WorkflowModuleCard from './WorkflowModuleCard';
-import SignalToActionLoop from './SignalToActionLoop';
 import DiscoveryOffer from './DiscoveryOffer';
 import BeliefCard from './BeliefCard';
 import CTASection from './CTASection';
@@ -16,184 +14,207 @@ interface PublicHomeProps {
 
 export default function PublicHome({ onNavigate }: PublicHomeProps) {
   return (
-    <div className="space-y-20 md:space-y-32 pb-20">
+    <div className="space-y-20 md:space-y-32 pb-20 font-sans text-stone-900">
       
       {/* 1. HERO SECTION */}
       <section className="px-6 md:px-12 max-w-6xl mx-auto pt-10 md:pt-16 text-left">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Left Copy Column */}
-          <div className="lg:col-span-6 space-y-6">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-brand-primary block">
-              Workflow design for owner-led operations
+          <div className="lg:col-span-7 space-y-6">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#00635C] block">
+              Modern Workflow Design
             </span>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-text-primary tracking-tight leading-[1.1]">
-              Stop running brokerage operations from memory, texts, and owner interruptions.
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-stone-900 tracking-tight leading-[1.1]">
+              Workflow design for businesses that have outgrown how they operate.
             </h1>
             
-            <p className="text-base md:text-lg text-text-secondary font-sans font-light leading-relaxed max-w-xl">
-              shapework. helps brokerages turn scattered requests, documents, deadlines, and agent handoffs into routed work, approvals, and owner-ready briefs.
+            <p className="text-base md:text-lg text-stone-600 font-sans font-light leading-relaxed max-w-xl">
+              Friction and inefficiency cost every operation. We're in the business of eliminating them.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-4">
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <button
                 onClick={() => onNavigate('/discovery')}
-                className="px-6 py-3 bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-6 py-3.5 bg-[#00635C] hover:bg-[#01362D] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Request Discovery</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <span>Request Workflow Discovery</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
               
               <button
                 onClick={() => onNavigate('/login')}
-                className="px-6 py-3 bg-surface hover:bg-stone-50 text-text-primary border border-border-soft text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-6 py-3.5 bg-white hover:bg-stone-50 text-stone-900 border border-stone-200 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <span>Login</span>
               </button>
 
               <button
                 onClick={() => onNavigate('/method')}
-                className="px-6 py-3 bg-transparent hover:bg-stone-100/50 text-text-secondary text-xs font-medium rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-6 py-3.5 bg-transparent hover:bg-stone-100/60 text-stone-600 text-xs font-medium rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <span>See How It Works</span>
+                <span>The Method</span>
               </button>
             </div>
 
             {/* Proof line */}
-            <div className="pt-4 flex items-center gap-2 border-t border-border-soft/60 max-w-md">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-primary shrink-0" />
-              <p className="text-xs text-text-tertiary leading-normal font-sans">
-                <strong>One week</strong> to find the friction. One quick win implemented before the week ends.
+            <div className="pt-4 flex items-center gap-2 border-t border-stone-200 max-w-md">
+              <span className="w-2 h-2 rounded-full bg-[#00635C] shrink-0" />
+              <p className="text-xs text-stone-500 leading-normal font-sans">
+                <strong>$1,500 Fixed Fee</strong> · One week diagnostic to find your friction and deliver a ranked roadmap.
               </p>
             </div>
           </div>
 
           {/* Right Orb Video Column */}
-          <div className="lg:col-span-6 flex justify-center">
+          <div className="lg:col-span-5 flex justify-center">
             <HeroOrb />
           </div>
         </div>
       </section>
 
-      {/* 2. THE PROBLEM SECTION */}
-      <section id="problem" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-border-soft/40 pt-16 md:pt-24 text-left">
-        <SectionHeader
-          eyebrow="The Friction"
-          title="Growth exposes the shape of your operation."
-          subtitle="Owner-led businesses do not break because people are lazy. They break because work enters through too many channels and no one system owns the handoffs."
-        />
-        <FrictionGrid />
-      </section>
-
-      {/* 3. THE shapework. METHOD SECTION */}
-      <section id="method" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-border-soft/40 pt-16 md:pt-24 text-left">
-        <SectionHeader
-          eyebrow="The Framework"
-          title="The shapework. Method"
-          subtitle="We preserve existing tools and design standard procedures before building background integrations. Our approach consists of four structured phases."
-        />
-        <MethodTimeline />
-      </section>
-
-      {/* 4. WHAT WE BUILD SECTION */}
-      <section id="modules" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-border-soft/40 pt-16 md:pt-24 text-left">
-        <SectionHeader
-          eyebrow="The System"
-          title="From discovery to operating layer."
-          subtitle="We build standardized workflow modules that sit above the databases and software licenses you already pay for."
-        />
-        <WorkflowModuleCard />
-      </section>
-
-      {/* 5. REAL ESTATE BROKERAGES WEDGES SECTION */}
-      <section id="brokerages" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-border-soft/40 pt-16 md:pt-24 text-left">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-5 space-y-6">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-primary block">
-              Vertical Focus
-            </span>
-            <h2 className="text-3xl md:text-4xl font-serif font-bold text-text-primary tracking-tight leading-tight">
-              Built first around the operational reality of real estate brokerages.
-            </h2>
-            <p className="text-sm md:text-base text-text-secondary leading-relaxed font-sans font-light">
-              Brokerages run on agent relationships, but the back office often runs on spreadsheets, group texts, memory, and one or two key administrators who know where everything lives.
+      {/* 2. THE PRACTICE SECTION */}
+      <section className="px-6 md:px-12 max-w-6xl mx-auto border-t border-stone-200/80 pt-16 md:pt-24 text-left">
+        <div className="max-w-3xl space-y-6">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#00635C] block">
+            The Practice
+          </span>
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 tracking-tight leading-tight">
+            We're a workflow design and operational modernization company.
+          </h2>
+          <div className="space-y-4 text-base md:text-lg text-stone-600 font-sans font-light leading-relaxed">
+            <p>
+              We diagnose how growing businesses actually operate, redesign the workflows and systems holding them back, and build practical solutions that help them work better.
             </p>
-            <div className="space-y-2 pt-2">
-              {[
-                "Agent request and sign intake",
-                "Contract-to-closing compliance follow-ups",
-                "Onboarding checklists for split changes",
-                "Owner exception escalations"
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-xs md:text-sm text-text-primary font-sans font-light">
-                  <CheckCircle className="w-4 h-4 text-brand-primary shrink-0" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-            <div className="pt-4">
-              <button
-                onClick={() => onNavigate('/brokerages')}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary hover:text-brand-primary-hover group cursor-pointer"
-              >
-                <span>Explore brokerage workflows</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-          
-          <div className="lg:col-span-7 bg-surface-soft border border-border-soft rounded-[32px] p-6 md:p-8 space-y-6">
-            <div className="flex items-center justify-between border-b border-border-soft pb-4">
-              <div>
-                <span className="text-xs font-bold text-text-primary block font-serif">
-                  Standardized Brokerage Operations
-                </span>
-                <span className="text-[10px] text-text-tertiary block">
-                  Generic operational paths we structure and deploy
-                </span>
-              </div>
-              <span className="px-2 py-0.5 bg-brand-soft text-brand-primary text-[9px] font-semibold rounded-full">
-                Active Wedge
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { title: "Intake", desc: "Turns MLS signals and lender threads into new deal files instantly." },
-                { title: "Compliance", desc: "Auto-chases signatures for missing disclosures prior to closing." },
-                { title: "Onboarding", desc: "Launches checklists from contract signing to email setups." },
-                { title: "Sign Inventory", desc: "Triage lockbox orders and signage requests automatically." }
-              ].map((box, idx) => (
-                <div key={idx} className="p-4 bg-surface border border-border-soft/60 rounded-xl text-left">
-                  <span className="text-[10px] font-mono text-brand-primary uppercase block mb-1">
-                    0{idx+1} / {box.title}
-                  </span>
-                  <p className="text-xs text-text-secondary leading-normal font-sans font-light">
-                    {box.desc}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <p>
+              Most businesses we meet don't have an AI problem. They have an operations problem. Unclear ownership, dropped handoffs, disconnected tools, repetitive admin, work that depends too heavily on one or two people. We find the friction first, redesign the workflow, then use automation and AI only where they earn their place.
+            </p>
+            <p className="font-normal text-stone-900 pt-2">
+              The goal isn't just efficiency. It's leverage and control: a business that runs with clarity and consistency, without everything depending on the owner.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* 6. OPERATIONAL INTELLIGENCE / AI LOOP SECTION */}
-      <section id="intelligence" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-border-soft/40 pt-16 md:pt-24 text-left">
+      {/* 3. OPERATIONAL FRICTION SECTION */}
+      <section id="problem" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-stone-200/80 pt-16 md:pt-24 text-left">
         <SectionHeader
-          eyebrow="Intelligence"
-          title="AI where it earns its place."
-          subtitle="We don't sell AI chatbots or magic widgets. The system uses background intelligence to classify requests, parse documents, draft communications, and flag risks, keeping humans securely in control."
+          eyebrow="Operational Friction"
+          title="Most owners know something feels off. They just can't name where."
+          subtitle="Growth exposes the shape of your operation. Work enters through too many channels, and no one system owns the handoffs."
         />
-        <SignalToActionLoop />
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => onNavigate('/operational-intelligence')}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary hover:text-brand-primary-hover group cursor-pointer"
-          >
-            <span>Learn about our intelligence layer</span>
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
+        <FrictionGrid />
+      </section>
+
+      {/* 4. THE METHOD SECTION (MSBR) */}
+      <section id="method" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-stone-200/80 pt-16 md:pt-24 text-left">
+        <SectionHeader
+          eyebrow="The Method"
+          title="Map. Shape. Build. Run."
+          subtitle="Every engagement follows the same four phases. We call it MSBR. The work compounds because the method holds."
+        />
+        <MethodTimeline />
+      </section>
+
+      {/* 5. WHAT WE BELIEVE SECTION */}
+      <section id="beliefs" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-stone-200/80 pt-16 md:pt-24 text-left">
+        <div className="space-y-8">
+          <SectionHeader
+            eyebrow="What we believe"
+            title="A working thesis on modern operations."
+            subtitle="We've spent enough time inside enough businesses to develop some opinions. These are ours."
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-8 rounded-[24px] bg-stone-50 border border-stone-200/80 space-y-3 text-left">
+              <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#00635C] flex items-center justify-center font-bold text-sm">1</span>
+              <h3 className="font-serif font-bold text-lg text-stone-900">Less software, not more.</h3>
+              <p className="text-sm text-stone-600 leading-relaxed font-light">
+                Most businesses we meet are drowning in tools. We remove more than we add.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-[24px] bg-stone-50 border border-stone-200/80 space-y-3 text-left">
+              <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#00635C] flex items-center justify-center font-bold text-sm">2</span>
+              <h3 className="font-serif font-bold text-lg text-stone-900">AI is a tool, not a strategy.</h3>
+              <p className="text-sm text-stone-600 leading-relaxed font-light">
+                We use it where it pays. We do not sell it as a product.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-[24px] bg-stone-50 border border-stone-200/80 space-y-3 text-left">
+              <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#00635C] flex items-center justify-center font-bold text-sm">3</span>
+              <h3 className="font-serif font-bold text-lg text-stone-900">Operations is a design discipline.</h3>
+              <p className="text-sm text-stone-600 leading-relaxed font-light">
+                The way work moves through a business is a system. Systems can be redesigned. Most just never have been.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2 text-left">
+            <p className="text-xs text-stone-500 font-mono">
+              Born in Wilmington, North Carolina. Serving clients worldwide.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. WHO WE WORK WITH SECTION */}
+      <section id="work-with" className="px-6 md:px-12 max-w-6xl mx-auto border-t border-stone-200/80 pt-16 md:pt-24 text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="lg:col-span-6 space-y-6">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#00635C] block">
+              Who we work with
+            </span>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 tracking-tight leading-tight">
+              "Owner-led businesses that have outgrown the way they operate."
+            </h2>
+            <p className="text-base text-stone-600 leading-relaxed font-light">
+              Growing businesses, roughly five to one hundred employees, that have become operationally more complicated than their current systems can comfortably support. Operators who can feel something is off but cannot quite name it.
+            </p>
+            <p className="text-sm text-stone-600 leading-relaxed font-light">
+              Real estate brokerages are our first and most developed specialty, where our domain knowledge runs deepest. We also work with professional services firms, healthcare practices, and other owner-led operations facing the same accumulating complexity.
+            </p>
+            
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => onNavigate('/brokerages')}
+                className="px-4 py-2 bg-[#00635C] hover:bg-[#01362D] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-2xs"
+              >
+                For Real Estate Brokerages →
+              </button>
+              <button
+                onClick={() => onNavigate('/discovery')}
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200/70 text-stone-900 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Request Discovery →
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Experienced Operators */}
+          <div className="lg:col-span-6 bg-stone-50 border border-stone-200/80 rounded-[32px] p-8 space-y-6 text-left">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#00635C] block">
+              Who's behind it
+            </span>
+            <h3 className="text-2xl font-serif font-bold text-stone-900">
+              Experienced operators, not theorists.
+            </h3>
+            <p className="text-sm text-stone-600 leading-relaxed font-light">
+              shapework. was built by three operators who have run the kind of businesses we now redesign. One scaled a brokerage from $100M to $325M+ in annual sales as its strategic growth lead. One co-founded, scaled, and exited a research firm, then spent years restructuring operations for other companies as a fractional executive. One led fixed operations at one of the country's largest auto groups, then founded companies built to remove the inefficiencies he watched cost businesses every day.
+            </p>
+            <p className="text-xs font-medium text-stone-900 italic">
+              We have been the owner acting as the glue. We have untangled the systems nobody understood. The pattern recognition is earned, not borrowed.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={() => onNavigate('/about')}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00635C] hover:text-[#01362D] cursor-pointer"
+              >
+                <span>Meet Adam, Matt, and Marcus →</span>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

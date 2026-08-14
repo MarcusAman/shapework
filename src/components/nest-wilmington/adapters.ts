@@ -77,6 +77,7 @@ export type RoleMapCard = {
   escalatesToRyanWhen: string;
   tools: string[];
   status: 'active' | 'open' | 'planned' | 'ai';
+  avatarUrl?: string;
 };
 
 export type RoleEscalationData = {
@@ -392,7 +393,8 @@ export function buildRoleEscalationMap(model: OrgModel): RoleEscalationData {
     backupFor: p.reportsToPositionId ? [posName(positions, p.reportsToPositionId)] : [],
     escalatesToRyanWhen: p.status === 'open' || p.status === 'planned' ? 'Seat vacant — Ryan backing up' : (p.visibilityLevel === 'leadership' ? 'Always — Leadership' : 'Contract dispute or high SLA risk'),
     tools: p.connectedTools || ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
-    status: (p.status === 'virtual_ai' ? 'ai' : (p.status || 'active')) as any
+    status: (p.status === 'virtual_ai' ? 'ai' : (p.status || 'active')) as any,
+    avatarUrl: p.avatarUrl
   }));
 
   return { routingTable, roleMap };

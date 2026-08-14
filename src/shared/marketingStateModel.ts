@@ -563,8 +563,6 @@ export interface MarketingWorkItem {
     | 'other';
   title: string;
   propertyAddress?: string;
-  sopTitle?: string;
-  basecampRef?: string;
   description?: string;
   priority: MarketingPriority;
   executionMode: MarketingExecutionMode;

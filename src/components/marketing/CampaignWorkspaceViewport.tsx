@@ -237,26 +237,26 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-64px)] w-full bg-[#01362d] text-[#13231e] overflow-hidden font-sans">
+    <div className="flex flex-col h-[calc(100dvh-64px)] w-full bg-[var(--sw-canvas,#FBF8F0)] text-[var(--sw-text-primary,#17231F)] overflow-hidden font-sans">
       
       {/* 1. CONSOLIDATED CAMPAIGN WORKSPACE HEADER */}
-      <header className="bg-[#01362d] border-b border-[rgba(208,214,187,0.2)] px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 text-left">
+      <header className="bg-[var(--sw-surface,#FFFFFF)] border-b border-[var(--sw-border,#E2E4DA)] px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 text-left shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onBackToInbox}
-              className="text-xs text-[#d0d6bb] font-bold hover:text-white transition-all cursor-pointer flex items-center gap-1"
+              className="text-xs text-[var(--sw-text-secondary,#52605B)] font-bold hover:text-[var(--brand-primary,#00635C)] transition-all cursor-pointer flex items-center gap-1"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Back to Marketing</span>
             </button>
-            <span className="text-xs text-[#d0d6bb]/40">/</span>
-            <span className="text-xs font-bold text-emerald-300">Campaign {campaign.id}</span>
+            <span className="text-xs text-[var(--sw-text-secondary,#52605B)]/40">/</span>
+            <span className="text-xs font-bold text-[var(--brand-primary,#00635C)]">Campaign {campaign.id}</span>
           </div>
 
           <div className="flex flex-wrap items-baseline gap-3">
-            <h2 className="font-serif font-bold text-xl md:text-2xl text-[#fffdf8]" data-testid="workspace-campaign-title">
+            <h2 className="font-serif font-bold text-xl md:text-2xl text-[var(--sw-text-primary,#17231F)]" data-testid="workspace-campaign-title">
               {propertyAddress}
             </h2>
             <span className={`px-3 py-0.5 rounded-full text-xs font-bold border ${campaignBadge.badgeClass}`}>
@@ -264,13 +264,13 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
             </span>
           </div>
 
-          <p className="text-xs text-[#d0d6bb]/80 font-medium" data-testid="workspace-requester-attribution">
-            Requested by <strong className="text-[#fffdf8]">{requesterName}</strong> (Requester) · Primary contact <strong className="text-[#fffdf8]">{primaryContactName}</strong> · Captured by {capturedByName} ({sourceChannel})
+          <p className="text-xs text-[var(--sw-text-secondary,#52605B)] font-medium" data-testid="workspace-requester-attribution">
+            Requested by <strong className="text-[var(--sw-text-primary,#17231F)]">{requesterName}</strong> (Requester) · Primary contact <strong className="text-[var(--sw-text-primary,#17231F)]">{primaryContactName}</strong> · Captured by {capturedByName} ({sourceChannel})
           </p>
         </div>
 
         {/* 5 CONSOLIDATED CAMPAIGN NAVIGATION TABS */}
-        <div className="flex items-center gap-2 border-t md:border-t-0 border-[rgba(208,214,187,0.15)] pt-2 md:pt-0">
+        <div className="flex items-center gap-2 border-t md:border-t-0 border-[var(--sw-border,#E2E4DA)] pt-2 md:pt-0">
           <nav className="flex items-center gap-4 text-xs font-bold">
             <button
               type="button"
@@ -278,8 +278,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               onClick={() => setWorkspaceTab('overview')}
               className={`pb-1 transition-all cursor-pointer border-b-2 ${
                 workspaceTab === 'overview'
-                  ? 'border-emerald-400 text-[#fffdf8]'
-                  : 'border-transparent text-[#d0d6bb]/70 hover:text-white'
+                  ? 'border-[var(--brand-primary,#00635C)] text-[var(--brand-primary,#00635C)]'
+                  : 'border-transparent text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]'
               }`}
             >
               Overview
@@ -291,8 +291,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               onClick={() => setWorkspaceTab('work')}
               className={`pb-1 transition-all cursor-pointer border-b-2 ${
                 workspaceTab === 'work'
-                  ? 'border-emerald-400 text-[#fffdf8]'
-                  : 'border-transparent text-[#d0d6bb]/70 hover:text-white'
+                  ? 'border-[var(--brand-primary,#00635C)] text-[var(--brand-primary,#00635C)]'
+                  : 'border-transparent text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]'
               }`}
             >
               Work
@@ -304,8 +304,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               onClick={() => setWorkspaceTab('review')}
               className={`pb-1 transition-all cursor-pointer border-b-2 ${
                 workspaceTab === 'review'
-                  ? 'border-emerald-400 text-[#fffdf8]'
-                  : 'border-transparent text-[#d0d6bb]/70 hover:text-white'
+                  ? 'border-[var(--brand-primary,#00635C)] text-[var(--brand-primary,#00635C)]'
+                  : 'border-transparent text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]'
               }`}
             >
               Review
@@ -317,8 +317,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               onClick={() => setWorkspaceTab('communications')}
               className={`pb-1 transition-all cursor-pointer border-b-2 ${
                 workspaceTab === 'communications'
-                  ? 'border-emerald-400 text-[#fffdf8]'
-                  : 'border-transparent text-[#d0d6bb]/70 hover:text-white'
+                  ? 'border-[var(--brand-primary,#00635C)] text-[var(--brand-primary,#00635C)]'
+                  : 'border-transparent text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]'
               }`}
             >
               Communications
@@ -330,8 +330,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               onClick={() => setWorkspaceTab('history')}
               className={`pb-1 transition-all cursor-pointer border-b-2 ${
                 workspaceTab === 'history'
-                  ? 'border-emerald-400 text-[#fffdf8]'
-                  : 'border-transparent text-[#d0d6bb]/70 hover:text-white'
+                  ? 'border-[var(--brand-primary,#00635C)] text-[var(--brand-primary,#00635C)]'
+                  : 'border-transparent text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]'
               }`}
             >
               History
@@ -343,14 +343,14 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
       {/* 2. PERSISTENT NEXT-ACTION BANNER */}
       <div 
         data-testid="campaign-next-action-banner"
-        className="bg-[#073F35] border-b border-emerald-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs shrink-0"
+        className="bg-[var(--brand-soft,#F2F7F5)] border-b border-[var(--brand-primary,#00635C)]/20 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 text-xs shrink-0"
       >
         <div className="flex items-center gap-3 text-left">
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 uppercase tracking-wider">
             Next action
           </span>
-          <span className="font-bold text-white" data-testid="next-action-title">{projection.nextAction.title}</span>
-          <span className="text-[#d0d6bb]/90 hidden sm:inline" data-testid="next-action-description">— {projection.nextAction.description}</span>
+          <span className="font-bold text-[var(--sw-text-primary,#17231F)]" data-testid="next-action-title">{projection.nextAction.title}</span>
+          <span className="text-[var(--sw-text-secondary,#52605B)] hidden sm:inline" data-testid="next-action-description">— {projection.nextAction.description}</span>
         </div>
 
         {projection.nextAction.enabled && (
@@ -367,7 +367,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                 onOpenDeliveryDrawer();
               }
             }}
-            className="px-3.5 py-1.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl font-bold shadow transition-all cursor-pointer border border-emerald-400/30 text-xs flex items-center gap-1.5"
+            className="px-3.5 py-1.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-xl font-bold shadow-2xs transition-all cursor-pointer border border-[var(--brand-primary)]/30 text-xs flex items-center gap-1.5"
           >
             <span>{projection.nextAction.title}</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -389,36 +389,36 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
         <div className="flex-1 p-6 overflow-y-auto space-y-6 text-left" data-testid="campaign-work-view">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-8 space-y-6">
-              <div className="bg-[#062f28] border border-[#176457]/60 rounded-2xl p-6 shadow-lg space-y-4">
-                <div className="flex items-center justify-between border-b border-[#176457]/50 pb-3">
+              <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-3">
                   <div>
-                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Execution Routing & Work Units</span>
-                    <h3 className="text-lg font-serif font-bold text-[#fffdf8]">Request Work Items & Policy Assignments</h3>
+                    <span className="text-xs font-semibold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">Execution Routing & Work Units</span>
+                    <h3 className="text-lg font-serif font-bold text-[var(--sw-text-primary,#17231F)]">Request Work Items & Policy Assignments</h3>
                   </div>
-                  <span className="px-3 py-1 bg-[#176457]/50 text-emerald-200 text-xs font-semibold rounded-lg border border-emerald-400/30">
+                  <span className="px-3 py-1 bg-[var(--brand-soft,#F2F7F5)] text-[var(--brand-primary,#00635C)] text-xs font-semibold rounded-lg border border-[var(--brand-primary,#00635C)]/30">
                     Default Owner: HQ Operations
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
-                  <div className="bg-[#01251f] border border-[#176457]/50 rounded-xl p-4 space-y-3">
+                  <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950 text-cyan-300 border border-cyan-800">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200">
                           Standard Listing Package (Automated)
                         </span>
-                        <h4 className="font-bold text-base text-white mt-1">Flyer, Social, Postcard, Sign Rider & Email Drafts</h4>
-                        <p className="text-xs text-slate-300 mt-0.5">Automated layout rendering with final review before distribution.</p>
+                        <h4 className="font-bold text-base text-[var(--sw-text-primary,#17231F)] mt-1">Flyer, Social, Postcard, Sign Rider & Email Drafts</h4>
+                        <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">Automated layout rendering with final review before distribution.</p>
                       </div>
-                      <span className="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      <span className="px-2.5 py-1 rounded text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Mode: Automate + Review
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-6 text-xs text-slate-300 pt-2 border-t border-[#176457]/40">
-                      <span>Executor: <strong className="text-cyan-300">Shapework Automation</strong></span>
-                      <span>Reviewer: <strong className="text-emerald-300">HQ Operations</strong></span>
-                      <span>Approver: <strong className="text-white">{requesterName}</strong></span>
+                    <div className="flex items-center gap-6 text-xs text-[var(--sw-text-secondary,#52605B)] pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
+                      <span>Executor: <strong className="text-[var(--brand-primary,#00635C)]">Shapework Automation</strong></span>
+                      <span>Reviewer: <strong className="text-[var(--brand-primary,#00635C)]">HQ Operations</strong></span>
+                      <span>Approver: <strong className="text-[var(--sw-text-primary,#17231F)]">{requesterName}</strong></span>
                     </div>
                   </div>
                 </div>
@@ -498,8 +498,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-[200px_minmax(600px,1fr)_340px] h-full overflow-hidden" data-testid="campaign-review-view">
           
           {/* LEFT FILMSTRIP: ASSET RAIL WITH REAL THUMBNAILS */}
-          <aside className="bg-[#062f28] border-r border-[rgba(208,214,187,0.15)] p-3 space-y-3 overflow-y-auto shrink-0 text-left" data-testid="campaign-asset-rail">
-            <span className="text-[10px] font-bold text-[#d0d6bb]/70 uppercase tracking-wider block px-1">
+          <aside className="bg-[var(--sw-surface,#FFFFFF)] border-r border-[var(--sw-border,#E2E4DA)] p-3 space-y-3 overflow-y-auto shrink-0 text-left" data-testid="campaign-asset-rail">
+            <span className="text-[10px] font-bold text-[var(--sw-text-secondary,#52605B)] uppercase tracking-wider block px-1">
               Package Materials ({projection.requestedAssetCount})
             </span>
 
@@ -517,8 +517,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                     onClick={() => onSelectAsset(asset.id)}
                     className={`w-full p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
                       isSelected
-                        ? 'bg-[#00635c] border-emerald-400 text-white shadow-md'
-                        : 'bg-[#01362d]/60 hover:bg-[#01362d] border-transparent text-[#d0d6bb]'
+                        ? 'bg-[var(--brand-primary,#00635C)] border-[var(--brand-primary,#00635C)] text-white shadow-xs'
+                        : 'bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] border-[var(--sw-border,#E2E4DA)] text-[var(--sw-text-primary,#17231F)]'
                     }`}
                   >
                     {/* THUMBNAIL BOX */}
@@ -556,8 +556,8 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
                       <span className="font-bold text-xs block truncate">{asset.name}</span>
                       <span className={`text-[10px] font-semibold block ${
                         isApprovedAsset
-                          ? 'text-emerald-300'
-                          : 'text-sky-200'
+                          ? isSelected ? 'text-emerald-100' : 'text-emerald-800'
+                          : isSelected ? 'text-sky-100' : 'text-[var(--sw-text-secondary,#52605B)]'
                       }`}>
                         {isApprovedAsset
                           ? 'Approved'
@@ -572,31 +572,31 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
             </nav>
           </aside>
 
-          {/* CENTER: UNCLUTTERED DARK WORKSPACE CANVAS */}
-          <main className="bg-[#062f28] p-6 overflow-y-auto flex flex-col items-center justify-start relative font-sans">
+          {/* CENTER: UNCLUTTERED LIGHT WORKSPACE CANVAS */}
+          <main className="bg-[var(--sw-canvas,#FBF8F0)] p-6 overflow-y-auto flex flex-col items-center justify-start relative font-sans">
             {/* Zoom & Page Controls Toolbar */}
-            <div className="bg-[#01362d] border border-[rgba(208,214,187,0.2)] px-4 py-1.5 rounded-xl shadow-lg flex items-center gap-4 mb-4 text-xs shrink-0 z-10">
-              <span className="font-serif font-bold text-[#fffdf8] text-xs capitalize">
+            <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] px-4 py-1.5 rounded-xl shadow-xs flex items-center gap-4 mb-4 text-xs shrink-0 z-10">
+              <span className="font-serif font-bold text-[var(--sw-text-primary,#17231F)] text-xs capitalize">
                 {formattedMaterialName}
               </span>
-              <div className="h-4 w-px bg-[rgba(208,214,187,0.2)]" />
+              <div className="h-4 w-px bg-[var(--sw-border,#E2E4DA)]" />
 
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setZoomScale(Math.max(0.6, zoomScale - 0.1))}
-                  className="p-1 text-[#d0d6bb] hover:text-white rounded-lg cursor-pointer"
+                  className="p-1 text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)] rounded-lg cursor-pointer"
                   title="Zoom Out"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="font-bold text-[11px] w-12 text-center text-emerald-300">
+                <span className="font-bold text-[11px] w-12 text-center text-[var(--brand-primary,#00635C)]">
                   {Math.round(zoomScale * 100)}%
                 </span>
                 <button
                   type="button"
                   onClick={() => setZoomScale(Math.min(1.4, zoomScale + 0.1))}
-                  className="p-1 text-[#d0d6bb] hover:text-white rounded-lg cursor-pointer"
+                  className="p-1 text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)] rounded-lg cursor-pointer"
                   title="Zoom In"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />

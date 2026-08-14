@@ -56,7 +56,7 @@ export function useDemoConsoleState() {
     if (clean.startsWith('/demo/knowledge')) return 'Knowledge Base';
     if (clean.startsWith('/demo/sops')) return 'Staff SOP Templates';
     if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
-    if (clean.startsWith('/demo/role-map')) return 'Role Map';
+    if (clean.includes('/role-map') || clean.includes('/role-escalation-map')) return 'Role Map';
     if (clean.startsWith('/demo/directory')) return 'Directory';
     if (clean.startsWith('/demo/owner-brief')) return 'Owner Brief';
     if (clean.startsWith('/demo/integrations')) return 'Integrations';

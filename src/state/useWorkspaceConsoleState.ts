@@ -17,11 +17,11 @@ import { getCommandResponse } from '../data/demoCommands';
 import { runDemoEventInSandbox } from '../integrations/demoConnectorRunner';
 import { initialCatalogConnectors } from '../data/integrationCatalog';
 import { apiClient } from '../utils/apiClient';
+import { getWorkspaceDirectory, clearAllDirectoryCaches } from '../utils/directoryCache';
 
 let cachedModePromise: Promise<any> | null = null;
 let cachedDbStatePromise: Map<string, Promise<any>> = new Map();
 let cachedAuthSessionPromise: Promise<any> | null = null;
-let cachedDirectoryPromise: Promise<any> | null = null;
 
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
@@ -55,7 +55,7 @@ export function useWorkspaceConsoleState() {
     if (clean.startsWith('/demo/integrations')) return 'Integrations';
     if (clean.startsWith('/demo/settings')) return 'Settings';
     if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
-    if (clean.startsWith('/demo/role-map')) return 'Role Map';
+    if (clean.includes('/role-map') || clean.includes('/role-escalation-map')) return 'Role & Escalation Map';
     if (clean.startsWith('/demo/directory')) return 'Directory';
     
     // Support legacy sub-page routes for E2E tests
@@ -363,7 +363,7 @@ export function useWorkspaceConsoleState() {
           name: 'Marcus Aman',
           email: 'marcus@shapework.co',
           role: 'owner',
-          permissions: ['all'],
+          organization_id: 'org_nest',
           status: 'active'
         };
         setActiveProfile(fallbackOperator);
@@ -477,15 +477,9 @@ export function useWorkspaceConsoleState() {
         if (data.ownerBriefItems) setOwnerBriefItems(data.ownerBriefItems);
 
         try {
-          if (!cachedDirectoryPromise) {
-            cachedDirectoryPromise = apiClient.get(`/api/directory?workspaceId=${workspaceId}`, { workspaceId });
-          }
-          const dirRes = await cachedDirectoryPromise;
-          if (dirRes.ok) {
-            const dirData = await dirRes.json();
-            if (dirData && dirData.directoryPeople) {
-              setDirectoryPeople(dirData.directoryPeople);
-            }
+          const dirData = await getWorkspaceDirectory(workspaceId);
+          if (dirData && Array.isArray(dirData.directoryPeople)) {
+            setDirectoryPeople(dirData.directoryPeople);
           }
         } catch (dirErr) {
           console.warn('Failed to load directory inside sync:', dirErr);
