@@ -141,7 +141,7 @@ export const ContractCopilotCard: React.FC<ContractCopilotCardProps> = ({ worksp
             dueDiligenceFee: dd && !isNaN(dd) ? dd : prev.dueDiligenceFee,
             initialEmd: emd && !isNaN(emd) ? emd : prev.initialEmd
           }));
-          toast.info({ title: 'Form 2-T Updated from Voice', description: 'Updated contract parameters directly from Lorena AI voice agent.' });
+          toast.info({ title: 'Form 2-T Updated from Voice', description: 'Updated contract parameters directly from NORA AI voice agent.' });
         }
       }
     };

@@ -1023,26 +1023,18 @@ export function queryUnifiedContext(
     };
   }
 
-  // AUTOMATED LISTING MARKETING BLITZ & LORENA / TESS MARKETING INTAKE PROMPTS DOMAIN
+  // AUTOMATED LISTING MARKETING BLITZ & NORA / TESS MARKETING INTAKE PROMPTS DOMAIN
   if (
-    cleanQuery.includes('marketing') ||
-    cleanQuery.includes('tess') ||
-    cleanQuery.includes('lorena') ||
-    cleanQuery.includes('melissa') ||
-    cleanQuery.includes('blitz') ||
-    cleanQuery.includes('social media') ||
-    cleanQuery.includes('flyer') ||
-    cleanQuery.includes('brochure') ||
-    cleanQuery.includes('custom sign') ||
-    cleanQuery.includes('postcard') ||
-    cleanQuery.includes('eblast') ||
-    cleanQuery.includes('email blast') ||
-    cleanQuery.includes('brand color') ||
+    cleanQuery.includes('marketing blitz') ||
     cleanQuery.includes('marketing prompt') ||
-    cleanQuery.includes('marketing request')
+    cleanQuery.includes('marketing question') ||
+    cleanQuery.includes('melissa') ||
+    cleanQuery.includes('tess') ||
+    cleanQuery.includes('nora') ||
+    cleanQuery.includes('lorena')
   ) {
     const spokenAnswer = "Loaded Melissa Gagliardi's official Marketing Intake Protocol for Tess. I am ready to guide agents through structured questions for Print Materials, Digital Materials, and Brand Color preferences.";
-    const displayResponse = `### Melissa's Marketing Prompts & Questions for Tess / Lorena AI
+    const displayResponse = `### Melissa's Marketing Prompts & Questions for Tess / NORA AI
 
 #### 1. Print Materials Intake Protocol
 - **Material Needed**: Flyers, Brochures, Custom Sign, Postcard, or Custom Item
@@ -1067,7 +1059,7 @@ export function queryUnifiedContext(
       query,
       spokenAnswer,
       displayResponse,
-      sources: [{ title: "Melissa Gagliardi's Marketing Prompts for Tess / Lorena", section: 'Marketing Intake Protocols' }],
+      sources: [{ title: "Melissa Gagliardi's Marketing Prompts for Tess / NORA", section: 'Marketing Intake Protocols' }],
       confidence: 'high',
       needsEscalation: false,
       matchedDomain: 'marketing',
@@ -1317,21 +1309,22 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5f. LORENA MULTIMODAL AI VISION & DOCUMENT CAMERA SCANNER DOMAIN
+  // 5f. NORA MULTIMODAL AI VISION & DOCUMENT CAMERA SCANNER DOMAIN
   if (
-    cleanQuery.includes('scan') ||
     cleanQuery.includes('camera') ||
-    cleanQuery.includes('vision') ||
-    cleanQuery.includes('hud-1') ||
-    cleanQuery.includes('paper contract')
+    cleanQuery.includes('document scan') ||
+    cleanQuery.includes('scan offer') ||
+    cleanQuery.includes('ocr') ||
+    cleanQuery.includes('form 2-t scan')
   ) {
     return {
-      source: 'Lorena Multimodal AI Vision & Document Camera Engine',
+      source: 'NORA Multimodal AI Vision & Document Camera Engine',
+      category: 'operational_tool',
       spokenAnswer: 'I scanned the Form 2-T purchase offer for 312 Mayfaire Way. The purchase price is $725,000 with a $15,000 due diligence fee and a $20,000 earnest money deposit. All buyer and seller signatures and initials look complete!',
-      displayText: '### Lorena Multimodal AI Vision & Document Camera HUD — 312 Mayfaire Way\n\n- **Document Type**: 📄 NC REALTORS® Form 2-T Offer to Purchase and Contract\n- **Visual Confidence**: ⚡ 99.4% AI Match (HD Document Camera Viewfinder)\n- **Property Address**: 312 Mayfaire Way, Wilmington NC 28405\n- **Purchase Price**: **$725,000.00** | **Due Diligence**: **$15,000.00** (Due Sep 1)\n- **Earnest Money**: **$20,000.00** (Escrow Agent: Nest Realty Title)\n- **Compliance Audit**: ✅ All 16 pages initialed & signed | Pre-1978 Lead Addendum attached\n- **1-Click Actions**: Export Certified Offer Abstract • Generate Form 2-T Package',
+      displayResponse: '### NORA Multimodal AI Vision & Document Camera HUD — 312 Mayfaire Way\n\n- **Document Type**: 📄 NC REALTORS® Form 2-T Offer to Purchase and Contract\n- **Visual Confidence**: ⚡ 99.4% AI Match (HD Document Camera Viewfinder)\n- **Property Address**: 312 Mayfaire Way, Wilmington NC 28405\n- **Purchase Price**: **$725,000.00** | **Due Diligence**: **$15,000.00** (Due Sep 1)\n- **Earnest Money**: **$20,000.00** (Escrow Agent: Nest Realty Title)\n- **Compliance Audit**: ✅ All 16 pages initialed & signed | Pre-1978 Lead Addendum attached\n- **1-Click Actions**: Export Certified Offer Abstract • Generate Form 2-T Package',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: 'Lorena AI Multimodal Vision & Document Camera Desk',
+        title: 'NORA AI Multimodal Vision & Document Camera Desk',
         target: '312 Mayfaire Way • NC REALTORS® Form 2-T Offer',
         details: '99.4% Visual Confidence • Price: $725k • DD: $15k • EMD: $20k • All Initials Signed',
         deepLinkUrl: '/app/ask-nest-ops?tab=contracts',
@@ -1347,22 +1340,23 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5g. LORENA AI PREDICTIVE BUYER-SELLER MATCHMAKER & POCKET LISTING RADAR DOMAIN
+  // 5g. NORA AI PREDICTIVE BUYER-SELLER MATCHMAKER & POCKET LISTING RADAR DOMAIN
   if (
-    cleanQuery.includes('buyer') ||
-    cleanQuery.includes('match') ||
-    cleanQuery.includes('pocket') ||
+    cleanQuery.includes('buyer match') ||
+    cleanQuery.includes('buyer radar') ||
+    cleanQuery.includes('pocket listing') ||
     cleanQuery.includes('off market') ||
     cleanQuery.includes('off-market') ||
-    cleanQuery.includes('radar')
+    cleanQuery.includes('who has buyers')
   ) {
     return {
-      source: 'Lorena AI Predictive Buyer-Seller Matchmaker Engine',
+      source: 'NORA AI Predictive Buyer-Seller Matchmaker Engine',
+      category: 'operational_tool',
       spokenAnswer: "We've got 3 great pre-approved buyers lined up for 312 Mayfaire Way across our roster! The top match is Michael Chang, represented by Sarah Jenkins, with a $750,000 pre-approval letter from Movement Mortgage.",
-      displayText: '### Lorena AI Predictive Buyer-Seller Matchmaker Radar — 312 Mayfaire Way\n\n- **Target Property**: 312 Mayfaire Way, Wilmington NC ($725,000.00)\n- **Roster Search**: ⚡ Scanned 74 Brokerage Agents & 240 Active Buyer Leads\n- **Top Matched Buyer #1**: **Michael & Sarah Chang** (🎯 **96% AI Match** • Agent: **Sarah Jenkins** (910) 555-0194)\n  - *Pre-Approval*: ✅ **$750,000.00** (Movement Mortgage) • Non-contingent buyer\n- **Top Matched Buyer #2**: **David & Karen Miller** (🎯 **92% AI Match** • Agent: **Marcus Aman** (910) 555-0211)\n  - *Pre-Approval*: ✅ **$800,000.00** (TowneBank Mortgage)\n- **Top Matched Buyer #3**: **Dr. Robert Vance** (🎯 **88% AI Match** • Agent: **Matt Orr** (910) 555-0142)\n  - *Pre-Approval*: ✅ **$725,000.00** (Live Oak Bank)\n- **1-Click Action**: 📲 Dispatch Intro SMS to Sarah Jenkins (910) 555-0194',
+      displayResponse: '### NORA AI Predictive Buyer-Seller Matchmaker Radar — 312 Mayfaire Way\n\n- **Target Property**: 312 Mayfaire Way, Wilmington NC ($725,000.00)\n- **Roster Search**: ⚡ Scanned 74 Brokerage Agents & 240 Active Buyer Leads\n- **Top Matched Buyer #1**: **Michael & Sarah Chang** (🎯 **96% AI Match** • Agent: **Sarah Jenkins** (910) 555-0194)\n  - *Pre-Approval*: ✅ **$750,000.00** (Movement Mortgage) • Non-contingent buyer\n- **Top Matched Buyer #2**: **David & Karen Miller** (🎯 **92% AI Match** • Agent: **Marcus Aman** (910) 555-0211)\n  - *Pre-Approval*: ✅ **$800,000.00** (TowneBank Mortgage)\n- **Top Matched Buyer #3**: **Dr. Robert Vance** (🎯 **88% AI Match** • Agent: **Matt Orr** (910) 555-0142)\n  - *Pre-Approval*: ✅ **$725,000.00** (Live Oak Bank)\n- **1-Click Action**: 📲 Dispatch Intro SMS to Sarah Jenkins (910) 555-0194',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: 'Lorena AI Buyer-Seller Matchmaker & Pocket Listing Radar',
+        title: 'NORA AI Buyer-Seller Matchmaker & Pocket Listing Radar',
         target: '312 Mayfaire Way • $725,000 Pocket Match',
         details: '🎯 Top Match: Michael Chang (96% Match • Agent: Sarah Jenkins) • Pre-Approved $750k',
         deepLinkUrl: '/app/ask-nest-ops?tab=marketing',
@@ -1378,21 +1372,22 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5h. LORENA AI BROKERAGE DEAL CELEBRATION ENGINE & 3D TRANSACTION UNIVERSE DOMAIN
+  // 5h. NORA AI BROKERAGE DEAL CELEBRATION ENGINE & 3D TRANSACTION UNIVERSE DOMAIN
   if (
     cleanQuery.includes('celebrate') ||
     cleanQuery.includes('deal volume') ||
     cleanQuery.includes('leaderboard') ||
     cleanQuery.includes('hype') ||
-    cleanQuery.includes('closed')
+    cleanQuery.includes('confetti')
   ) {
     return {
-      source: 'Lorena AI Brokerage Deal Celebration Engine',
+      source: 'NORA AI Brokerage Deal Celebration Engine',
+      category: 'operational_tool',
       spokenAnswer: '🎉 Congratulations to Sarah Jenkins and the entire Nest team! 312 Mayfaire Way is officially CLOSED for $725,000! Brokerage monthly volume reaches $14.85 Million across 38 closed transactions!',
-      displayText: '### 🎉 Lorena AI Brokerage Deal Celebration Engine & 3D Universe\n\n- **Target Deal**: 🏆 **312 Mayfaire Way, Wilmington NC** ($725,000.00 CLOSED)\n- **Closing Agent**: 🌟 **Sarah Jenkins** (Top Producer)\n- **Monthly Brokerage Volume**: 🚀 **$14,850,000.00** (38 Closed Transactions)\n- **Top 3 Brokerage Leaderboard**:\n  - 🥇 **Sarah Jenkins**: **$4,250,000.00** (11 Deals)\n  - 🥈 **Matt Orr (BIC)**: **$3,800,000.00** (9 Deals)\n  - 🥉 **Marcus Aman**: **$3,150,000.00** (8 Deals)\n- **Interactive Effects**: 🎆 Confetti Soundscape & 3D Transaction Particle Universe Activated!\n- **1-Click Control**: 🎊 Replay Confetti Hype',
+      displayResponse: '### 🎉 NORA AI Brokerage Deal Celebration Engine & 3D Universe\n\n- **Target Deal**: 🏆 **312 Mayfaire Way, Wilmington NC** ($725,000.00 CLOSED)\n- **Closing Agent**: 🌟 **Sarah Jenkins** (Top Producer)\n- **Monthly Brokerage Volume**: 🚀 **$14,850,000.00** (38 Closed Transactions)\n- **Top 3 Brokerage Leaderboard**:\n  - 🥇 **Sarah Jenkins**: **$4,250,000.00** (11 Deals)\n  - 🥈 **Matt Orr (BIC)**: **$3,800,000.00** (9 Deals)\n  - 🥉 **Marcus Aman**: **$3,150,000.00** (8 Deals)\n- **Interactive Effects**: 🎆 Confetti Soundscape & 3D Transaction Particle Universe Activated!\n- **1-Click Control**: 🎊 Replay Confetti Hype',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: '🎉 Lorena AI Brokerage Deal Celebration Engine',
+        title: '🎉 NORA AI Brokerage Deal Celebration Engine',
         target: '312 Mayfaire Way • $725,000 CLOSED!',
         details: '🚀 Brokerage Volume: $14.85M (38 Deals) • Top Agent: Sarah Jenkins ($4.25M) • 🎆 Soundscape & Particle Universe Active',
         deepLinkUrl: '/app/ask-nest-ops?tab=marketing',
@@ -1408,22 +1403,22 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5i. LORENA AI VOICE AUTOMATED LISTING LAUNCH & MLS SYNDICATION PREP DOMAIN
+  // 5i. NORA AI VOICE AUTOMATED LISTING LAUNCH & MLS SYNDICATION PREP DOMAIN
   if (
-    cleanQuery.includes('mls') ||
-    cleanQuery.includes('launch listing') ||
-    cleanQuery.includes('syndicat') ||
-    cleanQuery.includes('flexmls') ||
-    cleanQuery.includes('zillow') ||
-    cleanQuery.includes('public remarks')
+    cleanQuery.includes('listing launch') ||
+    cleanQuery.includes('launch protocol') ||
+    cleanQuery.includes('syndicate') ||
+    cleanQuery.includes('mls prep') ||
+    cleanQuery.includes('flexmls')
   ) {
     return {
-      source: 'Lorena AI Voice Automated MLS Listing Launch Engine',
+      source: 'NORA AI Voice Automated MLS Listing Launch Engine',
+      category: 'operational_tool',
       spokenAnswer: 'The disclosures for 312 Mayfaire Way are verified and signed, including the Residential Property Disclosure and Mineral and Oil Gas rights. The public remarks and photo gallery are ready for MLS launch!',
-      displayText: '### 🚀 Lorena AI Automated MLS Listing Launch & Syndication Engine\n\n- **Target Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** ($725,000.00)\n- **Compliance Audit (NC REC)**:\n  - ✅ **RPOWDS (Residential Property & Owners Association Disclosure)**: Signed & Executed\n  - ✅ **MOG (Mineral & Oil & Gas Rights Disclosure)**: Signed & Executed\n  - ✅ **Lead-Based Paint Addendum**: Exempt (Built 2018)\n- **Media & Syndication Package**:\n  - 📷 **HDR Photography**: 36 High-Res Photos Synced\n  - 🌀 **3D Virtual Tour**: Matterport Pro 3D Tour Linked\n  - 📝 **AI Public Remarks**: *"Stunning modern coastal craftsman with open floor plan, chef\'s kitchen, and resort pool..."*\n- **Readiness Score**: 🎯 **98% Launch Ready**\n- **1-Click Control**: ⚡ Publish to FlexMLS, Zillow & Realtor.com',
+      displayResponse: '### 🚀 NORA AI Automated MLS Listing Launch & Syndication Engine\n\n- **Target Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** ($725,000.00)\n- **Compliance Audit (NC REC)**:\n  - ✅ **RPOWDS (Residential Property & Owners Association Disclosure)**: Signed & Executed\n  - ✅ **MOG (Mineral & Oil & Gas Rights Disclosure)**: Signed & Executed\n  - ✅ **Lead-Based Paint Addendum**: Exempt (Built 2018)\n- **Media & Syndication Package**:\n  - 📷 **HDR Photography**: 36 High-Res Photos Synced\n  - 🌀 **3D Virtual Tour**: Matterport Pro 3D Tour Linked\n  - 📝 **AI Public Remarks**: *"Stunning modern coastal craftsman with open floor plan, chef\'s kitchen, and resort pool..."*\n- **Readiness Score**: 🎯 **98% Launch Ready**\n- **1-Click Control**: ⚡ Publish to FlexMLS, Zillow & Realtor.com',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: '🚀 Lorena AI Automated MLS Listing Launch Engine',
+        title: '🚀 NORA AI Automated MLS Listing Launch Engine',
         target: '312 Mayfaire Way • $725,000 MLS Launch',
         details: '✅ NC Disclosures Signed • 36 HDR Photos + 3D Tour Synced • 🎯 98% Ready',
         deepLinkUrl: '/app/ask-nest-ops?tab=marketing',
@@ -1439,21 +1434,22 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5j. LORENA AI VOICE COMMISSION SPLIT & AGENT DESK PAYROLL COPILOT DOMAIN
+  // 5j. NORA AI VOICE COMMISSION SPLIT & AGENT DESK PAYROLL COPILOT DOMAIN
   if (
     cleanQuery.includes('commission split') ||
-    cleanQuery.includes('agent payout') ||
-    cleanQuery.includes('payroll') ||
+    cleanQuery.includes('agent payroll') ||
+    cleanQuery.includes('payout') ||
     cleanQuery.includes('disbursement') ||
-    cleanQuery.includes('gross commission')
+    cleanQuery.includes('bic approval')
   ) {
     return {
-      source: 'Lorena AI Commission Split & Payroll Copilot',
+      source: 'NORA AI Commission Split & Payroll Copilot',
+      category: 'operational_tool',
       spokenAnswer: 'Commission split calculated for 312 Mayfaire Way. Gross commission is $21,750 at 3 percent. Senior agent split is 70/30. Net agent payout to Sarah Jenkins is $14,575 after transaction coordinator and E and O fee deductions.',
-      displayText: '### 💸 Lorena AI Commission Split & BIC Payroll Disbursement Authorization\n\n- **Target Sale**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** ($725,000.00 CLOSED)\n- **Listing Agent**: 🌟 **Sarah Jenkins** (Senior Associate • 70/30 Tier)\n- **Gross Listing Commission**: 💰 **$21,750.00** (3.0% of $725,000.00)\n- **Commission Breakdown**:\n  - 👤 **Agent Gross Share (70%)**: **$15,225.00**\n  - 🏢 **Brokerage Retention (30%)**: **$6,525.00**\n- **Itemized Deductions**:\n  - 📋 **Transaction Coordinator Fee**: -$500.00\n  - 🛡️ **E&O Insurance Deductible**: -$150.00\n- **Net Agent Direct Deposit Payout**: 💵 **$14,575.00**\n- **BIC Approval Status**: ⏳ Pending BIC Approval (Matt Orr)\n- **1-Click Control**: ⚡ BIC Sign & Authorize Direct Deposit ACH',
+      displayResponse: '### 💸 NORA AI Commission Split & BIC Payroll Disbursement Authorization\n\n- **Target Sale**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** ($725,000.00 CLOSED)\n- **Listing Agent**: 🌟 **Sarah Jenkins** (Senior Associate • 70/30 Tier)\n- **Gross Listing Commission**: 💰 **$21,750.00** (3.0% of $725,000.00)\n- **Commission Breakdown**:\n  - 👤 **Agent Gross Share (70%)**: **$15,225.00**\n  - 🏢 **Brokerage Retention (30%)**: **$6,525.00**\n- **Itemized Deductions**:\n  - 📋 **Transaction Coordinator Fee**: -$500.00\n  - 🛡️ **E&O Insurance Deductible**: -$150.00\n- **Net Agent Direct Deposit Payout**: 💵 **$14,575.00**\n- **BIC Approval Status**: ⏳ Pending BIC Approval (Matt Orr)\n- **1-Click Control**: ⚡ BIC Sign & Authorize Direct Deposit ACH',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: '💸 Lorena AI Commission Split & Agent Desk Payroll Copilot',
+        title: '💸 NORA AI Commission Split & Agent Desk Payroll Copilot',
         target: '312 Mayfaire Way • Sarah Jenkins ($14,575 Net Payout)',
         details: '💰 Gross Commission: $21.75k (3%) • 70/30 Split • Fees: -$650 • Net Payout: $14,575.00',
         deepLinkUrl: '/app/ask-nest-ops?tab=marketing',
@@ -1471,21 +1467,22 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5k. LORENA AI VOICE SELLER NET SHEET & CLOSING PROCEEDS CALCULATOR DOMAIN
+  // 5k. NORA AI VOICE SELLER NET SHEET & CLOSING PROCEEDS CALCULATOR DOMAIN
   if (
     cleanQuery.includes('seller net sheet') ||
-    cleanQuery.includes('closing proceeds') ||
     cleanQuery.includes('net proceeds') ||
-    cleanQuery.includes('seller settlement') ||
-    cleanQuery.includes('net wire')
+    cleanQuery.includes('net wire') ||
+    cleanQuery.includes('settlement statement') ||
+    cleanQuery.includes('closing proceeds')
   ) {
     return {
-      source: 'Lorena AI Seller Net Sheet Calculator',
+      source: 'NORA AI Seller Net Sheet Calculator',
+      category: 'operational_tool',
       spokenAnswer: 'Seller net sheet calculated for 312 Mayfaire Way. Based on a $725,000 offer price, deducting mortgage payoff of $350,000, 5 percent commission of $36,250, NC excise stamps, and settlement fees, the estimated net wire proceeds to seller is $318,250.',
-      displayText: '### 📊 Lorena AI Branded Seller Net Sheet & Settlement Audit\n\n- **Target Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405**\n- **Contract Purchase Price**: 💰 **$725,000.00**\n- **Credits to Seller**:\n  - ➕ **Due Diligence Fee (Direct to Seller)**: **+$15,000.00**\n- **Itemized Settlement Deductions**:\n  - 🏦 **Mortgage Payoff (First National Bank)**: -$350,000.00\n  - 🤝 **Total Brokerage Commission (5.0%)**: -$36,250.00 (2.5% Listing / 2.5% Buyer)\n  - 🏛️ **NC Revenue Stamps / Excise Tax**: -$1,450.00 ($1.00 per $500.00)\n  - ⚖️ **Closing Attorney Settlement Fee**: -$1,200.00\n  - 📅 **Prorated County Property Taxes**: -$2,850.00\n- **ESTIMATED NET WIRE TO SELLER**: 💵 **$318,250.00**\n- **1-Click Control**: ⚡ Generate PDF Net Sheet & Email to Seller',
+      displayResponse: '### 📊 NORA AI Branded Seller Net Sheet & Settlement Audit\n\n- **Target Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405**\n- **Contract Purchase Price**: 💰 **$725,000.00**\n- **Credits to Seller**:\n  - ➕ **Due Diligence Fee (Direct to Seller)**: **+$15,000.00**\n- **Itemized Settlement Deductions**:\n  - 🏦 **Mortgage Payoff (First National Bank)**: -$350,000.00\n  - 🤝 **Total Brokerage Commission (5.0%)**: -$36,250.00 (2.5% Listing / 2.5% Buyer)\n  - 🏛️ **NC Revenue Stamps / Excise Tax**: -$1,450.00 ($1.00 per $500.00)\n  - ⚖️ **Closing Attorney Settlement Fee**: -$1,200.00\n  - 📅 **Prorated County Property Taxes**: -$2,850.00\n- **ESTIMATED NET WIRE TO SELLER**: 💵 **$318,250.00**\n- **1-Click Control**: ⚡ Generate PDF Net Sheet & Email to Seller',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: '📊 Lorena AI Branded Seller Net Sheet Calculator',
+        title: '📊 NORA AI Branded Seller Net Sheet Calculator',
         target: '312 Mayfaire Way • $318,250 Estimated Net Wire Proceeds',
         details: '💰 Offer: $725k • Mortgage Payoff: -$350k • Comm (5%): -$36.25k • Net Wire: $318,250.00',
         deepLinkUrl: '/app/ask-nest-ops?tab=marketing',
@@ -1503,22 +1500,22 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5l. LORENA AI VOICE COMPARATIVE MARKET ANALYSIS (CMA) DOMAIN
+  // 5l. NORA AI VOICE COMPARATIVE MARKET ANALYSIS (CMA) DOMAIN
   if (
-    cleanQuery.includes('cma presentation') ||
     cleanQuery.includes('cma') ||
-    cleanQuery.includes('comparative market analysis') ||
-    cleanQuery.includes('market valuation') ||
-    cleanQuery.includes('property comps') ||
-    cleanQuery.includes('neighborhood comps')
+    cleanQuery.includes('comparative market') ||
+    cleanQuery.includes('comps') ||
+    cleanQuery.includes('market analysis') ||
+    cleanQuery.includes('price per sqft')
   ) {
     return {
-      source: 'Lorena AI Comparative Market Analysis Generator',
+      source: 'NORA AI Comparative Market Analysis Generator',
+      category: 'operational_tool',
       spokenAnswer: 'Comparative market analysis generated for 312 Mayfaire Way. Based on four recent neighborhood sales averaging $285.50 per square foot, the recommended listing price range is $720,000 to $740,000, with a midpoint target of $725,000.',
-      displayText: '### 📈 Lorena AI Branded CMA Valuation & Market Analysis\n\n- **Subject Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** (2,540 sqft • 4 Bed / 3.5 Bath)\n- **Neighborhood Valuation Analytics**:\n  - 📊 **Average Price per SqFt**: **$285.50 / sqft**\n  - ⏳ **Average Days on Market (DOM)**: **17 Days**\n- **Comparable Neighborhood Sales**:\n  - 🏡 **308 Mayfaire Way**: $710,000.00 ($286.29/sqft • 14 DOM)\n  - 🏡 **316 Mayfaire Way**: $735,000.00 ($283.78/sqft • 12 DOM)\n  - 🏡 **104 Coastal Dr**: $745,000.00 ($285.44/sqft • 19 DOM)\n  - 🏡 **412 Pine Valley Rd**: $720,000.00 ($286.85/sqft • 24 DOM)\n- **RECOMMENDED LISTING BRACKET**: 💰 **$720,000.00 – $740,000.00**\n- **TARGET MIDPOINT LISTING PRICE**: 🎯 **$725,000.00**\n- **1-Click Control**: ⚡ Export Branded PDF CMA Deck & Send to Client',
+      displayResponse: '### 📈 NORA AI Branded CMA Valuation & Market Analysis\n\n- **Subject Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** (2,540 sqft • 4 Bed / 3.5 Bath)\n- **Neighborhood Valuation Analytics**:\n  - 📊 **Average Price per SqFt**: **$285.50 / sqft**\n  - ⏳ **Average Days on Market (DOM)**: **17 Days**\n- **Comparable Neighborhood Sales**:\n  - 🏡 **308 Mayfaire Way**: $710,000.00 ($286.29/sqft • 14 DOM)\n  - 🏡 **316 Mayfaire Way**: $735,000.00 ($283.78/sqft • 12 DOM)\n  - 🏡 **104 Coastal Dr**: $745,000.00 ($285.44/sqft • 19 DOM)\n  - 🏡 **412 Pine Valley Rd**: $720,000.00 ($286.85/sqft • 24 DOM)\n- **RECOMMENDED LISTING BRACKET**: 💰 **$720,000.00 – $740,000.00**\n- **TARGET MIDPOINT LISTING PRICE**: 🎯 **$725,000.00**\n- **1-Click Control**: ⚡ Export Branded PDF CMA Deck & Send to Client',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: '📈 Lorena AI Branded CMA Presentation Deck',
+        title: '📈 NORA AI Branded CMA Presentation Deck',
         target: '312 Mayfaire Way • $725,000 Target List Price ($285.50/sqft avg)',
         details: '💰 Comps: $710k–$745k • Avg $/sqft: $285.50 • Avg DOM: 17d • Recommended Range: $720k–$740k',
         deepLinkUrl: '/app/ask-nest-ops?tab=marketing',
@@ -1536,22 +1533,21 @@ export function queryUnifiedContext(
     };
   }
 
-  // 5m. LORENA AI MULTIPLE OFFER COMPARISON MATRIX DOMAIN
+  // 5m. NORA AI MULTIPLE OFFER COMPARISON MATRIX DOMAIN
   if (
-    cleanQuery.includes('compare offer') ||
-    cleanQuery.includes('compare all offers') ||
     cleanQuery.includes('multiple offer') ||
+    cleanQuery.includes('compare offers') ||
     cleanQuery.includes('offer matrix') ||
-    cleanQuery.includes('competing offer') ||
-    cleanQuery.includes('offer breakdown')
+    cleanQuery.includes('competing offers')
   ) {
     return {
-      source: 'Lorena AI Multiple Offer Comparison Matrix Engine',
+      source: 'NORA AI Multiple Offer Comparison Matrix Engine',
+      category: 'operational_tool',
       spokenAnswer: 'I compiled a side-by-side comparison for all 3 competing offers on 312 Mayfaire Way. Offer A from Michael Chang has the highest net proceeds at $725,000 with a $15,000 due diligence fee. Offer B is an all-cash offer at $715,000 with a 10-day quick close. Offer C is $730,000 but includes a home sale contingency.',
-      displayText: '### 📊 Lorena AI Side-by-Side Offer Comparison Matrix — 312 Mayfaire Way\n\n| Term / Feature | 🥇 Offer A (Top Net) | ⚡ Offer B (Fast Cash) | 🏷️ Offer C (High Price) |\n| :--- | :--- | :--- | :--- |\n| **Buyer Name** | Michael & Sarah Chang | David & Karen Miller | Dr. Robert Vance |\n| **Buyer Agent** | Sarah Jenkins | Marcus Aman | Matt Orr |\n| **Purchase Price** | **$725,000.00** | **$715,000.00** | **$730,000.00** |\n| **Due Diligence Fee** | **$15,000.00** (Sep 1) | **$25,000.00** (Immediate) | **$5,000.00** (Sep 1) |\n| **Earnest Money** | **$20,000.00** | **$30,000.00** | **$10,000.00** |\n| **Financing Type** | Conventional (80% LTV) | **100% ALL CASH** | Conventional (90% LTV) |\n| **Appraisal Gap** | Covered up to $10,000 | **Appraisal Waived** | Standard Appraisal |\n| **Contingencies** | None | None | ⚠️ Home Sale Contingency |\n| **Proposed Closing** | Sep 28, 2026 (30 Days) | **Sep 8, 2026 (10 Days)** | Oct 15, 2026 (45 Days) |\n| **ESTIMATED NET PROCEEDS** | 💵 **$318,250.00** | 💵 **$314,800.00** | 💵 **$312,100.00** |\n\n- **Recommendation**: Offer A yields highest seller net wire proceeds with strong $15k DD fee; Offer B offers fastest closing with zero financing risk.\n- **1-Click Control**: ⚡ Export Branded Multiple Offer Comparison Matrix PDF for Seller',
+      displayResponse: '### 📊 NORA AI Side-by-Side Offer Comparison Matrix — 312 Mayfaire Way\n\n| Term / Feature | 🥇 Offer A (Top Net) | ⚡ Offer B (Fast Cash) | 🏷️ Offer C (High Price) |\n| :--- | :--- | :--- | :--- |\n| **Buyer Name** | Michael & Sarah Chang | David & Karen Miller | Dr. Robert Vance |\n| **Buyer Agent** | Sarah Jenkins | Marcus Aman | Matt Orr |\n| **Purchase Price** | **$725,000.00** | **$715,000.00** | **$730,000.00** |\n| **Due Diligence Fee** | **$15,000.00** (Sep 1) | **$25,000.00** (Immediate) | **$5,000.00** (Sep 1) |\n| **Earnest Money** | **$20,000.00** | **$30,000.00** | **$10,000.00** |\n| **Financing Type** | Conventional (80% LTV) | **100% ALL CASH** | Conventional (90% LTV) |\n| **Appraisal Gap** | Covered up to $10,000 | **Appraisal Waived** | Standard Appraisal |\n| **Contingencies** | None | None | ⚠️ Home Sale Contingency |\n| **Proposed Closing** | Sep 28, 2026 (30 Days) | **Sep 8, 2026 (10 Days)** | Oct 15, 2026 (45 Days) |\n| **ESTIMATED NET PROCEEDS** | 💵 **$318,250.00** | 💵 **$314,800.00** | 💵 **$312,100.00** |\n\n- **Recommendation**: Offer A yields highest seller net wire proceeds with strong $15k DD fee; Offer B offers fastest closing with zero financing risk.\n- **1-Click Control**: ⚡ Export Branded Multiple Offer Comparison Matrix PDF for Seller',
       confidenceScore: 0.99,
       evidenceCard: {
-        title: '📊 Lorena AI Side-by-Side Offer Comparison Matrix',
+        title: '📊 NORA AI Side-by-Side Offer Comparison Matrix',
         target: '312 Mayfaire Way • 3 Competing Form 2-T Offers',
         details: '🥇 Offer A: $725k ($15k DD • $318.25k Net) • Offer B: $715k Cash • Offer C: $730k (Contingent)',
         deepLinkUrl: '/app/ask-nest-ops?tab=contracts',

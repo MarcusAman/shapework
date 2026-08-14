@@ -536,8 +536,9 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
           if (
             lower.includes('hey nest') ||
             lower.includes('hi nest') ||
-            lower.includes('hey lorena') ||
-            lower.includes('hi lorena') ||
+            lower.includes('hey nora') ||
+            lower.includes('hi nora') ||
+            lower.includes('ask nora') ||
             lower.includes('nest ops')
           ) {
             setShowVoiceDrawer(true);
@@ -625,10 +626,11 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
     setTimeout(() => {
       setChatPrompt(prev => {
         let textToSubmit = prev.trim();
-        // Strip "Hey Nest" or "Hey Lorena" wake-word prefix if present
+        // Strip "Hey Nest" or "Hey NORA" wake-word prefix if present
         const strippedText = textToSubmit
           .replace(/^(hey|hi)\s+nest,?\s*/i, '')
-          .replace(/^(hey|hi)\s+lorena,?\s*/i, '')
+          .replace(/^(hey|hi)\s+nora,?\s*/i, '')
+          .replace(/^ask\s+nora,?\s*/i, '')
           .trim();
 
         if (strippedText) {
@@ -1343,7 +1345,7 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
                       }`}
                     >
                       <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase mb-1 text-stone-500">
-                        <span>{msg.sender === 'user' ? 'You' : 'Lorena (Ask Nest Ops)'}</span>
+                        <span>{msg.sender === 'user' ? 'You' : 'NORA (Ask Nest Ops)'}</span>
                         {msg.sender === 'agent' && voiceAgent.status === 'speaking' && (
                           <span className="inline-flex items-center gap-1 text-emerald-700 font-bold normal-case text-[10px]">
                             <Volume2 className="w-3 h-3 animate-pulse" /> Speaking

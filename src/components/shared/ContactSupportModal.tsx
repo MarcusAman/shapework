@@ -13,7 +13,7 @@ export default function ContactSupportModal({ isOpen, onClose }: ContactSupportM
   if (!isOpen) return null;
 
   const email = 'AskNestOps@nestrealty.com';
-  const phone = '+1 (910) 507-2047';
+  const phone = '+1 (910) 275-6672';
 
   const handleCopyEmail = () => {
     navigator.clipboard.writeText(email);
@@ -91,9 +91,9 @@ export default function ContactSupportModal({ isOpen, onClose }: ContactSupportM
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[9px] font-mono text-[#D0D6BB]/50 uppercase tracking-wider block">Call Support</span>
+                  <span className="text-[9px] font-mono text-[#D0D6BB]/50 uppercase tracking-wider block">Call Support (NORA Voice)</span>
                   <a href={`tel:${phone.replace(/[^0-9+]/g, '')}`} className="text-xs font-bold text-white hover:text-emerald-300 underline truncate block">
-                    {phone}
+                    {phone} • (910) ASK-NORA
                   </a>
                 </div>
               </div>

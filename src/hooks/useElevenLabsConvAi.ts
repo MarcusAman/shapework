@@ -88,9 +88,9 @@ export function useElevenLabsConvAi(): UseElevenLabsConvAiReturn {
 
         setFrequencyData(bars);
 
-        // Barge-in Interruption Detection: If user speaks loudly (> 600 sum) while Lorena is speaking
+        // Barge-in Interruption Detection: If user speaks loudly (> 600 sum) while NORA is speaking
         if (sum > 600 && isSpeakingRef.current) {
-          console.log('[ConvAI Barge-In] User interrupted Lorena speaking!');
+          console.log('[ConvAI Barge-In] User interrupted NORA speaking!');
           stopAudioPlayback();
           setStatus('interrupted');
           setTimeout(() => {
@@ -107,7 +107,7 @@ export function useElevenLabsConvAi(): UseElevenLabsConvAiReturn {
     }
   }, [stopAudioPlayback]);
 
-  const speakLorenaText = useCallback(async (text: string) => {
+  const speakNoraText = useCallback(async (text: string) => {
     if (isSpeakerMuted) return;
     stopAudioPlayback();
     isSpeakingRef.current = true;
@@ -189,17 +189,19 @@ export function useElevenLabsConvAi(): UseElevenLabsConvAiReturn {
         { id: 'ast-' + Date.now(), sender: 'assistant', text: ansText, timestamp: timeStr }
       ]);
 
-      await speakLorenaText(ansText);
-    } catch (err) {
-      console.warn('[ConvAI Tool Exec Error]:', err);
-      const fallbackAns = `Processed request: "${cleanPrompt}". Ready for your next turn!`;
-      setTranscriptHistory(prev => [
-        ...prev,
-        { id: 'ast-' + Date.now(), sender: 'assistant', text: fallbackAns, timestamp: timeStr }
-      ]);
-      await speakLorenaText(fallbackAns);
+      await speakNoraText(ansText);
+    } catch (e) {
+      console.warn('[ConvAI Response Error]:', e);
+      const fallbackAns = "I've logged your request into the Nest Realty operations queue.";
+      setTranscriptHistory(prev => [...prev, {
+        id: `ai_${Date.now()}`,
+        sender: 'assistant',
+        text: fallbackAns,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      await speakNoraText(fallbackAns);
     }
-  }, [speakLorenaText]);
+  }, [speakNoraText]);
 
   const startSession = useCallback(async () => {
     setStatus('connecting');

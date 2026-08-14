@@ -32,7 +32,7 @@ export type AgentAction =
   | { type: 'RESET' };
 
 export const initialRuntimeState: AgentRuntimeState = {
-  agentName: 'Lorena',
+  agentName: 'NORA',
   status: 'idle',
   transcriptHistory: [],
   pendingProposal: null,

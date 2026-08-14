@@ -58,7 +58,7 @@ export interface UseSopVoiceSessionParams {
   onSopDraftUpdated: (updater: (prev: SopDocument) => SopDocument) => void;
 }
 
-const LORENA_VOICE_ID = 'l006hw6wZaEYAv80cbzj';
+const NORA_VOICE_ID = 'l006hw6wZaEYAv80cbzj';
 
 interface PendingDraftConfirmation {
   field: 'title' | 'purpose' | 'trigger' | 'owner' | 'step' | 'decision';
@@ -84,8 +84,8 @@ export function useSopVoiceSession({
     playbackMethod: 'VoicePipeline ElevenLabs TTS',
     duplicateCount: 0,
     signedUrlStatus: 200,
-    agentIdUsed: 'lorena_ops_guide',
-    voiceIdUsed: LORENA_VOICE_ID,
+    agentIdUsed: 'nora_ops_guide',
+    voiceIdUsed: NORA_VOICE_ID,
     envInfo: detectBrowserEnvironment(),
     audioInputs: [],
     lastSuccessfulStage: 'Not started',
@@ -122,16 +122,17 @@ export function useSopVoiceSession({
     });
   }, []);
 
-  // Speak via ElevenLabs Lorena Voice or fallback
-  const speakLorena = useCallback((text: string, onComplete?: () => void) => {
+  // Speak via ElevenLabs NORA Voice or fallback
+  const speakNora = useCallback((text: string, onComplete?: () => void) => {
     if (pipelineRef.current) {
-      pipelineRef.current.speakText(text, undefined, LORENA_VOICE_ID).then(() => {
-        if (onComplete) onComplete();
-      }).catch(() => {
-        if (onComplete) onComplete();
+      pipelineRef.current.speakText(text, undefined, NORA_VOICE_ID).then(() => {
+        onComplete?.();
+      }).catch(err => {
+        console.warn('[useSopVoiceSession] Speech playback error:', err);
+        onComplete?.();
       });
-    } else if (onComplete) {
-      onComplete();
+    } else {
+      onComplete?.();
     }
   }, []);
 
@@ -179,7 +180,8 @@ export function useSopVoiceSession({
     ]);
 
     setVoiceState('thinking');
-    setStatusDetails('Lorena is listening & processing...');
+    setStatusDetails('NORA is listening & processing...');
+    addStageLog(`6. User utterance received: "${userText}"`);
 
     const cleanLower = userText.toLowerCase().trim();
     const pending = pendingConfirmationRef.current;
@@ -189,14 +191,9 @@ export function useSopVoiceSession({
     const isAffirmative = /^(yes|yeah|yep|yup|sure|correct|that's right|looks good|sounds good|confirm|approved|ok|okay)\b/i.test(cleanLower);
     const isNegative = /^(no|nope|wrong|incorrect|cancel|nah|not right)\b/i.test(cleanLower);
 
-    let lorenaResponse = '';
+    let noraResponse = '';
 
-    if (pending && isAffirmative) {
-      // USER CONFIRMED PENDING FIELD! Apply to SOP draft
-      const fieldType = pending.field;
-      const proposedVal = pending.proposedValue;
-      const displayVal = pending.displayText;
-
+    const applyValueToDraft = (fieldType: string, proposedVal: any) => {
       onSopDraftUpdated((prev) => {
         if (fieldType === 'title') return { ...prev, title: proposedVal, updatedAt: new Date().toISOString() };
         if (fieldType === 'purpose') return { ...prev, purpose: proposedVal, updatedAt: new Date().toISOString() };
@@ -227,30 +224,31 @@ export function useSopVoiceSession({
         }
         return prev;
       });
+    };
 
-      pendingConfirmationRef.current = null;
+    if (pending && (isAffirmative || isNegative)) {
+      if (isAffirmative) {
+        // Apply confirmed value to draft
+        applyValueToDraft(pending.field, pending.proposedValue);
+        const displayVal = pending.displayText;
+        pendingConfirmationRef.current = null;
 
-      // Ask next logical question based on updated SOP draft state
-      const nextDraft = { ...sopDraftRef.current };
-      if (fieldType === 'title') nextDraft.title = proposedVal;
-      if (fieldType === 'purpose') nextDraft.purpose = proposedVal;
-      if (fieldType === 'trigger') nextDraft.trigger = proposedVal;
-
-      if (!nextDraft.purpose) {
-        lorenaResponse = `Confirmed! Set title to "${displayVal}". Next, why do we do this process? What is its primary purpose?`;
-      } else if (!nextDraft.trigger) {
-        lorenaResponse = `Confirmed! Set purpose to "${displayVal}". Now, what event or document receipt triggers this process to start?`;
-      } else if (nextDraft.orderedSteps.length === 0 && fieldType !== 'step') {
-        lorenaResponse = `Confirmed! Trigger set to "${displayVal}". Now let's outline the step-by-step procedure. What is the first step?`;
-      } else if (fieldType === 'step') {
-        lorenaResponse = `Confirmed step: "${displayVal}". What is the next step in the procedure, or any key decision rules?`;
+        if (pending.field === 'title') {
+          noraResponse = `Confirmed! Set title to "${displayVal}". Next, why do we do this process? What is its primary purpose?`;
+        } else if (pending.field === 'purpose') {
+          noraResponse = `Confirmed! Set purpose to "${displayVal}". Now, what event or document receipt triggers this process to start?`;
+        } else if (pending.field === 'trigger') {
+          noraResponse = `Confirmed! Trigger set to "${displayVal}". Now let's outline the step-by-step procedure. What is the first step?`;
+        } else if (pending.field === 'step') {
+          noraResponse = `Confirmed step: "${displayVal}". What is the next step in the procedure, or any key decision rules?`;
+        } else {
+          noraResponse = `Confirmed! Saved to your SOP draft. What else would you like to add, or say "Finished" to review?`;
+        }
       } else {
-        lorenaResponse = `Confirmed! Saved to your SOP draft. What else would you like to add, or say "Finished" to review?`;
+        // User rejected proposed value
+        pendingConfirmationRef.current = null;
+        noraResponse = `Understood! I won't save that. What should we set for the ${pending.field}?`;
       }
-    } else if (pending && isNegative) {
-      // USER REJECTED PENDING FIELD
-      pendingConfirmationRef.current = null;
-      lorenaResponse = `Understood! I won't save that. What should we set for the ${pending.field}?`;
     } else {
       // PARSE USER INPUT TO FORMULATE UNDERSTANDING & PROPOSE CONFIRMATION
       let extractedValue = '';
@@ -298,32 +296,35 @@ export function useSopVoiceSession({
         displayText: extractedValue
       };
 
-      lorenaResponse = `I understood your ${targetField} as: "${extractedValue}". Does this look correct to confirm and save to your SOP draft?`;
+      noraResponse = `I understood your ${targetField} as: "${extractedValue}". Does this look correct to confirm and save to your SOP draft?`;
     }
 
-    // Add response to transcript & speak out loud via ElevenLabs voice immediately
-    setTranscriptMessages((prev) => [
+    // Add assistant response to transcript and speak it
+    setTranscriptMessages(prev => [
       ...prev,
       {
-        id: `msg_ai_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: `msg_ai_${Date.now()}`,
         sender: 'ai',
-        text: lorenaResponse,
+        text: noraResponse,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ]);
 
     setVoiceState('consultant_speaking');
-    setStatusDetails('Ask Nest Ops is speaking...');
-
-    speakLorena(lorenaResponse, () => {
+    setStatusDetails('NORA is speaking (ElevenLabs Voice)...');
+    speakNora(noraResponse, () => {
       if (!activeSessionIdRef.current) return;
-      setVoiceState('listening');
-      setStatusDetails('Ask Nest Ops is listening...');
-      if (pipelineRef.current && !isMuted) {
-        pipelineRef.current.startListening();
-      }
+      // Post-speech cooldown: Wait 1 full second after assistant speech finishes before listening
+      setTimeout(() => {
+        if (!activeSessionIdRef.current) return;
+        setVoiceState('listening');
+        setStatusDetails('NORA is Listening...');
+        if (pipelineRef.current && !isMuted) {
+          pipelineRef.current.startListening();
+        }
+      }, 1000);
     });
-  }, [onSopDraftUpdated, speakLorena, isMuted]);
+  }, [onSopDraftUpdated, speakNora, isMuted, addStageLog]);
 
   // Start Session (User Click Action)
   const startSession = useCallback(async () => {
@@ -371,7 +372,7 @@ export function useSopVoiceSession({
       next_incomplete_section: ''
     });
 
-    const openingMessage = resolved.message || `Hi ${userFirstName}! I'm Lorena, your SOP authoring guide. Let's build your operational SOP together. To start, what is the title or name of this process?`;
+    const openingMessage = resolved.message || `Hi ${userFirstName}! I'm NORA, your SOP authoring guide. Let's build your operational SOP together. To start, what is the title or name of this process?`;
 
     // 4. Initialize VoicePipeline with ElevenLabs voice ID
     pipelineRef.current = new VoicePipeline({
@@ -401,16 +402,16 @@ export function useSopVoiceSession({
     ]);
 
     setVoiceState('consultant_speaking');
-    setStatusDetails('Lorena is speaking (ElevenLabs Voice)...');
+    setStatusDetails('NORA is speaking (ElevenLabs Voice)...');
     addStageLog('4. Opening greeting started (ElevenLabs Voice)');
 
-    speakLorena(openingMessage, () => {
+    speakNora(openingMessage, () => {
       if (activeSessionIdRef.current !== sessionId) return;
       // Post-speech cooldown: Wait 1 full second after opening greeting finishes before listening
       setTimeout(() => {
         if (activeSessionIdRef.current !== sessionId) return;
         setVoiceState('listening');
-        setStatusDetails('Lorena is Listening...');
+        setStatusDetails('NORA is Listening...');
         addStageLog('5. Listening for user speech');
 
         if (pipelineRef.current && !isMuted) {
@@ -418,7 +419,7 @@ export function useSopVoiceSession({
         }
       }, 1000);
     });
-  }, [voiceState, userContext, authUser, sopDraft, addStageLog, speakLorena, processUserUtterance, isMuted]);
+  }, [voiceState, userContext, authUser, sopDraft, addStageLog, speakNora, processUserUtterance, isMuted]);
 
   // Handle Typed Messages
   const sendTextMessage = useCallback(async (text: string) => {

@@ -159,7 +159,7 @@ export class VoicePipeline {
         }
 
         const lower = trimmed.toLowerCase();
-        const wakePhrases = ['hey nest', 'hi nest', 'hey lorena', 'nest ops', 'nest'];
+        const wakePhrases = ['hey nest', 'hi nest', 'hey nora', 'hi nora', 'ask nora', 'nest ops', 'nest', 'hey lorena'];
         const isWakePhrase = wakePhrases.includes(lower);
         const startsWithWakePhrase = wakePhrases.some(p => lower.startsWith(p));
 
@@ -426,7 +426,7 @@ export class VoicePipeline {
 
         this.callbacks.onFrequencyUpdate(bars);
 
-        // Barge-in Interruption Detection: If user speaks loudly (> 600 sum) while Lorena is speaking
+        // Barge-in Interruption Detection: If user speaks loudly (> 600 sum) while NORA is speaking
         if (sum > 600 && this.isSpeaking) {
           this.stopAudioPlayback();
           if (this.callbacks.onUserInterrupted) {

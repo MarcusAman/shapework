@@ -61,7 +61,7 @@ export function GlobalEvidenceDrawer({
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono font-bold text-[#00635C] uppercase tracking-wider">Lorena AI Execution</span>
+                  <span className="text-[10px] font-mono font-bold text-[#00635C] uppercase tracking-wider">NORA AI Execution</span>
                   <h3 className="text-sm font-bold text-slate-900 leading-snug">{evidenceCard.title}</h3>
                 </div>
               </div>

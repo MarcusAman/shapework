@@ -127,7 +127,7 @@ export const StaffSopStudioModal: React.FC<StaffSopStudioModalProps> = ({
       } else if (onSave) {
         await onSave(published);
       }
-      showToast(`SOP Approved & Published as v${published.version}! Live in Lorena Context Engine.`);
+      showToast(`SOP Approved & Published as v${published.version}! Live in NORA Context Engine.`);
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -217,7 +217,7 @@ ${stepsMd}
           <p>${currentSop.completionEvidence || 'Checklists verified and archived.'}</p>
 
           <div class="footer">
-            Authoritative Nest Realty Brokerage Policy • Auto-synced with Lorena Voice Context Engine
+            Authoritative Nest Realty Brokerage Policy • Auto-synced with NORA Voice Context Engine
           </div>
         </body>
       </html>
@@ -322,7 +322,7 @@ ${stepsMd}
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-serif font-bold text-sm text-stone-900">Ordered Execution Protocol</h3>
-                  <p className="text-xs text-stone-500">Each step is indexed and spoken step-by-step by Lorena during voice queries.</p>
+                  <p className="text-xs text-stone-500">Each step is indexed and spoken step-by-step by NORA during voice queries.</p>
                 </div>
                 <button
                   type="button"

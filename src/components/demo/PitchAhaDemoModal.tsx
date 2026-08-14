@@ -96,7 +96,7 @@ const PROMPT_CHIPS = [
     title: 'Lead paint disclosure',
     question: '"Hey NestOps, I\'m at 104 Main St with a buyer right now. Can you text me the signed Lead-Based Paint Disclosure PDF?"',
     logs: [
-      { time: '00:00.6s', text: 'Voice request received on +1 (910) 507-2047', type: 'info' as const },
+      { time: '00:00.6s', text: 'Voice request received on +1 (910) 275-6672 (ASK-NORA)', type: 'info' as const },
       { time: '00:01.2s', text: 'Request parsed: Lead Paint Disclosure for 104 Main St', type: 'intent' as const },
       { time: '00:01.9s', text: 'Document found in file vault (#DL-104MAIN-LBP)', type: 'query' as const },
       { time: '00:02.7s', text: 'Governance check: Requires Broker approval', type: 'governance' as const },
@@ -108,7 +108,7 @@ const PROMPT_CHIPS = [
     title: 'Earnest-money deposit',
     question: '"Just collected the $5,000 earnest money check for 312 Mayfaire Town Center Way. Check photo attached."',
     logs: [
-      { time: '00:00.5s', text: 'Text & check image received (+1 910-507-2047)', type: 'info' as const },
+      { time: '00:00.5s', text: 'Text & check image received (+1 910-275-6672)', type: 'info' as const },
       { time: '00:01.1s', text: 'Parsed check: $5,000.00 deposit from John Smith', type: 'intent' as const },
       { time: '00:01.8s', text: 'Matched transaction: 312 Mayfaire Town Center Way', type: 'query' as const },
       { time: '00:02.5s', text: 'Escrow audit record prepared', type: 'governance' as const },
@@ -485,7 +485,7 @@ export default function PitchAhaDemoModal({ isOpen, onClose }: PitchAhaDemoModal
             
             {/* Live Demo Hero Intro */}
             <LiveDemoIntro
-              phoneNumber="+1 (910) 507-2047"
+              phoneNumber="+1 (910) 275-6672"
               onSimulate={handleSimulateAction}
               onCopySuccess={() => triggerSound('tap')}
             />
@@ -501,7 +501,7 @@ export default function PitchAhaDemoModal({ isOpen, onClose }: PitchAhaDemoModal
               
               {/* Left: Agent Request Panel */}
               <AgentRequestPanel
-                channel="Voice Line (+1 910-507-2047)"
+                channel="Voice Line (+1 910-275-6672 • ASK-NORA)"
                 agentName={currentDetails.agent}
                 property={currentDetails.property}
                 question={currentChip.question}

@@ -117,7 +117,7 @@ export const FloatingVoiceCallBar: React.FC<FloatingVoiceCallBarProps> = ({
                 ? 'bg-amber-50 border-amber-200 text-amber-600'
                 : 'bg-[var(--sw-canvas,#FBF8F0)] border-[var(--sw-border,#E2E4DA)] text-[var(--brand-primary)] hover:bg-[var(--brand-soft)]'
             }`}
-            title={isSpeakerMuted ? 'Unmute Lorena Speaker' : 'Mute Speaker'}
+            title={isSpeakerMuted ? 'Unmute NORA Speaker' : 'Mute Speaker'}
           >
             {isSpeakerMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>

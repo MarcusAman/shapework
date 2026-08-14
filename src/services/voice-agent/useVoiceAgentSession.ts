@@ -9,11 +9,11 @@ import { useReducer, useState, useEffect, useRef, useCallback } from 'react';
 import { agentRuntimeReducer, initialRuntimeState, AgentState } from './agentRuntimeReducer';
 import { VoicePipeline, TranscriptPayload } from './voicePipeline';
 import { processUserUtterance } from './transcriptRouter';
-import { AgentPersonaConfig, lorenaNestOpsConfig } from './agentPromptSpec';
+import { AgentPersonaConfig, noraNestOpsConfig } from './agentPromptSpec';
 import { VoiceDiagnostics } from './voiceDiagnostics';
 import { AudioPlaybackManager } from './audioPlaybackManager';
 
-export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = lorenaNestOpsConfig, userName: string = 'Ryan') {
+export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNestOpsConfig, userName: string = 'Ryan') {
   const [state, dispatch] = useReducer(agentRuntimeReducer, {
     ...initialRuntimeState,
     agentName: personaConfig.name
@@ -58,10 +58,15 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = lorenaN
 
     VoiceDiagnostics.log('turn_dispatch_started', targetUttId, `${source}: ${utterance}`);
 
-    const cleanUtterance = utterance.replace(/^(hey|hi)\s+nest,?\s*/i, '').replace(/^(hey|hi)\s+lorena,?\s*/i, '').trim() || utterance;
+    const cleanUtterance = utterance
+      .replace(/^(hey|hi)\s+nest,?\s*/i, '')
+      .replace(/^(hey|hi)\s+nora,?\s*/i, '')
+      .replace(/^ask\s+nora,?\s*/i, '')
+      .replace(/^(hey|hi)\s+lorena,?\s*/i, '')
+      .trim() || utterance;
     let result = processUserUtterance(utterance, stateRef.current, userName, targetUttId);
 
-    // 1. Pure Wake Word Handler ("Hey Nest", "Hey Lorena")
+    // 1. Pure Wake Word Handler ("Hey Nest", "Hey NORA")
     if (isWakeOnly || result.intentType === 'WAKE_WORD_ONLY') {
       VoiceDiagnostics.log('voice_session_activated', targetUttId, 'Pure Wake Phrase');
       AudioPlaybackManager.playWakeChime();

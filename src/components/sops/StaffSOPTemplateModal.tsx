@@ -245,11 +245,11 @@ export default function StaffSOPTemplateModal({
                 <h2 className="text-xl font-serif font-bold text-stone-900">Build an SOP together</h2>
                 <span className="bg-emerald-50 border border-emerald-200/80 text-[#00635C] text-xs px-3 py-0.5 rounded-full font-semibold flex items-center gap-1.5 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  Lorena ElevenLabs Voice Guide
+                  NORA ElevenLabs Voice Guide
                 </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5 font-medium">
-                Talk through how the work gets done. Lorena will build an editable SOP draft live as you speak.
+                Talk through how the work gets done. NORA will build an editable SOP draft live as you speak.
               </p>
             </div>
           </div>
@@ -321,7 +321,7 @@ export default function StaffSOPTemplateModal({
               </div>
               <div className="text-xs text-stone-600 space-y-3 leading-relaxed font-medium">
                 <p>
-                  <strong>Why microphone access is needed:</strong> You can talk through your process out loud, and Lorena will organize your words into an SOP draft.
+                  <strong>Why microphone access is needed:</strong> You can talk through your process out loud, and NORA will organize your words into an SOP draft.
                 </p>
                 <p>
                   <strong>Audio privacy:</strong> Your voice stream is processed live to create text. Raw audio files are not saved by default.
@@ -405,8 +405,8 @@ export default function StaffSOPTemplateModal({
 
                   {/* Voice Status Badge */}
                   <div className="mt-2 text-xs font-bold text-stone-800 select-none text-center">
-                    {voiceSession.voiceState === 'listening' && 'Lorena is Listening...'}
-                    {voiceSession.voiceState === 'consultant_speaking' && 'Lorena Speaking (ElevenLabs Voice)...'}
+                    {voiceSession.voiceState === 'listening' && 'NORA is Listening...'}
+                    {voiceSession.voiceState === 'consultant_speaking' && 'NORA Speaking (ElevenLabs Voice)...'}
                     {voiceSession.voiceState === 'connecting' && 'Connecting Voice Line...'}
                     {voiceSession.voiceState === 'requesting_permission' && 'Allow Microphone...'}
                     {voiceSession.voiceState === 'error' && (voiceSession.statusDetails || 'Connection Issue')}
@@ -428,7 +428,7 @@ export default function StaffSOPTemplateModal({
                   <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 space-y-2">
                     <Sparkles className="w-8 h-8 text-stone-300" />
                     <p className="italic text-xs font-medium text-stone-500">
-                      Lorena will ask one question at a time and build your SOP draft live as you speak.
+                      NORA will ask one question at a time and build your SOP draft live as you speak.
                     </p>
                     <p className="text-[11px] text-stone-400 font-semibold">
                       Click the glowing Voice Orb above to begin.
@@ -447,7 +447,7 @@ export default function StaffSOPTemplateModal({
                       <div className={`text-[10px] font-bold mb-1 flex items-center justify-between ${
                         msg.sender === 'user' ? 'text-emerald-100' : 'text-[#00635C]'
                       }`}>
-                        <span>{msg.sender === 'user' ? 'You' : 'Lorena (ElevenLabs Voice)'}</span>
+                        <span>{msg.sender === 'user' ? 'You' : 'NORA (ElevenLabs Voice)'}</span>
                         <span className="opacity-70">{msg.timestamp}</span>
                       </div>
                       <div className="text-xs leading-relaxed font-medium">{msg.text}</div>
@@ -465,7 +465,7 @@ export default function StaffSOPTemplateModal({
                     className="w-full py-3 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Mic className="w-4 h-4" />
-                    <span>Start Audio Walkthrough with Lorena</span>
+                    <span>Start Audio Walkthrough with NORA</span>
                   </button>
                 ) : (
                   <div className="flex gap-2">
@@ -633,7 +633,7 @@ export default function StaffSOPTemplateModal({
 
                 {sopDraft.orderedSteps.length === 0 ? (
                   <div className="p-6 text-center text-xs text-stone-500 border border-dashed border-stone-300 rounded-xl bg-stone-50/50 font-medium">
-                    No steps added yet. Lorena will populate steps automatically as you speak, or click <strong>Add Step</strong> above.
+                    No steps added yet. NORA will populate steps automatically as you speak, or click <strong>Add Step</strong> above.
                   </div>
                 ) : (
                   <div className="space-y-3">
