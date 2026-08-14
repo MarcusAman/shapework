@@ -2003,17 +2003,41 @@ app.post('/api/auth/reset-password', resetRateLimiter, async (req, res) => {
 
 // Admin-Only Invitation Creation Endpoint
 app.post('/api/auth/invitations', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_users'), async (req: any, res) => {
-  const { userId, role, permissions } = req.body;
+  let { userId, email, name, role, permissions } = req.body;
   const wsId = req.workspace?.id;
 
-  if (!userId || !wsId) {
-    return res.status(400).json({ error: 'Bad Request', message: 'userId and workspace context are required.' });
+  if (!wsId) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Workspace context is required.' });
+  }
+
+  if (!userId && !email) {
+    return res.status(400).json({ error: 'Bad Request', message: 'userId or email is required.' });
   }
 
   try {
+    const { dbPool } = await import('./server/persistence/repositories.js');
+    if (dbPool && !userId && email) {
+      const userRes = await dbPool.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (userRes.rows.length > 0) {
+        userId = userRes.rows[0].id;
+      } else {
+        userId = `usr_${crypto.randomBytes(6).toString('hex')}`;
+        await dbPool.query(`
+          INSERT INTO users (id, email, name, status, created_at, updated_at)
+          VALUES ($1, $2, $3, 'pending_activation', NOW(), NOW())
+        `, [userId, email, name || email.split('@')[0]]);
+      }
+    } else if (!userId) {
+      userId = `usr_${(email || 'user').split('@')[0]}`;
+    }
+
     const { createInvitationToken } = await import('./server/auth/invitationService.js');
     const result = await createInvitationToken(userId, wsId, role || 'member', permissions || []);
-    res.json({ success: true, invitation: { id: result.id, userId: result.userId, expiresAt: result.expiresAt, rawToken: result.rawToken } });
+    res.json({
+      success: true,
+      token: result.rawToken,
+      invitation: { id: result.id, userId: result.userId, expiresAt: result.expiresAt, rawToken: result.rawToken }
+    });
   } catch (err: any) {
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
   }

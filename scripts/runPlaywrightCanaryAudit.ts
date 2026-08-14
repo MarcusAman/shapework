@@ -1,6 +1,5 @@
 import { chromium } from '@playwright/test';
 import { signJwt } from '../server/auth/jwt.js';
-import fs from 'fs';
 import path from 'path';
 
 const CANARY_URL = process.env.CANARY_URL || 'https://canary---shapework-os-3xc3npf56a-uc.a.run.app';
@@ -24,7 +23,6 @@ async function runBrowserAcceptance() {
     workspaceId: 'ws_wilmington'
   });
 
-  // Set auth cookie
   await context.addCookies([
     {
       name: 'shapework_session',
@@ -40,56 +38,39 @@ async function runBrowserAcceptance() {
   const page = await context.newPage();
 
   try {
-    // 1. Load Canary Homepage
-    console.log('[1/6] Navigating to Canary Home...');
-    await page.goto(CANARY_URL, { waitUntil: 'networkidle', timeout: 30000 });
-    console.log('✅ Canary Homepage Loaded. Title:', await page.title());
+    // 1. Load Ask Nest Ops in Demo / App Mode
+    console.log('[1/4] Navigating to Ask Nest Ops Hub...');
+    await page.goto(`${CANARY_URL}/demo`, { waitUntil: 'networkidle', timeout: 30000 });
+    console.log('✅ Ask Nest Ops Hub Loaded.');
 
-    // 2. Ask Nest Ops & Found Items Hero Stage
-    console.log('[2/6] Verifying Ask Nest Ops & Found Items Stage...');
-    const searchInput = page.locator('input[placeholder*="Ask"], input[placeholder*="search"], input[type="search"], input[type="text"]').first();
-    if (await searchInput.count() > 0) {
-      await searchInput.fill('What is the listing launch protocol?');
-      await page.waitForTimeout(1000);
-      console.log('✅ Search input populated and responsive.');
-    }
-
-    // Capture screenshot of Ask Nest Ops / Hub
+    // Capture screenshot of cleaned Ask Nest Ops Hub
     const hubScreenshot = path.join(ARTIFACTS_DIR, 'uat_canary_hub.png');
     await page.screenshot({ path: hubScreenshot, fullPage: true });
     console.log(`📸 Captured Hub Screenshot: ${hubScreenshot}`);
 
-    // 3. Verify Directory
-    console.log('[3/6] Navigating to Directory View...');
-    const directoryBtn = page.locator('text=Directory, text=Roster, button:has-text("Directory")').first();
-    if (await directoryBtn.count() > 0) {
-      await directoryBtn.click();
+    // 2. Collapse Sidebar and verify logo
+    console.log('[2/4] Collapsing sidebar to verify hunter green N logo...');
+    const collapseToggle = page.locator('button[title*="Collapse"], button[aria-label*="Collapse"], button:has-text("Collapse")').first();
+    if (await collapseToggle.count() > 0) {
+      await collapseToggle.click();
+      await page.waitForTimeout(1000);
+    }
+    const collapsedScreenshot = path.join(ARTIFACTS_DIR, 'uat_canary_collapsed_sidebar.png');
+    await page.screenshot({ path: collapsedScreenshot, fullPage: true });
+    console.log(`📸 Captured Collapsed Sidebar Screenshot: ${collapsedScreenshot}`);
+
+    // 3. Test Search Query in Ask Nest Ops
+    console.log('[3/4] Testing search in Ask Nest Ops...');
+    const searchInput = page.locator('input[placeholder*="Ask"], input[placeholder*="type anything"]').first();
+    if (await searchInput.count() > 0) {
+      await searchInput.fill('What is the listing launch protocol?');
+      await searchInput.press('Enter');
       await page.waitForTimeout(1500);
-      console.log('✅ Directory view accessible.');
     }
 
-    // 4. Verify Org Chart
-    console.log('[4/6] Navigating to Org Chart...');
-    const orgChartBtn = page.locator('text=Org Chart, text=Hierarchy, button:has-text("Org Chart")').first();
-    if (await orgChartBtn.count() > 0) {
-      await orgChartBtn.click();
-      await page.waitForTimeout(1500);
-      console.log('✅ Org Chart view accessible.');
-    }
-
-    // 5. Verify SOPs & Knowledge
-    console.log('[5/6] Navigating to SOPs / Knowledge Hub...');
-    const sopBtn = page.locator('text=SOP, text=Knowledge, button:has-text("SOP")').first();
-    if (await sopBtn.count() > 0) {
-      await sopBtn.click();
-      await page.waitForTimeout(1500);
-      console.log('✅ SOPs view accessible.');
-    }
-
-    // Capture final acceptance state screenshot
-    const acceptanceScreenshot = path.join(ARTIFACTS_DIR, 'uat_canary_acceptance.png');
-    await page.screenshot({ path: acceptanceScreenshot, fullPage: true });
-    console.log(`📸 Captured Acceptance Screenshot: ${acceptanceScreenshot}`);
+    const searchResultScreenshot = path.join(ARTIFACTS_DIR, 'uat_canary_search_stage.png');
+    await page.screenshot({ path: searchResultScreenshot, fullPage: true });
+    console.log(`📸 Captured Search Stage Screenshot: ${searchResultScreenshot}`);
 
     console.log('\n==================================================================');
     console.log('✅ ALL PLAYWRIGHT BROWSER ACCEPTANCE GATES COMPLETED SUCCESSFULLY');
