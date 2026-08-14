@@ -23,14 +23,175 @@ const resolvedDirname = typeof import.meta !== 'undefined' && import.meta.url
 // Run database schema migrations
 export async function initDatabaseSchema(pool: pg.Pool) {
   try {
-    const migrationsDir = path.resolve(resolvedDirname, '../db/migrations');
-    if (fs.existsSync(migrationsDir)) {
+    // 0. Ensure core relational tables exist first with robust error handling
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS workspaces (
+        id VARCHAR(100) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) UNIQUE NOT NULL,
+        industry VARCHAR(100) DEFAULT 'real_estate_brokerage',
+        status VARCHAR(50) DEFAULT 'active',
+        phase VARCHAR(50) DEFAULT 'setup',
+        timezone VARCHAR(100) DEFAULT 'America/New_York',
+        launch_mode VARCHAR(100) DEFAULT 'integration_first',
+        launch_owner VARCHAR(255),
+        target_go_live_date DATE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(100) PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS workspace_memberships (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        user_id VARCHAR(100) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(100) NOT NULL,
+        permissions TEXT[] NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (workspace_id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS org_charts (
+        workspace_id VARCHAR(100) PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+        model JSONB NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_by VARCHAR(255) NOT NULL DEFAULT 'system'
+      );
+
+      CREATE TABLE IF NOT EXISTS org_chart_positions (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(100),
+        reports_to_id VARCHAR(100) REFERENCES org_chart_positions(id) ON DELETE SET NULL,
+        roles JSONB DEFAULT '[]'::jsonb,
+        responsibilities JSONB DEFAULT '[]'::jsonb,
+        sla VARCHAR(255),
+        escalation_rule VARCHAR(255),
+        version INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS org_chart_audits (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        action VARCHAR(100) NOT NULL,
+        entity_id VARCHAR(100),
+        author_user VARCHAR(255) NOT NULL,
+        diff JSONB
+      );
+
+      CREATE TABLE IF NOT EXISTS sop_drafts (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        tenant_id VARCHAR(100) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        purpose TEXT,
+        trigger VARCHAR(255),
+        process_owner VARCHAR(255) NOT NULL,
+        reviewer VARCHAR(255),
+        status VARCHAR(50) NOT NULL DEFAULT 'draft',
+        version VARCHAR(50) NOT NULL DEFAULT '1.0',
+        ordered_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        systems_used TEXT[] DEFAULT '{}',
+        completion_evidence TEXT,
+        expected_timing VARCHAR(100),
+        revision_count INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS sop_audits (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        action VARCHAR(100) NOT NULL,
+        sop_id VARCHAR(100) NOT NULL,
+        performed_by VARCHAR(255) NOT NULL,
+        reason VARCHAR(255),
+        snapshot JSONB
+      );
+
+      CREATE TABLE IF NOT EXISTS owner_digest_configs (
+        workspace_id VARCHAR(100) PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+        enabled BOOLEAN NOT NULL DEFAULT FALSE,
+        recipients TEXT[] NOT NULL DEFAULT '{}',
+        day_of_week VARCHAR(50) NOT NULL DEFAULT 'monday',
+        delivery_time VARCHAR(50) NOT NULL DEFAULT '08:00',
+        workspace_timezone VARCHAR(100) NOT NULL DEFAULT 'America/New_York',
+        include_needs_attention BOOLEAN NOT NULL DEFAULT TRUE,
+        include_open_requests BOOLEAN NOT NULL DEFAULT TRUE,
+        include_resolved_last_week BOOLEAN NOT NULL DEFAULT TRUE,
+        version INTEGER NOT NULL DEFAULT 1,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_by VARCHAR(255) NOT NULL DEFAULT 'system'
+      );
+
+      CREATE TABLE IF NOT EXISTS owner_digest_deliveries (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+        period_id VARCHAR(100) NOT NULL,
+        recipient_email VARCHAR(255) NOT NULL,
+        digest_type VARCHAR(50) NOT NULL DEFAULT 'weekly_owner_brief',
+        mode VARCHAR(50) NOT NULL DEFAULT 'test_adapter',
+        status VARCHAR(50) NOT NULL DEFAULT 'logged',
+        html_body TEXT,
+        text_body TEXT,
+        delivered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    // Candidate search paths for migration files
+    const candidateDirs = [
+      path.resolve(process.cwd(), 'server/db/migrations'),
+      path.resolve(resolvedDirname, '../db/migrations'),
+      path.resolve(resolvedDirname, '../server/db/migrations'),
+      path.resolve('/app/server/db/migrations')
+    ];
+    const migrationsDir = candidateDirs.find(d => fs.existsSync(d));
+
+    if (migrationsDir) {
       const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
       for (const file of files) {
-        const filePath = path.join(migrationsDir, file);
-        const sql = fs.readFileSync(filePath, 'utf8');
-        await pool.query(sql);
+        try {
+          const filePath = path.join(migrationsDir, file);
+          const sql = fs.readFileSync(filePath, 'utf8');
+          await pool.query(sql);
+        } catch (mErr: any) {
+          console.warn(`[Migration Notice] Non-fatal migration notice in ${file}:`, mErr.message);
+        }
       }
+    }
+
+    // Default seed for UAT workspaces if table is empty
+    const wsCheck = await pool.query('SELECT COUNT(*) as cnt FROM workspaces');
+    if (parseInt(wsCheck.rows[0].cnt, 10) === 0) {
+      await pool.query(`
+        INSERT INTO workspaces (id, name, slug, status, phase)
+        VALUES 
+          ('ws_wilmington', 'Nest Realty Wilmington (Mayfaire)', 'nest-wilmington', 'active', 'production'),
+          ('ws_carolina_beach', 'Nest Realty Carolina Beach', 'nest-carolina-beach', 'active', 'production'),
+          ('uat_workspace_a', 'Nest UAT Workspace A', 'nest-uat-a', 'active', 'production'),
+          ('uat_workspace_b', 'Nest UAT Workspace B', 'nest-uat-b', 'active', 'production')
+        ON CONFLICT (id) DO NOTHING;
+      `);
     }
 
     // 1. Create directory_people first in a separate call to avoid PostgreSQL compilation/dependency errors

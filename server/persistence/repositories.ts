@@ -60,9 +60,10 @@ if (storageDriver === 'database') {
 
   dbPool = new pg.Pool({ 
     connectionString,
-    max: 20,
+    max: parseInt(process.env.DB_POOL_MAX || '5', 10),
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    connectionTimeoutMillis: 5000,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
   });
 
   // Fail closed if database is unreachable
