@@ -207,36 +207,59 @@ function ensureStorageDir(): void {
   }
 }
 
+let memoryCache: Record<string, SopDocument> | null = null;
+
 function loadAllSops(): Record<string, SopDocument> {
   ensureStorageDir();
   if (!fs.existsSync(STORAGE_PATH)) {
+    memoryCache = { ...INITIAL_NEST_SOPS };
     saveAllSops(INITIAL_NEST_SOPS);
     return { ...INITIAL_NEST_SOPS };
   }
-  try {
-    const raw = fs.readFileSync(STORAGE_PATH, 'utf8');
-    const parsed = JSON.parse(raw) || {};
-    // Ensure all base initial SOPs exist
-    let mutated = false;
-    for (const [k, v] of Object.entries(INITIAL_NEST_SOPS)) {
-      if (!parsed[k]) {
-        parsed[k] = v;
-        mutated = true;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const raw = fs.readFileSync(STORAGE_PATH, 'utf8');
+      if (!raw || !raw.trim()) {
+        continue;
+      }
+      const parsed = JSON.parse(raw) || {};
+      // Ensure all base initial SOPs exist
+      let mutated = false;
+      for (const [k, v] of Object.entries(INITIAL_NEST_SOPS)) {
+        if (!parsed[k]) {
+          parsed[k] = v;
+          mutated = true;
+        }
+      }
+      if (mutated) {
+        saveAllSops(parsed);
+      }
+      memoryCache = parsed;
+      return parsed;
+    } catch {
+      if (attempt === 2) {
+        return memoryCache ? { ...memoryCache } : { ...INITIAL_NEST_SOPS };
       }
     }
-    if (mutated) {
-      saveAllSops(parsed);
-    }
-    return parsed;
-  } catch (err) {
-    console.error('[SopRepository] Error loading sops store:', err);
-    return { ...INITIAL_NEST_SOPS };
   }
+  return memoryCache ? { ...memoryCache } : { ...INITIAL_NEST_SOPS };
 }
 
 function saveAllSops(data: Record<string, SopDocument>): void {
   ensureStorageDir();
-  fs.writeFileSync(STORAGE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  memoryCache = { ...data };
+  const tmpPath = `${STORAGE_PATH}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmpPath, STORAGE_PATH);
+  } catch {
+    try {
+      fs.writeFileSync(STORAGE_PATH, JSON.stringify(data, null, 2), 'utf8');
+      if (fs.existsSync(tmpPath)) {
+        fs.unlinkSync(tmpPath);
+      }
+    } catch {}
+  }
 }
 
 export const sopRepository = {

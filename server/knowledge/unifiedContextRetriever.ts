@@ -99,6 +99,104 @@ export function queryUnifiedContext(
   const memory: SessionEntityMemory = options.sessionMemory ? { ...options.sessionMemory } : {};
 
   const cleanQuery = query.trim().toLowerCase();
+  const normalizedQuery = cleanQuery.replace(/[*#_`.,?!]/g, '').trim();
+
+  // 0. CONVERSATIONAL CONTROLS, GENERAL HELP REQUESTS & GREETINGS
+  const exactHelpRequests = new Set([
+    'can you help me',
+    'could you help me',
+    'can you help me please',
+    'help me',
+    'help',
+    'i need help',
+    'i need some help',
+    'can you help me with something',
+    'what can you do',
+    'how can you help me',
+    'help please'
+  ]);
+
+  if (exactHelpRequests.has(normalizedQuery)) {
+    return {
+      query,
+      spokenAnswer: 'Absolutely—what do you need help with?',
+      displayResponse: '### NORA · Operational Assistant\n\nAbsolutely—what do you need help with? I can look up approved Nest SOP procedures, find directory contacts, or assist with contract drafting.',
+      sources: [{ title: 'NORA Conversational Control', section: 'Interactive Assistance' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'general',
+      confidenceScore: 0.95,
+      evidenceCard: null
+    };
+  }
+
+  const exactGreetings = new Set([
+    'hello',
+    'hi',
+    'hey',
+    'good morning',
+    'good afternoon',
+    'good evening'
+  ]);
+
+  if (exactGreetings.has(normalizedQuery)) {
+    return {
+      query,
+      spokenAnswer: 'Hello! How can I help you today?',
+      displayResponse: '### Good day!\n\nHow can I help you with your brokerage operations today? You can ask about SOPs, directory contacts, or contract drafting.',
+      sources: [{ title: 'NORA Conversational Control', section: 'Interactive Assistance' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'general',
+      confidenceScore: 0.95,
+      evidenceCard: null
+    };
+  }
+
+  const exactMicChecks = new Set([
+    'can you hear me',
+    'can you hear me now',
+    'are you there',
+    'are you listening',
+    'can you hear me nora',
+    'can you hear me nest'
+  ]);
+
+  if (exactMicChecks.has(normalizedQuery)) {
+    return {
+      query,
+      spokenAnswer: 'Yes, I can hear you. What can I help you with?',
+      displayResponse: '### NORA Audio Check\n\nYes, I can hear you clearly! What can I help you with today?',
+      sources: [{ title: 'NORA Audio Control', section: 'System Check' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'general',
+      confidenceScore: 0.95,
+      evidenceCard: null
+    };
+  }
+
+  // Incomplete short preludes (if sent directly without completion)
+  if (
+    normalizedQuery === 'can you' || 
+    normalizedQuery === 'could you' || 
+    normalizedQuery === 'would you' || 
+    normalizedQuery === 'i need' || 
+    normalizedQuery === 'i want' ||
+    normalizedQuery === 'please'
+  ) {
+    return {
+      query,
+      spokenAnswer: "I'm listening—what would you like me to do?",
+      displayResponse: "I'm listening—what would you like me to do? Tell me which procedure, contact, or contract you need.",
+      sources: [{ title: 'NORA Conversational Control', section: 'Interactive Assistance' }],
+      confidence: 'medium',
+      needsEscalation: false,
+      matchedDomain: 'general',
+      confidenceScore: 0.80,
+      evidenceCard: null
+    };
+  }
 
   // 1. DYNAMIC TEAM ROSTER & DIRECTORY CONTACT LOOKUP DOMAIN
   // Check if query matches a specific agent in the 74-agent directory seed with exact precedence:
@@ -313,9 +411,9 @@ export function queryUnifiedContext(
 
       let score = 0;
 
-      // Exact or direct title match (highest weight)
+      // Exact or direct title match (highest weight, plus specificity bonus for length)
       if (cleanQuery.includes(titleLower) || titleLower.includes(cleanQuery)) {
-        score += 100;
+        score += 100 + titleLower.length;
       }
 
       // Specific concept keywords
@@ -338,6 +436,9 @@ export function queryUnifiedContext(
         score += 80;
       }
       if ((cleanQuery.includes('buyer agency') || cleanQuery.includes('buyer onboarding') || cleanQuery.includes('wwrea')) && titleLower.includes('buyer')) {
+        score += 80;
+      }
+      if ((cleanQuery.includes('provisional') || cleanQuery.includes('onboard') || cleanQuery.includes('broker onboarding')) && (titleLower.includes('buyer') || titleLower.includes('listing') || titleLower.includes('protocol'))) {
         score += 80;
       }
 
@@ -418,11 +519,18 @@ export function queryUnifiedContext(
   const isGeneralSopInquiry = 
     isExplicitGeneralSopQuery ||
     (!matchedSopResult && (
-      cleanQuery.includes('sop') || 
-      cleanQuery.includes('procedure') || 
-      cleanQuery.includes('policy') || 
-      cleanQuery.includes('handbook') ||
-      cleanQuery.includes('standard operating')
+      cleanQuery === 'sops' ||
+      cleanQuery === 'sop' ||
+      cleanQuery === 'procedures' ||
+      cleanQuery === 'policies' ||
+      cleanQuery === 'show me procedures' ||
+      cleanQuery === 'list procedures' ||
+      cleanQuery === 'what procedures do we have' ||
+      cleanQuery === 'what sops do you have' ||
+      cleanQuery.includes('all standard operating procedures') ||
+      cleanQuery.includes('all sops') ||
+      cleanQuery.includes('sop handbooks') ||
+      cleanQuery.includes('what sops')
     ));
 
   // Check if relative slot modification for active contract
@@ -872,7 +980,14 @@ export function queryUnifiedContext(
     cleanQuery.includes('payout') ||
     cleanQuery.includes('commission') ||
     cleanQuery.includes('split') ||
-    cleanQuery.includes('escrow')
+    cleanQuery.includes('escrow') ||
+    cleanQuery.includes('desk fee') ||
+    cleanQuery.includes('fee') ||
+    cleanQuery.includes('gci') ||
+    cleanQuery.includes('volume') ||
+    cleanQuery.includes('invoice') ||
+    cleanQuery.includes('accounting') ||
+    cleanQuery.includes('wire')
   ) {
     const spokenAnswer = "Calculated commission split for Taylor Morgan closing at 625,000 dollars. Gross Commission Income is 18,750 dollars. 80/20 agent net payout is 14,850 dollars after 150 dollar tech fee deduction. QuickBooks check QB-8812 is drafted for BIC authorization.";
     const displayResponse = "### QuickBooks Escrow Commission Ledger & Payout Draft\n\n- **Closing File**: Taylor Morgan Disclosure & Closing Package ($625,000 Purchase Price)\n- **Gross Commission Income (GCI)**: $18,750 (3.0% Commission Rate)\n- **Gross Agent Split (80%)**: $15,000\n- **Firm Retainage (20%)**: $3,750\n- **Tech Fee Deduction**: -$150.00\n- **Net Agent Disbursal Payout**: **$14,850.00**\n- **QuickBooks Check Draft**: `#QB-8812` (Escrow Release Pending BIC Approval)";
@@ -1031,7 +1146,7 @@ export function queryUnifiedContext(
     cleanQuery.includes('melissa') ||
     cleanQuery.includes('tess') ||
     cleanQuery.includes('nora') ||
-    cleanQuery.includes('lorena')
+    cleanQuery.includes('ask nora')
   ) {
     const spokenAnswer = "Loaded Melissa Gagliardi's official Marketing Intake Protocol for Tess. I am ready to guide agents through structured questions for Print Materials, Digital Materials, and Brand Color preferences.";
     const displayResponse = `### Melissa's Marketing Prompts & Questions for Tess / NORA AI
@@ -1318,8 +1433,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('form 2-t scan')
   ) {
     return {
-      source: 'NORA Multimodal AI Vision & Document Camera Engine',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA Multimodal AI Vision & Document Camera Engine', section: 'Form 2-T Analysis' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'contracts',
       spokenAnswer: 'I scanned the Form 2-T purchase offer for 312 Mayfaire Way. The purchase price is $725,000 with a $15,000 due diligence fee and a $20,000 earnest money deposit. All buyer and seller signatures and initials look complete!',
       displayResponse: '### NORA Multimodal AI Vision & Document Camera HUD — 312 Mayfaire Way\n\n- **Document Type**: 📄 NC REALTORS® Form 2-T Offer to Purchase and Contract\n- **Visual Confidence**: ⚡ 99.4% AI Match (HD Document Camera Viewfinder)\n- **Property Address**: 312 Mayfaire Way, Wilmington NC 28405\n- **Purchase Price**: **$725,000.00** | **Due Diligence**: **$15,000.00** (Due Sep 1)\n- **Earnest Money**: **$20,000.00** (Escrow Agent: Nest Realty Title)\n- **Compliance Audit**: ✅ All 16 pages initialed & signed | Pre-1978 Lead Addendum attached\n- **1-Click Actions**: Export Certified Offer Abstract • Generate Form 2-T Package',
       confidenceScore: 0.99,
@@ -1350,8 +1468,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('who has buyers')
   ) {
     return {
-      source: 'NORA AI Predictive Buyer-Seller Matchmaker Engine',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Predictive Buyer-Seller Matchmaker Engine', section: 'Roster Search' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'pipeline',
       spokenAnswer: "We've got 3 great pre-approved buyers lined up for 312 Mayfaire Way across our roster! The top match is Michael Chang, represented by Sarah Jenkins, with a $750,000 pre-approval letter from Movement Mortgage.",
       displayResponse: '### NORA AI Predictive Buyer-Seller Matchmaker Radar — 312 Mayfaire Way\n\n- **Target Property**: 312 Mayfaire Way, Wilmington NC ($725,000.00)\n- **Roster Search**: ⚡ Scanned 74 Brokerage Agents & 240 Active Buyer Leads\n- **Top Matched Buyer #1**: **Michael & Sarah Chang** (🎯 **96% AI Match** • Agent: **Sarah Jenkins** (910) 555-0194)\n  - *Pre-Approval*: ✅ **$750,000.00** (Movement Mortgage) • Non-contingent buyer\n- **Top Matched Buyer #2**: **David & Karen Miller** (🎯 **92% AI Match** • Agent: **Marcus Aman** (910) 555-0211)\n  - *Pre-Approval*: ✅ **$800,000.00** (TowneBank Mortgage)\n- **Top Matched Buyer #3**: **Dr. Robert Vance** (🎯 **88% AI Match** • Agent: **Matt Orr** (910) 555-0142)\n  - *Pre-Approval*: ✅ **$725,000.00** (Live Oak Bank)\n- **1-Click Action**: 📲 Dispatch Intro SMS to Sarah Jenkins (910) 555-0194',
       confidenceScore: 0.99,
@@ -1381,8 +1502,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('confetti')
   ) {
     return {
-      source: 'NORA AI Brokerage Deal Celebration Engine',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Brokerage Deal Celebration Engine', section: 'Closed Deals' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'pipeline',
       spokenAnswer: '🎉 Congratulations to Sarah Jenkins and the entire Nest team! 312 Mayfaire Way is officially CLOSED for $725,000! Brokerage monthly volume reaches $14.85 Million across 38 closed transactions!',
       displayResponse: '### 🎉 NORA AI Brokerage Deal Celebration Engine & 3D Universe\n\n- **Target Deal**: 🏆 **312 Mayfaire Way, Wilmington NC** ($725,000.00 CLOSED)\n- **Closing Agent**: 🌟 **Sarah Jenkins** (Top Producer)\n- **Monthly Brokerage Volume**: 🚀 **$14,850,000.00** (38 Closed Transactions)\n- **Top 3 Brokerage Leaderboard**:\n  - 🥇 **Sarah Jenkins**: **$4,250,000.00** (11 Deals)\n  - 🥈 **Matt Orr (BIC)**: **$3,800,000.00** (9 Deals)\n  - 🥉 **Marcus Aman**: **$3,150,000.00** (8 Deals)\n- **Interactive Effects**: 🎆 Confetti Soundscape & 3D Transaction Particle Universe Activated!\n- **1-Click Control**: 🎊 Replay Confetti Hype',
       confidenceScore: 0.99,
@@ -1412,8 +1536,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('flexmls')
   ) {
     return {
-      source: 'NORA AI Voice Automated MLS Listing Launch Engine',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Voice Automated MLS Listing Launch Engine', section: 'MLS Syndication' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'sops',
       spokenAnswer: 'The disclosures for 312 Mayfaire Way are verified and signed, including the Residential Property Disclosure and Mineral and Oil Gas rights. The public remarks and photo gallery are ready for MLS launch!',
       displayResponse: '### 🚀 NORA AI Automated MLS Listing Launch & Syndication Engine\n\n- **Target Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** ($725,000.00)\n- **Compliance Audit (NC REC)**:\n  - ✅ **RPOWDS (Residential Property & Owners Association Disclosure)**: Signed & Executed\n  - ✅ **MOG (Mineral & Oil & Gas Rights Disclosure)**: Signed & Executed\n  - ✅ **Lead-Based Paint Addendum**: Exempt (Built 2018)\n- **Media & Syndication Package**:\n  - 📷 **HDR Photography**: 36 High-Res Photos Synced\n  - 🌀 **3D Virtual Tour**: Matterport Pro 3D Tour Linked\n  - 📝 **AI Public Remarks**: *"Stunning modern coastal craftsman with open floor plan, chef\'s kitchen, and resort pool..."*\n- **Readiness Score**: 🎯 **98% Launch Ready**\n- **1-Click Control**: ⚡ Publish to FlexMLS, Zillow & Realtor.com',
       confidenceScore: 0.99,
@@ -1443,8 +1570,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('bic approval')
   ) {
     return {
-      source: 'NORA AI Commission Split & Payroll Copilot',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Commission Split & Payroll Copilot', section: 'Disbursement' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'financials',
       spokenAnswer: 'Commission split calculated for 312 Mayfaire Way. Gross commission is $21,750 at 3 percent. Senior agent split is 70/30. Net agent payout to Sarah Jenkins is $14,575 after transaction coordinator and E and O fee deductions.',
       displayResponse: '### 💸 NORA AI Commission Split & BIC Payroll Disbursement Authorization\n\n- **Target Sale**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** ($725,000.00 CLOSED)\n- **Listing Agent**: 🌟 **Sarah Jenkins** (Senior Associate • 70/30 Tier)\n- **Gross Listing Commission**: 💰 **$21,750.00** (3.0% of $725,000.00)\n- **Commission Breakdown**:\n  - 👤 **Agent Gross Share (70%)**: **$15,225.00**\n  - 🏢 **Brokerage Retention (30%)**: **$6,525.00**\n- **Itemized Deductions**:\n  - 📋 **Transaction Coordinator Fee**: -$500.00\n  - 🛡️ **E&O Insurance Deductible**: -$150.00\n- **Net Agent Direct Deposit Payout**: 💵 **$14,575.00**\n- **BIC Approval Status**: ⏳ Pending BIC Approval (Matt Orr)\n- **1-Click Control**: ⚡ BIC Sign & Authorize Direct Deposit ACH',
       confidenceScore: 0.99,
@@ -1476,8 +1606,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('closing proceeds')
   ) {
     return {
-      source: 'NORA AI Seller Net Sheet Calculator',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Seller Net Sheet Calculator', section: 'Net Proceeds' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'financials',
       spokenAnswer: 'Seller net sheet calculated for 312 Mayfaire Way. Based on a $725,000 offer price, deducting mortgage payoff of $350,000, 5 percent commission of $36,250, NC excise stamps, and settlement fees, the estimated net wire proceeds to seller is $318,250.',
       displayResponse: '### 📊 NORA AI Branded Seller Net Sheet & Settlement Audit\n\n- **Target Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405**\n- **Contract Purchase Price**: 💰 **$725,000.00**\n- **Credits to Seller**:\n  - ➕ **Due Diligence Fee (Direct to Seller)**: **+$15,000.00**\n- **Itemized Settlement Deductions**:\n  - 🏦 **Mortgage Payoff (First National Bank)**: -$350,000.00\n  - 🤝 **Total Brokerage Commission (5.0%)**: -$36,250.00 (2.5% Listing / 2.5% Buyer)\n  - 🏛️ **NC Revenue Stamps / Excise Tax**: -$1,450.00 ($1.00 per $500.00)\n  - ⚖️ **Closing Attorney Settlement Fee**: -$1,200.00\n  - 📅 **Prorated County Property Taxes**: -$2,850.00\n- **ESTIMATED NET WIRE TO SELLER**: 💵 **$318,250.00**\n- **1-Click Control**: ⚡ Generate PDF Net Sheet & Email to Seller',
       confidenceScore: 0.99,
@@ -1509,8 +1642,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('price per sqft')
   ) {
     return {
-      source: 'NORA AI Comparative Market Analysis Generator',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Comparative Market Analysis Generator', section: 'Comps' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'pipeline',
       spokenAnswer: 'Comparative market analysis generated for 312 Mayfaire Way. Based on four recent neighborhood sales averaging $285.50 per square foot, the recommended listing price range is $720,000 to $740,000, with a midpoint target of $725,000.',
       displayResponse: '### 📈 NORA AI Branded CMA Valuation & Market Analysis\n\n- **Subject Property**: 🏡 **312 Mayfaire Way, Wilmington NC 28405** (2,540 sqft • 4 Bed / 3.5 Bath)\n- **Neighborhood Valuation Analytics**:\n  - 📊 **Average Price per SqFt**: **$285.50 / sqft**\n  - ⏳ **Average Days on Market (DOM)**: **17 Days**\n- **Comparable Neighborhood Sales**:\n  - 🏡 **308 Mayfaire Way**: $710,000.00 ($286.29/sqft • 14 DOM)\n  - 🏡 **316 Mayfaire Way**: $735,000.00 ($283.78/sqft • 12 DOM)\n  - 🏡 **104 Coastal Dr**: $745,000.00 ($285.44/sqft • 19 DOM)\n  - 🏡 **412 Pine Valley Rd**: $720,000.00 ($286.85/sqft • 24 DOM)\n- **RECOMMENDED LISTING BRACKET**: 💰 **$720,000.00 – $740,000.00**\n- **TARGET MIDPOINT LISTING PRICE**: 🎯 **$725,000.00**\n- **1-Click Control**: ⚡ Export Branded PDF CMA Deck & Send to Client',
       confidenceScore: 0.99,
@@ -1541,8 +1677,11 @@ export function queryUnifiedContext(
     cleanQuery.includes('competing offers')
   ) {
     return {
-      source: 'NORA AI Multiple Offer Comparison Matrix Engine',
-      category: 'operational_tool',
+      query,
+      sources: [{ title: 'NORA AI Multiple Offer Comparison Matrix Engine', section: 'Offer Matrix' }],
+      confidence: 'high',
+      needsEscalation: false,
+      matchedDomain: 'contracts',
       spokenAnswer: 'I compiled a side-by-side comparison for all 3 competing offers on 312 Mayfaire Way. Offer A from Michael Chang has the highest net proceeds at $725,000 with a $15,000 due diligence fee. Offer B is an all-cash offer at $715,000 with a 10-day quick close. Offer C is $730,000 but includes a home sale contingency.',
       displayResponse: '### 📊 NORA AI Side-by-Side Offer Comparison Matrix — 312 Mayfaire Way\n\n| Term / Feature | 🥇 Offer A (Top Net) | ⚡ Offer B (Fast Cash) | 🏷️ Offer C (High Price) |\n| :--- | :--- | :--- | :--- |\n| **Buyer Name** | Michael & Sarah Chang | David & Karen Miller | Dr. Robert Vance |\n| **Buyer Agent** | Sarah Jenkins | Marcus Aman | Matt Orr |\n| **Purchase Price** | **$725,000.00** | **$715,000.00** | **$730,000.00** |\n| **Due Diligence Fee** | **$15,000.00** (Sep 1) | **$25,000.00** (Immediate) | **$5,000.00** (Sep 1) |\n| **Earnest Money** | **$20,000.00** | **$30,000.00** | **$10,000.00** |\n| **Financing Type** | Conventional (80% LTV) | **100% ALL CASH** | Conventional (90% LTV) |\n| **Appraisal Gap** | Covered up to $10,000 | **Appraisal Waived** | Standard Appraisal |\n| **Contingencies** | None | None | ⚠️ Home Sale Contingency |\n| **Proposed Closing** | Sep 28, 2026 (30 Days) | **Sep 8, 2026 (10 Days)** | Oct 15, 2026 (45 Days) |\n| **ESTIMATED NET PROCEEDS** | 💵 **$318,250.00** | 💵 **$314,800.00** | 💵 **$312,100.00** |\n\n- **Recommendation**: Offer A yields highest seller net wire proceeds with strong $15k DD fee; Offer B offers fastest closing with zero financing risk.\n- **1-Click Control**: ⚡ Export Branded Multiple Offer Comparison Matrix PDF for Seller',
       confidenceScore: 0.99,
@@ -1570,7 +1709,13 @@ export function queryUnifiedContext(
     cleanQuery.includes('slack') || 
     cleanQuery.includes('dotloop') ||
     cleanQuery.includes('integration') ||
-    cleanQuery.includes('connected')
+    cleanQuery.includes('connected') ||
+    cleanQuery.includes('webhook') ||
+    cleanQuery.includes('flexmls') ||
+    cleanQuery.includes('showingtime') ||
+    cleanQuery.includes('aircall') ||
+    cleanQuery.includes('connector') ||
+    cleanQuery.includes('sync')
   ) {
     const spokenAnswer = "Connected integrations status: Google Workspace, Microsoft 365, Slack, and Dotloop are actively synced.";
     const displayResponse = "### Connected System Gateways\n\n- **Google Workspace**: Connected & Synced (Gmail, Calendar, Drive)\n- **Microsoft 365**: Connected (Outlook Mail & Calendar)\n- **Slack**: Active (Alert Webhooks)\n- **Dotloop**: Connected (Listing Transaction Loops)";

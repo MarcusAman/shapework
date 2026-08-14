@@ -3,7 +3,7 @@ import {
   Inbox, HelpCircle, Plus, FileText, ArrowRight, UserCheck, 
   Clock, AlertTriangle, CheckCircle2, ChevronRight, User, 
   MapPin, Shield, Activity, ListTodo, Check, X, Mail, Phone, Lock, MessageSquare,
-  Volume2, VolumeX, Mic, Sparkles, ExternalLink
+  Volume2, VolumeX, Mic, Sparkles, ExternalLink, Trash2, Send
 } from 'lucide-react';
 import MorningBriefing from '../command/MorningBriefing';
 import ConnectorLogo from '../ui/ConnectorLogo';
@@ -79,12 +79,22 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
   
   // Slide-out Voice Session Transcript Drawer State
   const [showVoiceDrawer, setShowVoiceDrawer] = useState<boolean>(false);
-  const [voiceHistory, setVoiceHistory] = useState<Array<{
-    id: string;
-    sender: 'user' | 'assistant';
-    text: string;
-    timestamp: string;
-  }>>([]);
+  const [drawerChatInput, setDrawerChatInput] = useState<string>('');
+  const drawerBottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Automatically open side drawer when a new turn arrives and scroll smoothly
+  const prevTranscriptCountRef = useRef(voiceAgent.transcriptHistory.length);
+  useEffect(() => {
+    if (voiceAgent.transcriptHistory.length > prevTranscriptCountRef.current) {
+      setShowVoiceDrawer(true);
+      setTimeout(() => {
+        if (drawerBottomRef.current) {
+          drawerBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 120);
+    }
+    prevTranscriptCountRef.current = voiceAgent.transcriptHistory.length;
+  }, [voiceAgent.transcriptHistory.length]);
 
   // Staff SOP Studio Modal State
   const [selectedSopForStudio, setSelectedSopForStudio] = useState<SopDocument | null>(null);
@@ -92,18 +102,67 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
 
   const handleOpenSopStudio = async (sopId?: string) => {
     try {
-      const res = await fetch('/api/sops/drafts');
-      if (res.ok) {
-        const data = await res.json();
+      // 1. Direct fetch by ID if sopId is provided
+      if (sopId) {
+        try {
+          const directRes = await fetch(`/api/sops/${sopId}`);
+          if (directRes.ok) {
+            const data = await directRes.json();
+            if (data.sop) {
+              setSelectedSopForStudio(data.sop);
+              setShowSopStudioModal(true);
+              return;
+            }
+          }
+        } catch (err) {}
+
+        try {
+          const directDraftRes = await fetch(`/api/sops/drafts/${sopId}`);
+          if (directDraftRes.ok) {
+            const data = await directDraftRes.json();
+            if (data.sop) {
+              setSelectedSopForStudio(data.sop);
+              setShowSopStudioModal(true);
+              return;
+            }
+          }
+        } catch (err) {}
+      }
+
+      // 2. Fetch all SOPs from /api/sops
+      try {
+        const res = await fetch('/api/sops');
+        if (res.ok) {
+          const data = await res.json();
+          const list: SopDocument[] = data.sops || data.drafts || [];
+          const found = sopId 
+            ? list.find(s => s.id === sopId || s.id.includes(sopId) || (sopId && s.id.toLowerCase().includes(sopId.toLowerCase())))
+            : list[0];
+          if (found) {
+            setSelectedSopForStudio(found);
+            setShowSopStudioModal(true);
+            return;
+          }
+        }
+      } catch (err) {}
+
+      // 3. Fallback: fetch from /api/sops/drafts
+      const draftRes = await fetch('/api/sops/drafts');
+      if (draftRes.ok) {
+        const data = await draftRes.json();
         const drafts: SopDocument[] = data.drafts || [];
-        const found = sopId ? drafts.find(s => s.id === sopId) : drafts[0];
+        const found = sopId 
+          ? drafts.find(s => s.id === sopId || s.id.includes(sopId))
+          : drafts[0];
         if (found) {
           setSelectedSopForStudio(found);
           setShowSopStudioModal(true);
+          return;
         }
       }
     } catch (e) {
       console.warn('[SOP Studio Open Error]:', e);
+      toast.error({ title: 'Unable to open SOP', description: 'Could not load SOP document.' });
     }
   };
 
@@ -305,12 +364,6 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
           setActiveContractSession(currentSess);
           const propName = currentSess.property?.streetAddress || '123 Main Street';
           const ans = `Absolutely — I've updated the offer for ${propName}. ${parsed.capturedSummaryText} ${parsed.missingQuestion}`;
-          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setVoiceHistory(prev => [
-            ...prev,
-            { id: 'usr-' + Date.now(), sender: 'user', text: promptText, timestamp: timeStr },
-            { id: 'ast-' + Date.now(), sender: 'assistant', text: ans, timestamp: timeStr }
-          ]);
           setShowVoiceDrawer(true);
           setActiveQuery({ prompt: promptText, answer: ans, executed: true });
           speakAssistantResponse(ans);
@@ -347,6 +400,7 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
     }
 
     setChatPrompt('');
+    setShowVoiceDrawer(true);
     voiceAgent.processUtterance(rawText, transcriptId, false, source);
   };
 
@@ -364,7 +418,8 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
 
   const handleExecuteItemAction = (item: any) => {
     if (item.actionType === 'open_sop') {
-      handleOpenSopInStudio(item.actionPayload?.sopId);
+      const targetSopId = item.actionPayload?.sopId || item.id;
+      handleOpenSopStudio(targetSopId);
     } else if (item.actionType === 'contact_person') {
       if (item.actionPayload?.email) {
         window.location.href = `mailto:${item.actionPayload.email}`;
@@ -449,200 +504,35 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
     };
   }, []);
 
-  const startVoiceInput = async (options?: { openDrawer?: boolean }) => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+  // Automatically sync micState with voiceAgent turn-taking lifecycle
+  useEffect(() => {
+    if (voiceAgent.status === 'listening' || voiceAgent.status === 'collecting' || voiceAgent.status === 'finalizing') {
+      setMicState('listening');
+    } else if (voiceAgent.status === 'thinking') {
+      setMicState('processing');
+    } else if (voiceAgent.status === 'error') {
       setMicState('error');
-      setMicErrorMsg('Voice input is not supported in this browser.');
-      toast.warning({ title: 'Speech Input Unsupported', description: 'Your browser does not support Web Speech API. Try Chrome or Edge.' });
-      setTimeout(() => {
-        setMicState('idle');
-        setMicErrorMsg(null);
-      }, 4000);
-      return;
+    } else if (voiceAgent.status === 'idle' || voiceAgent.status === 'cancelled') {
+      setMicState('idle');
     }
+  }, [voiceAgent.status]);
 
-    // Stop assistant speech immediately if user starts talking
-    stopAssistantSpeaking();
-
-    setMicState('requesting');
+  const startVoiceInput = async (options?: { openDrawer?: boolean }) => {
     if (options?.openDrawer !== false) {
       setShowVoiceDrawer(true);
     }
-    isContinuousVoiceModeRef.current = true;
-    userStoppedVoiceRef.current = false;
-    hasSpokenAudioRef.current = false;
-
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-        activeMediaStreamRef.current = stream;
-
-        try {
-          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const source = audioCtx.createMediaStreamSource(stream);
-          const analyser = audioCtx.createAnalyser();
-          source.connect(analyser);
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-          if (audioAnalyserIntervalRef.current) clearInterval(audioAnalyserIntervalRef.current);
-          audioAnalyserIntervalRef.current = setInterval(() => {
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-            if (sum > 40) {
-              hasSpokenAudioRef.current = true;
-            }
-          }, 100);
-        } catch (e) {}
-      }
-    } catch (permErr: any) {
-      console.warn('Microphone permission error:', permErr);
-      setMicState('error');
-      setMicErrorMsg('Microphone access denied. Please allow microphone permissions.');
-      toast.error({ title: 'Microphone Permission Denied', description: 'Please allow microphone access in your browser settings.' });
-      setTimeout(() => {
-        setMicState('idle');
-        setMicErrorMsg(null);
-      }, 4000);
-      return;
-    }
-
-    try {
-      const rec = new SpeechRecognition();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'en-US';
-
-      rec.onstart = () => {
-        setMicState('listening');
-      };
-
-      rec.onresult = (event: any) => {
-        hasSpokenAudioRef.current = true;
-        let liveTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          liveTranscript += event.results[i][0].transcript;
-        }
-        if (liveTranscript) {
-          const lower = liveTranscript.toLowerCase();
-          // Check for wake word prefix
-          if (
-            lower.includes('hey nest') ||
-            lower.includes('hi nest') ||
-            lower.includes('hey nora') ||
-            lower.includes('hi nora') ||
-            lower.includes('ask nora') ||
-            lower.includes('nest ops')
-          ) {
-            setShowVoiceDrawer(true);
-          }
-          setChatPrompt(liveTranscript);
-
-          // Silence VAD Auto-Submit: Auto-submit only after genuine speech and 1.2s pause
-          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = setTimeout(() => {
-            if (hasSpokenAudioRef.current && !userStoppedVoiceRef.current) {
-              stopVoiceInput(false);
-            }
-          }, 1200);
-        }
-      };
-
-      rec.onerror = (e: any) => {
-        if (e.error === 'no-speech' || e.error === 'aborted') {
-          setMicState('idle');
-          setMicErrorMsg(null);
-          return;
-        }
-
-        console.error('Speech recognition error:', e);
-        setMicState('error');
-        const msg = e.error === 'not-allowed' ? 'Microphone permission denied.' : 'Speech recognition error.';
-        setMicErrorMsg(msg);
-        toast.error({ title: 'Speech Input Error', description: msg });
-        setTimeout(() => {
-          setMicState('idle');
-          setMicErrorMsg(null);
-        }, 4000);
-      };
-
-      rec.onend = () => {
-        setMicState('idle');
-        if (!userStoppedVoiceRef.current && hasSpokenAudioRef.current) {
-          stopVoiceInput(false);
-        }
-      };
-
-      setRecognitionInstance(rec);
-      rec.start();
-    } catch (err: any) {
-      console.error(err);
-      setMicState('error');
-      setMicErrorMsg('Failed to initialize microphone.');
-      toast.error({ title: 'Microphone Error', description: 'Failed to initialize microphone.' });
-      setTimeout(() => {
-        setMicState('idle');
-        setMicErrorMsg(null);
-      }, 4000);
-    }
+    stopAssistantSpeaking();
+    voiceAgent.listen();
+    setMicState('listening');
   };
 
   const stopVoiceInput = (manualStop = true) => {
     if (manualStop) {
-      isContinuousVoiceModeRef.current = false;
-      userStoppedVoiceRef.current = true;
-    }
-
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-
-    if (audioAnalyserIntervalRef.current) {
-      clearInterval(audioAnalyserIntervalRef.current);
-      audioAnalyserIntervalRef.current = null;
-    }
-
-    if (activeMediaStreamRef.current) {
-      activeMediaStreamRef.current.getTracks().forEach(track => track.stop());
-      activeMediaStreamRef.current = null;
-    }
-
-    if (recognitionInstance) {
-      try {
-        recognitionInstance.stop();
-      } catch (e) {}
+      voiceAgent.cancel();
+    } else {
+      voiceAgent.stopListening();
     }
     setMicState('idle');
-
-    // Auto-submit captured speech ONLY if genuine speech was spoken
-    setTimeout(() => {
-      setChatPrompt(prev => {
-        let textToSubmit = prev.trim();
-        // Strip "Hey Nest" or "Hey NORA" wake-word prefix if present
-        const strippedText = textToSubmit
-          .replace(/^(hey|hi)\s+nest,?\s*/i, '')
-          .replace(/^(hey|hi)\s+nora,?\s*/i, '')
-          .replace(/^ask\s+nora,?\s*/i, '')
-          .trim();
-
-        if (strippedText) {
-          textToSubmit = strippedText;
-        }
-
-        if (textToSubmit) {
-          handleAskPrompt(textToSubmit);
-        }
-        return textToSubmit;
-      });
-    }, 200);
   };
 
   const getConnectionDetails = (appId: string) => {
@@ -1126,6 +1016,19 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
               <p className="text-sm text-stone-600 font-sans">
                 Ask a question, find something, or get work done.
               </p>
+              
+              {/* NORA Hotline Vanity Phone Number Badge */}
+              <div className="pt-1.5 flex items-center justify-center">
+                <a
+                  href="tel:+19102756672"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/90 border border-emerald-200 text-[#01362D] hover:bg-emerald-100/80 transition-all text-xs font-medium shadow-2xs group cursor-pointer"
+                  title="Call or Text NORA (Ask Nest Ops Hotline)"
+                >
+                  <Phone className="w-3.5 h-3.5 text-emerald-700 group-hover:scale-110 transition-transform" />
+                  <span className="font-bold tracking-wide text-emerald-950 font-mono">+1 (910) ASK-NORA</span>
+                  <span className="text-[11px] text-emerald-800/90 font-mono">((910) 275-6672)</span>
+                </a>
+              </div>
             </div>
 
             {/* 4 Lightweight Default Suggestion Chips */}
@@ -1154,8 +1057,8 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
             <h2 className="font-serif font-medium text-2xl text-[#01362D]">
               I’m listening
             </h2>
-            <p className="text-sm italic text-stone-600 max-w-md mx-auto">
-              “{chatPrompt || 'What needs my attention today?'}”
+            <p className="text-sm italic text-stone-600 max-w-md mx-auto min-h-[24px]">
+              “{voiceAgent.interimTranscript || chatPrompt || 'What needs my attention today?'}”
             </p>
             <div className="pt-2 flex items-center justify-center gap-3">
               <button
@@ -1189,37 +1092,7 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
           </div>
         )}
 
-        {/* Responding & Result Card Display */}
-        {activeQuery && (
-          <div className="space-y-4 max-w-xl mx-auto text-center animate-fade-in" data-testid="active-ai-answer-surface">
-            <p className="text-lg md:text-xl font-serif font-medium text-[#01362D] leading-snug">
-              {activeQuery.answer}
-            </p>
 
-            {/* Actionable Record Cards (Answer / Show / Do / Ask) */}
-            {activeQuery.actionTitle && (
-              <div className="p-4 bg-white border border-stone-200/90 rounded-2xl shadow-sm text-left flex items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <h4 className="font-semibold text-sm text-[#01362D]">{activeQuery.actionTitle}</h4>
-                  <p className="text-xs text-stone-600">{activeQuery.actionDetails}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveQuery(prev => prev ? { ...prev, executed: true } : null);
-                    toast.info({
-                      title: 'Action Completed',
-                      description: activeQuery.actionDetails || 'Task completed.'
-                    });
-                  }}
-                  className="px-4 py-2 bg-[#00635C] hover:bg-[#01362D] text-white text-xs font-semibold rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
-                >
-                  {activeQuery.executed ? '✓ Completed' : 'Execute action'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Contract Intake Summary Card */}
         {activeContractSession && (
@@ -1319,130 +1192,15 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
                 setIsWakeWordActive(nextState);
                 toast.info({
                   title: nextState ? 'Hands-Free Active' : 'Hands-Free Paused',
-                  description: nextState ? 'Say "Hey Nest" to speak.' : 'Click mic to talk.'
+                  description: nextState ? 'Say "Hey Nest" or "Hey NORA" to speak.' : 'Click mic to talk.'
                 });
               }}
               className="text-xs text-stone-500 hover:text-stone-800 font-sans cursor-pointer transition-colors inline-flex items-center gap-1.5"
             >
               <span className={`w-2 h-2 rounded-full ${micState === 'listening' ? 'bg-rose-500 animate-ping' : isWakeWordActive ? 'bg-emerald-500 animate-pulse' : 'bg-stone-300'}`} />
-              <span>{isWakeWordActive ? '● Hands-free on · Say “Hey Nest”' : 'Hands-free off · Click mic to talk'}</span>
+              <span>{isWakeWordActive ? '● Hands-free on · Say “Hey Nest” or “Hey NORA”' : 'Hands-free off · Click mic to talk'}</span>
             </button>
           </div>
-
-          {/* Lorena Conversational Stage & Synchronized Found Items Projection */}
-          {(voiceAgent.transcriptHistory.length > 0 || (voiceAgent.activeMatchedItems && voiceAgent.activeMatchedItems.length > 0)) && (
-            <div className="mt-6 pt-4 border-t border-stone-200/80 space-y-4 text-left">
-              {/* Turn Transcript Dialogue Preview */}
-              {voiceAgent.transcriptHistory.length > 0 && (
-                <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                  {voiceAgent.transcriptHistory.slice(-2).map((msg, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`p-3 rounded-2xl text-xs leading-relaxed ${
-                        msg.sender === 'user' 
-                          ? 'bg-stone-100 text-stone-900 ml-8 font-medium' 
-                          : 'bg-emerald-50/80 border border-emerald-200/60 text-emerald-950 mr-4'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-[10px] font-bold tracking-wider uppercase mb-1 text-stone-500">
-                        <span>{msg.sender === 'user' ? 'You' : 'NORA (Ask Nest Ops)'}</span>
-                        {msg.sender === 'agent' && voiceAgent.status === 'speaking' && (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold normal-case text-[10px]">
-                            <Volume2 className="w-3 h-3 animate-pulse" /> Speaking
-                          </span>
-                        )}
-                      </div>
-                      <div className="whitespace-pre-wrap font-sans">{msg.text}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Synchronized Found Item Cards Projection */}
-              {voiceAgent.activeMatchedItems && voiceAgent.activeMatchedItems.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900">
-                      <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse" />
-                      <span>Found {voiceAgent.activeMatchedItems.length} Matching Items</span>
-                    </div>
-                    <span className="text-[10px] text-stone-500 font-medium">Click any card to open or take action</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {voiceAgent.activeMatchedItems.map((item: any, idx: number) => (
-                      <div 
-                        key={item.id || idx}
-                        className={`p-4 rounded-2xl bg-white border transition-all shadow-sm hover:shadow-md flex flex-col justify-between space-y-3 ${
-                          voiceAgent.status === 'speaking' && idx === 0
-                            ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                            : 'border-stone-200/80 hover:border-emerald-500/60'
-                        }`}
-                      >
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
-                              item.badgeColor === 'emerald'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : item.badgeColor === 'blue'
-                                ? 'bg-sky-100 text-sky-800'
-                                : item.badgeColor === 'amber'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-stone-100 text-stone-800'
-                            }`}>
-                              {item.badge || item.type}
-                            </span>
-                            <span className="text-[10px] font-mono text-stone-400">Item #{idx + 1}</span>
-                          </div>
-
-                          <h4 className="font-serif font-bold text-sm text-stone-900 leading-snug">
-                            {item.title}
-                          </h4>
-
-                          {item.subtitle && (
-                            <p className="text-[11px] font-medium text-stone-500">
-                              {item.subtitle}
-                            </p>
-                          )}
-
-                          {item.snippet && (
-                            <p className="text-xs text-stone-600 leading-relaxed pt-1 line-clamp-2">
-                              {item.snippet}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Metadata Pills */}
-                        {item.metadata && Object.keys(item.metadata).length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-stone-100">
-                            {Object.entries(item.metadata).slice(0, 3).map(([k, v]) => (
-                              <span key={k} className="text-[9px] px-1.5 py-0.5 rounded bg-stone-50 text-stone-600 border border-stone-100 font-mono">
-                                <strong>{k}:</strong> {String(v)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* 1-Click Action Button */}
-                        {item.actionText && (
-                          <div className="pt-2 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleExecuteItemAction(item)}
-                              className="px-3 py-1.5 bg-[#00635C] hover:bg-[#01362D] text-white font-bold text-xs rounded-xl shadow-2xs cursor-pointer flex items-center gap-1.5 transition-all"
-                            >
-                              <span>{item.actionText}</span>
-                              <ExternalLink className="w-3 h-3 text-white" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
       )}
@@ -1616,68 +1374,6 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
         </div>
       </div>
       </>
-      )}
-
-      {/* History Slide-Out Right Drawer */}
-      {showVoiceDrawer && (
-        <div className="fixed inset-y-0 right-0 w-96 max-w-full bg-white border-l border-stone-200 z-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-          <div className="p-4 border-b border-stone-200 flex items-center justify-between bg-[#FAF9F6]">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#00635C]" />
-              <h3 className="font-serif font-medium text-base text-[#01362D]">History</h3>
-              {isSpeaking && (
-                <button
-                  type="button"
-                  onClick={stopAssistantSpeaking}
-                  className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 transition-colors flex items-center gap-1 cursor-pointer animate-pulse"
-                  title="Stop speaking (Press Esc)"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
-                  Stop Speaking (Esc)
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowVoiceDrawer(false)}
-              className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50/40">
-            {voiceHistory.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-stone-500">
-                <Clock className="w-8 h-8 text-stone-300 stroke-1" />
-                <p className="font-medium text-xs text-stone-700">No History Yet</p>
-                <p className="text-xs">Your prior questions and Nest Ops answers will appear here.</p>
-              </div>
-            ) : (
-              voiceHistory.map((item) => (
-                <div
-                  key={item.id}
-                  className={`flex flex-col space-y-1 ${
-                    item.sender === 'user' ? 'items-end' : 'items-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed ${
-                      item.sender === 'user'
-                        ? 'bg-[#00635C] text-white rounded-br-2xs shadow-xs font-sans'
-                        : 'bg-white border border-stone-200 text-stone-800 shadow-xs rounded-bl-2xs font-sans'
-                    }`}
-                  >
-                    <p>{item.text}</p>
-                  </div>
-                  <span className="text-[10px] text-stone-400 font-sans px-1">
-                    {item.sender === 'user' ? 'You' : 'Ask Nest Ops'} • {item.timestamp}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
       )}
       
 
@@ -2251,69 +1947,243 @@ export default function NestOpsHub({ state, mode = 'full', orbVideoSrc = '/nest_
           </div>
         );
       })()}
-      {/* History Slide-Out Right Drawer */}
+      {/* History & Active NORA Conversational Slide-Out Right Drawer */}
       {showVoiceDrawer && (
         <div 
-          className="fixed inset-y-0 right-0 w-96 max-w-full bg-white border-l border-stone-200 z-50 shadow-2xl flex flex-col font-sans transition-all animate-slide-in-right text-xs"
+          className="fixed inset-y-0 right-0 w-[440px] sm:w-[500px] max-w-full bg-[#FAF9F6] border-l border-stone-200 z-50 shadow-2xl flex flex-col font-sans transition-all animate-slide-in-right text-xs"
           data-testid="voice-transcript-drawer"
         >
           {/* Drawer Header */}
-          <div className="p-4 border-b border-stone-200 bg-[#FAF9F6] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#00635C]" />
-              <h3 className="font-serif font-medium text-base text-[#01362D]">History</h3>
-              {isSpeaking && (
+          <div className="p-4 border-b border-stone-200 bg-white flex items-center justify-between shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-[#00635C]/10 border border-[#00635C]/20 flex items-center justify-center text-[#00635C]">
+                <Sparkles className="w-4 h-4 text-[#00635C]" />
+              </div>
+              <div>
+                <h3 className="font-serif font-bold text-sm text-[#01362D]">NORA · Operational Assistant</h3>
+                <p className="text-[10px] text-stone-500 font-sans">Live SOP, Directory & Contract Co-Pilot</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1.5">
+              {(voiceAgent.isSpeaking || isSpeaking) && (
                 <button
                   type="button"
                   onClick={stopAssistantSpeaking}
-                  className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 transition-colors flex items-center gap-1 cursor-pointer animate-pulse"
+                  className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 transition-colors flex items-center gap-1 cursor-pointer animate-pulse"
                   title="Stop speaking (Press Esc)"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                   Stop Speaking (Esc)
                 </button>
               )}
+              {voiceAgent.transcriptHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    voiceAgent.clearHistory();
+                    toast.info({ title: 'History Cleared', description: 'Conversation transcript history has been cleared.' });
+                  }}
+                  className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  title="Clear conversation history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowVoiceDrawer(false)}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+                title="Close drawer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowVoiceDrawer(false)}
-              className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Clean Conversation History Thread */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50/40">
-            {voiceHistory.length === 0 ? (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50/50">
+            {voiceAgent.transcriptHistory.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-stone-500">
                 <Clock className="w-8 h-8 text-stone-300 stroke-1" />
-                <p className="font-medium text-xs text-stone-700">No History Yet</p>
-                <p className="text-xs">Your prior questions and Nest Ops answers will appear here.</p>
+                <p className="font-medium text-xs text-stone-700">No Conversation Yet</p>
+                <p className="text-xs text-stone-500">Ask NORA any brokerage question, SOP policy, directory lookup, or offer draft. Results and cards will appear right here.</p>
               </div>
             ) : (
-              voiceHistory.map((item) => (
-                <div
-                  key={item.id}
-                  className={`flex flex-col space-y-1 ${
-                    item.sender === 'user' ? 'items-end' : 'items-start'
-                  }`}
-                >
+              voiceAgent.transcriptHistory.map((item, idx) => {
+                const isLatestAgent = item.sender === 'agent' && idx === voiceAgent.transcriptHistory.length - 1;
+                return (
                   <div
-                    className={`max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed ${
-                      item.sender === 'user'
-                        ? 'bg-[#00635C] text-white rounded-br-2xs shadow-xs font-sans'
-                        : 'bg-white border border-stone-200 text-stone-800 shadow-xs rounded-bl-2xs font-sans'
+                    key={item.id || idx}
+                    className={`flex flex-col space-y-1.5 ${
+                      item.sender === 'user' ? 'items-end' : 'items-start'
                     }`}
                   >
-                    <p>{item.text}</p>
+                    <div
+                      className={`max-w-[92%] p-3.5 rounded-2xl text-xs leading-relaxed ${
+                        item.sender === 'user'
+                          ? 'bg-[#00635C] text-white rounded-br-2xs shadow-xs font-sans font-medium'
+                          : 'bg-white border border-stone-200 text-stone-900 shadow-xs rounded-bl-2xs font-sans'
+                      }`}
+                    >
+                      {item.sender === 'agent' && voiceAgent.status === 'speaking' && isLatestAgent && (
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold mb-1">
+                          <Volume2 className="w-3 h-3 animate-pulse text-emerald-600" />
+                          <span>Speaking response...</span>
+                        </div>
+                      )}
+                      <p className="whitespace-pre-wrap font-sans leading-relaxed">{item.text}</p>
+
+                      {/* Synchronized Found Item Cards Projection inside NORA's turn */}
+                      {isLatestAgent && voiceAgent.activeMatchedItems && voiceAgent.activeMatchedItems.length > 0 && (
+                        <div className="mt-3.5 pt-3 border-t border-stone-100 space-y-2.5">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-stone-900">
+                            <span className="flex items-center gap-1.5 text-[#00635C]">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Found {voiceAgent.activeMatchedItems.length} Matching Records</span>
+                            </span>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {voiceAgent.activeMatchedItems.map((matchItem: any, mIdx: number) => (
+                              <div
+                                key={matchItem.id || mIdx}
+                                className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 hover:border-[#00635C]/60 hover:bg-white transition-all space-y-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
+                                    matchItem.badgeColor === 'emerald'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : matchItem.badgeColor === 'blue'
+                                      ? 'bg-sky-100 text-sky-800'
+                                      : matchItem.badgeColor === 'amber'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-stone-200 text-stone-800'
+                                  }`}>
+                                    {matchItem.badge || matchItem.type}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-stone-400">#{mIdx + 1}</span>
+                                </div>
+
+                                <div>
+                                  <h4 className="font-serif font-bold text-xs text-stone-900 leading-snug">
+                                    {matchItem.title}
+                                  </h4>
+                                  {matchItem.subtitle && (
+                                    <p className="text-[10px] font-medium text-stone-500 pt-0.5">
+                                      {matchItem.subtitle}
+                                    </p>
+                                  )}
+                                  {matchItem.snippet && (
+                                    <p className="text-[11px] text-stone-600 leading-relaxed pt-1 line-clamp-2">
+                                      {matchItem.snippet}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {matchItem.metadata && Object.keys(matchItem.metadata).length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-1 border-t border-stone-200/60">
+                                    {Object.entries(matchItem.metadata).slice(0, 2).map(([k, v]) => (
+                                      <span key={k} className="text-[8px] px-1.5 py-0.5 rounded bg-white text-stone-600 border border-stone-200 font-mono">
+                                        <strong>{k}:</strong> {String(v)}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {matchItem.actionText && (
+                                  <div className="pt-1 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleExecuteItemAction(matchItem)}
+                                      className="px-2.5 py-1 bg-[#00635C] hover:bg-[#01362D] text-white font-bold text-[11px] rounded-lg shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
+                                    >
+                                      <span>{matchItem.actionText}</span>
+                                      <ExternalLink className="w-3 h-3 text-white" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 font-sans px-1">
+                      {item.sender === 'user' ? (state?.user?.name || 'You') : 'NORA'} • {item.timestamp}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-stone-400 font-sans px-1">
-                    {item.sender === 'user' ? 'You' : 'Ask Nest Ops'} • {item.timestamp}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
+
+            {/* Ephemeral Live Listening Bubble — Streaming visual without committing until turn completion */}
+            {voiceAgent.interimTranscript && (
+              <div className="flex flex-col items-end gap-1 animate-fade-in">
+                <div className="max-w-[85%] rounded-2xl px-4 py-2.5 text-xs bg-emerald-50/90 border border-emerald-300/80 text-[#01362D] rounded-br-xs shadow-2xs font-sans italic flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                  <span>{voiceAgent.interimTranscript}</span>
+                </div>
+                <span className="text-[10px] text-emerald-700 font-sans font-medium px-1">
+                  Listening…
+                </span>
+              </div>
+            )}
+
+            <div ref={drawerBottomRef} />
+          </div>
+
+          {/* Drawer Follow-up Quick Input Bar */}
+          <div className="p-3 border-t border-stone-200 bg-white">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!drawerChatInput.trim()) return;
+                const text = drawerChatInput.trim();
+                setDrawerChatInput('');
+                handleAskPrompt(text);
+              }}
+              className="flex items-center gap-1.5 bg-stone-100 border border-stone-200 rounded-2xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#00635C]/30 focus-within:border-[#00635C] transition-all"
+            >
+              <input
+                type="text"
+                value={drawerChatInput}
+                onChange={(e) => setDrawerChatInput(e.target.value)}
+                placeholder="Ask NORA a follow-up..."
+                className="flex-1 bg-transparent border-none outline-hidden text-xs text-stone-900 placeholder:text-stone-400 font-sans"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (voiceAgent.status === 'listening') {
+                    voiceAgent.stopListening();
+                  } else {
+                    stopAssistantSpeaking();
+                    voiceAgent.listen();
+                  }
+                }}
+                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                  voiceAgent.status === 'listening' 
+                    ? 'bg-rose-500 text-white animate-pulse' 
+                    : 'text-stone-400 hover:text-stone-700 hover:bg-stone-200'
+                }`}
+                title={voiceAgent.status === 'listening' ? 'Mute microphone' : 'Speak to NORA'}
+              >
+                <Mic className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="submit"
+                disabled={!drawerChatInput.trim()}
+                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                  drawerChatInput.trim()
+                    ? 'bg-[#00635C] text-white hover:bg-[#01362D]'
+                    : 'text-stone-300 cursor-not-allowed'
+                }`}
+                title="Send message"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
           </div>
         </div>
       )}

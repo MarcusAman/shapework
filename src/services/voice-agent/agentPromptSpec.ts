@@ -232,6 +232,6 @@ Your objective is not merely to answer. Your objective is to help the user compl
 `
 };
 
-export function buildSystemPrompt(config: AgentPersonaConfig = lorenaNestOpsConfig): string {
+export function buildSystemPrompt(config: AgentPersonaConfig = noraNestOpsConfig): string {
   return config.systemPrompt;
 }

@@ -7565,7 +7565,7 @@ app.post('/api/property-management/dispatch-maintenance', async (req: any, res) 
   }
 });
 
-// LORENA MULTIMODAL AI VISION & DOCUMENT CAMERA ANALYSIS ENDPOINT
+// NORA MULTIMODAL AI VISION & DOCUMENT CAMERA ANALYSIS ENDPOINT
 app.post('/api/vision/analyze-document', async (req: any, res) => {
   try {
     const { imageBase64, documentType, cameraSource } = req.body;
@@ -7573,7 +7573,7 @@ app.post('/api/vision/analyze-document', async (req: any, res) => {
 
     return res.json({
       success: true,
-      message: `Lorena Multimodal Vision successfully scanned document (${scanId})`,
+      message: `NORA Multimodal Vision successfully scanned document (${scanId})`,
       scanResult: {
         id: scanId,
         documentType: documentType || 'NC REALTORS® Form 2-T Offer to Purchase and Contract',
@@ -7884,7 +7884,7 @@ app.get('/api/voice-agent/context-query', (req: any, res) => {
     endpoint: '/api/voice-agent/context-query',
     status: 'active',
     supportedMethods: ['POST', 'GET'],
-    description: 'Lorena Voice Agent & Ask Nest Ops Unified Context Query Engine',
+    description: 'NORA Voice Agent & Ask Nest Ops Unified Context Query Engine',
     domains: ['sops', 'contracts', 'pipeline', 'financials', 'roster', 'integrations', 'general']
   });
 });
@@ -7974,7 +7974,7 @@ app.post('/api/voice-agent/context-query', requireAuth, resolveWorkspaceContext,
       'can you hear me now',
       'are you there',
       'are you listening',
-      'can you hear me lorena',
+      'can you hear me nora',
       'can you hear me nest'
     ]);
 
@@ -7983,7 +7983,7 @@ app.post('/api/voice-agent/context-query', requireAuth, resolveWorkspaceContext,
         success: true,
         spokenResponse: "Yes, I can hear you. What can I help you with?",
         spokenAnswer: "Yes, I can hear you. What can I help you with?",
-        displayResponse: "Yes, I can hear you. What can I help you with?",
+        displayResponse: "### NORA Audio Check\n\nYes, I can hear you clearly! What can I help you with today?",
         category: 'conversation_control',
         confidence: 'high',
         needsEscalation: false,
@@ -7997,6 +7997,73 @@ app.post('/api/voice-agent/context-query', requireAuth, resolveWorkspaceContext,
         contextQueryIdempotencyCache.set(`${sessionId}:${utteranceId}`, { response: directAns, timestamp: Date.now() });
       }
       return res.json(directAns);
+    }
+
+    // Conversational General Help Requests ("Can you help me?", "Help me", "I need help")
+    const exactHelpRequests = new Set([
+      'can you help me',
+      'could you help me',
+      'can you help me please',
+      'help me',
+      'help',
+      'i need help',
+      'i need some help',
+      'can you help me with something',
+      'what can you do',
+      'how can you help me',
+      'help please'
+    ]);
+
+    if (exactHelpRequests.has(cleanPrompt)) {
+      const helpAns = {
+        success: true,
+        spokenResponse: 'Absolutely—what do you need help with?',
+        spokenAnswer: 'Absolutely—what do you need help with?',
+        displayResponse: '### NORA · Operational Assistant\n\nAbsolutely—what do you need help with? I can look up approved Nest SOP procedures, find directory contacts, or assist with contract drafting.',
+        category: 'conversation_control',
+        confidence: 'high',
+        needsEscalation: false,
+        sources: [{ title: 'NORA Conversational Control', section: 'Interactive Assistance' }],
+        matchedDomain: 'general',
+        confidenceScore: 0.95,
+        evidenceCard: null
+      };
+
+      if (utteranceId) {
+        contextQueryIdempotencyCache.set(`${sessionId}:${utteranceId}`, { response: helpAns, timestamp: Date.now() });
+      }
+      return res.json(helpAns);
+    }
+
+    // Conversational Greetings ("Hello", "Hi", "Good morning")
+    const exactGreetings = new Set([
+      'hello',
+      'hi',
+      'hey',
+      'good morning',
+      'good afternoon',
+      'good evening'
+    ]);
+
+    if (exactGreetings.has(cleanPrompt)) {
+      const greetingAns = {
+        success: true,
+        spokenResponse: 'Hello! How can I help you today?',
+        spokenAnswer: 'Hello! How can I help you today?',
+        displayResponse: '### Good day!\n\nHow can I help you with your brokerage operations today? You can ask about SOPs, directory contacts, or contract drafting.',
+        category: 'conversation_control',
+        confidence: 'high',
+        needsEscalation: false,
+        sources: [{ title: 'NORA Conversational Control', section: 'Interactive Assistance' }],
+        matchedDomain: 'general',
+        confidenceScore: 0.95,
+        evidenceCard: null
+      };
+
+      if (utteranceId) {
+        contextQueryIdempotencyCache.set(`${sessionId}:${utteranceId}`, { response: greetingAns, timestamp: Date.now() });
+      }
+      return res.json(greetingAns);
     }
 
     const effectiveTenantId = tenantId || req.session?.tenantId || 'tenant_nest_uat';
@@ -8589,14 +8656,15 @@ app.post('/api/sops/authoring-requests/:id/approve-and-publish', requireAuth, re
 });
 
 // STRUCTURED SOP PERSISTENCE & HUMAN PUBLISHING ENDPOINTS
-app.get('/api/sops/drafts', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.read'), async (req: any, res) => {
+app.get(['/api/sops', '/api/sops/drafts'], requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.read'), async (req: any, res) => {
   try {
     const wsId = req.workspace?.id;
     if (!wsId) return res.status(403).json({ error: 'Forbidden', message: 'Workspace context missing' });
     const user = req.authUser;
     const tenantId = user?.tenantId || wsId;
     const drafts = await sopRepository.listDrafts(tenantId, wsId);
-    res.json({ success: true, drafts });
+    const sops = sopRepository.listDraftsSync(tenantId, wsId);
+    res.json({ success: true, drafts, sops });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -8628,15 +8696,22 @@ app.post('/api/sops/drafts', requireAuth, resolveWorkspaceContext, requireWorksp
   }
 });
 
-app.get('/api/sops/drafts/:id', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.read'), async (req: any, res) => {
+app.get(['/api/sops/:id', '/api/sops/drafts/:id'], requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.read'), async (req: any, res) => {
   try {
     const wsId = req.workspace?.id;
     if (!wsId) return res.status(403).json({ error: 'Forbidden', message: 'Workspace context missing' });
     const user = req.authUser;
     const tenantId = user?.tenantId || wsId;
-    const sop = await sopRepository.getDraftById(req.params.id, tenantId);
+    let sop = await sopRepository.getDraftById(req.params.id, tenantId);
+    if (!sop) {
+      const all = sopRepository.listDraftsSync(tenantId, wsId);
+      const found = all.find(s => s.id === req.params.id);
+      if (found) {
+        sop = found;
+      }
+    }
     if (!sop || (sop.workspaceId && sop.workspaceId !== wsId)) {
-      return res.status(404).json({ success: false, error: 'SOP draft not found' });
+      return res.status(404).json({ success: false, error: 'SOP not found' });
     }
     res.json({ success: true, sop });
   } catch (err: any) {
@@ -8706,7 +8781,7 @@ app.get('/api/retell/nest-ops/status', requireAuth, resolveWorkspaceContext, req
     hasApiKey: !!process.env.RETELL_API_KEY,
     agentId: process.env.RETELL_ASK_NEST_OPS_AGENT_ID || null,
     knowledgeBaseId: process.env.RETELL_ASK_NEST_OPS_KB_ID || null,
-    phoneNumber: process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER || '910-571-2817',
+    phoneNumber: process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER || '+19102756672',
     phoneNumberId: process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER_ID || null,
     inboundCallReady: !!process.env.RETELL_ASK_NEST_OPS_AGENT_ID && !!process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER_ID,
     inboundSmsReady: !!process.env.RETELL_ASK_NEST_OPS_AGENT_ID && !!process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER_ID,
@@ -8829,7 +8904,7 @@ app.post('/api/retell/nest-ops/setup', requireAuth, resolveWorkspaceContext, req
 
     // List and bind Phone Number
     let phoneNumberId = '';
-    let foundNumber = process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER || '910-571-2817';
+    let foundNumber = process.env.RETELL_ASK_NEST_OPS_PHONE_NUMBER || '+19102756672';
     const targetClean = foundNumber.replace(/\D/g, '');
 
     try {
@@ -15457,7 +15532,8 @@ app.use(express.static(marketingSiteDir));
 app.use('/assets', express.static(assetsPath, { maxAge: '1y', immutable: true }));
 app.use(express.static(distPath, { index: false }));
 
-const hasDistBuild = fs.existsSync(path.join(distPath, 'index.html'));
+const isProdEnvironment = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
+const hasDistBuild = isProdEnvironment && fs.existsSync(path.join(distPath, 'index.html'));
 if (hasDistBuild) {
   // Asset 404 guard for stale build hashes
   app.use((req, res, next) => {

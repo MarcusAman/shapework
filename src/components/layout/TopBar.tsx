@@ -280,7 +280,10 @@ export default function TopBar({
             <div className="flex shrink-0 items-center gap-2 sm:gap-3 text-[9px] xs:text-[10px] font-sans text-[var(--sw-text-secondary)] font-semibold bg-[var(--sw-canvas)] px-2.5 sm:px-3.5 py-1 sm:py-1.5 border border-[var(--sw-border)] rounded-full shadow-xs backdrop-blur-md">
               <span className="text-[var(--sw-text-primary)] font-bold whitespace-nowrap">AskNestOps@nestrealty.com</span>
               <span className="text-[var(--sw-text-secondary)] opacity-40">|</span>
-              <span className="text-[var(--sw-text-primary)] font-bold whitespace-nowrap">+1 (910) 275-6672</span>
+              <a href="tel:+19102756672" className="text-[var(--sw-text-primary)] font-bold whitespace-nowrap hover:text-emerald-700 transition-colors inline-flex items-center gap-1 font-mono" title="Call NORA / Ask Nest Ops Hotline">
+                <span>+1 (910) ASK-NORA</span>
+                <span className="text-[9px] text-[var(--sw-text-secondary)] font-normal font-sans">((910) 275-6672)</span>
+              </a>
             </div>
           </div>
         )}
@@ -338,7 +341,10 @@ export default function TopBar({
         <div className="hidden lg:flex items-center gap-3.5 text-[10px] font-mono text-[var(--sw-text-secondary)] font-semibold bg-[var(--sw-canvas)] px-4 py-1.5 border border-[var(--sw-border)] rounded-full shadow-xs">
           <span className="text-[var(--sw-text-primary)] font-bold">AskNestOps@nestrealty.com</span>
           <span className="text-[var(--sw-text-secondary)] opacity-40">|</span>
-          <span className="text-[var(--sw-text-primary)] font-bold">+1 (910) 275-6672</span>
+          <a href="tel:+19102756672" className="text-[var(--sw-text-primary)] font-bold hover:text-emerald-300 transition-colors inline-flex items-center gap-1 font-mono" title="Call NORA / Ask Nest Ops Hotline">
+            <span>+1 (910) ASK-NORA</span>
+            <span className="text-[9px] text-[var(--sw-text-secondary)] font-normal font-sans">((910) 275-6672)</span>
+          </a>
         </div>
 
         {/* Pitch & 'Aha!' Demo Launch Button */}

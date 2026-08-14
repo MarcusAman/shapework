@@ -67,9 +67,9 @@ describe('Nest Wilmington / Carolina Beach — Launch Readiness Diagnostic Suite
   });
 
   // ==========================================
-  // AREA 2: Voice AI Lorena WebRTC & Dynamic Tools
+  // AREA 2: Voice AI NORA WebRTC & Dynamic Tools
   // ==========================================
-  describe('Area 2: Voice AI Lorena WebRTC Integration & Knowledge Resolvers', () => {
+  describe('Area 2: Voice AI NORA WebRTC Integration & Knowledge Resolvers', () => {
     it('resolves active contract queries with financial evidence cards', () => {
       const response = queryUnifiedContext('What is the purchase price for 312 Mayfaire Way?');
       expect(response.spokenAnswer).toBeDefined();

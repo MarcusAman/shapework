@@ -63,15 +63,13 @@ export function processUserUtterance(
     .replace(/^(hey|hi)\s+nest,?\s*/i, '')
     .replace(/^(hey|hi)\s+nora,?\s*/i, '')
     .replace(/^ask\s+nora,?\s*/i, '')
-    .replace(/^(hey|hi)\s+lorena,?\s*/i, '')
-    .replace(/^lorena,?\s*/i, '')
     .replace(/^nora,?\s*/i, '')
     .replace(/^nest\s+ops,?\s*/i, '')
     .replace(/^nest,?\s*/i, '')
     .trim();
 
   // 1. Wake Word Only — User said "hey nest" or "hey nora" or "ask nora" with no follow-up question
-  if (!strippedText || rawClean === 'hey nest' || rawClean === 'hi nest' || rawClean === 'hey nora' || rawClean === 'hi nora' || rawClean === 'ask nora' || rawClean === 'nora' || rawClean === 'hey lorena' || rawClean === 'lorena' || rawClean === 'nest ops' || rawClean === 'nest') {
+  if (!strippedText || rawClean === 'hey nest' || rawClean === 'hi nest' || rawClean === 'hey nora' || rawClean === 'hi nora' || rawClean === 'ask nora' || rawClean === 'nora' || rawClean === 'nest ops' || rawClean === 'nest') {
     return {
       intentType: 'WAKE_WORD_ONLY',
       category: 'wake_only',
@@ -92,7 +90,6 @@ export function processUserUtterance(
     'are you there',
     'are you listening',
     'can you hear me nora',
-    'can you hear me lorena',
     'can you hear me nest'
   ]);
 
@@ -122,6 +119,69 @@ export function processUserUtterance(
       category: 'conversation_control',
       spokenResponse: "Sure, let me repeat that for you.",
       displayResponse: "Sure, let me repeat that for you.",
+      utteranceId
+    };
+  }
+
+  // 2c. Conversational General Help ("Can you help me?", "Help me", "I need help")
+  const exactHelpRequests = new Set([
+    'can you help me',
+    'could you help me',
+    'can you help me please',
+    'help me',
+    'help',
+    'i need help',
+    'i need some help',
+    'can you help me with something',
+    'what can you do',
+    'how can you help me',
+    'help please'
+  ]);
+
+  if (exactHelpRequests.has(cleanLower)) {
+    return {
+      intentType: 'CONVERSATIONAL_HELP',
+      category: 'conversation_control',
+      spokenResponse: "Absolutely—what do you need help with?",
+      displayResponse: "### NORA · Operational Assistant\n\nAbsolutely—what do you need help with? I can look up approved Nest SOP procedures, find directory contacts, or assist with contract drafting.",
+      utteranceId
+    };
+  }
+
+  // 2d. Conversational Greetings ("Hello", "Hi", "Good morning")
+  const exactGreetings = new Set([
+    'hello',
+    'hi',
+    'hey',
+    'good morning',
+    'good afternoon',
+    'good evening'
+  ]);
+
+  if (exactGreetings.has(cleanLower)) {
+    return {
+      intentType: 'CONVERSATIONAL_GREETING',
+      category: 'conversation_control',
+      spokenResponse: `Hello ${userName}, how can I help you today?`,
+      displayResponse: `### Good day, ${userName}!\n\nHow can I help you with your brokerage operations today?`,
+      utteranceId
+    };
+  }
+
+  // 2e. Incomplete Short Prelude Guard ("Can you", "Could you", "I need")
+  if (
+    cleanLower === 'can you' || 
+    cleanLower === 'could you' || 
+    cleanLower === 'would you' || 
+    cleanLower === 'i need' || 
+    cleanLower === 'i want' ||
+    cleanLower === 'please'
+  ) {
+    return {
+      intentType: 'INCOMPLETE_PRELUDE',
+      category: 'conversation_control',
+      spokenResponse: "I'm listening—what would you like me to do?",
+      displayResponse: "I'm listening—what would you like me to do?",
       utteranceId
     };
   }

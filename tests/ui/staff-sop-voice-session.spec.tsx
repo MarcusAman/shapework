@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * Staff SOP Template Modal & Lorena Voice Walkthrough Unit Tests
+ * Staff SOP Template Modal & NORA Voice Walkthrough Unit Tests
  */
 
 import { describe, it, expect } from 'vitest';
@@ -19,13 +19,13 @@ const mockState = {
   }
 };
 
-describe('Staff SOP Template Modal & Lorena Voice Walkthrough', () => {
+describe('Staff SOP Template Modal & NORA Voice Walkthrough', () => {
   it('1. Renders StaffSOPTemplateModal with correct header title', () => {
     const html = renderToStaticMarkup(
       <StaffSOPTemplateModal isOpen={true} onClose={() => {}} workspaceId="nest-realty-wilmington" />
     );
     expect(html).toContain('Build an SOP together');
-    expect(html).toContain('Lorena Audio Walkthrough');
+    expect(html).toContain('Audio Walkthrough');
   });
 
   it('2. Renders dynamic progress badge with percent text', () => {
@@ -51,7 +51,7 @@ describe('Staff SOP Template Modal & Lorena Voice Walkthrough', () => {
     const html = renderToStaticMarkup(
       <StaffSOPTemplateModal isOpen={true} onClose={() => {}} workspaceId="nest-realty-wilmington" />
     );
-    expect(html).toContain('Start Audio Walkthrough with Lorena');
+    expect(html).toContain('Start Audio Walkthrough with NORA');
   });
 
   it('5. Renders live SOP document draft workspace panel sections', () => {

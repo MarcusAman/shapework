@@ -125,9 +125,9 @@ async function runCrossWorkspaceAttackSuite() {
     [401, 403, 404]
   );
 
-  // 4. Workspace A user tries to query Lorena context for Workspace B
+  // 4. Workspace A user tries to query NORA context for Workspace B
   await runAttack(
-    'ATTACK 4: Workspace A user attempts to query Lorena context for Workspace B',
+    'ATTACK 4: Workspace A user attempts to query NORA context for Workspace B',
     `${CANARY_URL}/api/voice-agent/context-query`,
     'POST',
     tokenUserA,

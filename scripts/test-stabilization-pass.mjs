@@ -1,7 +1,7 @@
 import { processUserUtterance } from '../src/services/voice-agent/transcriptRouter';
 
 const mockState = {
-  agentName: 'Lorena',
+  agentName: 'NORA',
   status: 'idle',
   transcriptHistory: [],
   pendingProposal: null,

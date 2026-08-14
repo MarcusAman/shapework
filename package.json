@@ -16,14 +16,14 @@
     "test:tapo-camera": "tsx scripts/test-tapo-camera.ts",
     "test:ai-copilot": "tsx scripts/test-ai-copilot.ts",
     "test:pressure-contracts": "tsx scripts/pressure-test-contract-copilot.ts",
-    "test:pressure-knowledge": "tsx scripts/pressure-test-lorena-knowledge.ts",
+    "test:pressure-knowledge": "tsx scripts/pressure-test-nora-knowledge.ts",
     "test:pressure-matchmaker": "tsx scripts/pressure-test-matchmaker.ts",
     "test:pressure-commercial": "tsx scripts/pressure-test-commercial-lease.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "tenant:restore": "tsx scripts/restoreTenantBackup.ts",
-    "test": "vitest run",
+    "test": "vitest run --fileParallelism=false",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

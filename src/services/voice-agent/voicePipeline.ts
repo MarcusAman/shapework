@@ -2,13 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * VoicePipeline — STT, Audio Analyser, Wake Detection, Utterance Lifecycle, Echo Suppression & STOP Command Interruption
+ * VoicePipeline — STT, Multi-Segment Aggregation, Adaptive Endpointing, Audio Analyser, Wake Detection, Utterance Lifecycle, Echo Suppression & STOP Command Interruption
  */
 
 import { AudioPlaybackManager } from './audioPlaybackManager';
 import { VoiceDiagnostics } from './voiceDiagnostics';
+import type { AgentState } from './agentRuntimeReducer';
 
-export type AgentState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'follow_up' | 'interrupted' | 'error';
+export type { AgentState };
 
 export interface TranscriptPayload {
   text: string;
@@ -17,12 +18,84 @@ export interface TranscriptPayload {
   isWakeOnly: boolean;
 }
 
+export interface InterimUpdatePayload {
+  text: string;
+  interimOnly: string;
+  utteranceId: string;
+}
+
 export interface VoicePipelineCallbacks {
   onStatusChange: (status: AgentState) => void;
   onWakeDetected?: (utteranceId: string) => void;
+  onInterimUpdate?: (payload: InterimUpdatePayload) => void;
   onTranscriptReceived: (payload: TranscriptPayload) => void;
   onFrequencyUpdate: (bars: number[]) => void;
   onUserInterrupted?: () => void;
+}
+
+/**
+ * Determines whether a recognized speech fragment is an obviously incomplete conversational prelude
+ * or ends with a dangling continuation token, requiring an extended silence window before finalization.
+ */
+export function isLikelyIncompleteUtterance(text: string): boolean {
+  const clean = text.toLowerCase().replace(/[*#_`.,?!]/g, '').trim();
+  if (!clean) return true;
+
+  const incompletePrefixes = [
+    'can you',
+    'could you',
+    'would you',
+    'will you',
+    'please',
+    'i need',
+    'i want',
+    'help me',
+    'can you help me',
+    'do you know',
+    'what is the',
+    'where can i',
+    'how do i',
+    'tell me about',
+    'who is the',
+    'show me',
+    'find the',
+    'what is',
+    'where is',
+    'how is',
+    'who is',
+    'which is',
+    'can we',
+    'could we',
+    'should we'
+  ];
+
+  const words = clean.split(/\s+/).filter(Boolean);
+
+  // If the entire utterance matches an incomplete prelude exactly
+  if (incompletePrefixes.some(p => clean === p)) {
+    return true;
+  }
+
+  // If the utterance begins with an incomplete prelude and has 4 words or fewer without specific domain keywords
+  const domainKeywords = ['sop', 'protocol', 'procedure', 'policy', 'contract', 'listing', 'cda', 'roster', 'agent', 'vendor', 'escrow'];
+  const hasDomainKeyword = domainKeywords.some(k => clean.includes(k));
+  if (words.length <= 4 && !hasDomainKeyword && incompletePrefixes.some(p => clean.startsWith(p))) {
+    return true;
+  }
+
+  // Trailing grammatical continuations (conjunctions, prepositions, determiners)
+  const lastWord = words[words.length - 1];
+  const trailingContinuations = new Set([
+    'and', 'or', 'but', 'for', 'with', 'to', 'about', 'in', 'on', 'at',
+    'the', 'a', 'an', 'of', 'by', 'from', 'as', 'into', 'like', 'through',
+    'after', 'before', 'between', 'under', 'during', 'without', 'because'
+  ]);
+
+  if (trailingContinuations.has(lastWord)) {
+    return true;
+  }
+
+  return false;
 }
 
 export class VoicePipeline {
@@ -32,7 +105,6 @@ export class VoicePipeline {
   private analyser: AnalyserNode | null = null;
   private mediaStream: MediaStream | null = null;
   private animFrameId: number | null = null;
-  private silenceTimer: any = null;
   private recognition: any = null;
   private stopRecognition: any = null;
   private isSpeaking = false;
@@ -40,6 +112,13 @@ export class VoicePipeline {
   private lastSpokenTexts: Set<string> = new Set();
   private currentUtteranceId: string | null = null;
   private hasPlayedWakeChimeForUtterance = false;
+
+  // Authoritative Turn & Aggregation Buffer State
+  private finalizedSegments: string[] = [];
+  private currentInterimText: string = '';
+  private finalizationTimer: any = null;
+  private isTurnCommitted = false;
+  private lastSpeechTimestamp = 0;
 
   constructor(callbacks: VoicePipelineCallbacks) {
     this.callbacks = callbacks;
@@ -55,6 +134,17 @@ export class VoicePipeline {
   public resetUtteranceId(): void {
     this.currentUtteranceId = null;
     this.hasPlayedWakeChimeForUtterance = false;
+    this.finalizedSegments = [];
+    this.currentInterimText = '';
+    this.isTurnCommitted = false;
+  }
+
+  private clearFinalizationTimer(): void {
+    if (this.finalizationTimer) {
+      clearTimeout(this.finalizationTimer);
+      this.finalizationTimer = null;
+      VoiceDiagnostics.log('finalization_timer_cancelled', this.currentUtteranceId || undefined);
+    }
   }
 
   private isSelfEcho(text: string): boolean {
@@ -88,8 +178,60 @@ export class VoicePipeline {
     return false;
   }
 
+  /**
+   * Authoritative Turn Commit: Called when silence endpointing elapses or explicit submit occurs.
+   */
+  public commitCurrentTurn(reason: string = 'endpointing_silence'): void {
+    this.clearFinalizationTimer();
+
+    if (this.isTurnCommitted) {
+      return;
+    }
+
+    const segmentsText = this.finalizedSegments.filter(Boolean).join(' ').trim();
+    const interimText = this.currentInterimText.trim();
+    const combined = [segmentsText, interimText].filter(Boolean).join(' ').trim();
+
+    if (!combined) {
+      this.resetUtteranceId();
+      this.callbacks.onStatusChange('idle');
+      return;
+    }
+
+    const uttId = this.getUtteranceId();
+    this.isTurnCommitted = true;
+
+    VoiceDiagnostics.log('turn_committed', uttId, `Reason: ${reason} | Text: "${combined}"`);
+
+    const lower = combined.toLowerCase();
+    const wakePhrases = ['hey nest', 'hi nest', 'hey nora', 'hi nora', 'ask nora', 'nest ops', 'nest'];
+    const isWakePhrase = wakePhrases.includes(lower);
+
+    this.callbacks.onStatusChange('finalizing');
+
+    this.callbacks.onTranscriptReceived({
+      text: combined,
+      utteranceId: uttId,
+      isFinal: true,
+      isWakeOnly: isWakePhrase
+    });
+
+    this.resetUtteranceId();
+  }
+
+  /**
+   * Cancel and discard uncommitted speech turn completely.
+   */
+  public cancelCurrentTurn(): void {
+    this.clearFinalizationTimer();
+    const uttId = this.currentUtteranceId;
+    this.resetUtteranceId();
+    VoiceDiagnostics.log('turn_cancelled', uttId || undefined, 'User or system cancelled uncommitted turn');
+    this.callbacks.onStatusChange('idle');
+  }
+
   public async startListening(): Promise<void> {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) || (globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       this.callbacks.onStatusChange('error');
       return;
@@ -126,40 +268,46 @@ export class VoicePipeline {
       };
 
       rec.onresult = (event: any) => {
-
-        let liveText = '';
-        let isFinal = false;
-
-        const startIdx = typeof event.resultIndex === 'number' ? event.resultIndex : 0;
-        for (let i = startIdx; i < event.results.length; i++) {
-          liveText += event.results[i][0].transcript;
-          if (event.results[i].isFinal) isFinal = true;
-        }
-
-        const trimmed = liveText.trim();
-        if (!trimmed) return;
-
-        const cleanWords = trimmed.split(/\s+/).filter(w => w.length > 0);
-        if (cleanWords.length === 0) return;
-
-        // Spoken Interruption (Barge-in): If user speaks while assistant is talking, yield immediately
-        if (this.isSpeaking && cleanWords.length > 0) {
-          this.stopSpeakingAudio();
-          if (this.callbacks.onUserInterrupted) {
-            this.callbacks.onUserInterrupted();
-          }
-        }
-
-        const uttId = this.getUtteranceId();
-
-        // Self-Echo Filter: Discard transcripts matching recently spoken assistant audio
-        if (this.isSelfEcho(trimmed)) {
-          VoiceDiagnostics.log('duplicate_turn_suppressed', uttId, `Self-Echo Filter: ${trimmed}`);
+        // Strict Acoustic Echo & Playback Guard: Drop all microphone input while NORA is speaking or in post-playback tail cooldown (600ms)
+        if (this.isSpeaking || (Date.now() - this.lastSpeakingEndTime < 600)) {
           return;
         }
 
-        const lower = trimmed.toLowerCase();
-        const wakePhrases = ['hey nest', 'hi nest', 'hey nora', 'hi nora', 'ask nora', 'nest ops', 'nest', 'hey lorena'];
+        let newFinalSegments: string[] = [];
+        let liveInterim = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          const transcriptChunk = event.results[i][0]?.transcript || '';
+          if (event.results[i].isFinal) {
+            if (transcriptChunk.trim()) {
+              newFinalSegments.push(transcriptChunk.trim());
+            }
+          } else {
+            liveInterim += ' ' + transcriptChunk;
+          }
+        }
+
+        this.finalizedSegments = newFinalSegments;
+        this.currentInterimText = liveInterim.trim();
+
+        const accumulatedText = [...this.finalizedSegments, this.currentInterimText]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+
+        if (!accumulatedText) return;
+
+        const uttId = this.getUtteranceId();
+        this.lastSpeechTimestamp = Date.now();
+
+        // Self-Echo Filter: Discard transcripts matching recently spoken assistant audio
+        if (this.isSelfEcho(accumulatedText)) {
+          VoiceDiagnostics.log('duplicate_turn_suppressed', uttId, `Self-Echo Filter: ${accumulatedText}`);
+          return;
+        }
+
+        const lower = accumulatedText.toLowerCase();
+        const wakePhrases = ['hey nest', 'hi nest', 'hey nora', 'hi nora', 'ask nora', 'nest ops', 'nest'];
         const isWakePhrase = wakePhrases.includes(lower);
         const startsWithWakePhrase = wakePhrases.some(p => lower.startsWith(p));
 
@@ -167,57 +315,66 @@ export class VoicePipeline {
         if ((isWakePhrase || startsWithWakePhrase) && !this.hasPlayedWakeChimeForUtterance) {
           this.hasPlayedWakeChimeForUtterance = true;
           AudioPlaybackManager.playWakeChime();
-          VoiceDiagnostics.log('wake_detected', uttId, trimmed);
+          VoiceDiagnostics.log('wake_detected', uttId, accumulatedText);
           if (this.callbacks.onWakeDetected) {
             this.callbacks.onWakeDetected(uttId);
           }
         }
 
-        // Instant trigger on wake phrase alone OR final speech transcript
-        if (isFinal || isWakePhrase) {
-          if (this.silenceTimer) {
-            clearTimeout(this.silenceTimer);
-            this.silenceTimer = null;
-          }
-          this.callbacks.onTranscriptReceived({
-            text: trimmed,
-            utteranceId: uttId,
-            isFinal: true,
-            isWakeOnly: isWakePhrase
-          });
-
-          this.resetUtteranceId();
-          if (isWakePhrase) {
-            try { rec.stop(); } catch (e) {}
-          }
-        } else {
-          // Smart Silence VAD Auto-Submit Timer for continuous speech
-          if (this.silenceTimer) clearTimeout(this.silenceTimer);
-          this.silenceTimer = setTimeout(() => {
-            if (this.isSpeaking || (Date.now() - this.lastSpeakingEndTime < 1000)) return;
-            const finalUttId = this.getUtteranceId();
-            this.callbacks.onTranscriptReceived({
-              text: trimmed,
-              utteranceId: finalUttId,
-              isFinal: true,
-              isWakeOnly: false
-            });
-            this.resetUtteranceId();
-            this.stopListening();
-          }, 1200);
+        // Pure wake phrase triggers immediate activation
+        if (isWakePhrase) {
+          this.commitCurrentTurn('wake_phrase_only');
+          return;
         }
+
+        // Broadcast interim presentation update (DISPLAY ONLY — NEVER COMMITS MESSAGE OR BACKEND)
+        this.callbacks.onStatusChange('collecting');
+        if (this.callbacks.onInterimUpdate) {
+          this.callbacks.onInterimUpdate({
+            text: accumulatedText,
+            interimOnly: this.currentInterimText,
+            utteranceId: uttId
+          });
+        }
+        VoiceDiagnostics.log('interim_transcript_updated', uttId, accumulatedText);
+
+        // Adaptive Endpointing: Calculate silence window based on incomplete preludes
+        this.clearFinalizationTimer();
+
+        const isIncomplete = isLikelyIncompleteUtterance(accumulatedText);
+        // Extended endpointing for incomplete preludes (2,000ms), standard endpointing for normal speech (1,200ms)
+        const endpointDelayMs = isIncomplete ? 2000 : 1200;
+
+        VoiceDiagnostics.log(
+          'finalization_timer_scheduled', 
+          uttId, 
+          `Delay: ${endpointDelayMs}ms | IncompletePrelude: ${isIncomplete} | Text: "${accumulatedText}"`
+        );
+
+        this.finalizationTimer = setTimeout(() => {
+          if (this.isSpeaking || (Date.now() - this.lastSpeakingEndTime < 600)) return;
+          this.commitCurrentTurn('silence_endpoint_reached');
+        }, endpointDelayMs);
       };
 
       rec.onerror = (e: any) => {
         if (e.error === 'no-speech' || e.error === 'aborted') {
-          this.callbacks.onStatusChange('idle');
+          // If no speech, return to idle without error unless a turn was in progress
+          if (!this.finalizedSegments.length && !this.currentInterimText) {
+            this.callbacks.onStatusChange('idle');
+          }
           return;
         }
         this.callbacks.onStatusChange('error');
       };
 
       rec.onend = () => {
-        this.callbacks.onStatusChange('idle');
+        // When recognition ends: if uncommitted text exists, finalize it; otherwise go idle
+        if ((this.finalizedSegments.length > 0 || this.currentInterimText.length > 0) && !this.isTurnCommitted) {
+          this.commitCurrentTurn('recognition_session_ended');
+        } else if (!this.isSpeaking) {
+          this.callbacks.onStatusChange('idle');
+        }
       };
 
       this.recognition = rec;
@@ -229,10 +386,7 @@ export class VoicePipeline {
   }
 
   public stopListening(): void {
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
-    }
+    this.clearFinalizationTimer();
     if (this.recognition) {
       try { 
         this.recognition.onresult = null;
@@ -240,6 +394,7 @@ export class VoicePipeline {
       } catch (e) {}
       this.recognition = null;
     }
+    this.resetUtteranceId();
     this.callbacks.onStatusChange('idle');
   }
 
@@ -425,15 +580,6 @@ export class VoicePipeline {
         }
 
         this.callbacks.onFrequencyUpdate(bars);
-
-        // Barge-in Interruption Detection: If user speaks loudly (> 600 sum) while NORA is speaking
-        if (sum > 600 && this.isSpeaking) {
-          this.stopAudioPlayback();
-          if (this.callbacks.onUserInterrupted) {
-            this.callbacks.onUserInterrupted();
-          }
-          this.callbacks.onStatusChange('interrupted');
-        }
 
         this.animFrameId = requestAnimationFrame(update);
       };

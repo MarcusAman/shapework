@@ -3,7 +3,7 @@ import { processUserUtterance } from '../src/services/voice-agent/transcriptRout
 console.log('🚀 Running 100-Turn Voice Stabilization Funnel & Reliability Benchmark...\n');
 
 const mockState = {
-  agentName: 'Lorena',
+  agentName: 'NORA',
   status: 'idle',
   transcriptHistory: [],
   pendingProposal: null,

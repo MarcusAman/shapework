@@ -28,6 +28,8 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
   const pipelineRef = useRef<VoicePipeline | null>(null);
   const processedUtteranceIdsRef = useRef<Set<string>>(new Set());
   const sessionMemoryRef = useRef<Record<string, any>>({});
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
+  const activeTurnIdRef = useRef<string | null>(null);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -49,6 +51,15 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
 
     const targetUttId = utteranceId || ('utt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
+    // Cancel any previous in-flight request for superseded turns
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+      VoiceDiagnostics.log('backend_request_aborted', activeTurnIdRef.current || undefined, 'Superseded by new turn');
+    }
+    const abortController = new AbortController();
+    activeAbortControllerRef.current = abortController;
+    activeTurnIdRef.current = targetUttId;
+
     // Idempotency Check — Suppress Duplicate Turns
     if (processedUtteranceIdsRef.current.has(targetUttId)) {
       VoiceDiagnostics.log('duplicate_turn_suppressed', targetUttId, utterance);
@@ -58,13 +69,17 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
 
     VoiceDiagnostics.log('turn_dispatch_started', targetUttId, `${source}: ${utterance}`);
 
+    // Clear ephemeral interim text upon turn commit
+    dispatch({ type: 'CLEAR_INTERIM_TRANSCRIPT' });
+
     const cleanUtterance = utterance
       .replace(/^(hey|hi)\s+nest,?\s*/i, '')
       .replace(/^(hey|hi)\s+nora,?\s*/i, '')
       .replace(/^ask\s+nora,?\s*/i, '')
-      .replace(/^(hey|hi)\s+lorena,?\s*/i, '')
       .trim() || utterance;
     let result = processUserUtterance(utterance, stateRef.current, userName, targetUttId);
+
+    VoiceDiagnostics.log('intent_selected', targetUttId, `Intent: ${result.intentType} | Category: ${result.category}`);
 
     // 1. Pure Wake Word Handler ("Hey Nest", "Hey NORA")
     if (isWakeOnly || result.intentType === 'WAKE_WORD_ONLY') {
@@ -75,7 +90,7 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
       return;
     }
 
-    // 2. Standard User Turn Dispatch
+    // 2. Standard User Turn Dispatch — Commit single user turn bubble
     dispatch({ type: 'ADD_TRANSCRIPT', payload: { sender: 'user', text: cleanUtterance } });
     dispatch({ type: 'SET_STATUS', payload: 'thinking' });
 
@@ -84,9 +99,11 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
 
     // Call unified context query backend endpoint with multi-turn session memory
     try {
+      VoiceDiagnostics.log('backend_request_started', targetUttId, `POST /api/voice-agent/context-query: "${cleanUtterance}"`);
       const apiRes = await fetch('/api/voice-agent/context-query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
         body: JSON.stringify({ 
           message: cleanUtterance,
           sessionId: 'session-voice-agent',
@@ -96,6 +113,13 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
           sessionMemory: sessionMemoryRef.current
         })
       });
+
+      // Guard: Check if turn was superseded during fetch
+      if (activeTurnIdRef.current !== targetUttId) {
+        VoiceDiagnostics.log('response_suppressed', targetUttId, 'Turn was superseded during network roundtrip');
+        return;
+      }
+
       if (apiRes.ok) {
         const apiData = await apiRes.json();
         VoiceDiagnostics.log('assistant_response_received', targetUttId, apiData.spokenResponse || apiData.spokenAnswer);
@@ -118,9 +142,20 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
         if (apiData.matchedItems && Array.isArray(apiData.matchedItems)) {
           setActiveMatchedItems(apiData.matchedItems);
         }
+        VoiceDiagnostics.log('response_accepted', targetUttId, displayText);
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') {
+        VoiceDiagnostics.log('backend_request_aborted', targetUttId, 'Fetch aborted by AbortController');
+        return;
+      }
       console.warn('[Unified Context Query Warning]:', e);
+    }
+
+    // Secondary turn check after body parsing
+    if (activeTurnIdRef.current !== targetUttId) {
+      VoiceDiagnostics.log('response_suppressed', targetUttId, 'Turn superseded after parsing');
+      return;
     }
 
     if (result.actionCard) {
@@ -152,6 +187,9 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
       },
       onWakeDetected: (uttId: string) => {
         VoiceDiagnostics.log('wake_detected', uttId);
+      },
+      onInterimUpdate: (payload) => {
+        dispatch({ type: 'SET_INTERIM_TRANSCRIPT', payload: payload.text });
       },
       onTranscriptReceived: (payload: TranscriptPayload) => {
         if (!payload.isFinal) return;
@@ -185,6 +223,29 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
     }
   }, []);
 
+  const cancel = useCallback(() => {
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+      activeAbortControllerRef.current = null;
+    }
+    activeTurnIdRef.current = null;
+    dispatch({ type: 'CLEAR_INTERIM_TRANSCRIPT' });
+    dispatch({ type: 'SET_STATUS', payload: 'cancelled' });
+    if (pipelineRef.current) {
+      pipelineRef.current.cancelCurrentTurn();
+      pipelineRef.current.stopAudioPlayback();
+    }
+    setTimeout(() => {
+      dispatch({ type: 'SET_STATUS', payload: 'idle' });
+    }, 120);
+  }, []);
+
+  const commitImmediately = useCallback((reason: string = 'user_explicit_submit') => {
+    if (pipelineRef.current) {
+      pipelineRef.current.commitCurrentTurn(reason);
+    }
+  }, []);
+
   const speak = useCallback((text: string, uttId?: string) => {
     if (pipelineRef.current) {
       pipelineRef.current.speakText(text, uttId);
@@ -209,6 +270,55 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
     }
   }, [state.pendingProposal, speak]);
 
+  const STORAGE_KEY = 'nest_ops_nora_history';
+
+  // Hydrate history from localStorage on initial mount
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            dispatch({ type: 'LOAD_TRANSCRIPTS', payload: parsed });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[useVoiceAgentSession] Failed to load history from localStorage:', e);
+    }
+  }, []);
+
+  // Synchronize history to localStorage whenever transcriptHistory updates
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        if (state.transcriptHistory.length > 0) {
+          const toSave = state.transcriptHistory.slice(-50);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        }
+      } catch (e) {
+        console.warn('[useVoiceAgentSession] Failed to persist history:', e);
+      }
+    }
+  }, [state.transcriptHistory]);
+
+  const clearHistory = useCallback(() => {
+    dispatch({ type: 'CLEAR_TRANSCRIPTS' });
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch (e) {}
+  }, []);
+
+  const stopSpeaking = useCallback(() => {
+    if (pipelineRef.current) {
+      pipelineRef.current.stopAudioPlayback();
+    }
+    dispatch({ type: 'SET_STATUS', payload: 'idle' });
+  }, []);
+
   const toggleMicMute = useCallback(() => {
     setIsMicMuted(prev => !prev);
   }, []);
@@ -226,6 +336,9 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
   return {
     agentName: state.agentName,
     status: state.status,
+    interimTranscript: state.interimTranscript,
+    isListening: state.status === 'listening' || state.status === 'collecting' || state.status === 'finalizing',
+    isSpeaking: state.status === 'speaking',
     transcriptHistory: state.transcriptHistory,
     pendingProposal: state.pendingProposal,
     latestActionCard,
@@ -236,7 +349,11 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
     isSpeakerMuted,
     listen,
     stopListening,
+    cancel,
+    commitImmediately,
     speak,
+    stopSpeaking,
+    clearHistory,
     processUtterance,
     confirmProposal,
     rejectProposal,

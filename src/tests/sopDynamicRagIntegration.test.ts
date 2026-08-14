@@ -3,7 +3,7 @@ import { queryUnifiedContext } from '../../server/knowledge/unifiedContextRetrie
 import { sopRepository } from '../../server/persistence/sopRepository';
 import { SopDocument } from '../types/sopWorkflow';
 
-describe('Staff SOP Template Dynamic RAG & Lorena Voice Integration', () => {
+describe('Staff SOP Template Dynamic RAG & NORA Voice Integration', () => {
   const tenantId = 'tenant_nest_uat';
   const workspaceId = 'ws_wilmington';
 

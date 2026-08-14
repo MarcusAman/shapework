@@ -191,9 +191,9 @@ export async function runStrictCrossWorkspaceIsolationSuite() {
   // 9. Owner Weekly Digest Configuration
   await testIsolationPair('Owner Digest Config', '/api/owner-digest/config', 'GET', tokenUserA, wsA, wsB, undefined, 200, 403);
 
-  // 10. Lorena Voice Context Query
+  // 10. NORA Voice Context Query
   await testIsolationPair(
-    'Lorena Voice Context Query',
+    'NORA Voice Context Query',
     '/api/voice-agent/context-query',
     'POST',
     tokenUserA,

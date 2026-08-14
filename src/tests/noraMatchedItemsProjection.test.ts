@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { queryUnifiedContext } from '../../server/knowledge/unifiedContextRetriever';
 
-describe('Lorena Conversational Transcript & Synchronized Matched Items Projection', () => {
+describe('NORA Conversational Transcript & Synchronized Matched Items Projection', () => {
   describe('1. SOP Document Knowledge Search Item Projection', () => {
     it('returns matchedItems containing 2 SOP items for listing launch inquiry', () => {
       const result = queryUnifiedContext('What is the listing launch protocol?');
@@ -67,6 +67,24 @@ describe('Lorena Conversational Transcript & Synchronized Matched Items Projecti
       const reviewItem = result.matchedItems![1];
       expect(reviewItem.title).toContain('Taylor Morgan');
       expect(reviewItem.actionType).toBe('view_task');
+    });
+  });
+
+  describe('4. SOP Studio Action Resolution', () => {
+    it('provides valid sopId in actionPayload for all SOP matched items', () => {
+      const result = queryUnifiedContext('Listing launch protocol');
+      expect(result.matchedItems).toBeDefined();
+      const sopItems = result.matchedItems!.filter(i => i.type === 'sop');
+      expect(sopItems.length).toBeGreaterThanOrEqual(1);
+
+      for (const item of sopItems) {
+        expect(item.actionType).toBe('open_sop');
+        expect(item.actionText).toBe('Open SOP Studio');
+        expect(item.actionPayload).toBeDefined();
+        expect(item.actionPayload.sopId).toBeDefined();
+        expect(typeof item.actionPayload.sopId).toBe('string');
+        expect(item.actionPayload.sopId.length).toBeGreaterThan(0);
+      }
     });
   });
 });

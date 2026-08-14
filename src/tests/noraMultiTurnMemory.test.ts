@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { queryUnifiedContext, SessionEntityMemory } from '../../server/knowledge/unifiedContextRetriever';
 
-describe('Lorena Multi-Turn Conversational Memory & Contextual Slot Filling Suite', () => {
+describe('NORA Multi-Turn Conversational Memory & Contextual Slot Filling Suite', () => {
   const tenantId = 'tenant_nest_uat';
   const workspaceId = 'ws_wilmington';
 

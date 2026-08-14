@@ -5,7 +5,7 @@ Client: Nest Realty Wilmington
 System: Ask Nest Ops / Shapework  
 Primary intake channels: Phone, SMS, Email, Dashboard  
 Ask Nest Ops Email: AskNestOps@nestrealty.com  
-Ask Nest Ops Phone/SMS: 910-571-2817
+Ask Nest Ops Phone/SMS (NORA): +1 (910) ASK-NORA / (910) 275-6672
 
 ---
 
