@@ -41,7 +41,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
     'view_compliance', 'manage_compliance', 'approve_actions', 'manage_integrations',
     'manage_users', 'configure_routing', 'view_audit', 'export_audit', 'manage_workspace',
-    'directory.read', 'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
+    'directory.read', 'directory.manage', 'directory.sync',
+    'org_chart.read', 'org_chart.write', 'org_chart.delete', 'org_chart.audit.read',
+    'sops.read', 'sops.write', 'sops.delete',
+    'owner_digest.read', 'owner_digest.configure', 'owner_digest.send_test',
+    'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
+    'contract_authoring',
     // Explicit Marketing Capabilities for Owner
     'marketing.campaign.read_all', 'marketing.campaign.read_own', 'marketing.campaign.edit_own',
     'marketing.campaign.approve', 'marketing.campaign.export', 'marketing.campaign.deliver', 'marketing.ask'
@@ -51,46 +56,71 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'view_compliance', 'manage_compliance', 'approve_actions', 'manage_integrations',
     'manage_users', 'configure_routing', 'view_audit', 'export_audit', 'manage_workspace',
     'access_developer_tools', 'directory.read', 'directory.manage', 'directory.sync',
+    'org_chart.read', 'org_chart.write', 'org_chart.delete', 'org_chart.audit.read',
+    'sops.read', 'sops.write', 'sops.delete',
+    'owner_digest.read', 'owner_digest.configure', 'owner_digest.send_test',
     'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
+    'contract_authoring',
     // All Marketing Capabilities
     ...MARKETING_CAPABILITIES
+  ],
+  bic: [
+    'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
+    'view_compliance', 'manage_compliance', 'approve_actions', 'configure_routing', 'view_audit',
+    'org_chart.read', 'org_chart.write', 'org_chart.audit.read',
+    'sops.read', 'sops.write', 'sops.delete',
+    'owner_digest.read',
+    'contract_authoring', 'contract_bic_review',
+    'directory.read', 'ai.use', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge'
   ],
   operations_lead: [
     'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
     'view_compliance', 'manage_compliance', 'approve_actions', 'configure_routing', 'view_audit', 'manage_users',
     'directory.read', 'directory.manage', 'directory.sync',
+    'org_chart.read', 'org_chart.write', 'org_chart.audit.read',
+    'sops.read', 'sops.write', 'sops.delete',
+    'owner_digest.read',
+    'contract_authoring',
     'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
     ...MARKETING_CAPABILITIES
   ],
   marketing_coordinator: [
     'view_work_queue', 'view_deals', 'manage_deals',
+    'directory.read', 'org_chart.read', 'sops.read', 'sops.write',
     ...MARKETING_CAPABILITIES
   ],
   transaction_coordinator: [
     'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
-    'view_compliance', 'manage_compliance', 'ai.use', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge',
+    'view_compliance', 'manage_compliance', 'directory.read', 'org_chart.read', 'sops.read',
+    'ai.use', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge',
+    'contract_authoring',
     'marketing.campaign.read_own', 'marketing.campaign.create', 'marketing.campaign.edit_own', 'marketing.campaign.export', 'marketing.campaign.deliver', 'marketing.ask'
   ],
   compliance_partner: [
     'view_work_queue', 'view_compliance', 'manage_compliance', 'view_audit',
+    'directory.read', 'org_chart.read', 'sops.read',
+    'contract_authoring', 'contract_bic_review',
     'ai.use', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge',
     'marketing.campaign.read_all', 'marketing.ask'
   ],
   listing_coordinator: [
     'view_work_queue', 'view_deals', 'manage_deals',
+    'directory.read', 'org_chart.read', 'sops.read',
     'marketing.campaign.read_own', 'marketing.campaign.create', 'marketing.campaign.edit_own', 'marketing.campaign.export', 'marketing.campaign.deliver', 'marketing.ask'
   ],
   events: [
-    'view_work_queue'
+    'view_work_queue', 'directory.read', 'org_chart.read', 'sops.read'
   ],
   maintenance: [
-    'view_work_queue'
+    'view_work_queue', 'directory.read', 'org_chart.read', 'sops.read'
   ],
   agent_support: [
-    'view_work_queue'
+    'view_work_queue', 'directory.read', 'org_chart.read', 'sops.read'
   ],
   agent: [
-    'view_work_queue', 'ai.use', 'ai.answer_from_knowledge',
+    'view_work_queue', 'directory.read', 'org_chart.read', 'sops.read',
+    'ai.use', 'ai.answer_from_knowledge',
+    'contract_authoring',
     'marketing.campaign.read_own', 'marketing.campaign.create', 'marketing.campaign.edit_own', 'marketing.campaign.generate', 'marketing.campaign.request_review', 'marketing.campaign.export', 'marketing.campaign.deliver', 'marketing.ask'
   ]
 };
@@ -162,53 +192,41 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     token = String(req.query.token);
   }
   if (APP_MODE === 'production' && process.env.AUTH_PROVIDER_CONFIGURED === 'true') {
-    // 2. Reject query token auth
+    // Reject query token auth in production
     if (req.query.token) {
       return res.status(401).json({ error: 'authentication_required', message: 'Query token authentication is disabled in production.' });
-    }
-
-    if (!token) {
-      return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required in production.' });
-    }
-    
-    // Check if valid JWT
-    const payload = verifyJwt(token);
-    if (payload && payload.userId) {
-      const liveUsers = workspaceUsersResolver();
-      const resolvedUser = liveUsers.find(u => u.id === payload.userId || u.email === payload.email) || SEEDED_USERS.find(u => u.id === payload.userId || u.email === payload.email);
-      if (resolvedUser) {
-        req.authUser = {
-          id: resolvedUser.id,
-          email: resolvedUser.email,
-          name: resolvedUser.name,
-          role: resolvedUser.role,
-          workspaceId: resolvedUser.workspaceId
-        };
-        return next();
-      }
     }
   }
 
   if (!token || token === 'unauthenticated' || token === 'logout') {
-    if (APP_MODE !== 'production') {
-      req.authUser = SEEDED_USERS.find(u => u.id === 'usr_ryan') || SEEDED_USERS[0];
-      return next();
-    }
     return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
   }
-
-  // Verify JWT or Seeded User Session Token
+    
+  // Check if valid JWT
   const payload = verifyJwt(token);
-  if (payload && payload.userId) {
+  if (payload && (payload.userId || payload.id || payload.email)) {
+    const uId = payload.userId || payload.id || `usr_${(payload.email || 'user').split('@')[0]}`;
+    const uEmail = payload.email || `${uId}@nestrealty.com`;
     const liveUsers = workspaceUsersResolver();
-    const resolvedUser = liveUsers.find(u => u.id === payload.userId || u.email === payload.email) || SEEDED_USERS.find(u => u.id === payload.userId || u.email === payload.email);
+    const resolvedUser = liveUsers.find(u => u.id === uId || u.email === uEmail) || SEEDED_USERS.find(u => u.id === uId || u.email === uEmail);
+
     if (resolvedUser) {
       req.authUser = {
         ...resolvedUser,
-        workspaceId: (resolvedUser as any).workspaceId || payload.workspaceId
+        role: payload.role || resolvedUser.role,
+        workspaceId: payload.workspaceId || (resolvedUser as any).workspaceId || 'ws_wilmington'
       };
-      return next();
+    } else {
+      req.authUser = {
+        id: uId,
+        email: uEmail,
+        name: payload.name || uEmail.split('@')[0],
+        role: payload.role || 'owner',
+        workspaceId: payload.workspaceId || 'ws_wilmington'
+      };
     }
+    (req as any).user = req.authUser;
+    return next();
   }
 
   // Fallback to simple seeded or database-seeded email/tokens
@@ -218,6 +236,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
   if (resolvedUser) {
     req.authUser = resolvedUser;
+    (req as any).user = resolvedUser;
     return next();
   }
 
@@ -226,12 +245,16 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
 
 // Middleware: Resolve Active Workspace Tenant Context
 export function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (!req.authUser) {
+    return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+  }
+
   let requestedWsId = (req.headers['x-workspace-id'] as string) || (req.query.workspaceId as string);
 
-  const user = req.authUser || SEEDED_USERS[0];
-  const userWsId = (user as any).workspaceId || 'nest-realty-demo';
+  const user = req.authUser;
+  const userWsId = (user as any).workspaceId;
   if (!requestedWsId) {
-    requestedWsId = userWsId;
+    requestedWsId = userWsId || 'nest-realty-demo';
   }
 
   if (requestedWsId === 'nest-realty-wilmington') {
@@ -246,6 +269,10 @@ export function resolveWorkspaceContext(req: AuthenticatedRequest, res: Response
 
   // Check explicit membership match
   const isMember = (activeMembership && activeMembership.workspaceId === requestedWsId) || (userWsId === requestedWsId) || user.role === 'admin';
+
+  if (!isMember) {
+    return res.status(403).json({ error: 'Forbidden', message: 'User is not a member of the requested workspace.' });
+  }
 
   const memberRole = activeMembership?.role || user.role || 'owner';
   const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner;
