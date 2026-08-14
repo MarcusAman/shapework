@@ -7864,7 +7864,7 @@ app.get('/api/voice-agent/context-query', (req: any, res) => {
   });
 });
 
-app.post('/api/voice-agent/context-query', async (req: any, res) => {
+app.post('/api/voice-agent/context-query', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req: any, res) => {
   try {
     const { query, message, conversationHistory = [], sessionId = 'default-session', utteranceId, workspaceId, tenantId } = req.body;
     const userMessage = (message || query || '').trim();

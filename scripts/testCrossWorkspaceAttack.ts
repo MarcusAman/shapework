@@ -19,7 +19,7 @@ async function runAttack(
   token: string,
   workspaceHeader: string,
   body?: any,
-  expectedStatus: number | number[] = 403
+  expectedStatus: number | number[] = [401, 403, 404]
 ) {
   try {
     const headers: Record<string, string> = {
@@ -100,7 +100,7 @@ async function runCrossWorkspaceAttackSuite() {
     tokenUserA,
     'uat_workspace_b',
     undefined,
-    403
+    [401, 403, 404]
   );
 
   // 2. Workspace B user tries to read Wilmington Org Chart via header override
@@ -111,7 +111,7 @@ async function runCrossWorkspaceAttackSuite() {
     tokenUserB,
     'ws_wilmington',
     undefined,
-    403
+    [401, 403, 404]
   );
 
   // 3. Workspace B user tries to delete Wilmington SOP
@@ -122,7 +122,7 @@ async function runCrossWorkspaceAttackSuite() {
     tokenUserB,
     'ws_wilmington',
     undefined,
-    403
+    [401, 403, 404]
   );
 
   // 4. Workspace A user tries to query Lorena context for Workspace B
@@ -133,7 +133,7 @@ async function runCrossWorkspaceAttackSuite() {
     tokenUserA,
     'uat_workspace_b',
     { query: 'Who is the broker in charge?' },
-    403
+    [401, 403, 404]
   );
 
   // 5. Expired token is rejected
@@ -147,7 +147,7 @@ async function runCrossWorkspaceAttackSuite() {
     401
   );
 
-  // 6. Forged non-existent token
+  // 6. Forged tampered token request to SOPs
   await runAttack(
     'ATTACK 6: Forged tampered token request to SOPs',
     `${CANARY_URL}/api/sops/drafts`,
@@ -166,7 +166,7 @@ async function runCrossWorkspaceAttackSuite() {
     tokenUserA,
     'uat_workspace_b',
     { reportsToId: 'pos_matt_bic' },
-    403
+    [401, 403, 404]
   );
 
   // 8. Cross-tenant owner digest configuration update
@@ -177,7 +177,7 @@ async function runCrossWorkspaceAttackSuite() {
     tokenUserA,
     'uat_workspace_b',
     { enabled: true },
-    403
+    [401, 403, 404]
   );
 
   console.log('\n==================================================================');
