@@ -7328,7 +7328,7 @@ app.use(maxaBrowserAgentRouter);
 app.use('/api/retell/tools', retellToolsRouter);
 
 // POST /api/nora/marketing-intake - Authenticated Ask NORA Web Marketing Intake Endpoint
-app.post('/api/nora/marketing-intake', async (req: any, res: any) => {
+app.post('/api/nora/marketing-intake', requireAuth, async (req: any, res: any) => {
   try {
     const isUnifiedIntakeEnabled = process.env.NODE_ENV === 'test'
       ? process.env.NORA_UNIFIED_INTAKE_ENABLED !== 'false'

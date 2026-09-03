@@ -223,9 +223,11 @@ retellToolsRouter.post(['/lookup-open-tasks', '/check-property', '/lookup-open-t
       // filtered to the caller's own requests.
       const cEmail = callerMember.email.toLowerCase();
       const cName = callerMember.name.toLowerCase();
+      const cleanPhone = phone ? phone.replace(/\D/g, '').slice(-10) : '';
       callerTasks = callerTasks.filter((t: any) => 
         (t.agentEmail && t.agentEmail.toLowerCase() === cEmail) ||
         (t.agentName && t.agentName.toLowerCase() === cName) ||
+        (cleanPhone && t.agentPhone && t.agentPhone.replace(/\D/g, '').slice(-10) === cleanPhone) ||
         t.requesterId === callerMember?.id
       );
     } else if (!isTestMode) {
