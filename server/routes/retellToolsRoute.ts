@@ -178,7 +178,7 @@ retellToolsRouter.post('/lookup-roster', async (req: Request, res: Response) => 
  * 2. Tool: Lookup Open Tasks by Property & Restrict to Caller's Own Requests
  * Retell Function: lookup_open_tasks_by_property(address)
  */
-retellToolsRouter.post(['/lookup-open-tasks', '/check-property'], async (req: Request, res: Response) => {
+retellToolsRouter.post(['/lookup-open-tasks', '/check-property', '/lookup-open-tasks-by-property'], async (req: Request, res: Response) => {
   try {
     const { address, propertyAddress, property_address, caller_phone, callerPhone, callerEmail } = req.body || {};
     const targetAddress = address || propertyAddress || property_address || '';
@@ -511,7 +511,7 @@ retellToolsRouter.post('/dispatch-sign-post', (req: Request, res: Response) => {
  * Enforces strict separation between public brokerage information and internal SOPs/SLAs/policies.
  * Internal SOPs require a recognized directory match or authenticated session.
  */
-retellToolsRouter.post('/lookup-sop', async (req: Request, res: Response) => {
+retellToolsRouter.post(['/lookup-sop', '/lookup-sop-protocol'], async (req: Request, res: Response) => {
   try {
     const { sopCode, topic, category, caller_phone, callerPhone, callerEmail, caller_match_status, isVerifiedCaller } = req.body || {};
     const queryTerm = (sopCode || topic || category || '').toLowerCase().trim();
