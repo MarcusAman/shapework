@@ -2096,6 +2096,7 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         title: r.title,
         status: r.status,
         category: r.category,
+        channel: (r.channel || 'web') as any,
         agentName: r.agent_name,
         notes: r.notes,
         rawExcerpt: r.raw_excerpt,
@@ -2501,7 +2502,7 @@ export function saveCanonicalMarketingTask(task: CanonicalMarketingTask): Canoni
 
 export function updateCanonicalMarketingTaskStatus(
   taskId: string,
-  newStatus: CanonicalMarketingTask['status'],
+  newStatus?: CanonicalMarketingTask['status'],
   extra?: {
     performedBy?: string;
     note?: string;
@@ -2515,7 +2516,11 @@ export function updateCanonicalMarketingTaskStatus(
   if (!task) return null;
 
   const previousStatus = task.status;
-  task.status = newStatus;
+  const isStatusChange = Boolean(newStatus && newStatus !== previousStatus);
+
+  if (isStatusChange) {
+    task.status = newStatus!;
+  }
   task.updatedAt = new Date().toISOString();
 
   if (extra?.assignedTo) {
@@ -2523,34 +2528,60 @@ export function updateCanonicalMarketingTaskStatus(
     if (extra.assignedToRole) task.assignedToRole = extra.assignedToRole;
   }
 
-  if (newStatus === 'in_progress' && !task.startedAt) {
+  if (isStatusChange && newStatus === 'in_progress' && !task.startedAt) {
     task.startedAt = new Date().toISOString();
     task.startedBy = extra?.performedBy || task.assignedTo || 'Melissa Gagliardi';
   }
 
-  if (newStatus === 'with_vendor') {
+  if (isStatusChange && newStatus === 'with_vendor') {
     if (extra?.vendorName) task.vendorName = extra.vendorName;
     if (extra?.vendorNotes) task.vendorNotes = extra.vendorNotes;
   }
 
-  if (newStatus === 'completed' && !task.completedAt) {
+  if (isStatusChange && newStatus === 'completed' && !task.completedAt) {
     task.completedAt = new Date().toISOString();
   }
 
-  if (newStatus === 'archived') {
+  if (isStatusChange && newStatus === 'archived') {
     task.isArchived = true;
     task.archivedAt = new Date().toISOString();
   }
 
   if (!task.approvalHistory) task.approvalHistory = [];
   task.approvalHistory.push({
-    action: `Transition from ${previousStatus} to ${newStatus}`,
+    action: isStatusChange ? `Transition from ${previousStatus} to ${newStatus}` : 'Internal note recorded',
     performedBy: extra?.performedBy || 'System',
     timestamp: new Date().toISOString(),
     note: extra?.note || extra?.vendorNotes
   });
 
+  if (extra?.note) {
+    task.notes = task.notes ? `${task.notes}\n[${new Date().toISOString()}] ${extra.performedBy || 'User'}: ${extra.note}` : extra.note;
+  }
+
   const savedTask = saveCanonicalMarketingTask(task);
+
+  // Sync parent request status to avoid contradictions:
+  if (savedTask && savedTask.requestId && isStatusChange) {
+    const parentReq = getCanonicalMarketingRequestById(savedTask.requestId);
+    if (parentReq) {
+      if (newStatus === 'in_progress' && parentReq.status === 'ready_for_review') {
+        parentReq.status = 'in_progress';
+        parentReq.updatedAt = new Date().toISOString();
+        saveCanonicalMarketingRequest(parentReq);
+      } else if (newStatus === 'completed') {
+        const allTasks = getAllCanonicalMarketingTasks();
+        const siblingTasks = allTasks.filter(t => t.requestId === savedTask.requestId);
+        if (siblingTasks.length > 0 && siblingTasks.every(t => t.status === 'completed' || t.status === 'archived')) {
+          if (parentReq.status === 'in_progress') {
+            parentReq.status = 'completed';
+            parentReq.updatedAt = new Date().toISOString();
+            saveCanonicalMarketingRequest(parentReq);
+          }
+        }
+      }
+    }
+  }
 
   // Two-way cascading sync: Check if all child tasks for the parent request are archived
   if (savedTask && savedTask.requestId) {

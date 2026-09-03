@@ -5955,17 +5955,35 @@ app.post('/api/marketing/tasks', requireAuth, resolveWorkspaceContext, requireWo
 });
 
 // POST Update Canonical Marketing Task Status (Start Work, Send for Review, Approve, Changes, With Vendor, Complete)
-app.post('/api/marketing/tasks/:id/status', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+app.post('/api/marketing/tasks/:id/status', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req, res) => {
   const { status, note, vendorName, vendorNotes, assignedTo, assignedToRole, performedBy } = req.body || {};
+  const task = getCanonicalMarketingTaskById(req.params.id);
+  if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
+
+  const parentRequest = task.requestId ? getCanonicalMarketingRequestById(task.requestId) : null;
+  const sessionUser = (req as any).authUser || (req as any).user;
+
+  const { validateTaskTransition } = await import('./server/policies/canonicalMarketingLifecyclePolicy.js');
+  const check = validateTaskTransition(task, status, sessionUser, parentRequest);
+  if (!check.allowed) {
+    return res.status(check.statusCode || 400).json({
+      success: false,
+      error: check.errorCode || check.error || 'INVALID_STATE_TRANSITION',
+      message: check.message
+    });
+  }
+
+  // Derive audit actor strictly from authenticated session
+  const actorName = sessionUser?.name || sessionUser?.email || performedBy || 'User';
+
   const updated = updateCanonicalMarketingTaskStatus(req.params.id, status, {
-    performedBy: performedBy || 'User',
+    performedBy: actorName,
     note,
     vendorName,
     vendorNotes,
     assignedTo,
     assignedToRole
   });
-  if (!updated) return res.status(404).json({ success: false, error: 'Task not found' });
   return res.json({ success: true, task: updated });
 });
 
@@ -6138,6 +6156,21 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
   try {
     const { note, approvedBy } = req.body || {};
     const task = getCanonicalMarketingTaskById(req.params.id);
+    if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
+
+    const parentReq = task.requestId ? getCanonicalMarketingRequestById(task.requestId) : null;
+    const sessionUser = (req as any).authUser || (req as any).user;
+
+    const { validateTaskTransition } = await import('./server/policies/canonicalMarketingLifecyclePolicy.js');
+    const lifecycleCheck = validateTaskTransition(task, 'completed', sessionUser, parentReq);
+    if (!lifecycleCheck.allowed) {
+      return res.status(lifecycleCheck.statusCode || 400).json({
+        success: false,
+        error: lifecycleCheck.errorCode || lifecycleCheck.error || 'INVALID_STATE_TRANSITION',
+        message: lifecycleCheck.message
+      });
+    }
+
     const { validateTaskCompletionGuardrail } = await import('./server/services/taskSlaGuardrailService.js');
     const guardrailCheck = validateTaskCompletionGuardrail(task);
     if (!guardrailCheck.allowed) {
@@ -6149,7 +6182,7 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
       note: `[Approved & Dispatched to Agent by ${approvedBy || 'Melissa Gagliardi'}]: ${note || 'All proofs approved. Final assets delivered to broker.'}`
     });
 
-    const parentReq = task.requestId ? getCanonicalMarketingRequestById(task.requestId) : null;
+    // parentReq already resolved above
     const propertyAddress = task.propertyAddress || parentReq?.propertyAddress || task.title || 'Listing Property';
     const agentEmail = parentReq?.agentEmail || 'matt.orr@nestrealty.com';
     const agentName = task.agentName || parentReq?.agentName || 'Agent';
@@ -6254,12 +6287,28 @@ app.post('/api/marketing/inbox/scan-now', async (req, res) => {
 });
 
 // POST Start Work on Canonical Task (Assigned -> In Progress)
-app.post('/api/marketing/tasks/:id/start-work', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+app.post('/api/marketing/tasks/:id/start-work', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req, res) => {
   const { performedBy } = req.body || {};
+  const task = getCanonicalMarketingTaskById(req.params.id);
+  if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
+
+  const parentRequest = task.requestId ? getCanonicalMarketingRequestById(task.requestId) : null;
+  const sessionUser = (req as any).authUser || (req as any).user;
+
+  const { validateTaskTransition } = await import('./server/policies/canonicalMarketingLifecyclePolicy.js');
+  const check = validateTaskTransition(task, 'in_progress', sessionUser, parentRequest);
+  if (!check.allowed) {
+    return res.status(check.statusCode || 400).json({
+      success: false,
+      error: check.errorCode || check.error || 'INVALID_STATE_TRANSITION',
+      message: check.message
+    });
+  }
+
+  const actorName = sessionUser?.name || sessionUser?.email || performedBy || 'Operations Team';
   const updated = updateCanonicalMarketingTaskStatus(req.params.id, 'in_progress', {
-    performedBy: performedBy || 'Team Member'
+    performedBy: actorName
   });
-  if (!updated) return res.status(404).json({ success: false, error: 'Task not found' });
   return res.json({ success: true, task: updated });
 });
 
@@ -7281,6 +7330,18 @@ app.use('/api/retell/tools', retellToolsRouter);
 // POST /api/nora/marketing-intake - Authenticated Ask NORA Web Marketing Intake Endpoint
 app.post('/api/nora/marketing-intake', async (req: any, res: any) => {
   try {
+    const isUnifiedIntakeEnabled = process.env.NODE_ENV === 'test'
+      ? process.env.NORA_UNIFIED_INTAKE_ENABLED !== 'false'
+      : process.env.NORA_UNIFIED_INTAKE_ENABLED === 'true';
+
+    if (!isUnifiedIntakeEnabled) {
+      return res.status(403).json({
+        success: false,
+        error: 'NORA_UNIFIED_INTAKE_DISABLED',
+        message: 'Unified NORA marketing intake evaluation is disabled in Release A.'
+      });
+    }
+
     const { noraMarketingIntakeOrchestrator } = await import('./server/services/noraMarketingIntakeOrchestrator.js');
     
     // Derive trusted workspace and requester directory member from authenticated session
