@@ -33,13 +33,19 @@ export const StaffSopStudioModal: React.FC<StaffSopStudioModalProps> = ({
   onSave,
   onPublish
 }) => {
-  if (!isOpen || !sop) return null;
-
   const [activeTab, setActiveTab] = useState<'steps' | 'metadata' | 'export'>('steps');
-  const [currentSop, setCurrentSop] = useState<SopDocument>({ ...sop });
+  const [currentSop, setCurrentSop] = useState<SopDocument>(() => (sop ? { ...sop } : ({} as SopDocument)));
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (sop) {
+      setCurrentSop({ ...sop });
+    }
+  }, [sop]);
+
+  if (!isOpen || !sop) return null;
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
@@ -114,8 +120,8 @@ export const StaffSopStudioModal: React.FC<StaffSopStudioModalProps> = ({
       const published: SopDocument = {
         ...currentSop,
         status: 'published',
-        reviewer: 'Matt Orr — Broker-in-Charge (#281940)',
-        publisher: 'Matt Orr',
+        reviewer: 'Ryan Crecelius — Principal Broker (#291840)',
+        publisher: 'Ryan Crecelius',
         effectiveDate: new Date().toISOString().split('T')[0],
         reviewDate: new Date(Date.now() + 180 * 24 * 3600 * 1000).toISOString().split('T')[0],
         version: currentSop.status === 'published' ? currentSop.version + 1 : currentSop.version || 1,
@@ -144,7 +150,7 @@ export const StaffSopStudioModal: React.FC<StaffSopStudioModalProps> = ({
 
 - **Status**: ${currentSop.status.toUpperCase()}
 - **Process Owner**: ${currentSop.processOwner}
-- **Reviewer / BIC**: ${currentSop.reviewer || 'Matt Orr — BIC'}
+- **Reviewer / BIC**: ${currentSop.reviewer || 'Eric Knight — BIC'}
 - **Trigger**: ${currentSop.trigger}
 - **Expected Turnaround**: ${currentSop.expectedTiming || 'Standard turnaround'}
 - **Effective Date**: ${currentSop.effectiveDate || 'Immediate'}
@@ -164,7 +170,7 @@ ${stepsMd}
 
 ## Completion & Verification
 - **Completion Evidence**: ${currentSop.completionEvidence || 'All required checklists verified in Dotloop & transaction file.'}
-- **Escalation Contact**: Escalates to Broker-in-Charge (Matt Orr) for non-standard variations.
+- **Escalation Contact**: Escalates to Broker-in-Charge (Eric Knight / Jessica Keenan) for non-standard variations.
 `;
   };
 
@@ -202,7 +208,7 @@ ${stepsMd}
         <body>
           <span class="badge">${currentSop.status.toUpperCase()} • v${currentSop.version}</span>
           <h1>${currentSop.title}</h1>
-          <p><strong>Process Owner:</strong> ${currentSop.processOwner} | <strong>BIC Reviewer:</strong> ${currentSop.reviewer || 'Matt Orr — BIC'}</p>
+          <p><strong>Process Owner:</strong> ${currentSop.processOwner} | <strong>BIC Reviewer:</strong> ${currentSop.reviewer || 'Eric Knight — BIC'}</p>
           <p><strong>Trigger:</strong> ${currentSop.trigger} | <strong>Turnaround:</strong> ${currentSop.expectedTiming || 'Standard'}</p>
           
           <h2>Purpose & Scope</h2>
@@ -253,7 +259,7 @@ ${stepsMd}
                 </span>
               </div>
               <p className="text-xs text-stone-500">
-                Owner: {currentSop.processOwner} • Reviewer: {currentSop.reviewer || 'BIC Matt Orr'}
+                Owner: {currentSop.processOwner} • Reviewer: {currentSop.reviewer || 'BIC Ryan Crecelius'}
               </p>
             </div>
           </div>

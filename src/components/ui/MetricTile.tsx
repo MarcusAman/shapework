@@ -16,7 +16,7 @@ export interface MetricTileProps {
   sublabel?: string;
   trend?: string;
   trendDirection?: 'up' | 'down' | 'neutral';
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'ai';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'ai' | 'brand' | 'neutral';
   icon?: React.ReactNode;
   onClick?: () => void;
   className?: string;

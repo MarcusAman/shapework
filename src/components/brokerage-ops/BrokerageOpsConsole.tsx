@@ -242,7 +242,7 @@ export default function BrokerageOpsConsole() {
               className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-950/20 cursor-pointer transition-all"
             >
               <Plus className="w-4 h-4" />
-              Ask Nest Ops
+              Ask Nora
             </button>
           </div>
         </aside>
@@ -695,7 +695,7 @@ export default function BrokerageOpsConsole() {
           <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-2xl max-w-lg w-full text-left space-y-4 animate-scale-in">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-serif text-lg font-bold text-stone-900">Ask Nest Ops</h3>
+                <h3 className="font-serif text-lg font-bold text-stone-900">Ask Nora</h3>
                 <p className="text-xs text-stone-500 mt-0.5">Submit operations requests to the automatic classification engine.</p>
               </div>
               <button 

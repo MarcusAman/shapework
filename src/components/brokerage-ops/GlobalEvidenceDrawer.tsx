@@ -45,7 +45,7 @@ export function GlobalEvidenceDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden pointer-events-none">
+    <div className="fixed inset-0 z-[100] overflow-hidden pointer-events-none">
       <div 
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity pointer-events-auto"
         onClick={onClose}

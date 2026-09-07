@@ -15,6 +15,11 @@ export interface AgentTranscriptItem {
   sender: 'user' | 'agent';
   text: string;
   timestamp: string;
+  matchedItems?: any[];
+  relatedSop?: any;
+  reasoningSteps?: any[];
+  thoughtDurationMs?: number;
+  actions?: any[];
 }
 
 export interface PendingProposal {
@@ -26,6 +31,7 @@ export interface PendingProposal {
 
 export interface AgentRuntimeState {
   agentName: string;
+  userName?: string;
   status: AgentState;
   interimTranscript: string;
   transcriptHistory: AgentTranscriptItem[];
@@ -37,7 +43,7 @@ export type AgentAction =
   | { type: 'SET_STATUS'; payload: AgentState }
   | { type: 'SET_INTERIM_TRANSCRIPT'; payload: string }
   | { type: 'CLEAR_INTERIM_TRANSCRIPT' }
-  | { type: 'ADD_TRANSCRIPT'; payload: { sender: 'user' | 'agent'; text: string } }
+  | { type: 'ADD_TRANSCRIPT'; payload: { sender: 'user' | 'agent'; text: string; matchedItems?: any[]; relatedSop?: any; reasoningSteps?: any[]; thoughtDurationMs?: number; actions?: any[] } }
   | { type: 'LOAD_TRANSCRIPTS'; payload: AgentTranscriptItem[] }
   | { type: 'CLEAR_TRANSCRIPTS' }
   | { type: 'SET_PROPOSAL'; payload: PendingProposal | null }
@@ -89,7 +95,12 @@ export function agentRuntimeReducer(state: AgentRuntimeState, action: AgentActio
             id: `${action.payload.sender}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             sender: action.payload.sender,
             text: action.payload.text,
-            timestamp: timeStr
+            timestamp: timeStr,
+            matchedItems: action.payload.matchedItems,
+            relatedSop: action.payload.relatedSop,
+            reasoningSteps: action.payload.reasoningSteps,
+            thoughtDurationMs: action.payload.thoughtDurationMs,
+            actions: action.payload.actions
           }
         ]
       };

@@ -8,7 +8,6 @@ import path from 'path';
 import crypto from 'crypto';
 import zlib from 'zlib';
 import JSZip from 'jszip';
-import { chromium, Browser } from 'playwright';
 import { ListingMarketingCampaign } from '../persistence/marketingCampaignsRepository.js';
 import { calculateCoverPlacement } from './imageLayoutHelper.js';
 import { generateNestEditorialFlyerHtml } from '../../src/marketing-templates/nest-editorial/flyer/FlyerTemplate.js';
@@ -54,13 +53,20 @@ function crc32(buf: Buffer): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-let sharedBrowser: Browser | null = null;
-async function getBrowser(): Promise<Browser> {
+let sharedBrowser: any = null;
+async function getBrowser(): Promise<any> {
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
-    sharedBrowser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
+    try {
+      const pw = await import('playwright');
+      const chromium = pw.chromium;
+      sharedBrowser = await chromium.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      });
+    } catch (err) {
+      console.warn('[MediaPipeline] Playwright Chromium not available in runtime container:', err);
+      throw new Error('Playwright Chromium rendering is unavailable in this environment.');
+    }
   }
   return sharedBrowser;
 }
@@ -1020,7 +1026,7 @@ export async function buildRealMarketingPackage(
 export async function renderAssetPDF(assetType: string, campaign: ListingMarketingCampaign): Promise<{ pdfBuffer: Buffer; mimeType: string; filename: string }> {
   const addressSlug = (campaign.listingSnapshot.propertyAddress || 'Property').replace(/[^a-zA-Z0-9]/g, '-');
   const filename = `${addressSlug}-${assetType}.pdf`;
-  const html = generateNestEditorialFlyerHtml(campaign);
+  const html = generateNestEditorialFlyerHtml(campaign as any);
 
   try {
     const browser = await getBrowser();
@@ -1052,7 +1058,7 @@ export async function renderAssetImage(assetType: string, slideIndex: number, ca
   try {
     const browser = await getBrowser();
     const page = await browser.newPage({ viewport: { width: 1080, height: 1080 }, deviceScaleFactor: 2 });
-    const html = generateNestEditorialFlyerHtml(campaign);
+    const html = generateNestEditorialFlyerHtml(campaign as any);
     await page.setContent(html, { waitUntil: 'load' });
     const imageBuffer = await page.screenshot({ type: 'png', fullPage: true });
     await page.close();

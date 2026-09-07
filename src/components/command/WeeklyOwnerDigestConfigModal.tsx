@@ -3,7 +3,7 @@ import {
   X, Mail, Send, Calendar, Clock, Globe, Shield, CheckCircle2, 
   AlertTriangle, Eye, Settings, RefreshCw, Check
 } from 'lucide-react';
-import { OwnerDigestConfig, OwnerDigestData } from '../../../server/notifications/ownerDigestEngine';
+import type { OwnerDigestConfig, OwnerDigestData } from '../../../server/notifications/ownerDigestEngine';
 
 interface WeeklyOwnerDigestConfigModalProps {
   isOpen: boolean;

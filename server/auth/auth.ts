@@ -134,7 +134,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 // Seed authenticatable users for development / fallback scaffold
 export const SEEDED_USERS = [
-  { id: 'usr_sarah', email: 'sarah.j@nestrealty.com', name: 'Sarah Jenkins', role: 'operations_lead', workspaceId: 'ws_wilmington' },
   { id: 'usr_diane', email: 'diane.ross@nestrealty.com', name: 'Diane Ross', role: 'transaction_coordinator', workspaceId: 'ws_wilmington' },
   { id: 'usr_owner', email: 'owner@nestrealty.com', name: 'Broker Owner', role: 'owner', workspaceId: 'ws_wilmington' },
   { id: 'usr_admin', email: 'admin@shapework.co', name: 'Platform Admin', role: 'admin', workspaceId: 'ws_wilmington' },
@@ -156,8 +155,8 @@ export const SEEDED_USERS = [
   { id: 'usr_eric_full', email: 'eric.knight@nestrealty.com', name: 'Eric Knight', role: 'bic', workspaceId: 'ws_wilmington' },
   { id: 'usr_jessica_full', email: 'jessica.keenan@nestrealty.com', name: 'Jessica Keenan', role: 'bic', workspaceId: 'ws_wilmington' },
   { id: 'usr_jessica', email: 'jessica@nestrealty.com', name: 'Jessica Keenan', role: 'bic', workspaceId: 'ws_wilmington' },
-  { id: 'usr_eduardo_full', email: 'eduardo.lovo@nestrealty.com', name: 'Eduardo Lovo', role: 'marketing_coordinator', workspaceId: 'ws_wilmington' },
-  { id: 'usr_eduardo', email: 'eduardo@nestrealty.com', name: 'Eduardo Lovo', role: 'marketing_coordinator', workspaceId: 'ws_wilmington' },
+  { id: 'usr_eduardo_full', email: 'eduardo.lovo@nestrealty.com', name: 'Eduardo Lovo', role: 'producer', workspaceId: 'ws_wilmington' },
+  { id: 'usr_eduardo', email: 'eduardo@nestrealty.com', name: 'Eduardo Lovo', role: 'producer', workspaceId: 'ws_wilmington' },
   { id: 'usr_asknora', email: 'asknora@nestrealty.com', name: 'Nora Operations Assistant', role: 'operations_lead', workspaceId: 'ws_wilmington' },
   { id: 'usr_asknora_dash', email: 'ask-nora@nestrealty.com', name: 'Nora Operations Assistant', role: 'operations_lead', workspaceId: 'ws_wilmington' },
   { id: 'usr_lindsay', email: 'lindsay@nestrealty.com', name: 'Lindsay Crecelius', role: 'events', workspaceId: 'ws_wilmington' },
@@ -187,8 +186,8 @@ export const SEEDED_MEMBERSHIPS = [
   { id: 'm_eric_full', userId: 'usr_eric_full', workspaceId: 'ws_wilmington', role: 'bic' },
   { id: 'm_jessica_full', userId: 'usr_jessica_full', workspaceId: 'ws_wilmington', role: 'bic' },
   { id: 'm_jessica', userId: 'usr_jessica', workspaceId: 'ws_wilmington', role: 'bic' },
-  { id: 'm_eduardo_full', userId: 'usr_eduardo_full', workspaceId: 'ws_wilmington', role: 'marketing_coordinator' },
-  { id: 'm_eduardo', userId: 'usr_eduardo', workspaceId: 'ws_wilmington', role: 'marketing_coordinator' },
+  { id: 'm_eduardo_full', userId: 'usr_eduardo_full', workspaceId: 'ws_wilmington', role: 'producer' },
+  { id: 'm_eduardo', userId: 'usr_eduardo', workspaceId: 'ws_wilmington', role: 'producer' },
   { id: 'm_asknora', userId: 'usr_asknora', workspaceId: 'ws_wilmington', role: 'operations_lead' },
   { id: 'm_asknora_dash', userId: 'usr_asknora_dash', workspaceId: 'ws_wilmington', role: 'operations_lead' },
   { id: 'm_lindsay', userId: 'usr_lindsay', workspaceId: 'ws_wilmington', role: 'events' },
@@ -468,6 +467,11 @@ export async function resolveWorkspaceContext(req: AuthenticatedRequest, res: Re
       const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner || [];
       const permissions = membershipRow?.permissions || [...basePermissions, 'directory.read', 'directory.manage', 'directory.sync'];
 
+      if (req.authUser) {
+        req.authUser.role = memberRole;
+      }
+      (req as any).user = req.authUser;
+
       req.workspace = { id: requestedWsId, name: 'Active Brokerage Workspace' };
       req.membership = {
         id: membershipRow?.id || `mem_${user.id}_${requestedWsId}`,
@@ -501,6 +505,11 @@ export async function resolveWorkspaceContext(req: AuthenticatedRequest, res: Re
   const memberRole = activeMembership?.role || user.role || 'owner';
   const basePermissions = ROLE_PERMISSIONS[memberRole] || ROLE_PERMISSIONS.owner || [];
   const permissions = [...basePermissions, 'directory.read', 'directory.manage', 'directory.sync'];
+
+  if (req.authUser) {
+    req.authUser.role = memberRole;
+  }
+  (req as any).user = req.authUser;
 
   req.workspace = { id: requestedWsId, name: 'Active Brokerage Workspace' };
   req.membership = {

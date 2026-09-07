@@ -81,7 +81,7 @@ export default function ClosingComplianceGuard({ state = {} }: ClosingCompliance
         id: t.id,
         propertyAddress: t.property_address,
         clientName: t.client_name,
-        agentName: t.responsible_agent_id === 'ag_1' ? 'Alex Carter' : 'Sarah Jenkins',
+        agentName: t.responsible_agent_id === 'ag_1' ? 'Alex Carter' : 'Jessica Keenan',
         daysToClose,
         closingDate,
         missingDocs,

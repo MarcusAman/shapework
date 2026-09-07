@@ -56,31 +56,31 @@ export function initializeProductionNestTenant(): { success: boolean; purgedFile
       status: 'active'
     },
     {
-      id: 'staff_melissa_cooper',
-      fullName: 'Melissa Cooper',
-      title: 'Senior Marketing Director',
+      id: 'dir_melissa_gagliardi_33',
+      fullName: 'Melissa Gagliardi',
+      title: 'Marketing Director',
       role: 'marketing_specialist',
-      email: 'melissa.cooper@nestrealty.com',
-      phone: '(910) 555-0142',
+      email: 'melissa.gagliardi@nestrealty.com',
+      phone: '(919) 219-2085',
       avatarUrl: '/org-avatars/melissa.png',
       activeWorkloadCount: 0,
       maxWorkloadCapacity: 8,
       skills: ['Brand Compliance', 'Flyer Design', 'Social Campaigns', 'Print Ordering'],
-      escalationContactId: 'staff_ryan_crecelius',
+      escalationContactId: 'dir_ryan_crecelius_6',
       status: 'active'
     },
     {
-      id: 'staff_ann_smith',
-      fullName: 'Ann Smith',
-      title: 'Marketing Operations Assistant',
+      id: 'dir_ann_gunn_28',
+      fullName: 'Ann Gunn',
+      title: 'Operations Lead & Air Traffic Controller (ATC)',
       role: 'va_assistant',
-      email: 'ann.smith@nestrealty.com',
-      phone: '(910) 555-0199',
+      email: 'ann@nestrealty.com',
+      phone: '(910) 540-3965',
       avatarUrl: '/org-avatars/ann.png',
       activeWorkloadCount: 0,
       maxWorkloadCapacity: 6,
       skills: ['Intake Triage', 'Basecamp Sync', 'Listing Copywriting'],
-      escalationContactId: 'staff_melissa_cooper',
+      escalationContactId: 'dir_melissa_gagliardi_33',
       status: 'active'
     }
   ];

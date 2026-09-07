@@ -264,7 +264,7 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
             <div className="space-y-2 select-none">
               {[
                 { name: 'Request Desk / Triage Desk', desc: 'Auto-categorizes email/SMS and routes to target coordinator' },
-                { name: 'Owner Shield Escalation', desc: 'Flags SLA delays and escalates blockers' },
+                { name: 'Owner Shield Escalation', desc: 'Flags overdue delays and escalates blockers' },
                 { name: 'Deal Intake Guard', desc: 'Warns about missing escrow folders and imports checklist templates' },
                 { name: 'Closing Compliance Guard', desc: 'Monitors closing disclosures and signed seller files' }
               ].map((item) => (
@@ -284,12 +284,12 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
         {currentStep === 4 && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 4 — Service Level Agreements & Routing</h3>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">// Step 4 — Turnaround Due Times &amp; Routing</h3>
               <p className="mt-1 text-slate-500 text-[11px]">Define action boundaries and escalation triggers.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="font-bold text-slate-900 block">Default Request SLA (Minutes)</label>
+                <label className="font-bold text-slate-900 block">Default Turnaround Time (Minutes)</label>
                 <input 
                   type="number" 
                   value={routing.defaultSlaMins} 
@@ -298,7 +298,7 @@ export default function CustomerLaunchWizard({ onLaunchWorkspace }: CustomerLaun
                 />
               </div>
               <div className="space-y-1">
-                <label className="font-bold text-slate-900 block">Owner Shield Escalation SLA (Minutes)</label>
+                <label className="font-bold text-slate-900 block">Owner Shield Escalation Time (Minutes)</label>
                 <input 
                   type="number" 
                   value={routing.escalationSlaMins} 

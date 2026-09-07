@@ -29,10 +29,14 @@ import InternalMarketIntelligenceView from '../components/console/InternalMarket
 import InternalSurveyLibraryView from '../components/console/InternalSurveyLibraryView';
 import BrokerageAccountsLedgerView from '../components/console/BrokerageAccountsLedgerView';
 import MercuryPaymentsHub from '../components/internal/MercuryPaymentsHub';
+import PlatformQATrackerView from '../components/console/PlatformQATrackerView';
+import PitchAhaDemoModal from '../components/demo/PitchAhaDemoModal';
 
 // Stable Hub Sub-tab Mapping Definitions (Declared outside component to prevent re-render loops)
 const HUB_SUBTABS: Record<string, string[]> = {
   'Control Center': ['System Health Summary', 'Mercury Payments & Billing', 'Feature Toggles & Controls', 'Launch & Pilot Readiness', 'Brokerage Accounts & Setup'],
+  "Pitch & 'Aha!' Demo": ["Pitch & 'Aha!' Demo"],
+  'QA & Testing Tracker': ['QA & Testing Tracker'],
   'Content & Intelligence': ['Automated Blog & News', 'Shapework Market Research', 'Customer Survey Studio'],
   'Workspace Management': ['Brokerage Accounts & Setup', 'Mercury Payments & Billing', 'Customer Onboarding Room', 'Support & Help Desk'],
   'Security, Audit & Logs': ['Security & Activity Trail', 'System Activity Logs', 'Customer Feedback & Ideas']
@@ -237,6 +241,44 @@ export default function InternalRoutes({ state }: InternalRoutesProps) {
             </div>
           </div>
         );
+      }
+
+      // ==========================================
+      // Pitch & 'Aha!' Demo
+      // ==========================================
+      case "Pitch & 'Aha!' Demo":
+      case 'Pitch Demo':
+      case 'Pitch & Demo': {
+        return (
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6 text-left animate-fade-in font-sans text-slate-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  <span>Shapework Live Sales Pitch & &apos;Aha!&apos; Demo</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Interactive sales pitch deck, product narrative, and live demonstration script for prospective brokerage owners.
+                </p>
+              </div>
+            </div>
+
+            <PitchAhaDemoModal isOpen={true} onClose={() => {}} />
+          </div>
+        );
+      }
+
+      // ==========================================
+      // QA & Testing Tracker / Pilot QA & Issues
+      // ==========================================
+      case 'QA & Testing Tracker':
+      case 'Platform QA & Testing':
+      case 'Testing':
+      case 'QA Tracker':
+      case 'Issues & Bug Tracker':
+      case 'Feature Backlog':
+      case 'Test Verification Matrix': {
+        return <PlatformQATrackerView state={state} activeProfile={state?.activeProfile} />;
       }
 
       // ==========================================
@@ -642,8 +684,8 @@ export default function InternalRoutes({ state }: InternalRoutesProps) {
           <div className="space-y-6 text-left animate-fade-in font-sans text-slate-800">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
               <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Retell Voice Integration Controls</h3>
-                <p className="text-xs text-slate-500 mt-1">Configure Retell API bindings, custom agent voices, and call prompt triggers.</p>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Nest Voice Telephony Controls</h3>
+                <p className="text-xs text-slate-500 mt-1">Configure Nest Telephony API bindings, custom agent voices, and call prompt triggers.</p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">

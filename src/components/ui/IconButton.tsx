@@ -11,7 +11,8 @@ import { Loader2 } from 'lucide-react';
 
 export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon: React.ReactNode;
-  'aria-label': string; // Mandatory for accessibility
+  'aria-label'?: string;
+  title?: string;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   shape?: 'square' | 'circle';

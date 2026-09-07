@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import JSZip from 'jszip';
 import { AIModelRouter } from './aiModelRouter';
 import { AIContextBuilder } from './aiContextBuilder';
 import { AIOutputValidator } from './aiOutputValidator';
@@ -662,6 +663,559 @@ export class AICopilotService {
       });
       throw err;
     }
+  }
+
+  static async extractCleanTextFromPayload(payload: string, fileName: string = ''): Promise<string> {
+    if (!payload) return '';
+    let buffer: Buffer | null = null;
+
+    // Handle base64 data URLs
+    if (payload.startsWith('data:') && payload.includes(';base64,')) {
+      try {
+        const base64Data = payload.split(';base64,')[1];
+        buffer = Buffer.from(base64Data, 'base64');
+      } catch {}
+    } else if (payload.startsWith('%PDF-') || payload.startsWith('PK\x03\x04')) {
+      buffer = Buffer.from(payload, 'latin1');
+    }
+
+    if (buffer) {
+      // 1. DOCX Handling via JSZip
+      if (fileName.toLowerCase().endsWith('.docx') || buffer.slice(0, 4).toString() === 'PK\x03\x04') {
+        try {
+          const zip = await JSZip.loadAsync(buffer);
+          const docXml = await zip.file('word/document.xml')?.async('string');
+          if (docXml) {
+            const textContent = docXml
+              .replace(/<w:p[^>]*>/gi, '\n')
+              .replace(/<[^>]+>/g, '')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .replace(/\n\s*\n+/g, '\n\n')
+              .trim();
+            if (textContent.length > 20) {
+              return textContent;
+            }
+          }
+        } catch {}
+      }
+
+      // 2. PDF Handling via PDFParse (Full FlateDecode & font unmapping)
+      if (fileName.toLowerCase().endsWith('.pdf') || buffer.slice(0, 5).toString() === '%PDF-') {
+        try {
+          const { PDFParse } = await import('pdf-parse');
+          const parser = new PDFParse({ data: buffer, verbosity: 0 });
+          const parsed = await parser.getText();
+          await parser.destroy();
+          if (parsed && parsed.text && parsed.text.trim().length > 5) {
+            const cleanText = parsed.text
+              .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
+              .replace(/Skia\/PDF\s+[^\n]*/gi, '')
+              .replace(/Google Docs Renderer/gi, '')
+              .trim();
+            if (cleanText.length > 5) {
+              return cleanText;
+            }
+          }
+        } catch (pdfErr) {
+          console.warn('[PDF Extractor] PDFParse parsing notice:', pdfErr);
+        }
+      }
+    }
+
+    // Direct plain text cleanup
+    let rawText = buffer ? buffer.toString('utf-8') : payload;
+    return rawText
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ')
+      .replace(/Skia\/PDF\s+[^\n]*/gi, '')
+      .replace(/Google Docs Renderer/gi, '')
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .trim();
+  }
+
+  static autoMatchExistingSop(allSops: any[], documentText: string, fileName: string): { matchedSop: any | null; confidence: number; reason: string } {
+    if (!allSops || allSops.length === 0) {
+      return { matchedSop: null, confidence: 0, reason: 'No existing SOPs in library' };
+    }
+
+    const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+    const docSample = norm(`${fileName} ${documentText.slice(0, 1500)}`);
+
+    let bestMatch: any = null;
+    let highestScore = 0;
+    let matchReason = '';
+
+    for (const sop of allSops) {
+      const sopTitleNorm = norm(sop.title || '');
+      const keywords = sopTitleNorm.split(/\s+/).filter(w => w.length > 3 && !['protocol', 'procedure', 'standard', 'operating', 'guide', 'nest'].includes(w));
+      
+      let matchedKw = 0;
+      for (const kw of keywords) {
+        if (docSample.includes(kw)) {
+          matchedKw++;
+        }
+      }
+
+      const kwRatio = keywords.length > 0 ? matchedKw / keywords.length : 0;
+      
+      // Exact title match in document
+      if (sopTitleNorm.length > 6 && docSample.includes(sopTitleNorm)) {
+        bestMatch = sop;
+        highestScore = 1.0;
+        matchReason = `Exact title match with "${sop.title}"`;
+        break;
+      }
+
+      if (kwRatio > highestScore && kwRatio >= 0.55) {
+        highestScore = kwRatio;
+        bestMatch = sop;
+        matchReason = `High semantic overlap (${Math.round(kwRatio * 100)}%) with existing "${sop.title}"`;
+      }
+    }
+
+    return {
+      matchedSop: highestScore >= 0.55 ? bestMatch : null,
+      confidence: highestScore,
+      reason: matchReason || 'Content represents a new distinct procedure'
+    };
+  }
+
+  static generateAuthoritativeSopTitle(cleanText: string, fileName: string, detectedPurpose: string, steps: any[]): string {
+    const combined = `${cleanText.slice(0, 2000)} ${fileName} ${detectedPurpose} ${steps.map(s => s.action).join(' ')}`.toLowerCase();
+
+    // Specific domain mapping based on real content
+    if (combined.includes('open house') && (combined.includes('photo') || combined.includes('marketing') || combined.includes('sign'))) {
+      return 'Open House Preparation & Media Protocol';
+    }
+    if (combined.includes('waterfront') || (combined.includes('luxury') && combined.includes('listing'))) {
+      return 'Luxury Waterfront Listing Intake & Marketing Protocol';
+    }
+    if (combined.includes('listing launch') || (combined.includes('listing') && combined.includes('mls') && combined.includes('dotloop'))) {
+      return 'Residential Listing Launch & MLS Onboarding Protocol';
+    }
+    if (combined.includes('buyer representation') || combined.includes('working with real estate agents') || combined.includes('buyer agency')) {
+      return 'Buyer Representation & Agency Onboarding Protocol';
+    }
+    if (combined.includes('earnest money') || combined.includes('emd') || combined.includes('due diligence fee') || combined.includes('form 2-t')) {
+      return 'Buyer Contract Verification & EMD Audit Protocol';
+    }
+    if (combined.includes('sign post') || combined.includes('yard sign') || combined.includes('sign vendor') || combined.includes('directional')) {
+      return 'Sign Vendor Dispatch & Post Retrieval Protocol';
+    }
+    if (combined.includes('keybox') || combined.includes('supra') || combined.includes('lockbox')) {
+      return 'Emergency Keybox & Lockbox Dispatch Procedure';
+    }
+    if (combined.includes('marketing intake') || (combined.includes('marketing') && combined.includes('social media'))) {
+      return 'Agent Marketing Campaign & Collateral Dispatch Protocol';
+    }
+    if (combined.includes('commercial lease') || combined.includes('letter of intent') || combined.includes('loi')) {
+      return 'Commercial Lease & LOI Verification Protocol';
+    }
+    if (combined.includes('cda') || combined.includes('commission disbursement') || combined.includes('closing file')) {
+      return 'Closing File Compliance & Commission Disbursement Protocol';
+    }
+    if (combined.includes('nora') || combined.includes('sop guides') || combined.includes('operations manual')) {
+      return 'Brokerage Operational Procedures & Staff Execution Guide';
+    }
+
+    // Clean generic filename
+    let base = fileName
+      .replace(/\.[^/.]+$/, '')
+      .replace(/^copy\s+of\s+/i, '')
+      .replace(/\s+for\s+nora/i, '')
+      .replace(/\s+for\s+ryan/i, '')
+      .replace(/[-_]+/g, ' ')
+      .trim();
+
+    base = base.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.substring(1).toLowerCase());
+    if (!/protocol|procedure|guidelines|checklist|sop|guide/i.test(base)) {
+      base += ' Protocol';
+    }
+    return base || 'Standard Operating Procedure';
+  }
+
+  static async extractSopFromDocument(
+    dbState: any,
+    persistFn: (wsId?: string) => Promise<void>,
+    wsId: string,
+    userId: string,
+    documentPayload: string,
+    fileName: string = 'Uploaded_SOP_Document.pdf',
+    explicitExistingSop?: any
+  ): Promise<any> {
+    const capability = 'extractSopFromDocument';
+    const model = AIModelRouter.getModelForCapability('generateDraft');
+    const requestTime = new Date().toISOString();
+
+    // 1. Robust multi-format text extraction (PDF, DOCX, base64 data URLs, plain text)
+    const documentText = await AICopilotService.extractCleanTextFromPayload(documentPayload, fileName);
+    const cleanLines = (documentText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    
+    // Heuristic document extraction helper
+    const parseDocumentLocally = () => {
+      let title = '';
+      let purpose = '';
+      
+      const docLower = `${cleanLines.join(' ')} ${fileName}`.toLowerCase();
+      let department = 'Operations';
+      let processOwner = 'Admin Coordinator';
+
+      if (docLower.includes('marketing') || docLower.includes('rechat') || docLower.includes('postcard') || docLower.includes('flyer') || docLower.includes('social media') || docLower.includes('campaign') || docLower.includes('design')) {
+        department = 'Marketing & Design';
+        processOwner = 'Marketing Coordinator';
+      } else if (docLower.includes('sign post') || docLower.includes('yard sign') || docLower.includes('keybox') || docLower.includes('lockbox') || docLower.includes('nora') || docLower.includes('facilities')) {
+        department = 'Office Operations';
+        processOwner = 'Admin Coordinator';
+      } else if (docLower.includes('contract') || docLower.includes('form 2-t') || docLower.includes('earnest money') || docLower.includes('compliance') || docLower.includes('audit') || docLower.includes('bic')) {
+        department = 'Compliance & Risk';
+        processOwner = 'Broker-in-Charge';
+      } else if (docLower.includes('listing') || docLower.includes('mls') || docLower.includes('open house') || docLower.includes('seller')) {
+        department = 'Listing Operations';
+        processOwner = 'Listing Agent';
+      } else if (docLower.includes('buyer') || docLower.includes('working with real estate agents') || docLower.includes('wwrea')) {
+        department = 'Client Services';
+        processOwner = 'Buyer Agent';
+      } else if (docLower.includes('commission') || docLower.includes('cda') || docLower.includes('accounting') || docLower.includes('escrow')) {
+        department = 'Accounting & Finance';
+        processOwner = 'Firm Finance';
+      }
+
+      let trigger = 'Documented trigger event';
+      const steps: Array<{ stepNumber: number; action: string; role: string; systemUsed: string }> = [];
+      const decisions: string[] = [];
+      const escalationPaths: string[] = [];
+      const requiredInputs: string[] = [];
+      const prerequisites: string[] = [];
+
+      const isPdfSyntax = (str: string) => {
+        const s = str.trim().toLowerCase();
+        return (
+          /^\d+(\s+\d+)?\s+obj/i.test(s) ||
+          /^(endobj|xref|trailer|startxref|\/rect|\/mediabox|\/contents|\/filter|\/length|\/type|\/resources|\/font|\/parent|\/kids|\/subtype|<<|>>|stream|endstream)/i.test(s) ||
+          s.includes('[rect [') ||
+          s.includes('/rect [') ||
+          s.includes('flatedecode') ||
+          s.includes('skia/pdf') ||
+          s.includes('google docs renderer') ||
+          s.startsWith('%pdf-')
+        );
+      };
+
+      const isDividerOrNonTask = (str: string) => {
+        const s = str.trim();
+        if (/^[-_=\*\.\s~#|/\\+–—]+$/.test(s)) return true;
+        const letterCount = (s.match(/[a-zA-Z]/g) || []).length;
+        return letterCount < 3;
+      };
+
+      const inferSystemUsed = (actionText: string, contextDept: string): string => {
+        const text = actionText.toLowerCase();
+        if (/\brechat\b/.test(text)) return 'Rechat';
+        if (/\bcanva\b/.test(text)) return 'Canva';
+        if (/\bdotloop\b/.test(text)) return 'Dotloop';
+        if (/\b(nc regional mls|regional mls|\bmls\b|matrix)\b/.test(text)) return 'NC Regional MLS';
+        if (/\b(supra|ekey|lockbox|keybox)\b/.test(text)) return 'Supra eKEY';
+        if (/\bshowingtime\b/.test(text)) return 'ShowingTime';
+        if (/\b(coastal sign|sign vendor|sign post|coastal post)\b/.test(text)) return 'Coastal Sign Post Co.';
+        if (/\b(coastal print|print vendor|print shop)\b/.test(text)) return 'Coastal Print Works';
+        if (/\b(mailchimp)\b/.test(text)) return 'Mailchimp';
+        if (/\b(meta|facebook|instagram|social ad)\b/.test(text)) return 'Meta Business Suite';
+        if (/\b(google drive|drive|folder|google docs)\b/.test(text)) return 'Google Drive';
+        if (/\b(quickbooks|payroll|accounting)\b/.test(text)) return 'QuickBooks';
+        if (/\b(cda|compliance desk|compliance portal|bic review)\b/.test(text)) return 'Compliance Desk';
+        if (/\b(email|inbox|gmail)\b/.test(text)) return 'Email';
+        if (/\b(phone|sms|call|text)\b/.test(text)) return 'Phone / SMS';
+        if (/\b(postcard|flyer|mailing list|marketing campaign|social blast|artwork)\b/.test(text)) return 'Rechat';
+        if (/\b(sign\b.*install|post\b.*order|post\b.*remov)/.test(text)) return 'Coastal Sign Post Co.';
+        if (/\b(contract|offer|agreement|disclosure|rpoads|mog)\b/.test(text)) return 'Dotloop';
+        if (contextDept.includes('Marketing')) return 'Rechat';
+        if (contextDept.includes('Listing')) return 'NC Regional MLS';
+        return 'Dotloop';
+      };
+
+      const inferStepRole = (actionText: string, fallbackRole: string): string => {
+        const text = actionText.toLowerCase();
+        if (/\b(marketing|rechat|postcard|flyer|campaign|social|artwork|graphic|brochure|promo|blast|canva)\b/.test(text)) {
+          return 'Marketing Coordinator';
+        }
+        if (/\b(bic|broker[-\s]*in[-\s]*charge|compliance signoff|compliance review|legal review|audit approval)\b/.test(text)) {
+          return 'Broker-in-Charge';
+        }
+        if (/\b(listing agent|seller consultation|open house host|property showing)\b/.test(text)) {
+          return 'Listing Agent';
+        }
+        if (/\b(buyer agent|buyer consultation|showing client)\b/.test(text)) {
+          return 'Buyer Agent';
+        }
+        if (/\b(admin coordinator|sign vendor|lockbox install|office coordinator|nora|ann)\b/.test(text)) {
+          return 'Admin Coordinator';
+        }
+        if (/\b(firm finance|commission|cda|escrow|deposit|trust|james)\b/.test(text)) {
+          return 'Firm Finance';
+        }
+        return fallbackRole;
+      };
+
+      for (const line of cleanLines) {
+        if (isPdfSyntax(line) || isDividerOrNonTask(line)) continue;
+
+        if (!title && (line.toLowerCase().startsWith('title:') || line.toLowerCase().startsWith('# ') || (line.length < 80 && line.length > 5 && !line.includes(':')))) {
+          const candidate = line.replace(/^(title:|\#+)\s*/i, '').trim();
+          if (!candidate.toLowerCase().startsWith('copy of') && 
+              !candidate.toLowerCase().includes('sop guides') && 
+              !isPdfSyntax(candidate) && 
+              !isDividerOrNonTask(candidate) &&
+              candidate.length > 4) {
+            title = candidate;
+          }
+        }
+        if (line.toLowerCase().startsWith('department:') || line.toLowerCase().startsWith('dept:')) {
+          const dept = line.replace(/^(department:|dept:)\s*/i, '').trim();
+          if (!isPdfSyntax(dept) && !isDividerOrNonTask(dept)) {
+            department = dept;
+            if (dept.toLowerCase().includes('marketing') && processOwner === 'Admin Coordinator') {
+              processOwner = 'Marketing Coordinator';
+            }
+          }
+        } else if (line.toLowerCase().startsWith('owner:') || line.toLowerCase().startsWith('process owner:')) {
+          const owner = line.replace(/^(owner:|process owner:)\s*/i, '').trim();
+          if (!isPdfSyntax(owner) && !isDividerOrNonTask(owner)) processOwner = owner;
+        } else if (line.toLowerCase().startsWith('purpose:') || line.toLowerCase().startsWith('goal:')) {
+          const p = line.replace(/^(purpose:|goal:)\s*/i, '').trim();
+          if (!isPdfSyntax(p) && !isDividerOrNonTask(p)) purpose = p;
+        } else if (line.toLowerCase().startsWith('trigger:')) {
+          const tr = line.replace(/^trigger:\s*/i, '').trim();
+          if (!isPdfSyntax(tr) && !isDividerOrNonTask(tr)) trigger = tr;
+        } else if (/^(step\s*\d+[:\.]?|[\d]+[\.\):]|\-|\*)\s*/i.test(line)) {
+          const rawAction = line.replace(/^(step\s*\d+[:\.]?|[\d]+[\.\):]|\-|\*)\s*/i, '').trim();
+          if (rawAction.length > 3 && !isPdfSyntax(rawAction) && !isDividerOrNonTask(rawAction)) {
+            const role = inferStepRole(rawAction, processOwner);
+            const systemUsed = inferSystemUsed(rawAction, department);
+
+            steps.push({
+              stepNumber: steps.length + 1,
+              action: rawAction,
+              role,
+              systemUsed
+            });
+          }
+        } else if (/^(if|decision|rule|then):/i.test(line)) {
+          const dec = line.replace(/^(if|decision|rule|then):\s*/i, '').trim();
+          if (!isPdfSyntax(dec)) decisions.push(dec);
+        } else if (/^(escalat|warning):/i.test(line)) {
+          const esc = line.replace(/^(escalat|warning):\s*/i, '').trim();
+          if (!isPdfSyntax(esc)) escalationPaths.push(esc);
+        } else if (line.toLowerCase().startsWith('prerequisites:') || line.toLowerCase().startsWith('prereq:')) {
+          const pre = line.replace(/^(prerequisites:|prereq:)\s*/i, '').trim();
+          if (!isPdfSyntax(pre)) prerequisites.push(pre);
+        } else if (line.toLowerCase().startsWith('required inputs:') || line.toLowerCase().startsWith('inputs:')) {
+          const inputs = line.replace(/^(required inputs:|inputs:)\s*/i, '').split(',').map(s => s.trim()).filter(s => s && !isPdfSyntax(s));
+          requiredInputs.push(...inputs);
+        } else if (!purpose && line.length > 20 && !isPdfSyntax(line)) {
+          purpose = line;
+        }
+      }
+
+      if (!purpose) {
+        purpose = `Standard Operating Procedure extracted from ${fileName} for unified execution and compliance auditing.`;
+      }
+      if (steps.length === 0) {
+        steps.push(
+          { stepNumber: 1, action: 'Review intake documents and verify required client information.', role: processOwner, systemUsed: inferSystemUsed('intake review', department) },
+          { stepNumber: 2, action: 'Process file and record operational milestone in brokerage ledger.', role: processOwner, systemUsed: inferSystemUsed('ledger milestone', department) },
+          { stepNumber: 3, action: 'Submit completed checklist package to BIC for compliance signoff.', role: 'Broker-in-Charge', systemUsed: 'Compliance Desk' }
+        );
+      }
+
+      // Generate intelligent authoritative title if missing or raw
+      if (!title) {
+        title = AICopilotService.generateAuthoritativeSopTitle(documentText, fileName, purpose, steps);
+      }
+
+      return {
+        title,
+        purpose,
+        department,
+        processOwner,
+        trigger,
+        steps,
+        decisions: decisions.length > 0 ? decisions : ['If documentation is incomplete, pause execution and request missing items.'],
+        escalationPaths: escalationPaths.length > 0 ? escalationPaths : ['Escalate compliance discrepancies to Broker-in-Charge.'],
+        prerequisites: prerequisites.length > 0 ? prerequisites : ['Executed representation agreement and property intake details.'],
+        requiredInputs: requiredInputs.length > 0 ? requiredInputs : ['Property Address', 'Client Name', 'Agent Notes']
+      };
+    };
+
+    const callModel = async (prompt: string) => {
+      const client = this.getGeminiClient();
+      if (!client || process.env.REAL_AI_TEST !== '1') {
+        return null;
+      }
+      try {
+        const res = await client.models.generateContent({
+          model,
+          contents: prompt
+        });
+        return res.text || '';
+      } catch {
+        return null;
+      }
+    };
+
+    let extracted = parseDocumentLocally();
+
+    const client = this.getGeminiClient();
+    if (client && process.env.REAL_AI_TEST === '1') {
+      const prompt = `Extract a structured real estate Standard Operating Procedure from this uploaded document text:
+"""
+${documentText.slice(0, 8000)}
+"""
+Return JSON matching:
+{
+  "title": string,
+  "department": string,
+  "processOwner": string,
+  "purpose": string,
+  "trigger": string,
+  "steps": [{"stepNumber": number, "action": string, "role": string, "systemUsed": string}],
+  "decisions": [string],
+  "escalationPaths": [string],
+  "prerequisites": [string],
+  "requiredInputs": [string]
+}`;
+      const rawRes = await callModel(prompt);
+      if (rawRes) {
+        try {
+          const jsonMatch = rawRes.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            extracted = { ...extracted, ...parsed };
+          }
+        } catch {}
+      }
+    }
+
+    // 2. Intelligent Auto-Determination: Edit of Existing SOP vs New SOP
+    let targetExistingSop = explicitExistingSop;
+    let autoMatchResult = { matchedSop: null as any, confidence: 0, reason: '' };
+
+    if (!targetExistingSop) {
+      const allSops = (dbState && Array.isArray(dbState.opsSops)) ? dbState.opsSops : [];
+      autoMatchResult = AICopilotService.autoMatchExistingSop(allSops, documentText, fileName);
+      if (autoMatchResult.matchedSop) {
+        targetExistingSop = autoMatchResult.matchedSop;
+      }
+    }
+
+    const isUpdate = Boolean(targetExistingSop && targetExistingSop.id);
+    const targetId = isUpdate ? targetExistingSop.id : `sop_doc_${Date.now()}`;
+    const nextVersion = isUpdate ? (typeof targetExistingSop.version === 'number' ? targetExistingSop.version + 1 : 2) : 1;
+
+    // Determine final title
+    let finalTitle = extracted.title;
+    if (isUpdate) {
+      finalTitle = targetExistingSop.title || extracted.title;
+    } else if (!finalTitle || finalTitle.toLowerCase().includes('copy of') || finalTitle.toLowerCase().includes('sop guides')) {
+      finalTitle = AICopilotService.generateAuthoritativeSopTitle(documentText, fileName, extracted.purpose, extracted.steps);
+    }
+
+    const structuredSop: any = {
+      id: targetId,
+      sopId: targetId,
+      workspaceId: wsId || 'ws_wilmington',
+      tenantId: 'tenant_nest_uat',
+      title: finalTitle,
+      department: extracted.department || targetExistingSop?.department || 'Operations',
+      ownerRole: extracted.processOwner || targetExistingSop?.ownerRole || targetExistingSop?.processOwner || 'operations_lead',
+      processOwner: extracted.processOwner || targetExistingSop?.processOwner || 'Transaction Coordinator',
+      purpose: extracted.purpose || targetExistingSop?.purpose || '',
+      expectedOutcome: extracted.purpose || targetExistingSop?.expectedOutcome || 'Procedure executed with verifiable audit evidence.',
+      scope: targetExistingSop?.scope || 'Brokerage-wide standard operating policy.',
+      trigger: extracted.trigger || targetExistingSop?.trigger || 'Executed agreement or client request received.',
+      triggerType: targetExistingSop?.triggerType || 'manual_start',
+      status: 'draft',
+      version: nextVersion,
+      orderedSteps: extracted.steps.map((st: any, idx: number) => ({
+        id: st.id || `st_${idx + 1}`,
+        stepNumber: idx + 1,
+        action: st.action || st.instruction || `Execute procedure step ${idx + 1}`,
+        role: st.role || st.assignedRole || 'Transaction Coordinator',
+        systemUsed: st.systemUsed || 'Dotloop'
+      })),
+      steps: extracted.steps.map((st: any, idx: number) => ({
+        id: `st_${Date.now()}_${idx + 1}`,
+        stepNumber: idx + 1,
+        title: st.action ? (st.action.length > 75 ? st.action.slice(0, 75) + '...' : st.action) : `Step ${idx + 1}`,
+        instruction: st.action || st.instruction || '',
+        assignedRole: st.role || st.assignedRole || 'Admin Coordinator',
+        role: st.role || st.assignedRole || 'Admin Coordinator',
+        backupRole: 'owner',
+        type: 'manual',
+        evidenceRequired: 'Logged signoff or uploaded document confirmation',
+        expectedDuration: '1h',
+        connectedTool: st.systemUsed || 'Rechat',
+        systemUsed: st.systemUsed || 'Rechat'
+      })),
+      decisions: extracted.decisions || targetExistingSop?.decisions || [],
+      exceptions: targetExistingSop?.exceptions || [],
+      escalationPaths: extracted.escalationPaths || targetExistingSop?.escalationPaths || [],
+      prerequisites: extracted.prerequisites || targetExistingSop?.prerequisites || [],
+      requiredInputs: extracted.requiredInputs || targetExistingSop?.requiredInputs || [],
+      completionEvidence: targetExistingSop?.completionEvidence || {
+        type: 'manual',
+        description: 'Complete all steps and obtain compliance signoff.'
+      },
+      tags: ['uploaded-doc', isUpdate ? 'updated-revision' : 'new-import'],
+      author: userId || 'Ryan Crecelius (Principal Broker)',
+      aiAssisted: true,
+      changeSummary: isUpdate 
+        ? `Updated from uploaded document: ${fileName} (v${nextVersion})`
+        : `Created from uploaded document: ${fileName}`,
+      sourceDocument: {
+        fileName,
+        filePayload: documentPayload,
+        fileType: fileName.toLowerCase().endsWith('.pdf') ? 'pdf' : fileName.toLowerCase().endsWith('.docx') ? 'docx' : 'text',
+        uploadedAt: new Date().toISOString(),
+        characterCount: (documentText || '').length
+      },
+      createdAt: isUpdate && targetExistingSop?.createdAt ? targetExistingSop.createdAt : new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const completionTime = new Date().toISOString();
+    AIAuditService.logEvent(dbState, persistFn, {
+      workspaceId: wsId,
+      userId,
+      capability,
+      promptId: 'extract_sop_document_v1',
+      promptVersion: '1.0',
+      model,
+      requestTime,
+      completionTime,
+      success: true,
+      metadata: { fileName, isUpdate, targetId, detectedMode: isUpdate ? 'update' : 'create' }
+    });
+
+    return {
+      success: true,
+      mode: isUpdate ? 'update' : 'create',
+      detectedMode: isUpdate ? 'update' : 'create',
+      matchedExistingSopId: isUpdate ? targetExistingSop.id : null,
+      matchedExistingSopTitle: isUpdate ? targetExistingSop.title : null,
+      matchReason: autoMatchResult.reason,
+      sop: structuredSop,
+      extractedSummary: {
+        title: structuredSop.title,
+        stepsCount: structuredSop.orderedSteps.length,
+        department: structuredSop.department,
+        processOwner: structuredSop.processOwner,
+        fileName
+      }
+    };
   }
 
   static async answerFromKnowledge(

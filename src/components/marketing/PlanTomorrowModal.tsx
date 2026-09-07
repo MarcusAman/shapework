@@ -77,7 +77,7 @@ export const PlanTomorrowModal: React.FC<PlanTomorrowModalProps> = ({
             </label>
             <textarea
               rows={3}
-              placeholder="e.g. Maria (VA) needs to focus on 304 Ocean carousel proof first. Eric Anderson sign quote needs client SMS confirmation by 11am..."
+              placeholder="e.g. Eduardo (VA) needs to focus on 304 Ocean carousel proof first. Eric Anderson sign quote needs client SMS confirmation by 11am..."
               value={planningNotes}
               onChange={(e) => setPlanningNotes(e.target.value)}
               className="w-full bg-[#01251f] text-slate-200 border border-[#176457]/70 rounded-xl p-3 text-xs focus:outline-none focus:border-emerald-400 font-sans"

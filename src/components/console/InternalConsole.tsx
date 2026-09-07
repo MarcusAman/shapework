@@ -6,7 +6,8 @@ import ContextRail from '../layout/ContextRail';
 import OperatorDock from '../layout/OperatorDock';
 import InternalRoutes from '../../routes/InternalRoutes';
 import ErrorBoundary from '../system/ErrorBoundary';
-import { Lock, ArrowRight, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Lock, ArrowRight, Menu, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import FirstLoginToolConnectionModal from '../integrations/FirstLoginToolConnectionModal';
 
 export default function InternalConsole() {
   const state = useWorkspaceConsoleState();
@@ -14,6 +15,12 @@ export default function InternalConsole() {
   const [operatorMinimized, setOperatorMinimized] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(() => {
+    return typeof window !== 'undefined' && !localStorage.getItem('shapework_tools_onboarding_completed');
+  });
+  const [selectedScope, setSelectedScope] = useState(() => {
+    return localStorage.getItem('internal_selected_scope') || 'ryans-dashboard';
+  });
 
   const {
     currentTab,
@@ -214,33 +221,59 @@ export default function InternalConsole() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Workspace Selector */}
-            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-700 bg-slate-100/80 border border-slate-200 px-3 py-1.5 rounded-xl font-mono">
+            {/* Workspace / Scope Selector */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-700 bg-slate-100/80 border border-slate-200 px-3 py-1.5 rounded-xl font-mono shadow-2xs">
               <span className="text-slate-500 font-bold">Scope:</span>
               <select
-                value={workspaceId}
-                onChange={(e) => {}}
+                value={selectedScope}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedScope(val);
+                  localStorage.setItem('internal_selected_scope', val);
+                }}
                 className="bg-transparent font-bold text-slate-900 focus:outline-none cursor-pointer"
               >
-                <option value="nest-realty-demo">nest-realty-demo</option>
-                <option value="coastal-properties">coastal-properties</option>
-                <option value="premier-triad">premier-triad</option>
-                <option value="global-holdings">global-holdings</option>
+                <option value="ryans-dashboard">👑 Ryan's Dashboard</option>
+                <option value="nest-realty-demo">🏢 nest-realty-demo (Full Workspace)</option>
               </select>
             </div>
+
+            {/* Connected Tools Onboarding Trigger */}
+            <button
+              onClick={() => setIsOnboardingModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200 transition shadow-xs cursor-pointer"
+              title="Manage connected tools & logins (Rechat, Dotloop, Google, Maxa)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Connected Tools</span>
+            </button>
 
             {/* Exit to Customer App Button */}
             <button
               onClick={() => {
-                window.location.pathname = '/app';
+                if (selectedScope === 'ryans-dashboard') {
+                  localStorage.setItem('customer_app_scope', 'ryans-dashboard');
+                  localStorage.setItem('shapework_active_profile_id', 'usr_ryan');
+                  window.location.href = '/app/workboard?scope=ryans-dashboard';
+                } else {
+                  localStorage.setItem('customer_app_scope', 'nest-realty-demo');
+                  window.location.href = '/app/workboard?scope=nest-realty-demo';
+                }
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+              title={selectedScope === 'ryans-dashboard' ? "Open Ryan's Executive Dashboard (Ask Nora)" : "Open Full Customer Brokerage Console"}
             >
               <ArrowRight className="w-3.5 h-3.5" />
               <span>Customer App</span>
             </button>
           </div>
         </header>
+
+        {/* First Login Tool Connection Modal */}
+        <FirstLoginToolConnectionModal
+          isOpen={isOnboardingModalOpen}
+          onClose={() => setIsOnboardingModalOpen(false)}
+        />
 
         {/* Scrollable View Content */}
         <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">

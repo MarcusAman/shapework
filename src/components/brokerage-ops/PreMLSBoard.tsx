@@ -50,7 +50,7 @@ const INITIAL_POCKET_LISTINGS: PocketListing[] = [
     ncrecDayCount: 6,
     matchedBuyersCount: 3,
     status: 'active_pocket',
-    matchedAgents: ['Sarah Jenkins', 'Jessica Miller', 'Matt Orr'],
+    matchedAgents: ['Jessica Keenan', 'Jessica Miller', 'Matt Orr'],
     createdAt: '2 hours ago'
   },
   {
@@ -59,7 +59,7 @@ const INITIAL_POCKET_LISTINGS: PocketListing[] = [
     price: 620000,
     specs: '3 Bed • 2 Bath • 2,100 sqft',
     office: 'Wilmington',
-    listingAgent: 'Sarah Jenkins',
+    listingAgent: 'Jessica Keenan',
     agentPhone: '(910) 555-0188',
     ncrecDayCount: 11,
     matchedBuyersCount: 2,
@@ -78,7 +78,7 @@ const INITIAL_POCKET_LISTINGS: PocketListing[] = [
     ncrecDayCount: 3,
     matchedBuyersCount: 4,
     status: 'active_pocket',
-    matchedAgents: ['Matt Orr', 'Sarah Jenkins', 'Jessica Keenan', 'Marcus Vance'],
+    matchedAgents: ['Matt Orr', 'James Fort', 'Jessica Keenan', 'Marcus Vance'],
     createdAt: '3 hours ago'
   }
 ];
@@ -108,7 +108,7 @@ export default function PreMLSBoard() {
         ncrecDayCount: 1,
         matchedBuyersCount: 3,
         status: 'active_pocket',
-        matchedAgents: ['Sarah Jenkins', 'Marcus Vance', 'Eric Knight'],
+        matchedAgents: ['James Fort', 'Marcus Vance', 'Eric Knight'],
         createdAt: 'Just now'
       };
 

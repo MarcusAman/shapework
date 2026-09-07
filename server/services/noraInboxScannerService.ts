@@ -24,13 +24,13 @@ let isScanInProgress = false;
  * Connects to AskNora@nestrealty.com via IMAP SSL and scans for unread task emails
  */
 export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
-  if (process.env.NORA_UNIFIED_INTAKE_ENABLED !== 'true' && process.env.ENABLE_IMAP_SCANNER !== 'true') {
-    return { scannedCount: 0, ingestedCount: 0, results: [], errors: ['NORA_UNIFIED_INTAKE_ENABLED is false'] };
-  }
-
   if (process.env.MAINTENANCE_MODE === 'true') {
     console.log('[IMAP Scanner] Maintenance mode active. Email polling paused without claiming messages.');
     return { scannedCount: 0, ingestedCount: 0, results: [], errors: ['Maintenance mode active'] };
+  }
+
+  if (process.env.NORA_UNIFIED_INTAKE_ENABLED !== 'true' && process.env.ENABLE_IMAP_SCANNER !== 'true') {
+    return { scannedCount: 0, ingestedCount: 0, results: [], errors: ['NORA_UNIFIED_INTAKE_ENABLED is false'] };
   }
 
   if (isScanInProgress) {

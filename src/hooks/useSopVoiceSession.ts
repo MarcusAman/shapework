@@ -368,7 +368,7 @@ export function useSopVoiceSession({
       role_title: userRoleTitle,
       process_name: sopDraft.title || '',
       has_existing_draft: (sopDraft.title || '').length > 0,
-      first_open_question: sopDraft.openQuestions?.[0]?.question || '',
+      first_open_question: typeof sopDraft.openQuestions?.[0] === 'string' ? sopDraft.openQuestions[0] : (sopDraft.openQuestions?.[0] as any)?.question || '',
       next_incomplete_section: ''
     });
 

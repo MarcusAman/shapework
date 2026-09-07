@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MarketingGenerationJob, MarketingBuildEvent } from '../../server/media/generationJobStore';
+import type { MarketingGenerationJob, MarketingBuildEvent } from '../../server/media/generationJobStore';
 
 export type GenerationJobResolution =
   | { state: "not_started"; campaignId: string }

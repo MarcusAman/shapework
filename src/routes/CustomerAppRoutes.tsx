@@ -10,7 +10,7 @@ import {
   ShieldAlert, AlertTriangle, UserPlus, CheckSquare, Square, 
   DollarSign, User, Wrench, Plus, ClipboardList, Play, Activity, Cpu,
   X, Phone, Trash2, Brain, Zap, AlertCircle, HelpCircle, Loader,
-  Video, Key
+  Video, Key, Sparkles
 } from 'lucide-react';
 import MorningBriefing from '../components/command/MorningBriefing';
 import DecisionQueue from '../components/command/DecisionQueue';
@@ -40,6 +40,7 @@ import OperatingRecordPage from '../components/operating-record/OperatingRecordP
 import OperatingMemoryDetail from '../components/command/OperatingMemoryDetail';
 import NestWilmingtonDashboard from '../components/nest-wilmington/NestWilmingtonDashboard';
 import MarketingIntakeConsole from '../components/marketing/MarketingIntakeConsole';
+import { MarketIntelligenceConsole } from '../components/market-intelligence/MarketIntelligenceConsole';
 import AICOOMissions from '../components/command/AICOOMissions';
 import AgentActionPage from '../components/ui/AgentActionPage';
 import ActivityAuditTrail from '../components/command/ActivityAuditTrail';
@@ -53,6 +54,7 @@ import WorkQueue from '../components/layout/WorkQueue';
 import AgentRunTable from '../components/agents/AgentRunTable';
 import MarketingRequestDesk from '../components/workflows/MarketingRequestDesk';
 import WeeklyOwnerBrief from '../components/command/WeeklyOwnerBrief';
+import ExecutiveCockpit from '../components/executive/ExecutiveCockpit';
 import PipelineClosingTracker from '../components/transactions/PipelineClosingTracker';
 import DealIntakeGuard from '../components/transactions/DealIntakeGuard';
 import ClosingComplianceGuard from '../components/transactions/ClosingComplianceGuard';
@@ -83,6 +85,11 @@ import SOPRunsPage from '../components/sops/SOPRunsPage';
 import PitchAhaDemoModal from '../components/demo/PitchAhaDemoModal';
 import PreMLSBoard from '../components/brokerage-ops/PreMLSBoard';
 import VendorDispatchBoard from '../components/brokerage-ops/VendorDispatchBoard';
+import VendorDispatchHub from '../components/vendors/VendorDispatchHub';
+import AgentRetentionHub from '../components/people/AgentRetentionHub';
+import EventsAndVipHub from '../components/marketing/EventsAndVipHub';
+import CostLeakageAndLeadHub from '../components/executive/CostLeakageAndLeadHub';
+import NewsPage from '../components/news/NewsPage';
 
 
 interface CustomerAppRoutesProps {
@@ -219,7 +226,7 @@ function PeopleOwnershipPage({ state }: { state: any }) {
   const staffList = (state.profiles || []).filter((p: any) => 
     !['shapework_admin', 'shapework_operator', 'implementation_lead', 'support_admin', 'developer'].includes(p.role)
   );
-  const [subTab, setSubTab] = useState<'directory' | 'map' | 'escalation' | 'gaps'>('directory');
+  const [subTab, setSubTab] = useState<'directory' | 'retention' | 'map' | 'escalation' | 'gaps'>('directory');
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -492,9 +499,10 @@ function PeopleOwnershipPage({ state }: { state: any }) {
       )}
 
       {/* Subtabs controls */}
-      <div className="flex gap-2 border-b border-[var(--sw-border)] pb-3 select-none">
+      <div className="flex gap-2 border-b border-[var(--sw-border)] pb-3 select-none flex-wrap">
         {[
           { id: 'directory', label: 'Staff Directory' },
+          { id: 'retention', label: 'Agent Retention & Videos' },
           { id: 'map', label: 'Role Ownership Map' },
           { id: 'escalation', label: 'Escalation Paths' },
           { id: 'gaps', label: `Coverage Gaps ${vacantRoles.length > 0 ? `(${vacantRoles.length})` : ''}` }
@@ -515,6 +523,12 @@ function PeopleOwnershipPage({ state }: { state: any }) {
 
       <div className="grid grid-cols-1 gap-6 animate-fade-in">
         
+        {subTab === 'retention' && (
+          <div className="animate-fade-in">
+            <AgentRetentionHub />
+          </div>
+        )}
+
         {subTab === 'directory' && (
           <div className="bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-2xl overflow-hidden shadow-[var(--sw-shadow-soft)] animate-fade-in">
             <div className="h-12 border-b border-[var(--sw-border)] px-4 flex items-center justify-between bg-[var(--sw-card)] select-none">
@@ -1050,18 +1064,48 @@ function ApprovalsPage({ state }: { state: any }) {
 }
 
 function OwnerBriefPage({ state }: { state: any }) {
-  const isBriefEmpty = (state.workItems || []).length === 0 && (state.transactions || []).length === 0;
+  const [activeTab, setActiveTab] = useState<'cockpit' | 'cost_leads' | 'brief'>('cockpit');
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Owner Brief" subtitle="Executive summary" />
-      {isBriefEmpty ? (
-        <EmptyState
-          title="No owner brief generated yet."
-          description="Generate a brief once work items, transactions, and approvals begin moving through shapework."
-          actionText="Generate owner brief"
-          onAction={() => alert('Generate owner brief trigger')}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-3">
+        <PageHeader title="Executive Intelligence" subtitle="Real-time operations velocity, step bottlenecks & NCREC audit readiness" />
+        <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl text-xs shrink-0 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={() => setActiveTab('cockpit')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              activeTab === 'cockpit' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            BI Cockpit & SLAs
+          </button>
+          <button
+            onClick={() => setActiveTab('cost_leads')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              activeTab === 'cost_leads' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            Cost & Territory Leads
+          </button>
+          <button
+            onClick={() => setActiveTab('brief')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              activeTab === 'brief' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-700'
+            }`}
+          >
+            Owner Activity Digest
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'cockpit' ? (
+        <ExecutiveCockpit
+          workspaceId={state.currentWorkspaceId || 'nest-realty-wilmington'}
+          onNavigateToSopRuns={() => state.onNavigateTab?.('Active SOP Checklists')}
+          onNavigateToWorkQueue={() => state.onNavigateTab?.('Work Queue')}
         />
+      ) : activeTab === 'cost_leads' ? (
+        <CostLeakageAndLeadHub />
       ) : (
         <WeeklyOwnerBrief state={state} />
       )}
@@ -1568,11 +1612,11 @@ function AuditPage({ state }: { state: any }) {
           <div className="divide-y divide-slate-200/80">
             <div className="py-3 text-xs flex justify-between items-center">
               <span className="text-[#00635C] font-bold">Approved: Foundation Contingency Crack Waiver</span>
-              <span className="text-[#52605B] font-mono text-[11px]">Sarah Jenkins · 15m ago</span>
+              <span className="text-[#52605B] font-mono text-[11px]">Jessica Keenan · 15m ago</span>
             </div>
             <div className="py-3 text-xs flex justify-between items-center">
               <span className="text-[#00635C] font-bold">Approved: Wire Ingest Matching Exception Close</span>
-              <span className="text-[#52605B] font-mono text-[11px]">Sarah Jenkins · 1h ago</span>
+              <span className="text-[#52605B] font-mono text-[11px]">Jessica Keenan · 1h ago</span>
             </div>
             <div className="py-3 text-xs flex justify-between items-center">
               <span className="text-[#17231F] font-medium">Auto-logged: Lockbox opened at 109 Woodlawn</span>
@@ -2026,7 +2070,7 @@ function VoiceActionsPage({ state }: { state: any }) {
       <div className="bg-white border border-[#e4decb] rounded-2xl p-6 shadow-sm space-y-6 text-left font-sans">
         <div className="flex justify-between items-center pb-2 border-b border-[#e4decb]/60 select-none">
           <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider font-mono">Simulated Operator Call Logs</span>
-          <span className="px-2 py-0.5 bg-brand-900/10 text-[#18382b] text-[10px] font-bold rounded-full font-mono">Retell Voice Integration</span>
+          <span className="px-2 py-0.5 bg-brand-900/10 text-[#18382b] text-[10px] font-bold rounded-full font-mono">Nest Voice Telephony</span>
         </div>
 
         <div className="space-y-4">
@@ -3071,19 +3115,23 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
 
   const fetchOpsData = async () => {
     try {
-      const headers = { 
+      const sessionToken = typeof window !== 'undefined' ? (localStorage.getItem('shapework_session_token') || localStorage.getItem('token') || '') : '';
+      const email = state.activeProfile?.email || 'ryan@nestrealty.com';
+      const role = state.activeProfile?.role || 'regional_leader';
+      const headers: Record<string, string> = { 
         'x-workspace-id': 'nest-realty-demo',
-        'x-user-role': state.activeProfile?.role || 'regional_leader',
-        'x-user-email': state.activeProfile?.email || 'ryan@nestrealty.com'
+        'x-user-role': role,
+        'x-user-email': email,
+        ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : { 'Authorization': `Bearer ${email}` })
       };
       const [resAst, resSop, resInt, resAudit, resReq, resCamEv, resHealth] = await Promise.all([
-        fetch('/api/ops/assets', { headers: { 'x-workspace-id': 'nest-realty-demo' } }),
-        fetch('/api/ops/sops', { headers: { 'x-workspace-id': 'nest-realty-demo' } }),
-        fetch('/api/ops/integrations', { headers: { 'x-workspace-id': 'nest-realty-demo' } }),
-        fetch('/api/ops/audit-logs', { headers: { 'x-workspace-id': 'nest-realty-demo' } }),
-        fetch('/api/ops/requests', { headers: { 'x-workspace-id': 'nest-realty-demo', 'x-user-role': state.activeProfile?.role || 'regional_leader', 'x-user-email': state.activeProfile?.email || 'ryan@nestrealty.com' } }),
-        fetch('/api/camera-events', { headers: { 'x-workspace-id': 'nest-realty-demo' } }),
-        fetch('/api/cameras/health')
+        fetch('/api/ops/assets', { headers, credentials: 'include' }),
+        fetch('/api/ops/sops', { headers, credentials: 'include' }),
+        fetch('/api/ops/integrations', { headers, credentials: 'include' }),
+        fetch('/api/ops/audit-logs', { headers, credentials: 'include' }),
+        fetch('/api/ops/requests', { headers, credentials: 'include' }),
+        fetch('/api/camera-events', { headers, credentials: 'include' }),
+        fetch('/api/cameras/health', { headers, credentials: 'include' })
       ]);
       if (resAst.ok) setOpsAssets((await resAst.json()).assets || []);
       if (resSop.ok) setOpsSops((await resSop.json()).sops || []);
@@ -3190,7 +3238,13 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch('/api/shapework/jobs');
+      const token = localStorage.getItem('shapework_session_token') || 'usr_ryan';
+      const res = await fetch('/api/shapework/jobs', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-workspace-id': state?.workspaceId || 'nest-realty-wilmington'
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setJobs(data.jobs || []);
@@ -3208,8 +3262,8 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
           }
         }
       }
-    } catch (e) {
-      console.error('Failed to fetch coworker jobs:', e);
+    } catch {
+      // Gracefully ignore network dropouts during server rebuilds
     } finally {
       setLoadingJobs(false);
     }
@@ -3247,6 +3301,11 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
   // =========================================================================
 
   const renderViewContent = () => {
+    const norm = (currentTab || '').trim().toLowerCase();
+    if (norm.includes('intelligence') || norm === 'spatial comps' || norm === 'spatial-comps' || norm === 'comps' || norm === 'executive roi' || norm === 'recruiting & mls' || norm === 'bic sentinel' || norm === 'nora employee') {
+      return <MarketIntelligenceConsole state={state} onNavigateToTab={(tab) => state.setCurrentTab ? state.setCurrentTab(tab) : undefined} />;
+    }
+
     switch (currentTab) {
       case 'Today in the Brokerage':
       case 'Command Center':
@@ -3267,9 +3326,19 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
         return <PreMLSBoard />;
       case 'Vendor Dispatch':
       case 'Repair Board':
-        return <VendorDispatchBoard />;
+        // Gracefully redirect old Vendor Dispatch routes to canonical Tasks board
+        if (typeof window !== 'undefined') {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', 'Tasks');
+            window.history.replaceState({}, '', url.toString());
+          } catch {}
+        }
+        state.setCurrentTab('Tasks');
+        return <MarketingIntakeConsole state={state} />;
       case 'Nest Ops Hub':
       case 'Ask Nest Ops':
+      case 'Ask Nora':
       case 'Ask':
         return <NestOpsHub state={state} mode="search_only" />;
       case 'My Connections':
@@ -3305,7 +3374,6 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
           />
         );
       case 'Knowledge Base':
-        return <SOPStudio state={state} readOnly={true} />;
       case 'SOP Studio':
         return <SOPStudio state={state} />;
       case 'SOP Runs':
@@ -3316,9 +3384,24 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
             cameraHealth={cameraHealth}
           />
         );
+      case 'Brokerage Health':
+      case 'Brokerage Health Command':
+      case 'Health':
+        return <BrokerageHealth />;
+
       case 'Settings':
       case 'Workspace Settings':
-        if (state.activeProfile?.experience === 'ryan_pilot' || state.activeProfile?.email === 'ryan@nestrealty.com' || state.activeProfile?.id === 'usr_ryan') {
+        const isRyanScope = 
+          (typeof window !== 'undefined' && (
+            new URLSearchParams(window.location.search).get('scope') === 'ryans-dashboard' ||
+            localStorage.getItem('customer_app_scope') === 'ryans-dashboard'
+          )) ||
+          state.activeProfile?.experience === 'ryan_pilot' || 
+          state.activeProfile?.email === 'ryan@nestrealty.com' || 
+          state.activeProfile?.id === 'usr_ryan' ||
+          state.activeProfile?.role === 'owner';
+
+        if (isRyanScope) {
           return <RyanSettingsPage state={state} />;
         }
         return <CustomerSettingsPage state={state} />;
@@ -3326,6 +3409,10 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
         return <TransactionsPage state={state} onInspectRecord={handleInspectRecord} />;
       case 'Compliance':
         return <CompliancePage state={state} />;
+      case 'Tasks':
+      case 'tasks':
+      case 'Task':
+      case 'Tasks & Requests':
       case 'Marketing':
       case 'Marketing Requests':
       case 'Marketing Intake (Melissa)':
@@ -3338,10 +3425,33 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
       case 'Sandbox':
         return <MarketingIntakeConsole state={state} />;
 
+      case 'Market Intelligence':
+      case 'Market Intelligence & Comps':
+      case 'Marketing Intelligence':
+      case 'Marketing Intelligence & Comps':
+      case 'market-intelligence':
+      case 'marketing-intelligence':
+      case 'market_intelligence':
+      case 'marketing_intelligence':
+      case 'Intelligence':
+      case 'Spatial Comps':
+      case 'Executive ROI':
+      case 'Recruiting & MLS':
+      case 'BIC Sentinel':
+      case 'Nora Employee':
+        return <MarketIntelligenceConsole state={state} onNavigateToTab={(tab) => state.setCurrentTab ? state.setCurrentTab(tab) : undefined} />;
+
+      case 'News':
+      case 'Real Estate News':
+      case 'Industry News':
+      case 'news':
+        return <NewsPage state={state} />;
+
       case 'Agent Approval Portal':
       case 'Approval Portal':
         return <AgentApprovalPortal />;
 
+      case 'Knowledge Library':
       case 'SOP Library':
       case 'Staff SOP Templates':
         return <SOPStudio state={state} />;
@@ -3354,14 +3464,31 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
         return <NestWilmingtonDashboard currentTab="Ryan Shield" state={state} />;
       case 'Role Map':
       case 'Role & Escalation Map':
-        return <OrgChartWizardPage state={state} embeddedTab="visual" />;
+        return <NestWilmingtonDashboard currentTab="Role & Escalation Map" state={state} />;
       case 'Directory':
         return <WorkspaceDirectoryPage state={state} />;
+      case 'Retention':
+      case 'Agent Retention':
+      case 'Happiness Radar':
+      case 'Agent Happiness':
+      case 'Life Events':
+      case 'Help Video Library':
+      case 'Videos':
+        return <AgentRetentionHub />;
+      case 'Events & VIP':
+      case 'Friends of Nest':
+      case 'Event Playbooks':
+      case 'VIP Advocates':
+        return <EventsAndVipHub />;
+      case 'Cost & Leads':
+      case 'Cost Leakage':
+      case 'Lead Routing':
+      case 'Territory Routing':
+        return <CostLeakageAndLeadHub />;
       case 'Owner Brief':
       case 'Owner Briefing':
-        if (state.activeProfile?.email === 'ryan@nestrealty.com' || state.activeProfile?.email === 'owner@nestrealty.com') {
-          return <NestWilmingtonDashboard currentTab="Owner Briefing" state={state} />;
-        }
+      case 'Executive Cockpit':
+      case 'Executive Intelligence':
         return <OwnerBriefPage state={state} />;
       case 'Audit':
         return <AuditPage state={state} />;
@@ -4261,7 +4388,7 @@ function CameraSignalsTab({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Sarah Jenkins"
+                    placeholder="e.g. Jessica Keenan"
                     value={reviewAgentName}
                     onChange={(e) => setReviewAgentName(e.target.value)}
                     className="w-full px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs focus:outline-none"

@@ -121,7 +121,7 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
   {
     id: 'int_transactions',
     organizationId: 'nest-realty',
-    provider: 'Dotloop Workspace',
+    provider: 'Dotloop/SkySlope/Brokermint',
     status: 'connected',
     description: 'Dotloop, SkySlope, Brokermint transaction and compliance platform sync.',
     priority: 'high',
@@ -134,7 +134,7 @@ export const INITIAL_INTEGRATION_CONNECTIONS: IntegrationConnection[] = [
   {
     id: 'int_marketing_systems',
     organizationId: 'nest-realty',
-    provider: 'Canva & Marketing Desk',
+    provider: 'Marketing Systems',
     status: 'connected',
     description: 'Listing launch assets, social requests, flyers, photography, and campaign materials.',
     priority: 'medium',

@@ -37,8 +37,15 @@ import {
   Phone,
   Key,
   Video,
-  CheckSquare
+  CheckSquare,
+  Contact,
+  BookOpen,
+  Building2,
+  BarChart3,
+  Link,
+  Newspaper
 } from 'lucide-react';
+import { NestOrbVisualizer } from '../shared/NestOrbVisualizer';
 import ContactSupportModal from '../shared/ContactSupportModal';
 import { Profile } from '../../types/shapework';
 import { getProductProfile } from '../../config/productProfiles';
@@ -74,31 +81,56 @@ export default function CollapsibleNavigationRail({
   // Accordion section open/collapsed state
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     'Daily Operations': true,
-    'Work & Approvals': true,
     'Brokerage Management': true
   });
 
   React.useEffect(() => {
+    let isMounted = true;
     const fetchCounts = async () => {
       try {
-        const res = await fetch('/api/shapework/jobs');
-        if (res.ok) {
-          const data = await res.json();
-          const activeJobs = (data.jobs || []).filter((j: any) => j.status === 'running' || j.status === 'planning');
-          const approvalSteps = (data.steps || []).filter((s: any) => s.status === 'waiting_approval');
+        const token = localStorage.getItem('shapework_session_token') || 'usr_ryan';
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'x-workspace-id': workspaceId || 'nest-realty-wilmington'
+        };
+
+        const [tasksRes, jobsRes] = await Promise.all([
+          fetch('/api/marketing/tasks', { headers }),
+          fetch('/api/shapework/jobs', { headers })
+        ]);
+
+        let activeCount = 0;
+        let approvalsCount = 0;
+
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          const tasks = tasksData.tasks || [];
+          activeCount = tasks.filter((t: any) => !t.isArchived && t.status !== 'archived' && t.status !== 'completed' && t.status !== 'approved').length;
+        }
+
+        if (jobsRes.ok) {
+          const jobsData = await jobsRes.json();
+          const approvalSteps = (jobsData.steps || []).filter((s: any) => s.status === 'waiting_approval');
+          approvalsCount = approvalSteps.length;
+        }
+
+        if (isMounted) {
           setCounts({
-            active: activeJobs.length,
-            approvals: approvalSteps.length
+            active: activeCount,
+            approvals: approvalsCount
           });
         }
-      } catch (err) {
-        console.error('Failed to fetch nav counts:', err);
+      } catch {
+        // Gracefully ignore network dropouts during server rebuilds
       }
     };
     fetchCounts();
-    const interval = setInterval(fetchCounts, 4000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(fetchCounts, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [workspaceId]);
 
   const { modules } = getProductProfile(
     activeProfile?.email,
@@ -113,29 +145,91 @@ export default function CollapsibleNavigationRail({
       badge: m.tab === 'Work Queue' ? counts.active : (m.tab === 'Approvals' ? counts.approvals : undefined)
     }));
 
-  // Categorize nav items into accordion groups
-  const categorizedGroups: { category: string; isStandalone?: boolean; items: typeof navItems }[] = [
+  const isRyanDashboardScope = 
+    typeof window !== 'undefined' && (
+      new URLSearchParams(window.location.search).get('scope') === 'ryans-dashboard' ||
+      localStorage.getItem('customer_app_scope') === 'ryans-dashboard'
+    );
+
+  // Categorize nav items into accordion groups based on scope
+  const categorizedGroups: { category: string; isStandalone?: boolean; items: any[] }[] = isRyanDashboardScope ? [
     {
-      category: 'Ask Nest Ops',
+      category: "Ask Nora",
       isStandalone: true,
-      items: navItems.filter(i => i.tab === 'Workboard' || i.tab === 'Nest Ops Hub')
+      items: [
+        {
+          name: "Ask Nora",
+          tab: "Workboard",
+          icon: Brain,
+          enabled: true
+        }
+      ]
+    },
+    {
+      category: "Daily Work",
+      items: [
+        {
+          name: "Tasks",
+          tab: "Tasks",
+          icon: CheckSquare,
+          enabled: true,
+          badge: counts.active > 0 ? counts.active : undefined
+        },
+        {
+          name: "News",
+          tab: "News",
+          icon: Newspaper,
+          enabled: true
+        }
+      ]
+    },
+    {
+      category: "Brokerage Operations",
+      items: [
+        {
+          name: "Role Map & Escalations",
+          tab: "Role Map",
+          icon: Users,
+          enabled: true
+        },
+        {
+          name: "Directory",
+          tab: "Directory",
+          icon: Contact,
+          enabled: true
+        },
+        {
+          name: "Knowledge Library",
+          tab: "Knowledge Library",
+          icon: BookOpen,
+          enabled: true
+        },
+        {
+          name: "Market Intelligence",
+          tab: "Market Intelligence",
+          icon: BarChart3,
+          enabled: true
+        }
+      ]
+    }
+  ] : [
+    {
+      category: 'Ask Nora',
+      isStandalone: true,
+      items: navItems.filter(i => i.tab === 'Workboard' || i.tab === 'Nest Ops Hub' || i.name === 'Ask Nora')
     },
     {
       category: 'Daily Operations',
-      items: navItems.filter(i => 
-        ["Pitch & 'Aha!' Demo", 'Pre-MLS Board', 'Vendor Dispatch'].includes(i.tab)
-      )
-    },
-    {
-      category: 'Work & Approvals',
-      items: navItems.filter(i => 
-        ['Work Queue', 'Approvals', 'Operating Record'].includes(i.tab)
-      )
+      items: [
+        ...navItems.filter(i => i.tab === 'Tasks' || i.name === 'Tasks' || i.tab === 'Marketing Intake' || i.name === 'Marketing Intake'),
+        ...navItems.filter(i => i.tab === 'News' || i.name === 'News'),
+        ...navItems.filter(i => i.tab === 'Pre-MLS Board' || i.name === 'Pre-MLS Board')
+      ]
     },
     {
       category: 'Brokerage Management',
       items: navItems.filter(i => 
-        !['Workboard', 'Nest Ops Hub', "Pitch & 'Aha!' Demo", 'Pre-MLS Board', 'Vendor Dispatch', 'Work Queue', 'Approvals', 'Operating Record', 'Settings', 'Workspace Settings'].includes(i.tab)
+        !['Workboard', 'Nest Ops Hub', 'Ask Nora', 'Tasks', 'Marketing Intake', 'News', 'Pre-MLS Board', 'Work Queue', 'Approvals', 'Operating Record', 'Settings', 'Workspace Settings'].includes(i.tab)
       )
     }
   ];
@@ -172,17 +266,21 @@ export default function CollapsibleNavigationRail({
 
     let animClass = 'nav-icon-motion';
     if (Icon === Brain) animClass += ' nav-icon-brain';
+    else if (Icon === Phone) animClass += ' nav-icon-phone';
+    else if (Icon === Wrench) animClass += ' nav-icon-wrench';
+    else if (Icon === TrendingUp || Icon === BarChart3) animClass += ' nav-icon-trend';
+    else if (Icon === Users || Icon === Contact) animClass += ' nav-icon-users';
+    else if (Icon === Settings) animClass += ' nav-icon-gear';
     else if (Icon === Inbox) animClass += ' nav-icon-inbox';
-    else if (Icon === CheckCircle) animClass += ' nav-icon-check';
+    else if (Icon === CheckCircle || Icon === CheckSquare) animClass += ' nav-icon-check';
     else if (Icon === Zap) animClass += ' nav-icon-sparkle';
     else if (Icon === Layers) animClass += ' nav-icon-layers';
     else if (Icon === FolderOpen) animClass += ' nav-icon-folder';
     else if (Icon === Shield) animClass += ' nav-icon-shield';
-    else if (Icon === FileText) animClass += ' nav-icon-marketing';
-    else if (Icon === Link2) animClass += ' nav-icon-link';
-    else if (Icon === Settings) animClass += ' nav-icon-gear';
-    else if (Icon === Users) animClass += ' nav-icon-users';
-    else if (Icon === CheckSquare) animClass += ' nav-icon-check';
+    else if (Icon === FileText || Icon === BookOpen) animClass += ' nav-icon-book';
+    else if (Icon === Building2 || Icon === Home) animClass += ' nav-icon-building';
+    else if (Icon === Link2 || Icon === Link) animClass += ' nav-icon-link';
+    else if (Icon === Clock) animClass += ' nav-icon-clock';
 
     return (
       <button
@@ -202,17 +300,8 @@ export default function CollapsibleNavigationRail({
         }`}
         aria-label={item.name}
       >
-        {item.tab === 'Workboard' || item.tab === 'Nest Ops Hub' || Icon === Brain ? (
-          <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 flex items-center justify-center pointer-events-none shadow-xs">
-            <video
-              src="/nest_ops_orb.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="w-full h-full object-cover pointer-events-none motion-reduce:animate-none"
-            />
-          </div>
+        {item.tab === 'Workboard' || item.tab === 'Nest Ops Hub' || item.tab === 'Ask Nest Ops' || item.tab === 'Ask Nora' || item.name === 'Ask Nest Ops' || item.name === 'Ask Nora' || Icon === Brain ? (
+          <NestOrbVisualizer size="sm" customSize={24} className="shadow-xs" />
         ) : (
           <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${animClass} ${isActive ? 'text-white' : isDisabled ? 'text-[var(--sw-text-muted)]' : 'text-[var(--brand-primary)] group-hover:text-[var(--brand-primary)]'}`} />
         )}
@@ -268,11 +357,11 @@ export default function CollapsibleNavigationRail({
               </picture>
             ) : (
               <div className="flex items-center justify-center gap-2.5 font-serif font-bold select-none mx-auto">
-                <div className="w-8 h-8 rounded-xl bg-[#00635C] text-white flex items-center justify-center font-sans text-xs font-black shadow-sm shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-[var(--brand-primary)] text-white flex items-center justify-center font-sans text-xs font-black shadow-sm shrink-0">
                   N
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-xs tracking-tight text-[#00635C] font-extrabold uppercase font-sans leading-none">NEST REALTY</span>
+                  <span className="text-xs tracking-tight text-[var(--brand-primary)] font-extrabold uppercase font-sans leading-none">NEST REALTY</span>
                   <span className="text-[9px] text-stone-500 font-medium font-sans mt-0.5">Wilmington Ops</span>
                 </div>
               </div>
@@ -288,7 +377,7 @@ export default function CollapsibleNavigationRail({
                 onError={() => setCollapsedLogoFailed(true)}
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-[#00635C] text-white flex items-center justify-center font-serif text-sm font-bold shadow-sm mx-auto select-none">
+              <div className="w-8 h-8 rounded-full bg-[var(--brand-primary)] text-white flex items-center justify-center font-serif text-sm font-bold shadow-sm mx-auto select-none">
                 n
               </div>
             )}
@@ -305,6 +394,40 @@ export default function CollapsibleNavigationRail({
           </button>
         )}
       </div>
+
+      {/* Scope Switcher Banner */}
+      {(!collapsed || isMobileOpen) && (
+        <div className="mx-3 mt-2.5 mb-1 p-2 bg-stone-100/90 border border-stone-200 rounded-xl flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs shrink-0">{isRyanDashboardScope ? '👑' : '🏢'}</span>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold text-stone-900 truncate font-mono">
+                {isRyanDashboardScope ? "Ryan's Dashboard" : "nest-realty-demo"}
+              </div>
+              <div className="text-[8px] text-stone-500 truncate">
+                {isRyanDashboardScope ? "Executive Owner View" : "Full Brokerage Operations"}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (isRyanDashboardScope) {
+                localStorage.setItem('customer_app_scope', 'nest-realty-demo');
+                window.location.href = '/app/workboard?scope=nest-realty-demo';
+              } else {
+                localStorage.setItem('customer_app_scope', 'ryans-dashboard');
+                localStorage.setItem('shapework_active_profile_id', 'usr_ryan');
+                window.location.href = '/app/ryan-shield?scope=ryans-dashboard';
+              }
+            }}
+            className="text-[9px] font-bold text-[var(--brand-primary)] hover:opacity-80 shrink-0 hover:underline px-1.5 py-0.5 rounded bg-white border border-stone-200 cursor-pointer shadow-2xs"
+            title={isRyanDashboardScope ? "Switch to Full Workspace" : "Switch to Ryan's Dashboard"}
+          >
+            {isRyanDashboardScope ? "All Tabs →" : "Ryan's View →"}
+          </button>
+        </div>
+      )}
 
       {/* Nav List with Accordion Categories & Hidden Scrollbar */}
       <div 

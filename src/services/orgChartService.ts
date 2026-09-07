@@ -49,6 +49,8 @@ export type OrgPosition = {
   hiringNotes?: string;
   coverageGap?: string;
   connectedTools?: string[];
+  sopIds?: string[];
+  isVacant?: boolean;
 };
 
 export type OrgRole = {
@@ -348,13 +350,34 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     updatedAt: new Date().toISOString()
   },
   {
+    id: 'pos_tech',
+    workspaceId: 'nest-realty-demo',
+    name: 'Marcus Aman',
+    title: 'Broker / Tech Lead',
+    department: 'Operations',
+    office: 'Wilmington',
+    email: 'marcus.aman@gmail.com',
+    phone: '(252) 717-0595',
+    reportsToPositionId: 'pos_ryan',
+    backupPositionId: 'pos_ann',
+    visibilityLevel: 'internal',
+    roleIds: ['role_tech_lead'],
+    x: 400,
+    y: 400,
+    avatarUrl: '',
+    status: 'active',
+    connectedTools: ['GitHub', 'Slack', 'Gmail'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
     id: 'pos_bic',
     workspaceId: 'nest-realty-demo',
     name: 'Jessica Keenan',
     title: 'Broker-in-Charge',
     department: 'Brokers-in-Charge',
     office: 'Wilmington',
-    email: 'jessica@nestrealty.com',
+    email: 'jessica.keenan@nestrealty.com',
     phone: '910-555-0104',
     reportsToPositionId: 'pos_ryan',
     backupPositionId: 'pos_eric',
@@ -431,16 +454,21 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
   {
     id: 'pos_va',
     workspaceId: 'nest-realty-demo',
-    name: 'Virtual Assistant(s)',
-    title: 'Virtual Assistant',
+    name: 'Eduardo Lovo',
+    title: 'Virtual Assistant & Marketing Production',
     department: 'Marketing',
     office: 'Remote',
+    email: 'eduardo.lovo@nestrealty.com',
+    phone: '(910) 507-2047',
     reportsToPositionId: 'pos_melissa',
+    backupPositionId: 'pos_melissa',
     visibilityLevel: 'internal',
     roleIds: ['role_va'],
     x: 600,
     y: 580,
-    status: 'planned',
+    status: 'active',
+    avatarUrl: 'https://bc3-production-assets-cdn.basecamp-static.com/4351808/people/BAhpBEi%2FJQM=--56e9a4f0579d2ebea9c9537c5c84e336d8c2108e/avatar',
+    connectedTools: ['Maxa', 'Canva', 'Gmail'],
     priority: 'normal',
     coverageGap: 'Marketing execution bandwidth support',
     businessCase: 'Provide posting, graphic formatting, and listing launch administrative support to Melissa.',
@@ -751,6 +779,18 @@ const DEFAULT_ROLES: OrgRole[] = [
     description: 'Reception, hospitality, signs and lockboxes, office stocking, upkeep, facilities maintenance.',
     categories: ['Office supplies', 'Room reservation'],
     sopIds: [],
+    escalationPolicyIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'role_tech_lead',
+    workspaceId: 'nest-realty-demo',
+    positionId: 'pos_tech',
+    name: 'Technology & Systems Support',
+    description: 'Internal platform systems, hardware, networks, and brokerage tech infrastructure.',
+    categories: ['IT / systems', 'Technology'],
+    sopIds: ['sop_listing_launch_001'],
     escalationPolicyIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -1102,24 +1142,24 @@ const DEFAULT_ESCALATIONS: EscalationPolicy[] = [
 ];
 
 const DEFAULT_ROUTING_MATRIX: RoutingMatrixItem[] = [
-  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Carolina Beach', officeCondition: { office: 'Carolina Beach', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_compliance_file', escalationPolicyId: 'esc_compliance_risk' },
-  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Mayfaire', officeCondition: { office: 'Mayfaire', operator: 'is' }, primaryOwnerPositionId: 'pos_eric', backupOwnerPositionId: 'pos_bic', sla: '4 hours', status: 'active', sopId: 'sop_compliance_file', escalationPolicyId: 'esc_compliance_risk' },
+  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Carolina Beach', officeCondition: { office: 'Carolina Beach', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_form_2t_review_012', escalationPolicyId: 'esc_compliance_risk' },
+  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Mayfaire', officeCondition: { office: 'Mayfaire', operator: 'is' }, primaryOwnerPositionId: 'pos_eric', backupOwnerPositionId: 'pos_bic', sla: '4 hours', status: 'active', sopId: 'sop_form_2t_review_012', escalationPolicyId: 'esc_compliance_risk' },
   { category: 'Agent question', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours', status: 'active' },
   { category: 'Compliance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_compliance_risk', status: 'active' },
-  { category: 'Contract / transaction issue', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours', status: 'active' },
-  { category: 'Accounting / commissions', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_deal_at_risk', status: 'active' },
+  { category: 'Contract / transaction issue', displayName: 'Form 2-T Contract Review & EMD', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_form_2t_review_012' },
+  { category: 'Accounting / commissions', displayName: 'Commission Disbursement Authorization (CDA)', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_deal_at_risk', status: 'active', sopId: 'sop_commission_disbursement_015' },
   { category: 'Payables / bills / receipts', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '48 hours', status: 'active' },
-  { category: 'Marketing request', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', status: 'active' },
-  { category: 'Listing marketing', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', status: 'active' },
+  { category: 'Marketing request', displayName: 'Marketing Collateral & Flyer Production', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_va', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active', sopId: 'sop_marketing_intake_003' },
+  { category: 'Listing marketing', displayName: 'Listing Marketing Launch', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_va', backupOwnerPositionId: 'pos_melissa', sla: '12 hours', status: 'active', sopId: 'sop_marketing_intake_003' },
   { category: 'Agent branding', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '72 hours', status: 'active' },
   { category: 'Business cards / print materials', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ann', sla: '48 hours', status: 'active' },
-  { category: 'Signs / riders', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active' },
+  { category: 'Signs / riders', displayName: 'Yard Sign Post Installation', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active', sopId: 'sop_sign_vendor_004' },
   { category: 'Lockboxes / keys', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', escalationPolicyId: 'esc_showing_blocked', status: 'active' },
   { category: 'Office supplies', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '48 hours', status: 'active' },
   { category: 'Room reservation', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '2 hours', status: 'active' },
   { category: 'Vendor / maintenance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', status: 'active' },
   { category: 'Event support', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '72 hours', status: 'active' },
-  { category: 'IT / systems', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', status: 'active' },
+  { category: 'IT / systems', displayName: 'Technology / Systems Assistance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_tech', backupOwnerPositionId: 'pos_ann', sla: '12 hours', status: 'active' },
   { category: 'Leadership decision', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ryan', backupOwnerPositionId: 'pos_bic', sla: '24 hours', status: 'active' }
 ];
 
@@ -1278,7 +1318,9 @@ const DEFAULT_LOGIC_NODES: OrgLogicNode[] = [
 export const orgChartService = {
   getOrgChart(workspaceId: string): OrgModel {
     const key = `org_chart_${workspaceId}`;
-    const cached = localStorage.getItem(key);
+    const cached = (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') 
+      ? localStorage.getItem(key) 
+      : null;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
@@ -1463,7 +1505,7 @@ export const orgChartService = {
 
   saveOrgChart(workspaceId: string, model: OrgModel): void {
     const key = `org_chart_${workspaceId}`;
-    if (typeof localStorage !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
       localStorage.setItem(key, JSON.stringify(model));
     }
 
@@ -1490,7 +1532,7 @@ export const orgChartService = {
         const data = await res.json();
         if (data && data.model && data.model.positions && data.model.positions.length > 0) {
           const key = `org_chart_${workspaceId}`;
-          if (typeof localStorage !== 'undefined') {
+          if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
             localStorage.setItem(key, JSON.stringify(data.model));
           }
           return data.model;
@@ -1902,7 +1944,7 @@ export const orgChartService = {
 
     // 3. Routing Matrix
     md += `## Routing Matrix\n\n`;
-    md += `| Request Category | Primary Owner | Backup Owner | Target SLA | Escalation Link |\n`;
+    md += `| Request Category | Primary Owner | Backup Owner | Due Time | Escalation Link |\n`;
     md += `| :--- | :--- | :--- | :--- | :--- |\n`;
     if (model.routingMatrix) {
       model.routingMatrix.forEach(row => {
@@ -2164,5 +2206,56 @@ export const orgChartService = {
     }
 
     return md;
+  },
+
+  async fetchPublishedPolicy(workspaceId: string): Promise<{ policy: any; rules: any[] } | null> {
+    if (typeof fetch === 'undefined') return null;
+    try {
+      const res = await fetch(`/api/org-chart/published?workspaceId=${encodeURIComponent(workspaceId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data?.published || null;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch published routing policy:', err);
+    }
+    return null;
+  },
+
+  async publishRoutingPolicy(workspaceId: string, authorUser = 'Authorized Lead'): Promise<{ success: boolean; published?: any; error?: string }> {
+    if (typeof fetch === 'undefined') return { success: false, error: 'Network unavailable' };
+    try {
+      const res = await fetch('/api/org-chart/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, authorUser })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || data.message || 'Failed to publish policy' };
+      }
+      return { success: true, published: data.published };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during publication' };
+    }
+  },
+
+  async previewRouting(workspaceId: string, input: any): Promise<{ success: boolean; preview?: any; error?: string }> {
+    if (typeof fetch === 'undefined') return { success: false, error: 'Network unavailable' };
+    try {
+      const res = await fetch('/api/org-chart/routing-rules/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...input, workspaceId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || data.message || 'Preview failed' };
+      }
+      return { success: true, preview: data.preview };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during routing preview' };
+    }
   }
 };
+

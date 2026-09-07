@@ -78,8 +78,8 @@ export default function MyConnections({ state }: MyConnectionsProps) {
         },
         body: JSON.stringify({
           status: nextStatus,
-          actorEmail: state.activeProfile?.email || 'sarah.j@nestrealty.com',
-          actorName: state.activeProfile?.name || 'Sarah Jenkins'
+          actorEmail: state.activeProfile?.email || 'ann@nestrealty.com',
+          actorName: state.activeProfile?.name || 'Ann Gunn'
         })
       });
       if (res.ok) {

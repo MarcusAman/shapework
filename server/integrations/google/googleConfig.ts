@@ -9,6 +9,11 @@ export interface GoogleConfig {
   redirectUri: string;
   scopesProfile: string;
   appBaseUrl: string;
+  serviceAccountEmail?: string;
+  serviceAccountPrivateKey?: string;
+  serviceAccountClientId?: string;
+  serviceAccountProjectId?: string;
+  workspaceSubject?: string;
 }
 
 export function getGoogleConfig(): GoogleConfig {
@@ -19,9 +24,18 @@ export function getGoogleConfig(): GoogleConfig {
   const scopesProfile = process.env.GOOGLE_OAUTH_SCOPES_PROFILE || 'email profile openid';
   const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
 
-  const isEnabled = !!clientId;
+  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '';
+  let serviceAccountPrivateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '';
+  if (serviceAccountPrivateKey && serviceAccountPrivateKey.includes('\\n')) {
+    serviceAccountPrivateKey = serviceAccountPrivateKey.replace(/\\n/g, '\n');
+  }
+  const serviceAccountClientId = process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_ID || '';
+  const serviceAccountProjectId = process.env.GOOGLE_SERVICE_ACCOUNT_PROJECT_ID || '';
+  const workspaceSubject = process.env.GOOGLE_WORKSPACE_SUBJECT || process.env.ASK_NORA_WORKSPACE_EMAIL || 'AskNora@nestrealty.com';
 
-  if (isEnabled) {
+  const isEnabled = !!clientId || !!serviceAccountEmail;
+
+  if (isEnabled && !serviceAccountEmail) {
     const missing: string[] = [];
     if (!clientSecret) missing.push('GOOGLE_CLIENT_SECRET');
     if (!redirectUri) missing.push('GOOGLE_REDIRECT_URI');
@@ -44,10 +58,21 @@ export function getGoogleConfig(): GoogleConfig {
     clientSecret,
     redirectUri,
     scopesProfile,
-    appBaseUrl
+    appBaseUrl,
+    serviceAccountEmail,
+    serviceAccountPrivateKey,
+    serviceAccountClientId,
+    serviceAccountProjectId,
+    workspaceSubject
   };
 }
 
-export function isGoogleEnabled(): boolean {
-  return !!process.env.GOOGLE_CLIENT_ID;
+export function isGoogleServiceAccountConfigured(): boolean {
+  const cfg = getGoogleConfig();
+  return !!(cfg.serviceAccountEmail && cfg.serviceAccountPrivateKey);
 }
+
+export function isGoogleEnabled(): boolean {
+  return !!process.env.GOOGLE_CLIENT_ID || isGoogleServiceAccountConfigured();
+}
+

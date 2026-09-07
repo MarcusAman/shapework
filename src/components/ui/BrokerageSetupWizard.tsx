@@ -32,7 +32,7 @@ export default function BrokerageSetupWizard({ onLaunchWorkspace }: BrokerageSet
 
   // Step 2: People
   const [people, setPeople] = useState([
-    { name: 'Sarah Jenkins', role: 'COO / Operations Leader', permissions: 'Full Admin' },
+    { name: 'Ann Gunn', role: 'ATC & Operations Lead', permissions: 'Full Admin' },
     { name: 'Frank Miller', role: 'Managing Broker', permissions: 'Compliance Approval' },
     { name: 'Diane Ross', role: 'Transaction Coordinator', permissions: 'Deal Management' },
     { name: 'Emma Watson', role: 'Listing Coordinator', permissions: 'Listing Intake' },
@@ -548,7 +548,7 @@ export default function BrokerageSetupWizard({ onLaunchWorkspace }: BrokerageSet
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-tertiary">Coordinators Assigned:</span>
-                  <span className="font-semibold text-text-secondary">Sarah Jenkins, Diane Ross, Emma Watson</span>
+                  <span className="font-semibold text-text-secondary">Ann Gunn, Diane Ross, Emma Watson</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-tertiary">Configured Deal Stages:</span>

@@ -16,13 +16,14 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  // Exempt public intake endpoints (e.g. login, activate, forgot-password)
+  // Exempt public intake endpoints and server-to-server HMAC-verified webhooks
   const exemptPaths = [
     '/api/auth/login',
     '/api/auth/activate',
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
-    '/api/discovery/inquire'
+    '/api/discovery/inquire',
+    '/api/retell/'
   ];
 
   if (exemptPaths.some(p => req.path.startsWith(p))) {

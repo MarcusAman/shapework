@@ -6,8 +6,8 @@
     "Ryan Crecelius (Broker-in-Charge / Owner)",
     "Melissa Gagliardi (Marketing Director)"
   ],
-  "createdAt": "2026-09-03T20:37:19.776Z",
-  "candidateSourceChecksum": "9fe6db86fb1f9d21321be6083e7eb6e42c8a93b7713728ebfb9a03256252f516",
+  "createdAt": "2026-09-05T19:51:57.086Z",
+  "candidateSourceChecksum": "93450a6741be5f8f86fb290cfd0b142671dded03e3cf95cf22dcf8e4d6d90b61",
   "acceptanceWarning": "LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH",
   "metrics": {
     "totalRequests": 3,
@@ -40,7 +40,7 @@
       "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_310_CHESTNUT_ST",
       "isArchived": false,
       "createdAt": "2026-09-03T19:23:51.715Z",
-      "updatedAt": "2026-09-03T19:23:51.716Z",
+      "updatedAt": "2026-09-04T16:14:56.763Z",
       "normalizedPropertyKey": "310 chestnut st wilmington nc",
       "workspaceId": "ws_wilmington_staging",
       "policyVersion": "nora_marketing_intake_v2.1",
@@ -67,7 +67,7 @@
       ],
       "isArchived": false,
       "createdAt": "2026-09-03T19:23:10.641Z",
-      "updatedAt": "2026-09-03T19:23:10.641Z",
+      "updatedAt": "2026-09-04T16:14:56.774Z",
       "agentPhone": null,
       "category": null,
       "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nExisting active container",
@@ -95,7 +95,7 @@
       "photos": [],
       "attachments": [],
       "createdAt": "2026-09-03T19:22:28.981Z",
-      "updatedAt": "2026-09-03T19:22:29.271Z",
+      "updatedAt": "2026-09-04T16:14:56.779Z",
       "requestExcerpt": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n2381 Pembroke Jones Dr, Wilmington, NC 28405 • Marketing Package"
     }
   ],
@@ -114,20 +114,22 @@
       "attachments": [],
       "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_310_CHESTNUT_ST",
       "isArchived": false,
-      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Needs Info]: photoReferences. Nora dispatched clarification email.\n[Raw Email Excerpt]: Need flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.",
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Needs Info]: photoReferences. Nora dispatched clarification email.\n[Raw Email Excerpt]: Need flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.\n[2026-09-04T16:14:56.762Z] Melissa Gagliardi: Archived via bulk action",
       "createdAt": "2026-09-03T19:23:51.715Z",
-      "updatedAt": "2026-09-03T19:23:51.716Z",
+      "updatedAt": "2026-09-04T16:14:56.762Z",
       "dueAt": "2026-09-05T19:23:51.697Z",
       "policyVersion": "nora_marketing_intake_v2.1",
       "knowledgeVersion": "nest_handbook_2026.1",
+      "archivedAt": "2026-09-04T16:14:56.762Z",
       "approvalHistory": [
         {
-          "action": "Transition from in_progress to needs_info (Remediation)",
-          "performedBy": "System Remediation / Operations Governance",
-          "timestamp": "2026-09-03T21:28:14.493Z",
-          "note": "Remediation: Reversed invalid acceptance transition from needs_info to in_progress to restore canonical lifecycle compliance."
+          "action": "Transition from needs_info to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.762Z",
+          "note": "Archived via bulk action"
         }
-      ]
+      ],
+      "workspaceId": "ws_wilmington"
     },
     {
       "id": "tsk_email_1788463431715_0_a2up2",
@@ -143,12 +145,22 @@
       "attachments": [],
       "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_310_CHESTNUT_ST",
       "isArchived": false,
-      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Needs Info]: photoReferences. Nora dispatched clarification email.\n[Raw Email Excerpt]: Need flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.",
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Needs Info]: photoReferences. Nora dispatched clarification email.\n[Raw Email Excerpt]: Need flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.\n[2026-09-04T16:14:56.763Z] Melissa Gagliardi: Archived via bulk action",
       "createdAt": "2026-09-03T19:23:51.715Z",
-      "updatedAt": "2026-09-03T19:23:51.715Z",
+      "updatedAt": "2026-09-04T16:14:56.763Z",
       "dueAt": "2026-09-05T19:23:51.697Z",
       "policyVersion": "nora_marketing_intake_v2.1",
-      "knowledgeVersion": "nest_handbook_2026.1"
+      "knowledgeVersion": "nest_handbook_2026.1",
+      "archivedAt": "2026-09-04T16:14:56.763Z",
+      "approvalHistory": [
+        {
+          "action": "Transition from needs_info to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.763Z",
+          "note": "Archived via bulk action"
+        }
+      ],
+      "workspaceId": "ws_wilmington"
     },
     {
       "id": "tsk_active_survivor_1788463390481",
@@ -163,9 +175,9 @@
       "status": "in_progress",
       "isArchived": false,
       "createdAt": "2026-09-03T19:23:10.712Z",
-      "updatedAt": "2026-09-03T19:23:11.910Z",
+      "updatedAt": "2026-09-04T16:14:56.774Z",
       "assignedToRole": "Marketing Director",
-      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nActive brochure task\n\n[Reconciled Email Follow-up from Matt Orr (matt.orr@nestrealty.com)]: The address is 5077 Soundview Dr, Wilmington, NC 28409. Please merge into my active brochure and see the updated notes.",
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nActive brochure task\n\n[Reconciled Email Follow-up from Matt Orr (matt.orr@nestrealty.com)]: The address is 5077 Soundview Dr, Wilmington, NC 28409. Please merge into my active brochure and see the updated notes.\n[2026-09-04T16:14:56.774Z] Melissa Gagliardi: Archived via bulk action",
       "photos": [
         {
           "id": "legacy_aerial_survey.jpg_1024",
@@ -188,7 +200,15 @@
           "hash": "legacy_hash_7b614909e9917ff3419ee4aabbb37bd53e95850f8d9c11aa03e1f0c25d1d8cd5"
         }
       ],
-      "approvalHistory": []
+      "approvalHistory": [
+        {
+          "action": "Transition from in_progress to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.774Z",
+          "note": "Archived via bulk action"
+        }
+      ],
+      "archivedAt": "2026-09-04T16:14:56.774Z"
     },
     {
       "id": "tsk_seed_recon_1788463348828",
@@ -202,7 +222,7 @@
       "assignedTo": "Melissa Gagliardi",
       "assignedToRole": "Marketing Director",
       "status": "ready_for_review",
-      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nSeeded task awaiting photos and price.\n\n[Reconciled Email Update]: Added new information and attachments.",
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nSeeded task awaiting photos and price.\n\n[Reconciled Email Update]: Added new information and attachments.\n[2026-09-04T16:14:56.778Z] Melissa Gagliardi: Archived via bulk action",
       "photos": [],
       "attachments": [],
       "isArchived": false,
@@ -211,10 +231,17 @@
           "user": "Matt Orr",
           "action": "intake_seeded",
           "timestamp": "2026-09-03T19:22:28.965Z"
+        },
+        {
+          "action": "Transition from ready_for_review to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.778Z",
+          "note": "Archived via bulk action"
         }
       ],
       "createdAt": "2026-09-03T19:22:29.051Z",
-      "updatedAt": "2026-09-03T19:22:29.343Z"
+      "updatedAt": "2026-09-04T16:14:56.778Z",
+      "archivedAt": "2026-09-04T16:14:56.778Z"
     }
   ]
 }

@@ -26,8 +26,9 @@ export default function SOPProcessView({ selectedSop }: SOPProcessViewProps) {
             </span>
             <h4 className="font-serif font-bold text-sm text-stone-900 mt-1">{step.title}</h4>
             <p className="text-xs text-stone-600 font-medium leading-relaxed">{step.instruction}</p>
-            <div className="flex justify-between items-center text-xs font-medium text-stone-500 pt-2 border-t border-stone-200/60">
-              <span>Assigned to: <strong className="text-stone-900 font-bold">{step.assignedRole}</strong></span>
+            <div className="flex flex-wrap justify-between items-center text-xs font-medium text-stone-500 pt-2 border-t border-stone-200/60 gap-2">
+              <span>Assigned: <strong className="text-stone-900 font-bold">{step.assignedRole || step.role || 'Admin Coordinator'}</strong></span>
+              <span>Tool: <strong className="text-[#00635C] font-bold">{step.connectedTool || step.systemUsed || 'Rechat'}</strong></span>
               <span>Duration: {step.expectedDuration || '1 hour'}</span>
             </div>
           </div>

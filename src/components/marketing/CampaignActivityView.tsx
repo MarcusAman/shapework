@@ -1,6 +1,6 @@
 import React from 'react';
-import { Clock, CheckCircle2, User, Sparkles, AlertCircle, FileText } from 'lucide-react';
-import { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
+import { Clock, CheckCircle2, User, Layers, AlertCircle, FileText } from 'lucide-react';
+import type { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
 
 export interface CampaignActivityViewProps {
   campaign: ListingMarketingCampaign;
@@ -12,6 +12,10 @@ export const CampaignActivityView: React.FC<CampaignActivityViewProps> = ({ camp
   const agentName = req?.capturedByAgentName || 'Ava · AI Phone Agent';
 
   // Story events
+  const hasMissingInfo = Array.isArray(req?.missingInformation)
+    ? req.missingInformation.length > 0
+    : Boolean(req?.missingInformation);
+
   const storyEvents = [
     {
       time: '9:14 AM',
@@ -25,9 +29,9 @@ export const CampaignActivityView: React.FC<CampaignActivityViewProps> = ({ camp
       actor: 'Shapework Brief Engine',
       title: 'Shapework created the campaign brief',
       description: 'Structured campaign objective, 5 collateral formats, and Nest Wilmington brand rules.',
-      icon: <Sparkles className="w-4 h-4 text-sky-700" />
+      icon: <Layers className="w-4 h-4 text-sky-700" />
     },
-    ...(req?.missingInformation?.length > 0 ? [
+    ...(hasMissingInfo ? [
       {
         time: '9:16 AM',
         actor: 'Brief Engine',

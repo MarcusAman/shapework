@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -11,7 +11,7 @@ interface State {
   error: Error | null;
 }
 
-export class MarketingErrorBoundary extends Component<Props, State> {
+export class MarketingErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
@@ -26,11 +26,14 @@ export class MarketingErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    (this as any).setState({ hasError: false, error: null });
   };
 
   public render() {
-    if (this.state.hasError) {
+    const state = (this as any).state as State;
+    const props = (this as any).props as Props;
+
+    if (state?.hasError) {
       return (
         <div
           data-testid="marketing-error-boundary"
@@ -43,7 +46,7 @@ export class MarketingErrorBoundary extends Component<Props, State> {
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">
-                {this.props.fallbackTitle || 'Unable to render this marketing view'}
+                {props?.fallbackTitle || 'Unable to render this marketing view'}
               </h2>
               <p className="text-xs text-slate-300">
                 An unexpected component error occurred. Your existing work and data have not been affected.
@@ -51,33 +54,25 @@ export class MarketingErrorBoundary extends Component<Props, State> {
             </div>
           </div>
 
-          {this.state.error && (
+          {state.error && (
             <div className="p-3 bg-[#01251f] rounded-xl border border-rose-500/20 text-xs font-mono text-rose-300 overflow-x-auto">
-              {this.state.error.message}
+              {state.error.message}
             </div>
           )}
 
-          <div className="pt-2 flex items-center gap-3">
+          <div className="pt-2">
             <button
-              type="button"
               onClick={this.handleReset}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm"
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>Try Again</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs rounded-xl transition-all border border-slate-700 cursor-pointer"
-            >
-              Reload Page
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Component</span>
             </button>
           </div>
         </div>
       );
     }
 
-    return this.props.children;
+    return props?.children;
   }
 }

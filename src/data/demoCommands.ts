@@ -292,12 +292,12 @@ I can safely prepare 2 automated follow-up drafts with low risk:
         steps: [
           { id: 's1', action: 'Query aggregate health inputs and trend scores', target: 'Database averages', system: 'shapework', status: 'completed', requires_approval: false },
           { id: 's2', action: 'Save summary PDF to Google Drive operations folder', target: 'operations/briefs', system: 'Google Docs', status: 'pending', requires_approval: false },
-          { id: 's3', action: 'Email formatted briefing sheet to Sarah Jenkins', target: 'sarah.j@nest-demo.local', system: 'Gmail', status: 'pending', requires_approval: true }
+          { id: 's3', action: 'Email formatted briefing sheet to Ann Gunn', target: 'ann.g@nest-demo.local', system: 'Gmail', status: 'pending', requires_approval: true }
         ],
         risk_level: 'low',
         requires_approval: true,
         execution_status: 'draft',
-        impact_estimate: 'Prepares executive summary PDF and emails it to the COO.'
+        impact_estimate: 'Prepares executive summary PDF and emails it to Operations Lead.'
       }
     };
   }

@@ -954,7 +954,7 @@ export default function InternalSurveyBuilderView({
                           disabled
                           className="w-full px-2.5 py-1.5 bg-[var(--sw-bg-soft)] border border-[var(--sw-border)] rounded-xl opacity-60 cursor-not-allowed"
                         >
-                          <option>Sarah Jenkins (usr_sarah)</option>
+                          <option>Ann Gunn (dir_ann_gunn_28)</option>
                         </select>
                       </div>
                     </div>

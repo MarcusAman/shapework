@@ -5,6 +5,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getAllStaffMembers, resolveStaffMember } from './operationsDirectoryRepository.js';
+import { canonicalTaskRoutingService } from '../services/canonicalTaskRoutingService.js';
+import { OfficeSupplyDeduplicationService } from '../services/officeSupplyDeduplicationService.js';
 
 const isProduction = () => typeof process !== 'undefined' && (process.env?.NODE_ENV === 'production' || process.env?.APP_ENV === 'production') && process.env?.ALLOW_FILE_STORAGE_UAT !== 'true';
 
@@ -785,12 +788,12 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
     capturedByAgentId: 'agent_shapework_email',
     capturedByAgentName: 'Shapework Email Agent',
     capturedByAgentType: 'email_agent',
-    requestedByPersonId: 'person_sarah_jenkins',
-    requestedByName: 'Sarah Jenkins',
-    requestedByRole: 'Listing Agent',
-    onBehalfOfPersonId: 'person_sarah_jenkins',
-    onBehalfOfName: 'Sarah Jenkins',
-    onBehalfOfRole: 'Listing Agent',
+    requestedByPersonId: 'dir_jessica_keenan_8',
+    requestedByName: 'Jessica Keenan',
+    requestedByRole: 'Broker-in-Charge',
+    onBehalfOfPersonId: 'dir_jessica_keenan_8',
+    onBehalfOfName: 'Jessica Keenan',
+    onBehalfOfRole: 'Broker-in-Charge',
     propertyId: 'prop_212_wetland',
     listingSnapshotId: 'snap_212_v1',
     originalRequestText: 'Hi Shapework, please create a marketing package for my new listing at 212 Wetland Court. Need flyer, postcard, and sign rider ready ASAP. Standard Nest Wilmington brand kit.',
@@ -808,10 +811,10 @@ export function getCampaignWetland212(): ListingMarketingCampaign {
     requestId: 'req_212_wetland_email',
     type: 'email_message',
     subject: 'Marketing Package Request: 212 Wetland Court',
-    from: 'sarah.jenkins@nestrealty.com',
+    from: 'jessica.keenan@nestrealty.com',
     to: 'marketing-agent@nestrealty.com',
     timestamp: '2026-08-02T08:42:00Z',
-    rawText: `From: Sarah Jenkins <sarah.jenkins@nestrealty.com>
+    rawText: `From: Jessica Keenan <jessica.keenan@nestrealty.com>
 To: Shapework Email Agent <marketing-agent@nestrealty.com>
 Subject: Marketing Package Request: 212 Wetland Court
 Date: Sun, 2 Aug 2026 08:42:00 -0400
@@ -821,7 +824,7 @@ Hi Shapework team,
 Please create a marketing package for my new listing at 212 Wetland Court. Need the property flyer, postcard, and sign rider ready ASAP.
 
 Thanks,
-Sarah Jenkins
+Jessica Keenan
 Nest Realty Wilmington`
   };
 
@@ -829,7 +832,7 @@ Nest Realty Wilmington`
     id: 'campaign_212_wetland',
     workspaceId: 'nest-realty-demo',
     propertyAddress: '212 Wetland Court, Wilmington, NC 28411',
-    listingAgentId: 'agent_sarah_jenkins',
+    listingAgentId: 'dir_jessica_keenan_8',
     marketingOwnerId: 'marketing_melissa',
     status: 'preparing',
     request,
@@ -858,10 +861,10 @@ Nest Realty Wilmington`
         'Screened Wrap-Around Porch',
         'Quiet Cul-de-sac Location'
       ],
-      listingAgentId: 'agent_sarah_jenkins',
-      listingAgentName: 'Sarah Jenkins',
-      listingAgentEmail: 'sarah@nestrealty.com',
-      listingAgentPhone: '(910) 555-0144',
+      listingAgentId: 'dir_jessica_keenan_8',
+      listingAgentName: 'Jessica Keenan',
+      listingAgentEmail: 'jessica.keenan@nestrealty.com',
+      listingAgentPhone: '(910) 368-1507',
       brokerInChargeName: 'Ryan Crecelius (BIC)',
       approvedSourcePhotos: photos,
       source: 'crm',
@@ -920,10 +923,10 @@ Nest Realty Wilmington`
       positioning: 'Serene coastal cottage with expansive marsh views',
       keySellingPoints: ['3 Bed 3 Bath', 'Marshfront Lot', 'Screened Porch'],
       requiredDisclosures: ['Equal Housing Opportunity'],
-      callToAction: 'Contact Sarah Jenkins at (910) 555-0144',
+      callToAction: 'Contact Jessica Keenan at (910) 368-1507',
       selectedAssetFormats: ['flyer', 'postcard', 'sign_rider'],
       dueTargetDate: '2026-08-01',
-      reviewOwner: 'Sarah Jenkins',
+      reviewOwner: 'Jessica Keenan',
       specialInstructions: []
     },
     assets: {
@@ -959,7 +962,7 @@ Nest Realty Wilmington`
         action: 'EMAIL_REQUEST_CAPTURED',
         performedBy: 'Shapework Email Agent',
         timestamp: '2026-08-02T08:42:00Z',
-        details: 'Received email request from Sarah Jenkins.'
+        details: 'Received email request from Jessica Keenan.'
       },
       {
         id: 'audit_212_02',
@@ -1480,8 +1483,8 @@ export function getCampaign1104Arboretum(): ListingMarketingCampaign {
     status: 'in_production',
     request: {
       id: 'req_1104_arboretum_web',
-      requestedByName: 'Sarah Jenkins',
-      requestedByRole: 'Listing Broker',
+      requestedByName: 'Jessica Keenan',
+      requestedByRole: 'Broker-in-Charge',
       channel: 'web',
       originalRequestText: 'Produce full print & digital collateral package in Nest Design Center for 1104 Arboretum Dr Landfall Golf Villa.',
       aiSummary: 'Full listing collateral package for 1104 Arboretum Dr assigned to Eduardo (VA).',
@@ -1510,10 +1513,10 @@ export function getCampaign1104Arboretum(): ListingMarketingCampaign {
         'Panoramic Views of Landfall Dye Course #14',
         'Chef Kitchen with Sub-Zero and Wolf Suite'
       ],
-      listingAgentId: 'agent_sarah',
-      listingAgentName: 'Sarah Jenkins',
-      listingAgentEmail: 'sarah@nestrealty.com',
-      listingAgentPhone: '(910) 555-0144',
+      listingAgentId: 'dir_jessica_keenan_8',
+      listingAgentName: 'Jessica Keenan',
+      listingAgentEmail: 'jessica.keenan@nestrealty.com',
+      listingAgentPhone: '(910) 368-1507',
       brokerInChargeName: 'Ryan Crecelius (BIC)',
       approvedSourcePhotos: defaultCamp.listingSnapshot.approvedSourcePhotos,
       source: 'crm',
@@ -1926,8 +1929,8 @@ export function getBrokerageMarketingRoiMetrics() {
         conversionRatePercent: 32.4
       },
       {
-        agentId: 'agt_sarah_jenkins',
-        agentName: 'Sarah Jenkins',
+        agentId: 'dir_jessica_keenan_8',
+        agentName: 'Jessica Keenan',
         agentTier: 'President Club',
         activeListings: 3,
         totalMarketingSpend: 2400,
@@ -1969,6 +1972,32 @@ export function getBrokerageMarketingRoiMetrics() {
 // CANONICAL MARKETING TASKS & REQUESTS (MELISSA GAGLIARDI'S VERIFIED WORKFLOW)
 // ============================================================================
 
+export interface TaskRequirementItem {
+  id: string;
+  title?: string;
+  label?: string;
+  description?: string;
+  state?: 'not_reviewed' | 'verified' | 'needs_correction' | 'not_applicable';
+  status?: 'not_reviewed' | 'verified' | 'needs_correction' | 'not_applicable';
+  verifiedByStaffId?: string;
+  verifiedByName?: string;
+  verifiedAt?: string;
+  note?: string;
+  notes?: string;
+}
+
+export interface TaskInternalFlag {
+  flag: string;
+  type?: string;
+  notes?: string;
+  message?: string;
+  flaggedByStaffId?: string;
+  flaggedByName?: string;
+  flaggedBy?: string;
+  flaggedAt?: string;
+  timestamp: string;
+}
+
 export interface CanonicalMarketingTask {
   id: string;
   requestId?: string;
@@ -1977,29 +2006,111 @@ export interface CanonicalMarketingTask {
   propertyAddress?: string;
   agentName?: string;
   agentRole?: string;
+  agentPhone?: string;
+  agentEmail?: string;
+  channel?: string;
+  telephonyCallId?: string;
   title: string;
   category?: string;
   assignedTo?: string;
+  assignedToId?: string;
   assignedToRole?: string;
+  reviewOwner?: string;
+  reviewOwnerId?: string;
+  reviewOwnerName?: string;
+  coveringStaff?: string;
+  coveringStaffId?: string;
+  coveringStaffName?: string;
+  coverageHistory?: Array<{
+    originalStaffId?: string;
+    originalStaffName?: string;
+    originalOwner?: string;
+    coveringStaffId?: string;
+    coveringStaffName?: string;
+    coveringStaff?: string;
+    reason?: string;
+    activatedAt?: string;
+    timestamp?: string;
+  }>;
+  reviewState?: 'awaiting_review' | 'revisions_requested' | 'approved';
+  proofVersion?: number;
+  proofUrl?: string;
+  proofNotes?: string;
+  proofHistory?: Array<{
+    version: number;
+    proofUrl: string;
+    uploadedBy: string;
+    uploadedById?: string;
+    uploadedAt: string;
+    notes?: string;
+    assetId?: string;
+    deliverableName?: string;
+    fileMetadata?: any;
+    validationStatus?: string;
+  }>;
+  proofs?: Array<{ id?: string; name?: string; url?: string; uploadedAt?: string; uploadedBy?: string; version?: number }>;
+  reviewHistory?: Array<{
+    version: number;
+    action: 'revisions_requested' | 'approved' | 'proof_submitted';
+    reviewerId?: string;
+    reviewerName: string;
+    feedbackNotes?: string;
+    timestamp: string;
+  }>;
+  requirements?: TaskRequirementItem[];
+  internalFlags?: TaskInternalFlag[];
   status?: string;
   dueAt?: string;
+  dueDate?: string;
   vendorName?: string;
   vendorNotes?: string;
   notes?: string;
+  priority?: string;
   photos?: Array<{ id: string; url: string; name?: string; type?: string; sizeBytes?: number; driveUrl?: string }>;
   attachments?: Array<{ filename: string; contentType: string; sizeBytes?: number; url: string; driveUrl?: string }>;
   driveFolderUrl?: string;
   startedAt?: string;
+  governingSopId?: string;
+  governingSopVersion?: string;
+  routingPolicyId?: string;
+  routingPolicyVersion?: number;
+  routingRuleId?: string;
+  departmentId?: string;
+  primaryRoleId?: string;
+  reviewRoleId?: string;
+  fulfillmentRoleId?: string;
+  assigneeStaffId?: string;
+  originalAssigneeId?: string;
+  assigneeCoveringStaffId?: string;
+  originalReviewOwnerId?: string;
+  reviewCoveringStaffId?: string;
+  originalStaffId?: string;
+  originalStaffName?: string;
+  classificationConfidence?: number;
+  routingState?: 'resolved' | 'triage_required' | 'configuration_error' | 'escalated';
+  routingReasons?: string[];
+  routingSnapshot?: Record<string, any>;
+  routedAt?: string;
+  createdById?: string;
   startedBy?: string;
   completedAt?: string;
   archivedAt?: string;
   isArchived?: boolean;
   approvalHistory?: Array<{
-    action: string;
-    performedBy: string;
-    timestamp: string;
+    action?: string;
+    performedBy?: string;
+    timestamp?: string;
     note?: string;
+    step?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+    status?: string;
+    notes?: string;
   }>;
+  callId?: string;
+  telephonyCallId?: string;
+  channel?: string;
+  audioUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -2014,6 +2125,9 @@ export interface CanonicalMarketingRequest {
   agentRole?: string;
   agentPhone?: string;
   agentEmail?: string;
+  createdById?: string;
+  createdByName?: string;
+  onBehalfOf?: string;
   notes?: string;
   channel: 'phone' | 'email' | 'web' | 'sms' | 'portal' | 'manual';
   requestExcerpt?: string;
@@ -2035,6 +2149,7 @@ export interface CanonicalMarketingRequest {
 
 let canonicalTasksStore: CanonicalMarketingTask[] = [];
 let canonicalRequestsStore: CanonicalMarketingRequest[] = [];
+let hasLoadedCanonicalStore = false;
 
 export function getInitialCanonicalTasks(): CanonicalMarketingTask[] {
   return [];
@@ -2051,13 +2166,9 @@ function getCanonicalDataPaths() {
   try {
     const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
     const dataDir = path.join(process.cwd(), 'server', 'data');
-    const isProdAcceptance = (process.env.APP_ENV === 'production' || process.env.APP_MODE === 'production' || process.env.PERSISTENCE_DRIVER === 'postgres')
-      && fs.existsSync(path.join(dataDir, 'canonical_marketing_store_production_acceptance.json'));
     const dataFile = isTest
       ? path.join(dataDir, 'canonical_marketing_store_test.json')
-      : (isProdAcceptance
-          ? path.join(dataDir, 'canonical_marketing_store_production_acceptance.json')
-          : path.join(dataDir, 'canonical_marketing_store.json'));
+      : path.join(dataDir, 'canonical_marketing_store.json');
     return { dataDir, dataFile };
   } catch {
     return null;
@@ -2073,8 +2184,9 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
     const reqResult = await dbPool.query(`
       SELECT 
         id, workspace_id, property_address, title, status, category, agent_name, 
-        notes, raw_excerpt, request_excerpt, task_ids, created_at, updated_at, 
-        is_archived, normalized_property_key, field_conflicts, field_provenance
+        agent_phone, agent_email, channel, notes, task_ids, created_at, updated_at, 
+        is_archived, normalized_property_key, field_conflicts, field_provenance,
+        created_by_id, created_by_name, on_behalf_of
       FROM canonical_marketing_requests
       ORDER BY created_at DESC
     `);
@@ -2082,8 +2194,17 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
     const taskResult = await dbPool.query(`
       SELECT 
         id, request_id, workspace_id, title, status, category, agent_name, 
-        property_address, notes, assigned_to, priority, due_date, is_archived, 
-        archived_at, completed_at, approval_history, created_at, updated_at
+        property_address, notes, assigned_to, assigned_to_id, assigned_to_role,
+        review_owner_id, review_owner_name, covering_staff_id, covering_staff_name,
+        coverage_history, review_state, proof_version, proof_history, review_history,
+        due_at, is_archived, archived_at, completed_at, approval_history,
+        requirements, internal_flags, governing_sop_id, governing_sop_version,
+        routing_rule_id, routing_policy_version, department_id, primary_role_id,
+        review_role_id, assignee_staff_id, original_staff_id, routing_state,
+        routing_reasons, routing_snapshot, routing_policy_id, fulfillment_role_id,
+        original_review_owner_id, review_covering_staff_id, original_assignee_id,
+        assignee_covering_staff_id, classification_confidence, routed_at,
+        created_at, updated_at
       FROM canonical_marketing_tasks
       ORDER BY created_at DESC
     `);
@@ -2098,9 +2219,14 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         category: r.category,
         channel: (r.channel || 'web') as any,
         agentName: r.agent_name,
+        agentPhone: r.agent_phone,
+        agentEmail: r.agent_email,
+        createdById: r.created_by_id,
+        createdByName: r.created_by_name,
+        onBehalfOf: r.on_behalf_of,
         notes: r.notes,
-        rawExcerpt: r.raw_excerpt,
-        requestExcerpt: r.request_excerpt,
+        rawExcerpt: r.notes || r.title,
+        requestExcerpt: r.notes || r.title,
         taskIds: r.task_ids || [],
         createdAt: r.created_at?.toISOString ? r.created_at.toISOString() : r.created_at,
         updatedAt: r.updated_at?.toISOString ? r.updated_at.toISOString() : r.updated_at,
@@ -2121,8 +2247,42 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         propertyAddress: t.property_address,
         notes: t.notes,
         assignedTo: t.assigned_to,
-        priority: t.priority,
-        dueDate: t.due_date,
+        assignedToId: t.assigned_to_id,
+        assignedToRole: t.assigned_to_role,
+        reviewOwnerId: t.review_owner_id,
+        reviewOwnerName: t.review_owner_name,
+        reviewOwner: t.review_owner_name,
+        coveringStaffId: t.covering_staff_id,
+        coveringStaffName: t.covering_staff_name,
+        coveringStaff: t.covering_staff_name,
+        coverageHistory: t.coverage_history || [],
+        reviewState: t.review_state,
+        proofVersion: t.proof_version || 0,
+        proofHistory: t.proof_history || [],
+        reviewHistory: t.review_history || [],
+        requirements: t.requirements || [],
+        internalFlags: t.internal_flags || [],
+        dueAt: t.due_at?.toISOString ? t.due_at.toISOString() : t.due_at,
+        governingSopId: t.governing_sop_id,
+        governingSopVersion: t.governing_sop_version,
+        routingRuleId: t.routing_rule_id,
+        routingPolicyVersion: t.routing_policy_version,
+        departmentId: t.department_id,
+        primaryRoleId: t.primary_role_id,
+        reviewRoleId: t.review_role_id,
+        assigneeStaffId: t.assignee_staff_id,
+        originalStaffId: t.original_staff_id,
+        routingState: t.routing_state,
+        routingReasons: t.routing_reasons || [],
+        routingSnapshot: t.routing_snapshot,
+        routingPolicyId: t.routing_policy_id,
+        fulfillmentRoleId: t.fulfillment_role_id,
+        originalReviewOwnerId: t.original_review_owner_id,
+        reviewCoveringStaffId: t.review_covering_staff_id,
+        originalAssigneeId: t.original_assignee_id,
+        assigneeCoveringStaffId: t.assignee_covering_staff_id,
+        classificationConfidence: t.classification_confidence,
+        routedAt: t.routed_at?.toISOString ? t.routed_at.toISOString() : t.routed_at,
         isArchived: Boolean(t.is_archived),
         archivedAt: t.archived_at?.toISOString ? t.archived_at.toISOString() : t.archived_at,
         completedAt: t.completed_at?.toISOString ? t.completed_at.toISOString() : t.completed_at,
@@ -2132,6 +2292,12 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
       }));
 
       console.log(`[syncCanonicalStoreFromDatabase] Synced ${canonicalRequestsStore.length} requests and ${canonicalTasksStore.length} tasks from PostgreSQL.`);
+      try {
+        const { orgChartRepository } = await import('./orgChartRepository.js');
+        await orgChartRepository.getPublishedPolicy('ws_wilmington');
+      } catch (pErr) {
+        console.warn('[syncCanonicalStoreFromDatabase] Could not pre-warm published policy:', pErr);
+      }
       return true;
     }
     return false;
@@ -2143,6 +2309,7 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
 
 function loadCanonicalStoreFromDisk(): boolean {
   if (!isServer) return false;
+  hasLoadedCanonicalStore = true;
   try {
     const paths = getCanonicalDataPaths();
     if (!paths) return false;
@@ -2292,7 +2459,7 @@ function saveCanonicalStoreToDisk() {
 }
 
 export function getAllCanonicalMarketingTasks(): CanonicalMarketingTask[] {
-  if (canonicalTasksStore.length === 0) {
+  if (!hasLoadedCanonicalStore && canonicalTasksStore.length === 0 && isServer) {
     loadCanonicalStoreFromDisk();
   }
   return canonicalTasksStore;
@@ -2305,20 +2472,35 @@ export function getCanonicalMarketingTaskById(id: string): CanonicalMarketingTas
 
 export async function persistTaskToDatabase(task: CanonicalMarketingTask, executor?: any): Promise<void> {
   if (!isServer) return;
-  const isProduction = process.env.NODE_ENV === 'production' || process.env.IS_PRODUCTION === 'true';
-  const { dbPool, storageDriver } = await import('./repositories.js');
-  const db = executor || dbPool;
-  if (isProduction && (!db || storageDriver !== 'database')) {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.IS_PRODUCTION === 'true' || process.env.APP_ENV === 'production' || process.env.PERSISTENCE_DRIVER === 'postgres';
+  const { dbPool, storageDriver, getDbPool, getStorageDriver } = await import('./repositories.js');
+  const db = executor || (getDbPool ? getDbPool() : dbPool);
+  const driver = getStorageDriver ? getStorageDriver() : storageDriver;
+  if (isProduction && (!db || driver !== 'database')) {
     throw new Error('Database persistence driver is required in production environment (fail-closed mode).');
   }
   try {
-    if ((storageDriver === 'database' || executor) && db) {
+    if ((driver === 'database' || executor) && db) {
       await db.query(
         `INSERT INTO canonical_marketing_tasks (
           id, request_id, workspace_id, request_title, property_address, agent_name,
-          title, category, assigned_to, assigned_to_role, status, due_at, notes,
-          is_archived, archived_at, completed_at, approval_history, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+          title, category, assigned_to, assigned_to_id, assigned_to_role, review_owner_id, review_owner_name,
+          covering_staff_id, covering_staff_name, coverage_history, review_state, proof_version,
+          proof_history, review_history, status, due_at, notes,
+          is_archived, archived_at, completed_at, approval_history, requirements, internal_flags,
+          governing_sop_id, governing_sop_version, routing_rule_id, routing_policy_version,
+          department_id, primary_role_id, review_role_id, assignee_staff_id, original_staff_id,
+          routing_state, routing_reasons, routing_snapshot,
+          routing_policy_id, fulfillment_role_id, original_review_owner_id, review_covering_staff_id,
+          original_assignee_id, assignee_covering_staff_id, classification_confidence, routed_at,
+          created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17, $18,
+          $19::jsonb, $20::jsonb, $21, $22, $23, $24, $25, $26, $27::jsonb, $28::jsonb, $29::jsonb,
+          $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41::jsonb,
+          $42, $43, $44, $45, $46, $47, $48, $49,
+          $50, $51
+        )
         ON CONFLICT (id) DO UPDATE SET
           request_id = EXCLUDED.request_id,
           request_title = EXCLUDED.request_title,
@@ -2327,7 +2509,17 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
           title = EXCLUDED.title,
           category = EXCLUDED.category,
           assigned_to = EXCLUDED.assigned_to,
+          assigned_to_id = EXCLUDED.assigned_to_id,
           assigned_to_role = EXCLUDED.assigned_to_role,
+          review_owner_id = EXCLUDED.review_owner_id,
+          review_owner_name = EXCLUDED.review_owner_name,
+          covering_staff_id = EXCLUDED.covering_staff_id,
+          covering_staff_name = EXCLUDED.covering_staff_name,
+          coverage_history = EXCLUDED.coverage_history,
+          review_state = EXCLUDED.review_state,
+          proof_version = EXCLUDED.proof_version,
+          proof_history = EXCLUDED.proof_history,
+          review_history = EXCLUDED.review_history,
           status = EXCLUDED.status,
           due_at = EXCLUDED.due_at,
           notes = EXCLUDED.notes,
@@ -2335,6 +2527,28 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
           archived_at = EXCLUDED.archived_at,
           completed_at = EXCLUDED.completed_at,
           approval_history = EXCLUDED.approval_history,
+          requirements = EXCLUDED.requirements,
+          internal_flags = EXCLUDED.internal_flags,
+          governing_sop_id = EXCLUDED.governing_sop_id,
+          governing_sop_version = EXCLUDED.governing_sop_version,
+          routing_rule_id = EXCLUDED.routing_rule_id,
+          routing_policy_version = EXCLUDED.routing_policy_version,
+          department_id = EXCLUDED.department_id,
+          primary_role_id = EXCLUDED.primary_role_id,
+          review_role_id = EXCLUDED.review_role_id,
+          assignee_staff_id = EXCLUDED.assignee_staff_id,
+          original_staff_id = EXCLUDED.original_staff_id,
+          routing_state = EXCLUDED.routing_state,
+          routing_reasons = EXCLUDED.routing_reasons,
+          routing_snapshot = EXCLUDED.routing_snapshot,
+          routing_policy_id = EXCLUDED.routing_policy_id,
+          fulfillment_role_id = EXCLUDED.fulfillment_role_id,
+          original_review_owner_id = EXCLUDED.original_review_owner_id,
+          review_covering_staff_id = EXCLUDED.review_covering_staff_id,
+          original_assignee_id = EXCLUDED.original_assignee_id,
+          assignee_covering_staff_id = EXCLUDED.assignee_covering_staff_id,
+          classification_confidence = EXCLUDED.classification_confidence,
+          routed_at = EXCLUDED.routed_at,
           updated_at = EXCLUDED.updated_at`,
         [
           task.id,
@@ -2346,7 +2560,17 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
           task.title,
           task.category || 'marketing',
           task.assignedTo || null,
+          task.assignedToId || null,
           task.assignedToRole || null,
+          task.reviewOwnerId || null,
+          task.reviewOwnerName || task.reviewOwner || null,
+          task.coveringStaffId || null,
+          task.coveringStaffName || task.coveringStaff || null,
+          JSON.stringify(task.coverageHistory || []),
+          task.reviewState || null,
+          task.proofVersion || 0,
+          JSON.stringify(task.proofHistory || []),
+          JSON.stringify(task.reviewHistory || []),
           task.status,
           task.dueAt ? new Date(task.dueAt) : null,
           task.notes || null,
@@ -2354,6 +2578,28 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
           task.archivedAt ? new Date(task.archivedAt) : null,
           task.completedAt ? new Date(task.completedAt) : null,
           JSON.stringify(task.approvalHistory || []),
+          JSON.stringify(task.requirements || []),
+          JSON.stringify(task.internalFlags || []),
+          task.governingSopId || null,
+          task.governingSopVersion || null,
+          task.routingRuleId || null,
+          task.routingPolicyVersion || null,
+          task.departmentId || null,
+          task.primaryRoleId || null,
+          task.reviewRoleId || null,
+          task.assigneeStaffId || null,
+          task.originalStaffId || null,
+          task.routingState || 'resolved',
+          task.routingReasons || [],
+          JSON.stringify(task.routingSnapshot || {}),
+          task.routingPolicyId || task.routingSnapshot?.routingPolicyId || null,
+          task.fulfillmentRoleId || task.routingSnapshot?.fulfillmentRoleId || null,
+          task.originalReviewOwnerId || task.routingSnapshot?.originalReviewOwnerId || null,
+          task.reviewCoveringStaffId || task.routingSnapshot?.reviewCoveringStaffId || null,
+          task.originalAssigneeId || task.routingSnapshot?.originalAssigneeId || null,
+          task.assigneeCoveringStaffId || task.routingSnapshot?.assigneeCoveringStaffId || null,
+          task.classificationConfidence ?? task.routingSnapshot?.classificationConfidence ?? null,
+          task.routedAt ? new Date(task.routedAt) : (task.routingSnapshot?.routedAt ? new Date(task.routingSnapshot.routedAt) : null),
           task.createdAt ? new Date(task.createdAt) : new Date(),
           new Date()
         ]
@@ -2362,28 +2608,151 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
   } catch (err: any) {
     if (isProduction) {
       console.error('[saveCanonicalMarketingTask] Database write failure:', err);
+      throw err;
     }
   }
 }
 
-export async function persistRequestToDatabase(req: CanonicalMarketingRequest, executor?: any): Promise<void> {
+export function isPlaceholderPropertyAddress(address?: string): boolean {
+  if (!address || address.trim().length === 0) return true;
+  const clean = address.trim().toLowerCase();
+  return (
+    clean === 'address pending' ||
+    clean === 'address needed' ||
+    clean === 'tbd' ||
+    clean === 'unknown' ||
+    clean.includes('address pending') ||
+    clean.includes('address needed') ||
+    clean.includes('[address needed]') ||
+    clean.includes('inbound phone request') ||
+    clean.includes('inbound phone call') ||
+    clean.includes('wilmington nc area listing') ||
+    clean.includes('new listing (address pending)') ||
+    clean.includes('new listing')
+  );
+}
+
+export function normalizePropertyKey(address?: string): string | null {
+  if (!address || isPlaceholderPropertyAddress(address)) return null;
+  const streetPart = address.split(',')[0].trim().toUpperCase();
+  return streetPart.length > 3 ? streetPart : null;
+}
+
+export interface ReconciliationAuthSession {
+  userId?: string;
+  workspaceId?: string;
+  role?: string;
+  isBic?: boolean;
+  isAdmin?: boolean;
+  permissions?: string[];
+}
+
+export async function evaluateReconciliationPolicy(params: {
+  incomingReq: CanonicalMarketingRequest;
+  existingRow: any;
+  workspaceId: string;
+  authenticatedSession?: ReconciliationAuthSession;
+}): Promise<{ allowed: boolean; reason?: string; authorizedBy?: string }> {
+  const { incomingReq, existingRow, workspaceId, authenticatedSession } = params;
+
+  // 1. Workspace match
+  if (existingRow.workspace_id !== workspaceId) {
+    return { allowed: false, reason: 'WORKSPACE_MISMATCH' };
+  }
+
+  // 2. Active status check
+  if (existingRow.is_archived || ['completed', 'merged', 'archived'].includes(existingRow.status)) {
+    return { allowed: false, reason: 'EXISTING_CAMPAIGN_INACTIVE' };
+  }
+
+  // 3. Ownership / Authorization Check
+  // Check if incoming requester is the same listing agent
+  const incomingEmail = (incomingReq.agentEmail || '').trim().toLowerCase();
+  const existingEmail = (existingRow.agent_email || '').trim().toLowerCase();
+  const incomingPhone = (incomingReq.agentPhone || '').replace(/\D/g, '');
+  const existingPhone = (existingRow.agent_phone || '').replace(/\D/g, '');
+  const incomingName = (incomingReq.agentName || '').trim().toLowerCase();
+  const existingName = (existingRow.agent_name || '').trim().toLowerCase();
+  const incomingCreatorId = incomingReq.createdById || (incomingReq as any).requesterDirectoryMemberId;
+  const existingCreatorId = existingRow.created_by_id;
+
+  const isSameEmail = Boolean(incomingEmail && existingEmail && incomingEmail === existingEmail);
+  const isSamePhone = Boolean(incomingPhone && existingPhone && incomingPhone.length >= 7 && incomingPhone === existingPhone);
+  const isSameCreator = Boolean(incomingCreatorId && existingCreatorId && incomingCreatorId === existingCreatorId);
+  const isSameName = Boolean(incomingName && existingName && incomingName === existingName);
+
+  // Listing agent reconciling their own request
+  if (isSameEmail || isSamePhone || isSameCreator || isSameName) {
+    return { allowed: true, authorizedBy: 'listing_agent' };
+  }
+
+  // 4. Telephony Security Rule:
+  // A recognized telephone number provides: identified_unauthenticated.
+  // It MUST NOT grant BIC or Admin authority to modify or reconcile another broker's request.
+  // Client-supplied payload claims (isBrokerInCharge, isAdmin, role) MUST NOT be trusted.
+  // Job titles from telephone directory lookups MUST NOT grant administrative elevation.
+  const isTelephony = incomingReq.channel === 'phone';
+  if (isTelephony) {
+    return { 
+      allowed: false, 
+      reason: 'TELEPHONY_ADMIN_ELEVATION_PROHIBITED: A recognized telephone number provides identified_unauthenticated and cannot grant BIC or Admin authority to modify another broker\'s request.' 
+    };
+  }
+
+  // 5. Authenticated Web Administrator Override:
+  // Administrative override is permitted ONLY through a strongly authenticated web session
+  // with server-derived workspace and role (not caller ID or client payload claims).
+  const session = authenticatedSession || (incomingReq as any).authenticatedSession;
+  if (session && session.workspaceId === workspaceId) {
+    const isWebAdmin = session.role === 'admin' || 
+                       session.role === 'bic' || 
+                       session.isAdmin === true || 
+                       session.isBic === true ||
+                       (Array.isArray(session.permissions) && (session.permissions.includes('manage_workspace') || session.permissions.includes('admin')));
+    if (isWebAdmin) {
+      return { allowed: true, authorizedBy: 'authenticated_web_admin' };
+    }
+  }
+
+  return { allowed: false, reason: 'UNAUTHORIZED_REQUESTER_COLLISION' };
+}
+
+export async function persistRequestToDatabase(
+  req: CanonicalMarketingRequest, 
+  executor?: any,
+  authenticatedSession?: ReconciliationAuthSession
+): Promise<void> {
   if (!isServer) return;
   try {
-    const { dbPool, storageDriver } = await import('./repositories.js');
-    const db = executor || dbPool;
-    if ((storageDriver === 'database' || executor) && db) {
-      const normKey = (req as any).normalizedPropertyKey !== undefined 
-        ? (req as any).normalizedPropertyKey 
-        : (req.propertyAddress && req.propertyAddress !== 'Address Pending' ? req.propertyAddress.split(',')[0].trim().toUpperCase() : null);
+    const { dbPool, storageDriver, getDbPool, getStorageDriver } = await import('./repositories.js');
+    const db = executor || (getDbPool ? getDbPool() : dbPool);
+    const driver = getStorageDriver ? getStorageDriver() : storageDriver;
+    if ((driver === 'database' || executor) && db) {
+      const isPlaceholder = isPlaceholderPropertyAddress(req.propertyAddress);
+      const normKey = !isPlaceholder 
+        ? normalizePropertyKey(req.propertyAddress || (req as any).normalizedPropertyKey)
+        : null;
+
+      (req as any).normalizedPropertyKey = normKey;
       const fieldConflictsJson = JSON.stringify((req as any).fieldConflicts || (req as any).field_conflicts || []);
       const fieldProvenanceJson = JSON.stringify((req as any).fieldProvenance || (req as any).field_provenance || {});
 
+      let hasSavepoint = false;
+      if (executor && typeof (executor as any).release === 'function') {
+        try {
+          await db.query('SAVEPOINT req_insert_savepoint');
+          hasSavepoint = true;
+        } catch {
+          hasSavepoint = false;
+        }
+      }
       try {
         await db.query(
           `INSERT INTO canonical_marketing_requests (
             id, workspace_id, title, property_address, normalized_property_key, agent_name, agent_phone, agent_email,
+            created_by_id, created_by_name, on_behalf_of,
             channel, status, category, task_ids, is_archived, notes, field_conflicts, field_provenance, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17, $18)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, $21)
           ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
             property_address = EXCLUDED.property_address,
@@ -2391,6 +2760,9 @@ export async function persistRequestToDatabase(req: CanonicalMarketingRequest, e
             agent_name = EXCLUDED.agent_name,
             agent_phone = EXCLUDED.agent_phone,
             agent_email = EXCLUDED.agent_email,
+            created_by_id = EXCLUDED.created_by_id,
+            created_by_name = EXCLUDED.created_by_name,
+            on_behalf_of = EXCLUDED.on_behalf_of,
             channel = EXCLUDED.channel,
             status = EXCLUDED.status,
             category = EXCLUDED.category,
@@ -2399,19 +2771,22 @@ export async function persistRequestToDatabase(req: CanonicalMarketingRequest, e
             notes = EXCLUDED.notes,
             field_conflicts = EXCLUDED.field_conflicts,
             field_provenance = EXCLUDED.field_provenance,
-            updated_at = EXCLUDED.updated_at`,
+            updated_at = NOW()`,
           [
             req.id,
-            (req as any).workspaceId || 'ws_wilmington',
+            req.workspaceId || 'ws_wilmington',
             req.title,
-            req.propertyAddress,
+            req.propertyAddress || '',
             normKey,
             req.agentName,
             req.agentPhone || null,
             req.agentEmail || null,
+            req.createdById || null,
+            req.createdByName || null,
+            req.onBehalfOf || null,
             req.channel || 'web',
-            req.status,
-            req.category || 'marketing',
+            req.status || 'ready_for_review',
+            req.category || 'listing_launch',
             req.taskIds || [],
             Boolean(req.isArchived),
             req.notes || null,
@@ -2421,46 +2796,101 @@ export async function persistRequestToDatabase(req: CanonicalMarketingRequest, e
             new Date()
           ]
         );
+        if (hasSavepoint) {
+          try { await db.query('RELEASE SAVEPOINT req_insert_savepoint'); } catch {}
+        }
       } catch (colErr: any) {
+        if (hasSavepoint) {
+          try { await db.query('ROLLBACK TO SAVEPOINT req_insert_savepoint'); } catch {}
+        }
+        if (colErr.code === '23505' && (colErr.constraint === 'uq_active_canonical_mkt_req_prop' || String(colErr.detail).includes('normalized_property_key'))) {
+          // A unique active property collision occurred. Evaluate strict reconciliation policy.
+          console.warn(`[persistRequestToDatabase] Collision detected on active property ${normKey} in workspace ${req.workspaceId || 'ws_wilmington'}. Evaluating reconciliation policy...`);
+
+          const existingRes = await db.query(
+            `SELECT id, workspace_id, title, property_address, normalized_property_key, agent_name, agent_phone, agent_email,
+                    created_by_id, created_by_name, on_behalf_of, channel, status, category, task_ids, is_archived, notes
+             FROM canonical_marketing_requests
+             WHERE workspace_id = $1 AND normalized_property_key = $2 AND is_archived = FALSE
+             LIMIT 1`,
+            [req.workspaceId || 'ws_wilmington', normKey]
+          );
+
+          if (existingRes.rows && existingRes.rows.length > 0) {
+            const existingRow = existingRes.rows[0];
+            const reconciliation = await evaluateReconciliationPolicy({
+              incomingReq: req,
+              existingRow,
+              workspaceId: req.workspaceId || 'ws_wilmington',
+              authenticatedSession
+            });
+
+            if (reconciliation.allowed) {
+              console.log(`[persistRequestToDatabase] Authorized reconciliation (${reconciliation.authorizedBy}) on property ${normKey}. Safely updating request.`);
+              await db.query(
+                `UPDATE canonical_marketing_requests 
+                 SET task_ids = ARRAY(SELECT DISTINCT UNNEST(task_ids || $1::text[])),
+                     notes = COALESCE(canonical_marketing_requests.notes, '') || CASE WHEN $2::text IS NOT NULL THEN E'\\n[Authorized ' || $3::text || E']: ' || $2::text ELSE '' END,
+                     updated_at = NOW()
+                 WHERE id = $4`,
+                [req.taskIds || [], req.notes || null, reconciliation.authorizedBy || 'reconciliation', existingRow.id]
+              );
+              return;
+            } else {
+              // Unauthorized collision: Reject and fail safely with sanitized error (zero private data leaked)
+              console.warn(`[persistRequestToDatabase] Unauthorized property collision rejected for property ${normKey}. Caller: ${req.agentName} (Channel: ${req.channel}, Reason: ${reconciliation.reason})`);
+              const conflictError = new Error(`ACTIVE_PROPERTY_REQUEST_CONFLICT: An active marketing campaign already exists for property "${normKey}". Only the listing agent or an authenticated administrator may update an active campaign.`);
+              (conflictError as any).code = 'PROPERTY_REQUEST_CONFLICT';
+              (conflictError as any).statusCode = 409;
+              throw conflictError;
+            }
+          }
+        }
+
+        if (colErr.code === '42703') {
+          await db.query(
+            `INSERT INTO canonical_marketing_requests (
+              id, workspace_id, title, property_address, normalized_property_key, agent_name, agent_phone, agent_email,
+              channel, status, category, task_ids, is_archived, notes, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              property_address = EXCLUDED.property_address,
+              normalized_property_key = EXCLUDED.normalized_property_key,
+              agent_name = EXCLUDED.agent_name,
+              agent_phone = EXCLUDED.agent_phone,
+              agent_email = EXCLUDED.agent_email,
+              channel = EXCLUDED.channel,
+              status = EXCLUDED.status,
+              category = EXCLUDED.category,
+              task_ids = EXCLUDED.task_ids,
+              is_archived = EXCLUDED.is_archived,
+              notes = EXCLUDED.notes,
+              updated_at = EXCLUDED.updated_at`,
+            [
+              req.id,
+              (req as any).workspaceId || 'ws_wilmington',
+              req.title,
+              req.propertyAddress,
+              normKey,
+              req.agentName,
+              req.agentPhone || null,
+              req.agentEmail || null,
+              req.channel || 'web',
+              req.status || 'ready_for_review',
+              req.category || 'marketing',
+              req.taskIds || [],
+              Boolean(req.isArchived),
+              req.notes || null,
+              req.createdAt ? new Date(req.createdAt) : new Date(),
+              new Date()
+            ]
+          );
+          return;
+        }
+
         console.error('[persistRequestToDatabase] primary insert error:', colErr);
-        await db.query(
-          `INSERT INTO canonical_marketing_requests (
-            id, workspace_id, title, property_address, normalized_property_key, agent_name, agent_phone, agent_email,
-            channel, status, category, task_ids, is_archived, notes, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-          ON CONFLICT (id) DO UPDATE SET
-            title = EXCLUDED.title,
-            property_address = EXCLUDED.property_address,
-            normalized_property_key = EXCLUDED.normalized_property_key,
-            agent_name = EXCLUDED.agent_name,
-            agent_phone = EXCLUDED.agent_phone,
-            agent_email = EXCLUDED.agent_email,
-            channel = EXCLUDED.channel,
-            status = EXCLUDED.status,
-            category = EXCLUDED.category,
-            task_ids = EXCLUDED.task_ids,
-            is_archived = EXCLUDED.is_archived,
-            notes = EXCLUDED.notes,
-            updated_at = EXCLUDED.updated_at`,
-          [
-            req.id,
-            (req as any).workspaceId || 'ws_wilmington',
-            req.title,
-            req.propertyAddress,
-            normKey,
-            req.agentName,
-            req.agentPhone || null,
-            req.agentEmail || null,
-            req.channel || 'web',
-            req.status,
-            req.category || 'marketing',
-            req.taskIds || [],
-            Boolean(req.isArchived),
-            req.notes || null,
-            req.createdAt ? new Date(req.createdAt) : new Date(),
-            new Date()
-          ]
-        );
+        throw colErr;
       }
     }
   } catch (err: any) {
@@ -2479,6 +2909,82 @@ export function saveCanonicalMarketingTask(task: CanonicalMarketingTask): Canoni
   if (!(task as any).workspaceId) {
     (task as any).workspaceId = 'ws_wilmington';
   }
+
+  // Check Out-of-Office coverage for task assignee using canonical resolution
+  try {
+    const staffList = getAllStaffMembers();
+    const assigned = (task.assignedToId || task.assignedTo || '').toLowerCase();
+    const primary = staffList.find((s: any) =>
+      s.id.toLowerCase() === assigned ||
+      s.fullName.toLowerCase() === assigned ||
+      s.email.toLowerCase() === assigned ||
+      (assigned.includes('melissa') && s.fullName.toLowerCase().includes('melissa')) ||
+      (assigned.includes('ann') && s.fullName.toLowerCase().includes('ann'))
+    );
+
+    if (primary) {
+      if (!task.assignedToId) task.assignedToId = primary.id;
+      if (!task.assignedTo) task.assignedTo = primary.fullName;
+
+      if (primary.status === 'out_of_office' && primary.backupStaffId) {
+        // Prevent routing loops and self-backup
+        const isSelfBackup = primary.backupStaffId === primary.id ||
+                             primary.backupStaffId.toLowerCase() === primary.fullName.toLowerCase() ||
+                             primary.backupStaffId.toLowerCase() === primary.email.toLowerCase();
+
+        if (!isSelfBackup) {
+          const backup = staffList.find((s: any) =>
+            (s.id === primary.backupStaffId ||
+             s.fullName.toLowerCase() === primary.backupStaffId.toLowerCase() ||
+             s.email.toLowerCase() === primary.backupStaffId.toLowerCase() ||
+             (primary.backupStaffName && s.fullName.toLowerCase() === primary.backupStaffName.toLowerCase())) &&
+            s.id !== primary.id &&
+            s.status !== 'out_of_office' &&
+            s.status !== 'inactive'
+          );
+
+          const coveringName = backup ? backup.fullName : (primary.backupStaffName || primary.backupStaffId);
+          if (coveringName && coveringName.toLowerCase() !== primary.fullName.toLowerCase()) {
+            if (!task.reviewOwnerId) task.reviewOwnerId = primary.id;
+            if (!task.reviewOwnerName) task.reviewOwnerName = primary.fullName;
+            if (!task.reviewOwner) task.reviewOwner = primary.fullName;
+
+            if (backup) {
+              task.assignedToId = backup.id;
+              task.coveringStaffId = backup.id;
+              task.coveringStaffName = backup.fullName;
+              task.coveringStaff = backup.fullName;
+            } else {
+              task.coveringStaff = coveringName;
+              task.coveringStaffName = coveringName;
+            }
+
+            if (!task.coverageHistory) {
+              task.coverageHistory = [];
+            }
+            if (!task.coverageHistory.some((h: any) =>
+              (h.originalOwner === primary.fullName || h.originalStaffId === primary.id) &&
+              (h.coveringStaff === coveringName || h.coveringStaffId === task.coveringStaffId)
+            )) {
+              task.coverageHistory.push({
+                originalStaffId: primary.id,
+                originalStaffName: primary.fullName,
+                originalOwner: primary.fullName,
+                coveringStaffId: task.coveringStaffId || primary.backupStaffId,
+                coveringStaffName: coveringName,
+                coveringStaff: coveringName,
+                reason: primary.outOfOfficeReason || 'Out of office',
+                activatedAt: new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Graceful fallback
+  }
+
   const items = getAllCanonicalMarketingTasks();
   task.updatedAt = new Date().toISOString();
   const index = items.findIndex(t => t.id === task.id);
@@ -2494,7 +3000,9 @@ export function saveCanonicalMarketingTask(task: CanonicalMarketingTask): Canoni
   }
 
   if (isServer) {
-    persistTaskToDatabase(task);
+    persistTaskToDatabase(task).catch(err => {
+      console.warn('[saveCanonicalMarketingTask] Notice persisting task to database:', err?.message || err);
+    });
   }
 
   return task;
@@ -2510,18 +3018,111 @@ export function updateCanonicalMarketingTaskStatus(
     vendorNotes?: string;
     assignedTo?: string;
     assignedToRole?: string;
+    reviewState?: 'awaiting_review' | 'revisions_requested' | 'approved';
+    proofUrl?: string;
+    proofNotes?: string;
   }
 ): CanonicalMarketingTask | null {
   const task = getCanonicalMarketingTaskById(taskId);
   if (!task) return null;
 
   const previousStatus = task.status;
+  const previousReviewState = task.reviewState;
+
+  // Guard: Completed tasks cannot be reopened by legacy normalization or status updates
+  if (previousStatus === 'completed' && newStatus && newStatus !== 'completed') {
+    console.warn(`[Lifecycle Guard] Blocked reopening of completed task ${taskId} to ${newStatus}.`);
+    return task;
+  }
+
+  // Separate design review states from intake readiness lifecycle:
+  if (extra?.reviewState) {
+    if (task.status === 'needs_info') {
+      throw new Error('INVALID_STATE_TRANSITION: Cannot set review state on task in needs_info. Intake specifications must achieve readiness first.');
+    }
+    if (task.status === 'ready_for_review' && extra.reviewState === 'awaiting_review') {
+      throw new Error('INVALID_STATE_TRANSITION: Cannot advance task from ready_for_review directly to proof review. Work must be started ("in_progress") first.');
+    }
+    task.reviewState = extra.reviewState;
+  } else if (newStatus === 'revisions' || newStatus === 'revisions_requested') {
+    // Meaningful feedback note is mandatory when requesting revisions
+    if (!extra?.note || !extra.note.trim()) {
+      throw new Error('REVISION_FEEDBACK_REQUIRED: Meaningful revision feedback notes are required when requesting revisions.');
+    }
+    task.reviewState = 'revisions_requested';
+    newStatus = 'revisions';
+  } else if (newStatus === 'proof_submitted' || newStatus === 'awaiting_review' || newStatus === 'agent_review') {
+    if (task.status === 'needs_info') {
+      throw new Error('INVALID_STATE_TRANSITION: Cannot advance task from needs_info to review state. Intake specifications must achieve readiness first.');
+    }
+    if (task.status === 'ready_for_review') {
+      throw new Error('INVALID_STATE_TRANSITION: Cannot advance task from ready_for_review directly to proof review. Work must be started ("in_progress") first.');
+    }
+    task.reviewState = 'awaiting_review';
+    task.proofVersion = (task.proofVersion || 0) + 1;
+    newStatus = 'in_progress';
+  } else if (newStatus === 'approved') {
+    if (task.status === 'needs_info') {
+      throw new Error('INVALID_STATE_TRANSITION: Cannot approve task in needs_info. Deliverable must achieve readiness and be produced first.');
+    }
+    task.reviewState = 'approved';
+    newStatus = 'approved';
+  }
+
   const isStatusChange = Boolean(newStatus && newStatus !== previousStatus);
 
   if (isStatusChange) {
-    task.status = newStatus!;
+    if (task.status === 'needs_info' && newStatus === 'assigned') {
+      // Incomplete work must not move out of needs_info; assign owner while preserving needs_info readiness gate
+    } else if (task.status === 'needs_info' && (newStatus === 'in_progress' || newStatus === 'completed')) {
+      // Canonical readiness gate: Incomplete work in needs_info cannot jump directly to in_progress or completed
+      console.warn(`[Readiness Gate] Blocked invalid progression for task ${taskId}: needs_info cannot bypass ready_for_review.`);
+    } else {
+      task.status = newStatus!;
+    }
   }
   task.updatedAt = new Date().toISOString();
+
+  if (extra?.proofUrl) {
+    task.proofUrl = extra.proofUrl;
+    if (!task.proofHistory) task.proofHistory = [];
+    task.proofHistory.push({
+      version: task.proofVersion || 1,
+      proofUrl: extra.proofUrl,
+      uploadedBy: extra.performedBy || task.assignedTo || 'Producer',
+      uploadedAt: new Date().toISOString(),
+      notes: extra.proofNotes || extra.note
+    });
+  }
+
+  if (task.reviewState === 'revisions_requested' && previousReviewState !== 'revisions_requested') {
+    if (!task.reviewHistory) task.reviewHistory = [];
+    task.reviewHistory.push({
+      version: task.proofVersion || 1,
+      action: 'revisions_requested',
+      reviewerName: extra?.performedBy || 'Reviewer',
+      feedbackNotes: extra?.note || 'Revisions requested',
+      timestamp: new Date().toISOString()
+    });
+  } else if (task.reviewState === 'awaiting_review' && previousReviewState !== 'awaiting_review') {
+    if (!task.reviewHistory) task.reviewHistory = [];
+    task.reviewHistory.push({
+      version: task.proofVersion || 1,
+      action: 'proof_submitted',
+      reviewerName: extra?.performedBy || 'Producer',
+      feedbackNotes: extra?.note,
+      timestamp: new Date().toISOString()
+    });
+  } else if (task.reviewState === 'approved' && previousReviewState !== 'approved') {
+    if (!task.reviewHistory) task.reviewHistory = [];
+    task.reviewHistory.push({
+      version: task.proofVersion || 1,
+      action: 'approved',
+      reviewerName: extra?.performedBy || 'Reviewer',
+      feedbackNotes: extra?.note || 'Approved',
+      timestamp: new Date().toISOString()
+    });
+  }
 
   if (extra?.assignedTo) {
     task.assignedTo = extra.assignedTo;
@@ -2549,7 +3150,7 @@ export function updateCanonicalMarketingTaskStatus(
 
   if (!task.approvalHistory) task.approvalHistory = [];
   task.approvalHistory.push({
-    action: isStatusChange ? `Transition from ${previousStatus} to ${newStatus}` : 'Internal note recorded',
+    action: isStatusChange ? `Transition from ${previousStatus} to ${newStatus}` : (task.reviewState ? `Review state: ${task.reviewState}` : 'Internal note recorded'),
     performedBy: extra?.performedBy || 'System',
     timestamp: new Date().toISOString(),
     note: extra?.note || extra?.vendorNotes
@@ -2607,12 +3208,176 @@ export function updateCanonicalMarketingTaskStatus(
   return savedTask;
 }
 
+export function submitCanonicalMarketingTaskProof(
+  taskId: string,
+  proofUrl: string,
+  notes?: string,
+  actor?: { id?: string; name?: string },
+  assetMetadata?: {
+    assetId?: string;
+    deliverableName?: string;
+    fileMetadata?: any;
+    validationStatus?: string;
+  }
+): CanonicalMarketingTask | null {
+  const task = getCanonicalMarketingTaskById(taskId);
+  if (!task) return null;
+  if (task.status === 'needs_info') {
+    throw new Error('INVALID_STATE_TRANSITION: Cannot submit proof for task in needs_info. Intake must achieve readiness first.');
+  }
+
+  const cleanProof = (proofUrl || '').trim();
+  if (!cleanProof && !assetMetadata?.assetId) {
+    throw new Error('PROOF_REQUIRED: A valid proof URL or managed asset is required to submit for approval. Notes alone are not sufficient.');
+  }
+
+  // Idempotency: If exact same proof is re-submitted while already awaiting_review, return existing state
+  if (
+    task.reviewState === 'awaiting_review' &&
+    task.proofUrl === cleanProof &&
+    (task.proofNotes || '') === (notes || '')
+  ) {
+    return task;
+  }
+
+  task.status = 'in_progress';
+  task.reviewState = 'awaiting_review';
+  task.proofVersion = (task.proofVersion || 0) + 1;
+  task.proofUrl = cleanProof;
+  task.proofNotes = notes;
+  task.updatedAt = new Date().toISOString();
+
+  // Resolve Review Owner using Canonical Staff Directory
+  try {
+    const allStaff = getAllStaffMembers();
+    const director = allStaff.find(s =>
+      s.id === 'dir_melissa_gagliardi_33' ||
+      s.role === 'marketing_director' ||
+      s.title?.toLowerCase().includes('marketing director') ||
+      s.title?.toLowerCase().includes('director')
+    );
+    if (director) {
+      task.reviewOwnerId = director.id;
+      task.reviewOwnerName = director.fullName;
+      if (director.status === 'out_of_office' && director.backupStaffId) {
+        task.coveringStaffId = director.backupStaffId;
+        task.coveringStaffName = director.backupStaffName || 'Covering Staff';
+      }
+    }
+  } catch {
+    // Non-fatal fallback
+  }
+
+  if (!task.proofHistory) task.proofHistory = [];
+  task.proofHistory.push({
+    version: task.proofVersion,
+    proofUrl: cleanProof,
+    uploadedBy: actor?.name || 'Producer',
+    uploadedById: actor?.id,
+    uploadedAt: new Date().toISOString(),
+    notes,
+    assetId: assetMetadata?.assetId,
+    deliverableName: assetMetadata?.deliverableName,
+    fileMetadata: assetMetadata?.fileMetadata,
+    validationStatus: assetMetadata?.validationStatus
+  });
+
+  if (!task.reviewHistory) task.reviewHistory = [];
+  task.reviewHistory.push({
+    version: task.proofVersion,
+    action: 'proof_submitted',
+    reviewerId: actor?.id,
+    reviewerName: actor?.name || 'Producer',
+    feedbackNotes: notes,
+    timestamp: new Date().toISOString()
+  });
+
+  if (!task.approvalHistory) task.approvalHistory = [];
+  task.approvalHistory.push({
+    action: `Proof v${task.proofVersion} submitted`,
+    performedBy: actor?.name || 'Producer',
+    timestamp: new Date().toISOString(),
+    note: notes
+  });
+
+  return saveCanonicalMarketingTask(task);
+}
+
+export function requestCanonicalMarketingTaskRevisions(
+  taskId: string,
+  feedbackNotes: string,
+  reviewer?: { id?: string; name?: string }
+): CanonicalMarketingTask | null {
+  const task = getCanonicalMarketingTaskById(taskId);
+  if (!task) return null;
+  if (!feedbackNotes || !feedbackNotes.trim()) {
+    throw new Error('REVISION_FEEDBACK_REQUIRED: Meaningful revision feedback notes are required when requesting revisions.');
+  }
+
+  task.status = 'in_progress';
+  task.reviewState = 'revisions_requested';
+  task.proofNotes = feedbackNotes;
+  task.updatedAt = new Date().toISOString();
+
+  if (!task.reviewHistory) task.reviewHistory = [];
+  task.reviewHistory.push({
+    version: task.proofVersion || 1,
+    action: 'revisions_requested',
+    reviewerId: reviewer?.id,
+    reviewerName: reviewer?.name || 'Reviewer',
+    feedbackNotes,
+    timestamp: new Date().toISOString()
+  });
+
+  if (!task.approvalHistory) task.approvalHistory = [];
+  task.approvalHistory.push({
+    action: 'Revisions requested',
+    performedBy: reviewer?.name || 'Reviewer',
+    timestamp: new Date().toISOString(),
+    note: feedbackNotes
+  });
+
+  return saveCanonicalMarketingTask(task);
+}
+
+export function approveCanonicalMarketingTaskProof(
+  taskId: string,
+  note?: string,
+  reviewer?: { id?: string; name?: string }
+): CanonicalMarketingTask | null {
+  const task = getCanonicalMarketingTaskById(taskId);
+  if (!task) return null;
+
+  task.reviewState = 'approved';
+  task.updatedAt = new Date().toISOString();
+
+  if (!task.reviewHistory) task.reviewHistory = [];
+  task.reviewHistory.push({
+    version: task.proofVersion || 1,
+    action: 'approved',
+    reviewerId: reviewer?.id,
+    reviewerName: reviewer?.name || 'Reviewer',
+    feedbackNotes: note || 'Proof approved',
+    timestamp: new Date().toISOString()
+  });
+
+  if (!task.approvalHistory) task.approvalHistory = [];
+  task.approvalHistory.push({
+    action: 'Proof approved',
+    performedBy: reviewer?.name || 'Reviewer',
+    timestamp: new Date().toISOString(),
+    note: note || 'Proof approved'
+  });
+
+  return saveCanonicalMarketingTask(task);
+}
+
 export function archiveCanonicalMarketingTask(taskId: string): CanonicalMarketingTask | null {
   return updateCanonicalMarketingTaskStatus(taskId, 'archived', { performedBy: 'User' });
 }
 
 export function getAllCanonicalMarketingRequests(): CanonicalMarketingRequest[] {
-  if (canonicalRequestsStore.length === 0 && isServer) {
+  if (!hasLoadedCanonicalStore && canonicalRequestsStore.length === 0 && isServer) {
     loadCanonicalStoreFromDisk();
   }
   return canonicalRequestsStore;
@@ -2648,7 +3413,9 @@ export function saveCanonicalMarketingRequest(req: CanonicalMarketingRequest): C
   }
 
   if (isServer) {
-    persistRequestToDatabase(req);
+    persistRequestToDatabase(req).catch(err => {
+      console.warn('[saveCanonicalMarketingRequest] Notice persisting request to database:', err.message);
+    });
   }
 
   return req;
@@ -2776,28 +3543,56 @@ export function shouldCreateRequestFromCall(call: any): { shouldCreate: boolean;
   const rawText = (call.transcript || call.requestSummary || call.notes || call.summary || '').trim();
   const lower = rawText.toLowerCase();
 
-  // 1. Hang-up / Dropped Call Check (< 8s duration with no explicit deliverable or handoff)
-  const isExtremelyShort = duration > 0 && duration < 8;
+  // 1. Explicit Analysis Gate
+  if (call.call_analysis?.custom_analysis_data?.should_create_ticket === false) {
+    return { shouldCreate: false, reason: 'Call analysis explicitly determined no ticket should be created.' };
+  }
+
+  // 2. Deliverable Keywords Check
   const hasDeliverableKeywords = lower.includes('flyer') || lower.includes('sign') || lower.includes('post') ||
     lower.includes('social') || lower.includes('slides') || lower.includes('cma') || lower.includes('deck') ||
     lower.includes('brochure') || lower.includes('package') || lower.includes('listing launch') ||
     lower.includes('open house') || lower.includes('farming') || lower.includes('rider') ||
     lower.includes('presentation') || lower.includes('lockbox');
 
-  const hasHandoffPromise = lower.includes('melissa') || lower.includes('eduardo') || lower.includes('ann') ||
-    lower.includes('jessica') || lower.includes('route') || lower.includes('send') || lower.includes('stage') ||
-    lower.includes('dispatch') || lower.includes('work order') || lower.includes('get this to');
+  // 3. Test Calls Gate ("just testing", "only testing", etc.)
+  const isTestPhrase = (
+    lower.includes('just testing') ||
+    lower.includes('only testing') ||
+    lower.includes('testing the agent') ||
+    lower.includes("i'm testing") ||
+    lower.includes('test call') ||
+    lower.includes('testing call')
+  );
 
-  if (isExtremelyShort && !hasDeliverableKeywords && !hasHandoffPromise) {
-    return { shouldCreate: false, reason: 'Caller hung up or call dropped prematurely (< 8s).' };
+  const hasExplicitConfirmedRequest = Boolean(
+    (call.call_analysis?.custom_analysis_data?.should_create_ticket === true) ||
+    call.tool_calls?.some((tc: any) => tc.tool_name === 'submit_marketing_intake' || tc.tool_name === 'dispatch_marketing_collateral' || tc.tool_name === 'dispatch_sign_post') ||
+    (hasDeliverableKeywords && (lower.includes('save') || lower.includes('create') || lower.includes('confirm') || lower.includes('order')) && (lower.includes('road') || lower.includes('street') || lower.includes('drive') || lower.includes('ave') || lower.includes('way') || lower.includes('blvd') || lower.includes('dr') || lower.includes('lane') || lower.includes('ct')))
+  );
+
+  if (isTestPhrase && !hasExplicitConfirmedRequest) {
+    return { shouldCreate: false, reason: 'Testing call — no task created.' };
   }
 
-  // Explicit disconnection/silence
-  if (lower === 'user hung up' || lower === 'call ended' || lower === 'silence' || lower === 'no speech detected') {
+  // 4. Explicit Disconnection / Silence / Greeting Only
+  if (
+    lower === 'user hung up' ||
+    lower === 'call ended' ||
+    lower === 'silence' ||
+    lower === 'no speech detected' ||
+    lower.length < 5
+  ) {
     return { shouldCreate: false, reason: 'Call ended without request.' };
   }
 
-  // 2. Pure Informational Q&A (Answered On Call with no follow-up needed)
+  // 5. Hang-up / Dropped Call Check (< 8s duration with no confirmed address)
+  const isExtremelyShort = duration > 0 && duration < 8;
+  if (isExtremelyShort && !lower.includes('road') && !lower.includes('street') && !lower.includes('drive') && !lower.includes('way') && !lower.includes('avenue') && !lower.includes('court') && !lower.includes('lane')) {
+    return { shouldCreate: false, reason: 'Caller hung up or call dropped prematurely (< 8s).' };
+  }
+
+  // 6. Pure Informational Q&A (Answered On Call with no follow-up needed)
   const isInformationalQuery = 
     lower.includes('office hours') ||
     lower.includes('what are your hours') ||
@@ -2820,10 +3615,40 @@ export function shouldCreateRequestFromCall(call: any): { shouldCreate: boolean;
     lower.includes('no further action needed') ||
     lower.includes('question answered') ||
     lower.includes('provided answer directly') ||
-    (isInformationalQuery && !hasDeliverableKeywords && !hasHandoffPromise);
+    (isInformationalQuery && !hasDeliverableKeywords);
 
-  if (indicatesAnsweredOnCall && !hasDeliverableKeywords && !hasHandoffPromise) {
+  if (indicatesAnsweredOnCall && !hasDeliverableKeywords) {
     return { shouldCreate: false, reason: 'Informational question answered directly on call.' };
+  }
+
+  const customData = call.call_analysis?.custom_analysis_data || call.customAnalysisData || {};
+  const hasExplicitAddress = Boolean(
+    call.propertyAddress || customData.property_address ||
+    /\b(street|st|road|rd|drive|dr|avenue|ave|way|boulevard|blvd|lane|ln|court|ct)\b/i.test(lower)
+  );
+
+  const isOperationalRequest = Boolean(
+    customData.category === 'operations' ||
+    customData.category === 'office_supplies' ||
+    customData.category === 'facilities' ||
+    customData.category === 'lockbox_signs' ||
+    customData.primary_owner === 'ann' ||
+    lower.includes('restock') ||
+    lower.includes('office supplies') ||
+    lower.includes('water bottle') ||
+    lower.includes('bottled water') ||
+    lower.includes('soda') ||
+    lower.includes('drink') ||
+    lower.includes('coffee') ||
+    lower.includes('printer paper') ||
+    lower.includes('cleaning supplies') ||
+    lower.includes('yard sign') ||
+    lower.includes('sign post')
+  );
+
+  // If no deliverable keywords exist and no property was stated, and it is not an operational request, it cannot be a task
+  if (!hasDeliverableKeywords && !hasExplicitAddress && !isOperationalRequest) {
+    return { shouldCreate: false, reason: 'No actionable marketing deliverable, yard sign, or operational task requested on call.' };
   }
 
   return { shouldCreate: true };
@@ -2862,16 +3687,26 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
   const customData = call.call_analysis?.custom_analysis_data || call.customAnalysisData || {};
   const rawText = `${call.transcript || ''} ${call.summary || call.call_analysis?.call_summary || customData.description || ''}`.trim();
   let callerName = customData.requester || call.callerName || call.agentName || '';
-  if (!callerName || callerName.toLowerCase().includes('inbound phone caller') || callerName.toLowerCase().includes('matt orr')) {
+  if (!callerName || callerName.toLowerCase().includes('inbound phone caller')) {
     if (rawText.toLowerCase().includes('marcus') || rawText.toLowerCase().includes('marcus aman')) {
       callerName = 'Marcus Aman (Broker / Tech Lead)';
     } else if (rawText.toLowerCase().includes('ryan')) {
       callerName = 'Ryan Crecelius (Owner / BIC)';
-    } else if (!callerName) {
-      callerName = 'Matt Orr (REALTOR®)';
+    } else {
+      callerName = call.from_number || call.caller_number || call.from || 'Unknown Caller';
     }
   }
   let propertyAddress = customData.property_address || call.propertyAddress || '';
+
+  // Detect On-Behalf-Of represented agent
+  let representedAgent: string | undefined = customData.represented_agent || (call as any).representedAgentName || (call as any).onBehalfOf;
+  if (!representedAgent) {
+    const oboMatch = rawText.match(/on behalf of\s+(?:listing agent\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i);
+    if (oboMatch && oboMatch[1]) {
+      representedAgent = oboMatch[1].trim();
+    }
+  }
+  const effectiveAgentName = representedAgent || callerName;
 
   // Extract address if not provided explicitly in call object
   if (!propertyAddress || propertyAddress.toLowerCase().includes('unknown')) {
@@ -2882,19 +3717,17 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
       propertyAddress = directMatch[1].trim();
     } else if (addrMatch && addrMatch[1]) {
       propertyAddress = addrMatch[1].trim();
-    } else if (rawText.toLowerCase().includes('live oak')) {
-      propertyAddress = '1104 S Live Oak Pkwy, Wilmington NC';
     } else {
       const numberMatch = rawText.match(/\b([0-9]{3,5}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
       if (numberMatch && numberMatch[1]) {
         propertyAddress = `${numberMatch[1]}, Wilmington NC`;
       } else {
-        propertyAddress = '1104 S Live Oak Pkwy, Wilmington NC';
+        propertyAddress = '';
       }
     }
   }
 
-  if (!propertyAddress.includes('NC') && !propertyAddress.includes('Wilmington')) {
+  if (propertyAddress && !propertyAddress.includes('NC') && !propertyAddress.includes('Wilmington')) {
     propertyAddress = `${propertyAddress}, Wilmington NC`;
   }
 
@@ -2938,6 +3771,77 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
     vendorNotes?: string;
   }> = [];
 
+  // 0. Operations / Office Supplies Restock & Facilities
+  const isOperationalIntake = Boolean(
+    customData.category === 'operations' ||
+    customData.category === 'office_supplies' ||
+    customData.primary_owner === 'ann' ||
+    lower.includes('restock') ||
+    lower.includes('office supplies') ||
+    lower.includes('water bottle') ||
+    lower.includes('bottled water') ||
+    lower.includes('soda') ||
+    lower.includes('drink') ||
+    lower.includes('coffee') ||
+    lower.includes('printer paper') ||
+    lower.includes('cleaning supplies')
+  );
+
+  if (isOperationalIntake && (!propertyAddress || propertyAddress.toLowerCase().includes('unknown') || propertyAddress.toLowerCase().includes('address pending'))) {
+    const officeName = lower.includes('carolina beach') ? 'Carolina Beach' : lower.includes('midtown') ? 'Midtown' : 'Mayfaire';
+    propertyAddress = `${officeName} Nest Office, Wilmington NC`;
+  }
+
+  if (
+    isOperationalIntake &&
+    (lower.includes('water') || lower.includes('soda') || lower.includes('drink') || lower.includes('coffee') || lower.includes('paper') || lower.includes('supplies') || lower.includes('restock') || customData.category === 'operations' || customData.category === 'office_supplies')
+  ) {
+    const officeName = lower.includes('carolina beach') ? 'Carolina Beach' : lower.includes('midtown') ? 'Midtown' : 'Mayfaire';
+    const detectedSupplyCat = OfficeSupplyDeduplicationService.detectCategory(rawText);
+    const supplyCheck = OfficeSupplyDeduplicationService.checkAndConsolidateSupplyRequest({
+      callerName,
+      callerPhone: call.from_number || call.caller_phone || call.from,
+      office: officeName,
+      requestText: rawText,
+      category: detectedSupplyCat
+    });
+
+    if (supplyCheck.isDuplicate) {
+      const existingSupplyReq = allRequests.find(r => 
+        r.category === 'operations' && 
+        r.propertyAddress?.toLowerCase().includes(officeName.toLowerCase()) &&
+        !r.isArchived && r.status !== 'archived'
+      );
+      if (existingSupplyReq) {
+        existingSupplyReq.requestExcerpt = `${existingSupplyReq.requestExcerpt} | [Consolidated Caller]: ${callerName} also requested ${supplyCheck.order.categoryLabel}.`;
+        existingSupplyReq.updatedAt = new Date().toISOString();
+        saveCanonicalMarketingRequest(existingSupplyReq);
+        const existingTasks = getAllCanonicalMarketingTasks().filter(t => t.requestId === existingSupplyReq.id);
+        return {
+          shouldCreate: false,
+          suppressed: true,
+          suppressionReason: 'DEDUPLICATED_INTO_EXISTING_RESTOCK_ORDER',
+          request: existingSupplyReq,
+          tasks: existingTasks
+        };
+      } else {
+        taskDeliverables.push({
+          title: supplyCheck.order.categoryLabel || 'Office Restock & Supplies',
+          category: 'operations',
+          assignedTo: 'Ann Gunn',
+          vendorNotes: supplyCheck.spokenMessage
+        });
+      }
+    } else {
+      taskDeliverables.push({
+        title: supplyCheck.order.categoryLabel || 'Office Restock & Supplies',
+        category: 'operations',
+        assignedTo: 'Ann Gunn',
+        vendorNotes: supplyCheck.spokenMessage
+      });
+    }
+  }
+
   // 1. Specific Compound: Open House Flyer & Information Sheet
   if (lower.includes('open house') && (lower.includes('flyer') || lower.includes('sheet') || lower.includes('info') || lower.includes('information') || lower.includes('handout'))) {
     taskDeliverables.push({
@@ -2963,7 +3867,7 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
   }
 
   // 3. Social Media Post / Story Carousel
-  if (lower.includes('social media') || lower.includes('instagram') || lower.includes('facebook') || lower.includes('story') || lower.includes('carousel')) {
+  if (lower.includes('social') || lower.includes('instagram') || lower.includes('facebook') || lower.includes('story') || lower.includes('carousel')) {
     taskDeliverables.push({
       title: lower.includes('carousel') || lower.includes('story') ? '3-Slide Instagram & Facebook Story Carousel' : 'Instagram & Facebook Social Media Graphics',
       category: 'social',
@@ -3112,25 +4016,85 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
     const duplicate = existingTasks.find(et => et.title.toLowerCase() === td.title.toLowerCase() && !et.isArchived);
     if (!duplicate) {
       const taskId = `task_call_${callId}_${idx}`;
+
+      let routingDecision: any;
+      if (isServer) {
+        try {
+          routingDecision = canonicalTaskRoutingService.resolveRoutingSync({
+            workspaceId: (call as any).workspaceId || 'ws_wilmington',
+            category: td.category,
+            deliverableType: td.title,
+            title: td.title,
+            transcript: rawText,
+            channel: 'phone',
+            requesterName: callerName,
+            propertyAddress: propertyAddress || undefined,
+            classificationConfidence: 0.95,
+            taskId,
+            callId: String(callId)
+          });
+        } catch (routeErr) {
+          console.warn('[CallIntake] Canonical routing lookup notice:', routeErr);
+        }
+      }
+
+      const isTriage = routingDecision ? routingDecision.routingState !== 'resolved' : false;
+
       const task: CanonicalMarketingTask = {
         id: taskId,
         requestId: effectiveReqId,
-        requestTitle: propertyAddress,
-        propertyAddress,
-        agentName: callerName,
+        requestTitle: propertyAddress || 'Address Pending',
+        propertyAddress: propertyAddress || '',
+        agentName: effectiveAgentName,
         title: td.title,
-        category: td.category,
-        assignedTo: td.assignedTo || 'Melissa Gagliardi',
-        status: 'request_received', // In Unassigned / Request Received queue
+        category: td.category || routingDecision?.departmentId,
+        assignedTo: isTriage ? undefined : (td.title.toLowerCase().includes('general marketing') || td.category === 'listing_launch' ? (td.assignedTo || 'Melissa Gagliardi') : (routingDecision?.assigneeName || td.assignedTo || 'Melissa Gagliardi')),
+        assignedToId: isTriage ? undefined : routingDecision?.assigneeStaffId,
+        assignedToRole: isTriage ? 'Unassigned Review Queue' : (routingDecision?.assigneeRole || 'Marketing Specialist'),
+        reviewOwner: routingDecision?.reviewOwnerName,
+        reviewOwnerId: routingDecision?.reviewOwnerStaffId,
+        reviewOwnerName: routingDecision?.reviewOwnerName,
+        coveringStaff: routingDecision?.coveringStaffName,
+        coveringStaffId: routingDecision?.coveringStaffId,
+        coveringStaffName: routingDecision?.coveringStaffName,
+        originalStaffId: routingDecision?.originalStaffId,
+        governingSopId: routingDecision?.governingSopId,
+        governingSopVersion: routingDecision?.governingSopVersion,
+        routingRuleId: routingDecision?.matchedRuleId,
+        routingPolicyVersion: routingDecision?.ruleVersion,
+        departmentId: routingDecision?.departmentId,
+        primaryRoleId: routingDecision?.primaryRoleId,
+        reviewRoleId: routingDecision?.reviewRoleId,
+        routingState: routingDecision?.routingState || 'resolved',
+        routingReasons: routingDecision?.reasonCodes,
+        routingSnapshot: routingDecision?.snapshot,
+        status: isTriage ? 'needs_info' : 'request_received',
         dueAt: isUrgent ? new Date(Date.now() + 86400000).toISOString() : new Date(Date.now() + 86400000 * 2).toISOString(),
         vendorName: td.vendorName,
         vendorNotes: td.vendorNotes,
-        notes: taskNotes,
+        notes: representedAgent
+          ? `[Submitted by ${callerName} on behalf of ${representedAgent}${call.from_number ? ` (${call.from_number})` : ''}]\n${taskNotes}`
+          : taskNotes,
+        channel: 'phone',
+        callId: String(callId),
+        telephonyCallId: String(callId),
+        audioUrl: call.audioUrl || `/api/marketing/calls/${callId}/audio`,
         createdAt: call.start_timestamp ? new Date(call.start_timestamp).toISOString() : new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       const savedTask = saveCanonicalMarketingTask(task);
       createdTasks.push(savedTask);
+
+      if (isServer && routingDecision) {
+        try {
+          canonicalTaskRoutingService.recordRoutingAudit(
+            (call as any).workspaceId || 'ws_wilmington',
+            { taskId, callId: String(callId), requestId: effectiveReqId },
+            routingDecision,
+            'phone'
+          ).catch(() => {});
+        } catch {}
+      }
     }
   });
 
@@ -3163,7 +4127,10 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
     title: propertyAddress,
     propertyAddress,
     category,
-    agentName: callerName,
+    status: 'ready_for_review',
+    agentName: effectiveAgentName,
+    createdByName: callerName,
+    onBehalfOf: representedAgent || undefined,
     channel: 'phone',
     audioUrl: call.audioUrl || `/api/marketing/calls/${callId}/audio`,
     requestExcerpt: summaryExcerpt,
@@ -3175,6 +4142,69 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
   };
 
   saveCanonicalMarketingRequest(newRequest);
+
+  if (isServer) {
+    import('../services/activityHistoryService.js').then(({ recordActivityEvent }) => {
+      recordActivityEvent({
+        workspaceId: (newRequest as any).workspaceId || 'ws_wilmington',
+        requestId: newRequest.id,
+        callId: String(callId),
+        eventType: 'call.received',
+        actorType: 'requester',
+        actorDisplayName: callerName,
+        channel: 'phone',
+        direction: 'inbound',
+        communicationStatus: 'delivered',
+        summary: `${callerName} called NORA requesting marketing for ${propertyAddress}`,
+        metadata: {
+          duration: call.duration || call.duration_formatted,
+          durationSeconds: call.duration_seconds,
+          recordingUrl: call.recording_url || call.audio_url,
+          requestType: call.request_type
+        },
+        idempotencyKey: `act:call_received:${callId}`
+      }).catch(() => {});
+
+      recordActivityEvent({
+        workspaceId: (newRequest as any).workspaceId || 'ws_wilmington',
+        requestId: newRequest.id,
+        callId: String(callId),
+        eventType: 'request.created',
+        actorType: 'nora',
+        actorDisplayName: 'NORA Intake AI',
+        channel: 'phone',
+        direction: 'inbound',
+        communicationStatus: 'delivered',
+        summary: `Request created for ${propertyAddress} from verified call intake`,
+        metadata: {
+          propertyAddress,
+          category,
+          callId: String(callId)
+        },
+        idempotencyKey: `act:req_from_call:${callId}:${newRequest.id}`
+      }).catch(() => {});
+
+      for (const t of createdTasks) {
+        recordActivityEvent({
+          workspaceId: (t as any).workspaceId || (newRequest as any).workspaceId || 'ws_wilmington',
+          requestId: newRequest.id,
+          taskId: t.id,
+          callId: String(callId),
+          eventType: 'task.created',
+          actorType: 'nora',
+          actorDisplayName: 'NORA Intake AI',
+          channel: 'internal',
+          direction: 'internal',
+          summary: `${t.title} task created`,
+          metadata: {
+            category: t.category,
+            priority: t.priority
+          },
+          idempotencyKey: `act:task_created:${t.id}`
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 
   // Synchronize into Campaigns Store for UI Table Rendering
   const campId = `campaign_${reqId.replace(/^req_/, '').toLowerCase()}`;
@@ -3254,8 +4284,10 @@ export function convertCallToCanonicalMarketingRequest(call: any): CallToRequest
 }
 
 export function resetCanonicalStoreForTesting() {
+  hasLoadedCanonicalStore = true;
   canonicalTasksStore = [];
   canonicalRequestsStore = [];
+  OfficeSupplyDeduplicationService.clearOrders();
   if (!isServer) return;
   try {
     const paths = getCanonicalDataPaths();
@@ -3316,9 +4348,9 @@ export function getProofPortalDataByToken(token: string): ProofPortalData {
     token,
     campaignId: matchedTask.requestId || 'camp_1104_arboretum',
     propertyAddress: matchedTask.propertyAddress || matchedTask.requestTitle || '1104 Arboretum Dr, Wilmington, NC 28405',
-    agentName: matchedTask.agentName || 'Sarah Jenkins',
-    agentPhone: '+19105550199',
-    agentEmail: 'sarah.jenkins@nestrealty.com',
+    agentName: matchedTask.agentName || 'Jessica Keenan',
+    agentPhone: '+19103681507',
+    agentEmail: 'jessica.keenan@nestrealty.com',
     status: matchedTask.status,
     packageType: 'Luxury Listing Launch Package',
     deliverables: [

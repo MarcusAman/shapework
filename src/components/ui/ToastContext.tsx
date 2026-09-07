@@ -135,7 +135,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         dismissAll,
         addToast,
         toast: toastObj.current,
-      }}
+        success: toastObj.current.success,
+        info: toastObj.current.info,
+        warning: toastObj.current.warning,
+        error: toastObj.current.error,
+        ai: toastObj.current.ai,
+      } as any}
     >
       {children}
     </ToastContext.Provider>
@@ -146,19 +151,21 @@ export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) {
     const noopId = 'noop-toast';
+    const fallbackToast = {
+      success: () => noopId,
+      info: () => noopId,
+      warning: () => noopId,
+      error: () => noopId,
+      ai: () => noopId,
+      dismiss: () => {},
+      dismissAll: () => {},
+    };
     return {
       toasts: [],
       dismiss: () => {},
       dismissAll: () => {},
-      toast: {
-        success: () => noopId,
-        info: () => noopId,
-        warning: () => noopId,
-        error: () => noopId,
-        ai: () => noopId,
-        dismiss: () => {},
-        dismissAll: () => {},
-      },
+      toast: fallbackToast,
+      ...fallbackToast,
     };
   }
   return ctx;

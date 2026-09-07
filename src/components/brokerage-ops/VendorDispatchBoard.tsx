@@ -72,7 +72,7 @@ const INITIAL_REPAIR_TICKETS: RepairTicket[] = [
     bicApprovalRequired: false,
     bicApproved: false,
     status: 'work_in_progress',
-    agentName: 'Sarah Jenkins',
+    agentName: 'Jessica Keenan',
     createdAt: 'Yesterday'
   },
   {

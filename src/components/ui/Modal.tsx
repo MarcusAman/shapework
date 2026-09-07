@@ -41,6 +41,8 @@ export default function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const titleId = useId();
 
   // Store trigger element and restore focus on unmount/close
@@ -52,7 +54,22 @@ export default function Modal({
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
 
+      // Auto-focus container or first focusable element ONLY once on open if not already focused
+      const timer = setTimeout(() => {
+        if (modalRef.current) {
+          if (!modalRef.current.contains(document.activeElement)) {
+            const firstInput = modalRef.current.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+            if (firstInput) {
+              firstInput.focus();
+            } else {
+              modalRef.current.focus();
+            }
+          }
+        }
+      }, 50);
+
       return () => {
+        clearTimeout(timer);
         document.body.style.overflow = originalOverflow;
         if (previousActiveElement.current && typeof previousActiveElement.current.focus === 'function') {
           previousActiveElement.current.focus();
@@ -68,7 +85,7 @@ export default function Modal({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -96,24 +113,11 @@ export default function Modal({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    
-    // Auto-focus container or first focusable element
-    const timer = setTimeout(() => {
-      if (modalRef.current) {
-        const firstInput = modalRef.current.querySelector<HTMLElement>('input, button, select, textarea');
-        if (firstInput) {
-          firstInput.focus();
-        } else {
-          modalRef.current.focus();
-        }
-      }
-    }, 50);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(timer);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

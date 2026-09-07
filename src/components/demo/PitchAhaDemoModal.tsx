@@ -96,7 +96,7 @@ const PROMPT_CHIPS = [
     title: 'Lead paint disclosure',
     question: '"Hey NestOps, I\'m at 104 Main St with a buyer right now. Can you text me the signed Lead-Based Paint Disclosure PDF?"',
     logs: [
-      { time: '00:00.6s', text: 'Voice request received on +1 (910) 275-6672 (ASK-NORA)', type: 'info' as const },
+      { time: '00:00.6s', text: 'Voice request received via NORA Voice Agent', type: 'info' as const },
       { time: '00:01.2s', text: 'Request parsed: Lead Paint Disclosure for 104 Main St', type: 'intent' as const },
       { time: '00:01.9s', text: 'Document found in file vault (#DL-104MAIN-LBP)', type: 'query' as const },
       { time: '00:02.7s', text: 'Governance check: Requires Broker approval', type: 'governance' as const },
@@ -108,7 +108,7 @@ const PROMPT_CHIPS = [
     title: 'Earnest-money deposit',
     question: '"Just collected the $5,000 earnest money check for 312 Mayfaire Town Center Way. Check photo attached."',
     logs: [
-      { time: '00:00.5s', text: 'Text & check image received (+1 910-275-6672)', type: 'info' as const },
+      { time: '00:00.5s', text: 'Text & check image received via NORA Inbound Channel', type: 'info' as const },
       { time: '00:01.1s', text: 'Parsed check: $5,000.00 deposit from John Smith', type: 'intent' as const },
       { time: '00:01.8s', text: 'Matched transaction: 312 Mayfaire Town Center Way', type: 'query' as const },
       { time: '00:02.5s', text: 'Escrow audit record prepared', type: 'governance' as const },
@@ -164,17 +164,17 @@ const SCENARIO_ROUTING_DETAILS: Record<string, {
     responsiblePosition: 'Broker-in-Charge',
     assignedPerson: 'Eric Knight',
     procedure: 'Disclosure Verification & Dispatch',
-    escalationPolicy: '15-Minute SLA Failover',
+    escalationPolicy: '15-Minute Response Backup',
     title: 'Lead-Based Paint Disclosure Approval',
     property: '104 Main St',
-    agent: 'Sarah Jenkins',
+    agent: 'Jessica Keenan',
     reason: 'Active buyer walkthrough requires signed Lead-Based Paint disclosure',
     refLabel: 'File Reference',
     refValue: '#DL-104MAIN-LBP',
     deliveredTitle: 'Disclosure Dispatched to Agent',
     deliveredText: '"Here is your 104 Main St Lead-Based Paint Disclosure PDF: https://shapework.app/ephemeral/lbp-104main.pdf (Single-use link)."',
     summaryItems: [
-      'Agent Sarah Jenkins received document via SMS',
+      'Agent Jessica Keenan received document via SMS',
       'Broker Eric Knight approval recorded',
       'Audit log filed to compliance vault',
       'No secondary follow-up required'
@@ -186,20 +186,20 @@ const SCENARIO_ROUTING_DETAILS: Record<string, {
     responsiblePosition: 'Broker-in-Charge',
     assignedPerson: 'Eric Knight',
     procedure: 'Trust Account Logging',
-    escalationPolicy: 'Same-Day Escrow SLA',
+    escalationPolicy: 'Same-Day Escrow Due Time',
     title: '$5,000 Earnest Money Deposit Verification',
     property: '312 Mayfaire Town Center Way',
     agent: 'Marcus Vance',
     reason: 'Submitted $5,000 check photo from buyer closing deposit',
     refLabel: 'Ledger Reference',
     refValue: '#EMD-CHECK-312MAYFAIRE',
-    deliveredTitle: 'Escrow Logged & Receipt Issued',
-    deliveredText: '"Earnest Money deposit #EMD-8841 ($5,000.00) logged to 312 Mayfaire Escrow Ledger. NCREC Trust Account updated."',
+    deliveredTitle: 'Trust Deposit Logged & Receipt Issued',
+    deliveredText: '"Received $5,000 check for 312 Mayfaire. Logged to Trust Ledger #TL-2026-088. Receipt SMS sent to Marcus Vance."',
     summaryItems: [
-      'Deposit logged to trust accounting',
-      'Agent Marcus Vance notified of confirmation',
-      'Broker sign-off timestamped',
-      'NCREC compliance log complete'
+      '$5,000 EMD verified with First National Bank',
+      'Trust ledger entry #TL-2026-088 generated',
+      'Receipt issued to buyer agent',
+      'Zero trust account audit discrepancies'
     ]
   },
   camera: {
@@ -230,7 +230,7 @@ const SCENARIO_ROUTING_DETAILS: Record<string, {
     responsiblePosition: 'Broker-in-Charge',
     assignedPerson: 'Eric Knight',
     procedure: 'Emergency Repair Response',
-    escalationPolicy: 'Urgent Property Issue (15-Min SLA)',
+    escalationPolicy: 'Urgent Property Issue (15-Min Response)',
     title: 'Emergency Plumbing Repair ($1,450)',
     property: '104 Main St',
     agent: 'Marcus Vance',
@@ -485,7 +485,6 @@ export default function PitchAhaDemoModal({ isOpen, onClose }: PitchAhaDemoModal
             
             {/* Live Demo Hero Intro */}
             <LiveDemoIntro
-              phoneNumber="+1 (910) 275-6672"
               onSimulate={handleSimulateAction}
               onCopySuccess={() => triggerSound('tap')}
             />
@@ -501,7 +500,7 @@ export default function PitchAhaDemoModal({ isOpen, onClose }: PitchAhaDemoModal
               
               {/* Left: Agent Request Panel */}
               <AgentRequestPanel
-                channel="Voice Line (+1 910-275-6672 • ASK-NORA)"
+                channel="NORA Live Voice Assistant"
                 agentName={currentDetails.agent}
                 property={currentDetails.property}
                 question={currentChip.question}
@@ -761,8 +760,8 @@ export default function PitchAhaDemoModal({ isOpen, onClose }: PitchAhaDemoModal
               <div className="p-5 bg-[#F6F7F1] rounded-2xl border border-[#01362D]/10 space-y-2 text-xs text-[#01362D]">
                 <h4 className="font-bold text-[#01362D] uppercase text-xs">Executive Summary</h4>
                 <ul className="space-y-2 list-disc pl-4 leading-relaxed text-[#01362D]/80">
-                  <li><strong>Hours Saved:</strong> 1,350 total operational staff hours saved across Wilmington & Mayfaire offices.</li>
-                  <li><strong>SLA Response:</strong> BICs Eric Knight & Jessica Keenan resolved 100% of escalations within SLA windows.</li>
+                  <li><strong>Hours Saved:</strong> 1,350 total operational staff hours saved across Wilmington &amp; Mayfaire offices.</li>
+                  <li><strong>On-Time Response:</strong> BICs Eric Knight &amp; Jessica Keenan resolved 100% of escalations on time.</li>
                   <li><strong>Agent Engagement:</strong> 94.8% of roster agents use the voice/SMS line weekly without password friction.</li>
                 </ul>
               </div>

@@ -12,6 +12,9 @@ import { Profile, ChatMessage } from '../../types/shapework';
 import ErrorBoundary from '../system/ErrorBoundary';
 import PitchAhaDemoModal from '../demo/PitchAhaDemoModal';
 import { applyWorkspaceBrandTheme, resolveWorkspaceBrand } from '../../styles/workspaceTheme';
+import NoraVoiceDrawer from '../voice/NoraVoiceDrawer';
+import { useNoraOmnichannelSession } from '../../hooks/useNoraOmnichannelSession';
+import { KineticGlassCaustics } from '../shared/KineticGlassCaustics';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -58,6 +61,7 @@ interface AppShellProps {
   appMode?: string;
   workspaceId?: string;
   onOpenPitchDemo?: () => void;
+  aiAgents?: any;
 }
 
 export default function AppShell({
@@ -147,6 +151,29 @@ export default function AppShell({
     }
   }, [workspaceId]);
 
+  const noraSession = useNoraOmnichannelSession({
+    workspaceId,
+    tenantId: 'tenant_nest_uat',
+    userName: activeProfile?.name || 'Nest Agent',
+    userId: activeProfile?.id || 'usr_agent'
+  });
+
+  useEffect(() => {
+    const handleOpenNora = () => {
+      noraSession.setIsDrawerOpen(true);
+      noraSession.startVoiceSession();
+    };
+    window.addEventListener('open-nora-voice-drawer', handleOpenNora);
+    return () => window.removeEventListener('open-nora-voice-drawer', handleOpenNora);
+  }, [noraSession]);
+
+  const isAskNoraPage = Boolean(
+    currentTab === 'Ask Nora' ||
+    currentTab === 'Ask Nest Ops' ||
+    currentTab === 'Nest Ops Hub' ||
+    currentTab === 'Ask'
+  );
+
   return (
     <div 
       ref={shellRef}
@@ -168,7 +195,10 @@ export default function AppShell({
       />
 
       {/* Main viewport */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[var(--sw-canvas)]">
+      <div className={`flex-1 flex flex-col min-w-0 overflow-hidden relative ${isAskNoraPage ? 'bg-[var(--sw-canvas)]' : 'bg-white'}`}>
+        {/* Global Ambient Kinetic Frosted Glass Caustics (Only on Ask Nora) */}
+        {isAskNoraPage && <KineticGlassCaustics variant="full" />}
+
         {/* Top Header (Omitted on Role Map so Org Chart header is the single top bar) */}
         {currentTab !== 'Role Map' && currentTab !== 'Role & Escalation Map' && (
           <TopBar
@@ -206,7 +236,7 @@ export default function AppShell({
             </ErrorBoundary>
           </div>
         ) : (
-          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
+          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20">
             <div className="max-w-[1600px] mx-auto space-y-6">
               <ErrorBoundary>
                 {children}
@@ -215,8 +245,6 @@ export default function AppShell({
           </main>
         )}
       </div>
-
-
 
       {/* Right Diagnostic context panel as sliding drawer */}
       {showOperationsPulse && (
@@ -260,6 +288,26 @@ export default function AppShell({
           isTableHeavy={isTableHeavy}
         />
       )}
+
+      {/* Nora Voice Drawer for intentional voice interactions */}
+      <NoraVoiceDrawer
+        isOpen={noraSession.isDrawerOpen}
+        onClose={() => noraSession.setIsDrawerOpen(false)}
+        voiceState={noraSession.voiceState}
+        statusMessage={noraSession.statusMessage}
+        audioLevel={noraSession.audioLevel}
+        turns={noraSession.turns}
+        activeSopCard={noraSession.activeSopCard}
+        isActionLoading={noraSession.isActionLoading}
+        notification={noraSession.notification}
+        onStartVoice={noraSession.startVoiceSession}
+        onStopVoice={noraSession.endVoiceSession}
+        onSendQuery={noraSession.sendQuery}
+        onToggleStep={noraSession.toggleStepCompleted}
+        onEscalate={noraSession.escalateToOwner}
+        onStartRun={noraSession.startActiveChecklistRun}
+        onReset={noraSession.resetConversation}
+      />
     </div>
   );
 }

@@ -7,12 +7,13 @@ export interface WorkspaceIntegrationConnection {
   id: string;
   workspaceId: string;
   provider: "google_workspace" | "microsoft_365";
-  status: "setup_needed" | "connected" | "expired" | "disconnected" | "error";
+  status: "setup_needed" | "connected" | "expired" | "disconnected" | "error" | "reauth_required";
   connectedByUserId: string;
   connectedAt: string;
   disconnectedAt?: string;
   providerAccountId?: string;
   providerAccountEmail?: string;
+  accountEmail?: string;
   tenantId?: string;
   scopes: string[];
   encryptedAccessToken: string;
@@ -21,6 +22,12 @@ export interface WorkspaceIntegrationConnection {
   refreshTokenExpiresAt?: string;
   lastSyncedAt?: string;
   lastError?: string;
+  tokenVersion?: number;
+  lastRefreshAttempt?: string;
+  lastSuccessfulRefresh?: string;
+  lastRefreshErrorCategory?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WorkspaceCommunicationSignal {

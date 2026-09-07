@@ -73,7 +73,7 @@ export default function AgentRequestPanel({
           <div className="p-6 bg-[#F6F7F1] border border-dashed border-[#01362D]/20 rounded-2xl text-center space-y-2">
             <Mic className="w-5 h-5 text-[#00635C] mx-auto opacity-70" />
             <p className="text-xs text-[#01362D]/70 leading-relaxed">
-              Select a scenario above or call <strong className="text-[#01362D]">+1 (910) 275-6672 (ASK-NORA)</strong> to stream live speech.
+              Select a scenario above or speak directly with NORA to stream live speech.
             </p>
           </div>
         )}

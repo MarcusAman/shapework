@@ -1,6 +1,6 @@
 import React from 'react';
 import { Phone, Mail, MessageSquare, UserCheck, AlertCircle, FileText, CheckCircle2, ShieldCheck, ExternalLink, Calendar, Plus, Clock, User } from 'lucide-react';
-import { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
+import type { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
 import { deriveCampaignProjection } from '../../shared/marketingProjection';
 
 export interface CampaignBriefViewProps {
@@ -183,41 +183,49 @@ export const CampaignBriefView: React.FC<CampaignBriefViewProps> = ({
         </div>
 
         {/* MISSING INFORMATION RESOLUTION SECTION */}
-        {req?.missingInformation && req.missingInformation.length > 0 && (
-          <div className="bg-amber-50 border border-amber-300 rounded-2xl p-6 space-y-4" data-testid="brief-missing-info-section">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-200 pb-3">
-              <div className="flex items-center gap-2 text-amber-900 font-serif font-bold text-lg">
-                <AlertCircle className="w-5 h-5 text-amber-700" />
-                <h3>Missing Information Required</h3>
-              </div>
-              {onResolveMissingInformation && (
-                <button
-                  type="button"
-                  data-testid="resolve-missing-info-btn"
-                  onClick={onResolveMissingInformation}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Provide missing information</span>
-                </button>
-              )}
-            </div>
+        {(() => {
+          const missingInfoList = Array.isArray(req?.missingInformation)
+            ? req.missingInformation
+            : (req?.missingInformation ? [{ id: 'miss_1', label: 'Listing Details', status: 'pending', prompt: req.missingInformation.prompt || req.missingInformation }] : []);
+          
+          if (missingInfoList.length === 0) return null;
 
-            <div className="space-y-3 text-xs">
-              {req.missingInformation.map((item: any) => (
-                <div key={item.id} className="bg-white p-4 rounded-xl border border-amber-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-amber-950 text-sm">{item.label}</span>
-                    <span className="text-[10px] font-bold uppercase text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full">
-                      {item.status}
-                    </span>
-                  </div>
-                  <p className="text-[#13231e]">{item.prompt}</p>
+          return (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-6 space-y-4" data-testid="brief-missing-info-section">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-200 pb-3">
+                <div className="flex items-center gap-2 text-amber-900 font-serif font-bold text-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-700" />
+                  <h3>Missing Information Required</h3>
                 </div>
-              ))}
+                {onResolveMissingInformation && (
+                  <button
+                    type="button"
+                    data-testid="resolve-missing-info-btn"
+                    onClick={onResolveMissingInformation}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Provide missing information</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-3 text-xs">
+                {missingInfoList.map((item: any) => (
+                  <div key={item.id} className="bg-white p-4 rounded-xl border border-amber-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-950 text-sm">{item.label}</span>
+                      <span className="text-[10px] font-bold uppercase text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                        {item.status || 'REQUIRED'}
+                      </span>
+                    </div>
+                    <p className="text-[#13231e]">{item.prompt}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* BRAND & COMPLIANCE GOVERNANCE SECTION */}
         <div className="border-t border-slate-200/80 pt-6 space-y-4">

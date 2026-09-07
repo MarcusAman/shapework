@@ -18,6 +18,9 @@ export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputEleme
   id?: string;
   disabled?: boolean;
   required?: boolean;
+  placeholder?: string;
+  type?: string;
+  maxLength?: number;
   onChange?: any;
   value?: any;
 }

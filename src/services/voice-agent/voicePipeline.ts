@@ -252,6 +252,15 @@ export class VoicePipeline {
     this.callbacks.onStatusChange('idle');
   }
 
+  public isListening(): boolean {
+    return this.isListeningActive;
+  }
+
+  public setMediaStream(stream: MediaStream): void {
+    this.mediaStream = stream;
+    this.setupAudioAnalyser(stream);
+  }
+
   public async startListening(): Promise<void> {
     const SpeechRecognition = (typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)) || (globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -561,7 +570,7 @@ export class VoicePipeline {
           if (this.callbacks.onUserInterrupted) {
             this.callbacks.onUserInterrupted();
           }
-          this.callbacks.onStatusChange('interrupted');
+          this.callbacks.onStatusChange('cancelled');
         }
       };
 
@@ -634,15 +643,9 @@ export class VoicePipeline {
         this.isSpeaking = false;
         this.lastSpeakingEndTime = Date.now();
         this.currentAudio = null;
+        this.stopListening();
         this.callbacks.onStatusChange('idle');
-        VoiceDiagnostics.log('listening_resumed', utteranceId);
-
-        // Defer resuming main listening by 350ms to allow room audio reverberation to dissipate
-        setTimeout(() => {
-          if (!this.isSpeaking) {
-            this.startListening();
-          }
-        }, 350);
+        VoiceDiagnostics.log('turn_completed', utteranceId, 'Microphone turned off following assistant response');
         return;
       } else {
         VoiceDiagnostics.log('audio_playback_failed', utteranceId, `HTTP ${res.status}`);
@@ -655,6 +658,7 @@ export class VoicePipeline {
     this.stopStopCommandListener();
     this.isSpeaking = false;
     this.lastSpeakingEndTime = Date.now();
+    this.stopListening();
     this.callbacks.onStatusChange('idle');
   }
 

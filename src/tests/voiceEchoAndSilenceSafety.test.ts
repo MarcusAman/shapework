@@ -85,7 +85,7 @@ describe('Ask Nest Ops Voice Agent Safety & Echo Prevention Tests', () => {
 
     let state = agentRuntimeReducer(initialRuntimeState, {
       type: 'LOAD_TRANSCRIPTS',
-      payload: preloaded
+      payload: preloaded as any
     });
 
     expect(state.transcriptHistory).toHaveLength(2);

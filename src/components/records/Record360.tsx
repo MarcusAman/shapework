@@ -204,7 +204,7 @@ export default function Record360({
                   </div>
                   <div>
                     <span className="text-[9px] text-text-tertiary block font-mono">Listing Coordinator</span>
-                    <span className="font-bold text-text-primary mt-0.5 block">{recordData.listing_coordinator || 'Sarah Jenkins'}</span>
+                    <span className="font-bold text-text-primary mt-0.5 block">{recordData.listing_coordinator || 'Ann Gunn'}</span>
                   </div>
                 </>
               )}

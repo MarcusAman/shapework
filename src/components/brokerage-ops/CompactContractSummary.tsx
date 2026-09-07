@@ -184,7 +184,7 @@ export const CompactContractSummary: React.FC<CompactContractSummaryProps> = ({
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-4 text-xs space-y-2">
           <div className="flex items-center gap-2 font-bold text-amber-950">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>Ask Nest Ops found an item for Melissa / BIC review</span>
+            <span>Ask Nora found an item for Melissa / BIC review</span>
           </div>
           <p className="text-amber-800 leading-relaxed">
             {session.bicReviewReason || 'Custom clause or conflicting facts detected. Human BIC approval required before finalizing draft.'}

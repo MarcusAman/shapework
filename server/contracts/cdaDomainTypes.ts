@@ -133,8 +133,8 @@ export function calculateCdaSplits(params: {
     },
     bicReviewStatus: bicStatus,
     bicSignature: bicStatus === 'approved_signed' ? {
-      signedBy: 'Matt Orr (BIC)',
-      bicLicenseNumber: 'NC REALTORS® BIC #281940',
+      signedBy: 'Eric Knight (BIC)',
+      bicLicenseNumber: 'NC REALTORS® BIC #278908',
       signedTimestamp: new Date().toISOString(),
     } : null,
     createdAt: new Date().toISOString(),

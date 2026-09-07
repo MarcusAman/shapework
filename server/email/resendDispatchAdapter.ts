@@ -6,6 +6,7 @@
  */
 
 import crypto from 'crypto';
+import { isAllowedEmailRecipient, ALLOWED_TEST_EMAIL_RECIPIENTS } from './emailProvider.js';
 
 export interface ResendDispatchOptions {
   to: string | string[];
@@ -32,7 +33,27 @@ export interface EmailDispatchReceipt {
 
 export async function dispatchEmailViaResend(options: ResendDispatchOptions): Promise<{ success: boolean; receipt: EmailDispatchReceipt }> {
   const apiKey = process.env.RESEND_API_KEY;
-  const toList = Array.isArray(options.to) ? options.to : [options.to];
+  const rawList = Array.isArray(options.to) ? options.to : [options.to];
+  const toList = rawList.filter(isAllowedEmailRecipient);
+
+  if (toList.length === 0) {
+    console.log(`[Resend Safety Gate] All recipients in [${rawList.join(', ')}] suppressed (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
+    return {
+      success: true,
+      receipt: {
+        receiptId: 'rcpt_email_suppressed_' + Date.now(),
+        resendMessageId: 'suppressed_safe_mode',
+        campaignId: options.campaignId || '',
+        to: rawList,
+        from: options.from || 'Nest Realty <marketing@nestrealty.com>',
+        subject: options.subject,
+        htmlChecksum: 'sha256_suppressed',
+        provider: 'resend_demo',
+        status: 'demo_sent',
+        timestamp: new Date().toISOString()
+      }
+    };
+  }
   const fromAddress = options.from || process.env.RESEND_FROM_EMAIL || 'Nest Realty <marketing@nestrealty.com>';
   const htmlChecksum = 'sha256_' + crypto.createHash('sha256').update(options.html || '').digest('hex');
   const campaignId = options.campaignId || '';

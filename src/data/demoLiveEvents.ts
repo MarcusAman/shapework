@@ -160,7 +160,7 @@ export const initialLiveEvents: LiveEvent[] = [
     confidence: 1.0,
     riskLevel: 'healthy',
     status: 'completed',
-    description: 'Overnight sweep completed. Morning Operational Briefing generated for Sarah Jenkins.',
+    description: 'Overnight sweep completed. Morning Operational Briefing generated for Ann Gunn.',
     recommendedAction: 'Load Operations Panel Daily Briefing feed.',
     policyName: 'Scheduled Morning Briefing Sweep',
     auditId: 'aud_briefing_gen_sweep'

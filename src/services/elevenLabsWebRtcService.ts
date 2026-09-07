@@ -125,9 +125,8 @@ export class ElevenLabsWebRtcService {
         }
       };
 
-      // Initialize ElevenLabs WebRTC Conversation Client
-      this.conversation = await Conversation.startSession({
-        conversationToken,
+      // Initialize ElevenLabs WebRTC / Rollback Conversation Client
+      const sessionOptions: any = {
         clientTools,
         onConnect: () => {
           this.setState('connected', 'Live WebRTC voice session connected.');
@@ -152,7 +151,16 @@ export class ElevenLabsWebRtcService {
         onModeChange: (mode: { mode: 'speaking' | 'listening' }) => {
           this.setState(mode.mode === 'speaking' ? 'speaking' : 'listening');
         }
-      });
+      };
+
+      if (conversationToken) {
+        sessionOptions.conversationToken = conversationToken;
+        sessionOptions.connectionType = 'webrtc';
+      } else {
+        sessionOptions.agentId = params.agentId || 'agent_3901kyk7pf3he52v8v9fp3m3bhd8';
+      }
+
+      this.conversation = await Conversation.startSession(sessionOptions);
 
     } catch (err: any) {
       console.warn('[WebRTC ConvAI Session Error]:', err);

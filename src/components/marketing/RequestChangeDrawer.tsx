@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Edit3, AlertTriangle, Layers, FileText } from 'lucide-react';
 
 export interface RequestChangeDrawerProps {
@@ -17,6 +17,16 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
   const [changeScope, setChangeScope] = useState<'single' | 'cross'>('single');
   const [changeDescription, setChangeDescription] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -54,6 +64,11 @@ export const RequestChangeDrawer: React.FC<RequestChangeDrawerProps> = ({
     <div
       className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex justify-end transition-opacity duration-300"
       data-testid="request-change-drawer"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div className="w-full max-w-lg bg-[#fffdf8] text-[#13231e] h-full shadow-2xl flex flex-col border-l border-slate-200 animate-slide-in-right overflow-hidden text-left font-sans">
         

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, GitBranch, Zap, FileText, ArrowLeft, ArrowRight, AlertCircle, X } from 'lucide-react';
+import { Plus, GitBranch, Zap, FileText, ArrowLeft, ArrowRight, AlertCircle, X, Sparkles, ChevronRight, Check, Upload } from 'lucide-react';
 import { SOP_TEMPLATES, SOPTemplate } from './sopTemplates';
 
 interface SOPCreateMenuProps {
@@ -9,6 +9,7 @@ interface SOPCreateMenuProps {
   onSelectAI: (brief: string) => Promise<void>;
   sops: any[];
   onSelectDuplicate: (sopId: string) => void;
+  onSelectUpload?: () => void;
 }
 
 export default function SOPCreateMenu({
@@ -17,13 +18,14 @@ export default function SOPCreateMenu({
   onSelectTemplate,
   onSelectAI,
   sops,
-  onSelectDuplicate
+  onSelectDuplicate,
+  onSelectUpload
 }: SOPCreateMenuProps) {
   const [aiBrief, setAiBrief] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   
-  const [showImportDrawer, setShowImportDrawer] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showDuplicateSelect, setShowDuplicateSelect] = useState(false);
 
   const handleGenerateAI = async (e: React.FormEvent) => {
@@ -41,92 +43,218 @@ export default function SOPCreateMenu({
     }
   };
 
+  const handleStartWithNora = () => {
+    // Scroll or focus the AI brief input, or pre-seed prompt
+    setAiBrief('Write an authoritative Standard Operating Procedure for Nest Realty Wilmington. Guide me step-by-step through required information, assigned roles, compliance review gates, and completion evidence.');
+  };
+
   return (
-    <div className="flex-grow p-8 bg-[#01362D] text-left select-none relative overflow-y-auto">
+    <div className="flex-grow p-6 sm:p-8 bg-white text-left select-none relative overflow-y-auto font-sans min-h-screen">
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Back button */}
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 border border-white/10 rounded-xl text-xs text-[#D0D6BB] hover:text-white transition-all cursor-pointer font-mono"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Library
-        </button>
-
         <div>
-          <h2 className="font-serif font-black text-xl text-white uppercase tracking-wide">Create New Standard Operating Procedure</h2>
-          <p className="text-[10px] font-mono text-[#D0D6BB]/50 mt-1">Select a starting path to design and publish your operating policy</p>
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-xl text-xs font-semibold text-stone-700 transition-colors shadow-2xs cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Knowledge Library</span>
+          </button>
         </div>
 
-        {/* Card Options Deck */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Card 1: Blank Canvas */}
-          <div 
-            onClick={onSelectBlank}
-            className="p-6 bg-[#012a23] border border-white/10 rounded-3xl hover:border-emerald-500/30 transition-all shadow-xl cursor-pointer group flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                <Plus className="w-5 h-5" />
-              </div>
-              <h3 className="font-serif font-black text-sm text-white uppercase tracking-wider mt-2 group-hover:text-emerald-300 transition-colors">Start Blank Canvas</h3>
-              <p className="text-[10px] font-mono text-[#D0D6BB]/55 leading-normal">Begin with a completely empty draft. Manually architect your custom SOP stages from scratch.</p>
+        {/* Page Header */}
+        <div className="border-b border-stone-200/80 pb-4">
+          <h1 className="font-serif font-bold text-2xl text-stone-900 tracking-tight">
+            Create an SOP
+          </h1>
+          <p className="text-xs text-stone-500 mt-1">
+            Choose how you’d like to begin.
+          </p>
+        </div>
+
+        {/* FEATURED OPTION: Build it with NORA */}
+        <div 
+          onClick={handleStartWithNora}
+          className="p-6 bg-white border-2 border-[#00635C]/30 hover:border-[#00635C] rounded-2xl shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-11 h-11 rounded-xl bg-[#E5EFEA] text-[#00635C] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+              <Sparkles className="w-5 h-5" />
             </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-mono text-emerald-400 mt-4">
-              Create blank <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-serif font-bold text-base text-stone-900">
+                  Build it with NORA
+                </h2>
+                <span className="px-2 py-0.5 rounded-full bg-[#E5EFEA] text-[#00635C] text-[10px] font-semibold tracking-wide">
+                  Featured
+                </span>
+              </div>
+              <p className="text-xs text-stone-600 mt-1 leading-relaxed max-w-xl">
+                Answer one question at a time and turn your process knowledge into an editable SOP draft.
+              </p>
             </div>
           </div>
 
-          {/* Card 2: Clone Template */}
-          <div className="p-6 bg-[#012a23] border border-white/10 rounded-3xl shadow-xl flex flex-col justify-between space-y-4">
-            <div className="space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                <FileText className="w-5 h-5" />
+          <div className="flex items-center gap-1.5 px-4 py-2 bg-[#00635C] group-hover:bg-[#00514B] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors shrink-0">
+            <span>Start with NORA</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </div>
+
+        {/* SUPPORTING OPTIONS: 4 Clean Light Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          
+          {/* Card 1: Upload Document */}
+          <div 
+            onClick={onSelectUpload}
+            className="p-5 bg-white border-2 border-[#00635C]/20 hover:border-[#00635C] rounded-2xl hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+          >
+            <div className="space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#E5EFEA] text-[#00635C] flex items-center justify-center">
+                <Upload className="w-4 h-4" />
               </div>
-              <h3 className="font-serif font-black text-sm text-white uppercase tracking-wider mt-2">Clone Templates</h3>
-              <p className="text-[10px] font-mono text-[#D0D6BB]/55 leading-normal">Clone one of our predefined default checklists without altering the source template.</p>
+              <h3 className="font-serif font-bold text-sm text-stone-900 group-hover:text-[#00635C] transition-colors">
+                Upload Document
+              </h3>
+              <p className="text-xs text-stone-500 leading-normal">
+                Import PDF or Word doc to extract or update an SOP.
+              </p>
             </div>
 
-            <div className="space-y-1.5 pt-2">
+            <div className="flex items-center gap-1 text-xs font-semibold text-[#00635C]">
+              <span>Upload SOP file</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </div>
+
+          {/* Card 2: Use a Template */}
+          <div 
+            onClick={() => setShowTemplatePicker(!showTemplatePicker)}
+            className="p-5 bg-white border border-stone-200 rounded-2xl hover:border-[#00635C]/50 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4"
+          >
+            <div className="space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                <FileText className="w-4 h-4" />
+              </div>
+              <h3 className="font-serif font-bold text-sm text-stone-900">
+                Use a Template
+              </h3>
+              <p className="text-xs text-stone-500 leading-normal">
+                Start with a proven Nest structure.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 text-xs font-semibold text-[#00635C]">
+              <span>Choose template</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          {/* Card 3: Start Blank */}
+          <div 
+            onClick={onSelectBlank}
+            className="p-5 bg-white border border-stone-200 rounded-2xl hover:border-[#00635C]/50 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+          >
+            <div className="space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#00635C] flex items-center justify-center">
+                <Plus className="w-4 h-4" />
+              </div>
+              <h3 className="font-serif font-bold text-sm text-stone-900 group-hover:text-[#00635C] transition-colors">
+                Start Blank
+              </h3>
+              <p className="text-xs text-stone-500 leading-normal">
+                Create the procedure manually.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 text-xs font-semibold text-[#00635C]">
+              <span>Create blank</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </div>
+
+          {/* Card 4: Duplicate Existing SOP */}
+          <div 
+            onClick={() => setShowDuplicateSelect(true)}
+            className="p-5 bg-white border border-stone-200 rounded-2xl hover:border-[#00635C]/50 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+          >
+            <div className="space-y-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                <GitBranch className="w-4 h-4" />
+              </div>
+              <h3 className="font-serif font-bold text-sm text-stone-900 group-hover:text-amber-800 transition-colors">
+                Duplicate Existing SOP
+              </h3>
+              <p className="text-xs text-stone-500 leading-normal">
+                Clone an existing procedure.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 text-xs font-semibold text-stone-700 group-hover:text-stone-900">
+              <span>Select to copy</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </div>
+        </div>
+
+        {/* PROGRESSIVE DISCLOSURE: Template Picker Sheet / List */}
+        {showTemplatePicker && (
+          <div className="p-5 bg-white border border-stone-200 rounded-2xl shadow-sm space-y-3 animate-fadeIn">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+              <div>
+                <h4 className="font-serif font-bold text-sm text-stone-900">Available Nest Templates</h4>
+                <p className="text-[11px] text-stone-500">Select a template to clone as your starting point</p>
+              </div>
+              <button 
+                onClick={() => setShowTemplatePicker(false)}
+                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               {SOP_TEMPLATES.map((tmpl) => (
                 <button
                   key={tmpl.id}
                   onClick={() => onSelectTemplate(tmpl)}
-                  className="w-full text-left p-2.5 bg-black/20 hover:bg-black/30 border border-white/5 rounded-xl text-[10px] text-white font-mono hover:border-white/10 transition-all cursor-pointer block"
+                  className="p-3.5 bg-[#F7F8F5] hover:bg-[#E5EFEA]/40 border border-stone-200/80 hover:border-[#00635C] rounded-xl text-left transition-all cursor-pointer group"
                 >
-                  📄 {tmpl.title}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[#00635C]">
+                      {tmpl.department || 'Operations'}
+                    </span>
+                    <span className="text-[10px] text-stone-400">
+                      {tmpl.steps?.length || 0} Steps
+                    </span>
+                  </div>
+                  <h5 className="font-semibold text-xs text-stone-900 mt-1 group-hover:text-[#00635C] transition-colors">
+                    {tmpl.title}
+                  </h5>
+                  <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">
+                    {tmpl.purpose || tmpl.scope}
+                  </p>
                 </button>
               ))}
             </div>
           </div>
+        )}
 
-          {/* Card 3: Duplicate Active SOP */}
-          <div 
-            onClick={() => setShowDuplicateSelect(true)}
-            className="p-6 bg-[#012a23] border border-white/10 rounded-3xl hover:border-emerald-500/30 transition-all shadow-xl cursor-pointer group flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                <GitBranch className="w-5 h-5" />
-              </div>
-              <h3 className="font-serif font-black text-sm text-white uppercase tracking-wider mt-2 group-hover:text-amber-300 transition-colors">Duplicate Existing</h3>
-              <p className="text-[10px] font-mono text-[#D0D6BB]/55 leading-normal">Deep clone an existing SOP and assign it a completely separate ID, runs, and audit logs.</p>
-            </div>
-            <div className="flex items-center gap-1.5 text-[9px] font-mono text-amber-400 mt-4">
-              Select SOP to copy <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
-        </div>
-
-        {/* AI Generator Box */}
-        <div className="bg-[#012a23] border border-white/10 rounded-3xl p-6 shadow-xl space-y-4 text-left">
+        {/* AI Generator Box (Light Mode) */}
+        <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-xs space-y-4 text-left">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <Zap className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+              <Zap className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-serif font-black text-xs text-white uppercase tracking-wider">Generate SOP Draft with AI</h3>
-              <p className="text-[9px] font-mono text-[#D0D6BB]/55">Provide an operational policy description to draft a structured SOP sequence instantly</p>
+              <h3 className="font-serif font-bold text-sm text-stone-900">
+                Generate SOP Draft with AI
+              </h3>
+              <p className="text-xs text-stone-500">
+                Provide an operational policy description to draft a structured SOP sequence instantly.
+              </p>
             </div>
           </div>
 
@@ -135,51 +263,55 @@ export default function SOPCreateMenu({
               value={aiBrief}
               onChange={(e) => setAiBrief(e.target.value)}
               placeholder="e.g. Write a Standard Operating Procedure for agent onboarding. It needs to include a welcome package step, a CRM account activation step, and a final broker review step."
-              className="w-full bg-black/25 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-purple-500 min-h-[70px]"
+              className="w-full bg-[#F7F8F5] border border-stone-200 rounded-xl p-3.5 text-xs text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] min-h-[80px]"
             />
 
             {aiError && (
-              <div className="p-3 bg-red-500/15 border border-red-500/25 text-red-300 rounded-xl text-[10px] flex items-center gap-2 font-mono">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{aiError}</span>
               </div>
             )}
 
-            <div className="flex justify-between items-center select-none">
-              <span className="text-[8px] font-mono text-[#D0D6BB]/40">AI creates a DRAFT with label: "AI-generated draft — review required"</span>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 select-none pt-1">
+              <span className="text-[11px] text-stone-400">
+                AI creates a draft labeled: "AI-generated draft — review required"
+              </span>
               <button
                 type="submit"
                 disabled={!aiBrief.trim() || aiLoading}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-mono font-bold text-[10px] rounded-xl transition-all cursor-pointer disabled:opacity-40 uppercase"
+                className="px-4 py-2.5 bg-[#00635C] hover:bg-[#00514B] text-white font-semibold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-40 shadow-xs flex items-center justify-center gap-1.5"
               >
-                {aiLoading ? 'Drafting...' : 'Generate with AI'}
+                {aiLoading ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Drafting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>Generate with AI</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Import card (Coming Soon) */}
-        <div 
-          className="p-4 bg-stone-900/10 border border-white/5 rounded-2xl flex justify-between items-center opacity-60 cursor-not-allowed group"
-        >
-          <span className="text-[10px] font-mono text-[#D0D6BB]/50">Have an offline document? <strong>Import SOP</strong> from PDF, Word, or Markdown (Coming Soon)</span>
-          <span className="text-[10px] font-mono text-stone-600 transition-colors">Unavailable ➔</span>
-        </div>
-
       </div>
 
-      {/* Selector Modal: Duplicate SOP */}
+      {/* Modal: Duplicate SOP Selector (Light Mode) */}
       {showDuplicateSelect && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#012a23] border border-white/15 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-white/10 pb-3">
-              <h3 className="font-serif font-black text-sm uppercase text-white tracking-wide">Duplicate Existing SOP</h3>
-              <button onClick={() => setShowDuplicateSelect(false)} className="text-stone-400 hover:text-white transition-all cursor-pointer">
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-stone-900">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-3">
+              <h3 className="font-serif font-bold text-sm text-stone-900">Duplicate Existing SOP</h3>
+              <button onClick={() => setShowDuplicateSelect(false)} className="text-stone-400 hover:text-stone-600 transition-colors cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-1.5 max-h-[250px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {sops.filter(s => s.status === 'published' || s.status === 'draft').map((sop) => (
                 <button
                   key={sop.id}
@@ -187,10 +319,19 @@ export default function SOPCreateMenu({
                     onSelectDuplicate(sop.sopId);
                     setShowDuplicateSelect(false);
                   }}
-                  className="w-full text-left p-3 bg-black/20 hover:bg-black/30 border border-white/5 hover:border-white/10 rounded-2xl text-[10px] text-white font-mono block transition-all"
+                  className="w-full text-left p-3.5 bg-[#F7F8F5] hover:bg-[#E5EFEA]/40 border border-stone-200/80 hover:border-[#00635C] rounded-xl block transition-all cursor-pointer group"
                 >
-                  <span className="text-[8px] uppercase tracking-wider text-emerald-400 block">{sop.status} v{sop.version}</span>
-                  <strong className="block mt-0.5">{sop.title}</strong>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-semibold text-[#00635C] block">
+                      {sop.status === 'published' ? 'Published' : 'Draft'} v{sop.version}.0
+                    </span>
+                    <span className="text-[10px] text-stone-400">
+                      {sop.department}
+                    </span>
+                  </div>
+                  <strong className="text-xs text-stone-900 block mt-1 group-hover:text-[#00635C] transition-colors">
+                    {sop.title}
+                  </strong>
                 </button>
               ))}
 
@@ -199,38 +340,6 @@ export default function SOPCreateMenu({
               )}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Drawer: Import File - Not Yet Available Notification */}
-      {showImportDrawer && (
-        <div className="fixed inset-y-0 right-0 bg-[#012a23] border-l border-white/15 w-[380px] z-50 p-6 shadow-2xl flex flex-col justify-between text-left animate-slide-in">
-          <div className="space-y-5">
-            <div className="flex justify-between items-center border-b border-white/10 pb-3">
-              <h3 className="font-serif font-black text-xs text-white uppercase tracking-wider">Import Offline SOP</h3>
-              <button onClick={() => setShowImportDrawer(false)} className="text-stone-400 hover:text-white cursor-pointer">
-                <X className="w-4.5 h-4.5" />
-              </button>
-            </div>
-
-            <div className="p-4 bg-stone-900/35 border border-white/5 rounded-2xl space-y-3">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                <AlertCircle className="w-4 h-4" />
-              </div>
-              <h4 className="font-serif font-black text-[11px] uppercase tracking-wider text-white">Feature Not Yet Available</h4>
-              <p className="text-[10px] font-sans text-[#D0D6BB]/70 leading-relaxed">
-                Direct file ingestion (PDF, Word, or Markdown) is currently undergoing directory parser integrations. 
-                Please start with a <strong>Blank Canvas</strong> or paste details into the <strong>AI Draft Generator</strong>.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowImportDrawer(false)}
-            className="w-full py-2.5 bg-[#00635C] hover:bg-[#004d47] text-white text-[10px] font-mono font-bold uppercase rounded-xl transition-all cursor-pointer text-center"
-          >
-            Understood
-          </button>
         </div>
       )}
 

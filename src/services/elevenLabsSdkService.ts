@@ -225,19 +225,18 @@ export class ElevenLabsSdkService {
         }
       };
 
-      if (signedUrl && (signedUrl.includes('token=') || signedUrl.includes('signature='))) {
+      if (signedUrl && (signedUrl.startsWith('wss://') || signedUrl.includes('token=') || signedUrl.includes('signature='))) {
         sessionOptions.signedUrl = signedUrl;
-      } else if (signedUrl && signedUrl.includes('agent_id=')) {
-        const match = signedUrl.match(/agent_id=([^&]+)/);
-        if (match && match[1]) {
-          sessionOptions.agentId = match[1];
-        } else {
-          sessionOptions.agentId = 'agent_3901kyk7pf3he52v8v9fp3m3bhd8';
-        }
-      } else if (signedUrl && !signedUrl.startsWith('wss://')) {
+        sessionOptions.connectionType = 'websocket';
+      } else if (signedUrl && signedUrl.startsWith('agent_')) {
         sessionOptions.agentId = signedUrl;
+        sessionOptions.connectionType = 'websocket';
+      } else if (signedUrl) {
+        sessionOptions.signedUrl = signedUrl;
+        sessionOptions.connectionType = 'websocket';
       } else {
         sessionOptions.agentId = 'agent_3901kyk7pf3he52v8v9fp3m3bhd8';
+        sessionOptions.connectionType = 'websocket';
       }
 
       this.conversation = await Conversation.startSession(sessionOptions);

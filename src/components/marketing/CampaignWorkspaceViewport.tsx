@@ -226,9 +226,9 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
       const opt = {
         margin: 0.2,
         filename,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' as const }
       };
       await html2pdf().from(element).set(opt).save();
     } catch (e) {
@@ -507,7 +507,7 @@ export const CampaignWorkspaceViewport: React.FC<CampaignWorkspaceViewportProps>
               {assetList.map((asset) => {
                 const st = getDerivedAssetState(asset.id, campaign, job);
                 const isSelected = selectedAsset === asset.id;
-                const isApprovedAsset = campaign?.approvalReceipts?.some((r: any) => r.assetId === asset.id);
+                const isApprovedAsset = Array.isArray(campaign?.approvalReceipts) && campaign.approvalReceipts.some((r: any) => r.assetId === asset.id);
 
                 return (
                   <button

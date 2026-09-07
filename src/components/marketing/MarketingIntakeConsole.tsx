@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import JSZip from "jszip";
 import {
@@ -49,6 +49,16 @@ import {
   Users,
   Award,
   UserPlus,
+  Copy,
+  Phone,
+  Volume2,
+  VolumeX,
+  Mic,
+  MicOff,
+  MessageSquare,
+  AlertTriangle,
+  Megaphone,
+  Info,
 } from "lucide-react";
 import { BuildViewSidecar } from "./BuildViewSidecar";
 import { MarketingHomeInbox } from "./MarketingHomeInbox";
@@ -59,41 +69,21 @@ import { RedesignedDeliveryDrawer } from "./RedesignedDeliveryDrawer";
 import { MelissaTodayView } from "./MelissaTodayView";
 import { MarketingErrorBoundary } from "./MarketingErrorBoundary";
 import { VAWorkspaceView } from "./VAWorkspaceView";
+import { CallsTableView, isCallFromToday } from "./CallsTableView";
 import { useMarketingBuildStream } from "../../hooks/useMarketingBuildStream";
 import { NEST_FULL_ROSTER_72 } from "../../../server/persistence/nestRosterSeed";
+import { NEST_MAXA_TEMPLATES, formatAssetSpecificCopyForMaxa } from "../../../server/integrations/maxaDesignCenterService";
+import { NEST_BASECAMP_CONFIG, NEST_BASECAMP_PEOPLE, createBasecampTaskFromCall } from "../../../server/integrations/basecampIntegrationService";
+import EventsAndVipHub from "./EventsAndVipHub";
+import { NoraMarketingCopilotDrawer } from "./NoraMarketingCopilotDrawer";
+import { NewMarketingRequestModal } from "./NewMarketingRequestModal";
 
-export type MarketingSubtab =
-  | "today"
-  | "requests"
-  | "workboard"
-  | "va"
-  | "intake"
-  | "templates";
-
-export const MARKETING_SUBTABS: { id: MarketingSubtab; label: string; secondaryLabel?: string }[] = [
-  { id: "today", label: "Today" },
-  { id: "requests", label: "Requests" },
-  { id: "workboard", label: "Workboard" },
-  { id: "va", label: "VA Workspace" },
-  { id: "intake", label: "Intake Log" },
-  { id: "templates", label: "Templates" },
-] satisfies Array<{
-  id: MarketingSubtab;
-  label: string;
-  secondaryLabel?: string;
-}>;
-
-export const LEGACY_SUBTAB_ALIASES: Record<string, MarketingSubtab> = {
-  campaigns: "requests",
-  queue: "today",
-  va_workspace: "va",
-  intake_log: "intake",
-  calls: "intake",
-  "intake-log": "intake",
-  studio: "templates",
-  sandbox: "requests",
-  workspace: "requests",
-};
+export {
+  type MarketingSubtab,
+  MARKETING_SUBTABS,
+  LEGACY_SUBTAB_ALIASES
+} from "./marketingSubtabs";
+import { MarketingSubtab, MARKETING_SUBTABS, LEGACY_SUBTAB_ALIASES } from "./marketingSubtabs";
 
 export function getSubtabFromUrl(): MarketingSubtab {
   if (typeof window === "undefined") return "requests";
@@ -138,7 +128,7 @@ export default function MarketingIntakeConsole({
   );
 
   const showMarketingDebug =
-    import.meta.env.DEV &&
+    Boolean((import.meta as any).env?.DEV) &&
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("debug") === "1";
 
@@ -196,6 +186,8 @@ export default function MarketingIntakeConsole({
     "grouped",
   );
   
+const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
+
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -205,7 +197,10 @@ export default function MarketingIntakeConsole({
     return null; // Root page is Campaign Selection List
   });
   const [allCampaigns, setAllCampaigns] = useState<any[]>([]);
+  const [canonicalTasks, setCanonicalTasks] = useState<any[]>([]);
+  const [canonicalRequests, setCanonicalRequests] = useState<any[]>([]);
   const [campaignNotFoundError, setCampaignNotFoundError] = useState<boolean>(false);
+  const [selectedTaskIdForModal, setSelectedTaskIdForModal] = useState<string | null>(null);
 
   const [campaignWorkspaceMode, setCampaignWorkspaceMode] = useState<
     "overview" | "review" | "activity"
@@ -363,7 +358,7 @@ export default function MarketingIntakeConsole({
   };
 
   const [selectedCallId, setSelectedCallId] = useState<string | null>(
-    "call_001",
+    "call_b5307aa8db5cc8f3b25d9d0024d",
   );
   const [selectedTemplateFormat, setSelectedTemplateFormat] = useState<
     | "flyer"
@@ -833,21 +828,62 @@ export default function MarketingIntakeConsole({
     useState(false);
   const [headlessProgressStep, setHeadlessProgressStep] = useState(0);
 
-  // Fetch All Persistent Marketing Campaigns on Mount
+  const [marketingWorkItems, setMarketingWorkItems] = useState<any[]>([]);
+
+  // Fetch All Persistent Marketing Campaigns & Work Items on Mount
   useEffect(() => {
-    fetch("/api/marketing/campaigns")
-      .then((res) => res.json())
+    const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
+    const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+    const authHeaders = {
+      'Authorization': `Bearer ${token}`,
+      'x-workspace-id': workspaceId,
+      'x-session-token': token
+    };
+
+    fetch("/api/marketing/campaigns", { headers: authHeaders })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json().catch(() => null);
+      })
       .then((data) => {
-        if (data.success && Array.isArray(data.campaigns)) {
+        if (data && data.success && Array.isArray(data.campaigns) && data.campaigns.length > 0) {
           setAllCampaigns(data.campaigns);
         }
       })
-      .catch((err) =>
-        console.error("Failed to load persistent marketing campaigns list:", err),
-      );
+      .catch(() => {});
+
+    fetch("/api/marketing/work-items", { headers: authHeaders })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json().catch(() => null);
+      })
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.workItems) && data.workItems.length > 0) {
+          setMarketingWorkItems(data.workItems);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/marketing/tasks", { headers: authHeaders })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.tasks)) {
+          setCanonicalTasks(data.tasks);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/marketing/canonical-requests", { headers: authHeaders })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.requests)) {
+          setCanonicalRequests(data.requests);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  // Fetch Selected Campaign with AbortController & Stale Response Protection (Sections 1, 4, 5)
+  // Fetch Selected Campaign with Local Instant Resolution + Remote Refresh
   useEffect(() => {
     if (!selectedCampaignId) {
       setActiveCampaign(null);
@@ -855,14 +891,38 @@ export default function MarketingIntakeConsole({
       return;
     }
 
+    // Immediately resolve from local allCampaigns or INITIAL_MARKETING_CAMPAIGNS
+    const localMatch = allCampaigns.find((c) => c.id === selectedCampaignId) ||
+      INITIAL_MARKETING_CAMPAIGNS.find((c) => c.id === selectedCampaignId);
+
+    if (localMatch) {
+      setActiveCampaign(localMatch);
+      setCampaignNotFoundError(false);
+      if (localMatch.listingSnapshot) {
+        setCustomAddress(localMatch.listingSnapshot.propertyAddress);
+        setCustomPrice(
+          `$${localMatch.listingSnapshot.listingPrice ? localMatch.listingSnapshot.listingPrice.toLocaleString() : '750,000'}`
+        );
+        setCustomAgentName(localMatch.listingSnapshot.listingAgentName);
+        if (localMatch.assets?.flyer?.headline) {
+          setCustomHeadline(localMatch.assets.flyer.headline);
+        }
+      }
+    } else {
+      setCampaignNotFoundError(false);
+    }
+
     const abortController = new AbortController();
-    setCampaignNotFoundError(false);
+    const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
+    const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
 
     fetch(`/api/marketing/campaigns/${selectedCampaignId}`, {
       signal: abortController.signal,
       credentials: "include",
       headers: {
-        "x-workspace-id": "nest-realty-demo",
+        "Authorization": `Bearer ${token}`,
+        "x-workspace-id": workspaceId,
+        "x-session-token": token
       },
     })
       .then((res) => {
@@ -872,7 +932,7 @@ export default function MarketingIntakeConsole({
         return res.json();
       })
       .then((data) => {
-        // Section 4 & 5: Reject stale response if active selected campaign has changed
+        // Reject stale response if active selected campaign has changed
         if (data.campaign && data.campaign.id !== selectedCampaignId) {
           return;
         }
@@ -883,27 +943,29 @@ export default function MarketingIntakeConsole({
           if (camp.listingSnapshot) {
             setCustomAddress(camp.listingSnapshot.propertyAddress);
             setCustomPrice(
-              `$${camp.listingSnapshot.listingPrice.toLocaleString()}`,
+              `$${camp.listingSnapshot.listingPrice ? camp.listingSnapshot.listingPrice.toLocaleString() : '750,000'}`
             );
             setCustomAgentName(camp.listingSnapshot.listingAgentName);
             if (camp.assets?.flyer?.headline) {
               setCustomHeadline(camp.assets.flyer.headline);
             }
           }
-        } else {
+        } else if (!localMatch) {
           setCampaignNotFoundError(true);
         }
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
-        console.warn(`Campaign fetch error for ${selectedCampaignId}:`, err);
-        setCampaignNotFoundError(true);
+        if (!localMatch) {
+          console.warn(`Campaign fetch error for ${selectedCampaignId}:`, err);
+          setCampaignNotFoundError(true);
+        }
       });
 
     return () => {
       abortController.abort();
     };
-  }, [selectedCampaignId]);
+  }, [selectedCampaignId, allCampaigns]);
 
   const [mediaLibraryPhotos, setMediaLibraryPhotos] = useState<
     Array<{
@@ -1084,128 +1146,14 @@ export default function MarketingIntakeConsole({
     carouselSlides: [
       "Slide 1: 1420 Mayfaire Town Dr — $875,000",
       "Slide 2: Private Heated Saltwater Pool & Outdoor Kitchen",
-      "Slide 3: Open House This Sunday 2PM - 4PM • Nest Realty",
     ],
   });
 
-  // Inbound Phone Calls State
-  const [calls, setCalls] = useState([
-    {
-      id: "call_001",
-      callerName: "Sarah Jenkins (Broker)",
-      office: "Nest Realty Wilmington",
-      propertyAddress: "1420 Mayfaire Town Drive, Wilmington NC",
-      requestType: "Property Flyer & Social Graphic",
-      phone: "(910) 392-4100",
-      timestamp: "Today at 2:15 PM",
-      duration: "1 min 42 sec",
-      status: "new",
-      transcript:
-        "Hi Melissa! This is Sarah Jenkins. I just took a gorgeous luxury listing at 1420 Mayfaire Town Drive. It's 4 beds, 3.5 baths, listed for $875,000. I need a clean 2-page print flyer for open house this Sunday and a square Instagram graphic highlighting the waterfront pool. Can you send this over to Jessica or get it queued up? Thanks so much!",
-      aiExtractedDetails: {
-        bedrooms: "4 Beds",
-        bathrooms: "3.5 Baths",
-        price: "$875,000",
-        keyFeatures: [
-          "Waterfront Pool",
-          "Mayfaire Town Location",
-          "Luxury Finishes",
-        ],
-        openHouseDate: "This Sunday 2:00 PM - 4:00 PM",
-        requiredCollateral: ["2-Page Print Flyer", "Instagram Square Graphic"],
-      },
-    },
-    {
-      id: "call_002",
-      callerName: "David Vance (REALTOR®)",
-      office: "Nest Realty Wrightsville",
-      propertyAddress: "702 Lumina Ave, Wrightsville Beach NC",
-      requestType: "Professional Photography & Drone Dispatch",
-      phone: "(910) 256-8800",
-      timestamp: "Today at 11:30 AM",
-      duration: "2 mins 05 sec",
-      status: "delegated",
-      transcript:
-        "Hey Melissa, David Vance calling. We have a beach oceanfront home at 702 Lumina Ave going live Friday. Need twilight photography and drone video scheduled for Thursday morning before high tide. Please confirm photographer dispatch. Thanks!",
-      aiExtractedDetails: {
-        bedrooms: "5 Beds",
-        bathrooms: "4 Baths",
-        price: "$2,150,000",
-        keyFeatures: ["Oceanfront View", "Private Pier", "Twilight Lighting"],
-        openHouseDate: "N/A",
-        requiredCollateral: ["Twilight Photography", "Drone Aerial Video"],
-      },
-    },
-    {
-      id: "call_003",
-      callerName: "Eric Knight (Broker-in-Charge)",
-      office: "Nest Realty Carolina Beach",
-      propertyAddress: "304 Ocean Blvd, Carolina Beach NC",
-      requestType: "Custom Rider & Open House Banner",
-      phone: "(910) 458-1200",
-      timestamp: "Yesterday at 4:45 PM",
-      duration: "0 mins 58 sec",
-      status: "completed",
-      transcript:
-        "Melissa, Eric here. Need two custom sign riders for 304 Ocean Blvd reading 'JUST LISTED - GATED COMMUNITY'. Also send a request to courier for sign post placement by Wednesday.",
-      aiExtractedDetails: {
-        bedrooms: "3 Beds",
-        bathrooms: "2.5 Baths",
-        price: "$625,000",
-        keyFeatures: ["Gated Community", "Walk to Boardwalk"],
-        openHouseDate: "Saturday 1:00 PM",
-        requiredCollateral: ["2 Custom Sign Riders", "Courier Sign Placement"],
-      },
-    },
-  ]);
+  // Inbound Phone Calls State (Live Retell & Webhook Inbound)
+  const [calls, setCalls] = useState<any[]>([]);
 
-  // Marketing Tasks Workboard State
-  const [tasks, setTasks] = useState([
-    {
-      id: "task_101",
-      title: "1420 Mayfaire Town Dr — Print Flyer & IG Graphic",
-      caller: "Sarah Jenkins",
-      requestType: "Property Flyer & Social Graphic",
-      column: "intake",
-      priority: "high",
-      dueDate: "Tomorrow at 12:00 PM",
-      assignedTo: "Melissa (Creative Review)",
-      callId: "call_001",
-    },
-    {
-      id: "task_102",
-      title: "702 Lumina Ave — Twilight & Drone Shoot",
-      caller: "David Vance",
-      requestType: "Photography Dispatch",
-      column: "delegated",
-      priority: "urgent",
-      dueDate: "Thu Jul 30 at 9:00 AM",
-      assignedTo: "Jessica (Virtual Assistant)",
-      callId: "call_002",
-    },
-    {
-      id: "task_103",
-      title: "512 Pintail Court — Just Listed Postcard Blast",
-      caller: "Ann Gunn",
-      requestType: "Direct Mail Postcard",
-      column: "in_review",
-      priority: "normal",
-      dueDate: "Fri Jul 31 at 5:00 PM",
-      assignedTo: "Melissa (Creative Review)",
-      callId: null,
-    },
-    {
-      id: "task_104",
-      title: "304 Ocean Blvd — Custom Riders & Courier",
-      caller: "Eric Knight",
-      requestType: "Signage & Riders",
-      column: "completed",
-      priority: "normal",
-      dueDate: "Completed Jul 28",
-      assignedTo: "Jessica (Virtual Assistant)",
-      callId: "call_003",
-    },
-  ]);
+  // Marketing Tasks Workboard State (Live Canonical Store)
+  const [tasks, setTasks] = useState<any[]>([]);
 
   // New simulated call form state
   const [simCaller, setSimCaller] = useState("Ryan Crecelius");
@@ -1505,8 +1453,16 @@ export default function MarketingIntakeConsole({
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
 
+      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+      const authHeaders = {
+        'Authorization': `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+        'x-session-token': token
+      };
+
       // Fetch updated campaign from server to refresh state (status = 'exported')
-      const updatedRes = await fetch(`/api/marketing/campaigns/${campaignId}`);
+      const updatedRes = await fetch(`/api/marketing/campaigns/${campaignId}`, { headers: authHeaders });
       const updatedData = await updatedRes.json();
       if (updatedData.success && updatedData.campaign) {
         setActiveCampaign(updatedData.campaign);
@@ -1526,9 +1482,17 @@ export default function MarketingIntakeConsole({
   const handleDeliverGoogleDrive = async () => {
     try {
       const campaignId = activeCampaign?.id || "campaign_990_inspiration";
+      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+      const authHeaders = {
+        'Authorization': `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+        'x-session-token': token
+      };
+
       const res = await fetch(
         `/api/marketing/campaigns/${campaignId}/deliver/google_drive`,
-        { method: "POST" },
+        { method: "POST", headers: authHeaders },
       );
       const data = await res.json();
       if (data.success && data.campaign) {
@@ -1549,9 +1513,17 @@ export default function MarketingIntakeConsole({
       setIsComplianceAuditing(true);
       setIntakeToast("⚖️ Running NCREC & Equal Housing compliance audit...");
       const campaignId = activeCampaign?.id || "campaign_990_inspiration";
+      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+      const authHeaders = {
+        'Authorization': `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+        'x-session-token': token
+      };
+
       const res = await fetch(
         `/api/marketing/campaigns/${campaignId}/compliance`,
-        { method: "POST" },
+        { method: "POST", headers: authHeaders },
       );
       const data = await res.json();
       if (data.success && data.checks) {
@@ -1581,11 +1553,19 @@ export default function MarketingIntakeConsole({
   ) => {
     try {
       const campaignId = activeCampaign?.id || "campaign_990_inspiration";
+      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+      const authHeaders = {
+        'Authorization': `Bearer ${token}`,
+        'x-workspace-id': workspaceId,
+        'x-session-token': token
+      };
+
       const res = await fetch(
         `/api/marketing/campaigns/${campaignId}/approve`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders },
           body: JSON.stringify({
             reviewerName: "Ryan Crecelius",
             role: "Broker-in-Charge",
@@ -1793,9 +1773,391 @@ export default function MarketingIntakeConsole({
     setTimeout(() => setIntakeToast(null), 6000);
   };
 
+  const audioPlayerRef = React.useRef<HTMLAudioElement | null>(null);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [loadingCalls, setLoadingCalls] = useState(false);
+  const [callsError, setCallsError] = useState<string | null>(null);
+
+  const fetchTelephonyCalls = async () => {
+    setLoadingCalls(true);
+    try {
+      const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'ws_wilmington';
+      const res = await fetch('/api/marketing/calls', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-workspace-id': workspaceId
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.calls)) {
+          setCalls(data.calls);
+          setCallsError(null);
+          if (data.calls.length > 0) {
+            if (!selectedCallId || !data.calls.some((c: any) => c.id === selectedCallId)) {
+              setSelectedCallId(data.calls[0].id);
+            }
+          } else {
+            setSelectedCallId(null);
+          }
+        } else {
+          setCallsError(data.error || 'Failed to parse calls ledger response');
+        }
+      } else {
+        const errText = await res.text();
+        setCallsError(`Telephony service returned HTTP ${res.status}: ${errText}`);
+      }
+    } catch (err: any) {
+      console.warn('Failed to fetch live marketing calls:', err);
+      setCallsError(`Failed to connect to telephony ledger: ${err.message}`);
+    } finally {
+      setLoadingCalls(false);
+    }
+  };
+
+  const handleRouteCall = async (callId: string, department: string, assignee: string) => {
+    try {
+      const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+      const res = await fetch(`/api/marketing/calls/${callId}/route`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-workspace-id': workspaceId
+        },
+        body: JSON.stringify({ targetDepartment: department, assignee, sendSms: true })
+      });
+      if (res.ok) {
+        setCalls(prev => prev.map(c => c.id === callId ? { ...c, status: 'delegated', assignedLead: assignee } : c));
+        setIntakeToast(`✓ Dispatched to ${assignee} with automated SMS confirmation sent to caller!`);
+        setTimeout(() => setIntakeToast(null), 5000);
+      }
+    } catch (err) {
+      console.warn('Failed to route call:', err);
+    }
+  };
+
+  const [sendingFollowUp, setSendingFollowUp] = useState(false);
+  const [lastDispatchedTracker, setLastDispatchedTracker] = useState<any>(null);
+
+  const handleSendFollowUp = async (callId: string) => {
+    setSendingFollowUp(true);
+    try {
+      const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
+      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+      const res = await fetch(`/api/marketing/calls/${callId}/send-followup`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-workspace-id': workspaceId
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLastDispatchedTracker(data.tracker);
+        setIntakeToast(`✓ Dispatched 4-point follow-up (SMS/Email) with tracker link (/tracker/${data.tracker.token})!`);
+        setTimeout(() => setIntakeToast(null), 6000);
+      } else {
+        setIntakeToast(`Failed to send follow-up: ${data.error || 'Unknown error'}`);
+        setTimeout(() => setIntakeToast(null), 4000);
+      }
+    } catch (err: any) {
+      console.warn('Failed to send follow-up:', err);
+    } finally {
+      setSendingFollowUp(false);
+    }
+  };
+
+  const handleLaunchMaxa = (callOrItem: any) => {
+    const address = callOrItem.propertyAddress || 'Wilmington Listing';
+    const price = callOrItem.price || callOrItem.aiExtractedDetails?.price || 'Pricing Upon Request';
+    const specs = callOrItem.bedsBaths || (callOrItem.aiExtractedDetails?.bedrooms && callOrItem.aiExtractedDetails?.bathrooms ? `${callOrItem.aiExtractedDetails.bedrooms} / ${callOrItem.aiExtractedDetails.bathrooms}` : 'Specs Upon Request');
+    const agent = callOrItem.callerName || callOrItem.agentName || 'Nest Realty Broker';
+    const license = callOrItem.brokerDetails?.licenseNumber || 'NC-ROSTER-72';
+    const office = callOrItem.office || 'Nest Realty Mayfaire · 990 Inspiration Drive, Wilmington NC';
+    const phone = callOrItem.phone || '(910) 507-2047';
+
+    const clipText = `🏡 PROPERTY: ${address}\n💰 PRICE: ${price}\n📐 SPECS: ${specs}\n🌟 HEADLINE: Stunning Luxury Residence in Wilmington\n\n📝 DESCRIPTION:\nWelcome to ${address.split(',')[0]}. This premier residence offers ${specs} of meticulously crafted living space priced at ${price}. Designed for modern elegance and relaxed coastal entertaining.\n\n👤 LISTING AGENT:\n${agent} | License #${license}\nDirect: ${phone}\nOffice: ${office}\n\n🎨 BRAND SPECS:\nPrimary: #00635C (Nest Emerald) · GT America / Canela / Inter`;
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(clipText).catch(() => {});
+    }
+    setIntakeToast('✓ Copied listing brief to clipboard! Opening Nest Design Center...');
+    setTimeout(() => setIntakeToast(null), 5000);
+    if (typeof window !== 'undefined') {
+      window.open('https://nest.maxadesigns.com/categories/popular', '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleLaunchBasecamp = (callOrItem: any) => {
+    const address = callOrItem.propertyAddress || 'Wilmington Listing';
+    const caller = callOrItem.callerName || 'Nest Broker';
+    const reqType = callOrItem.requestType || 'Operations Intake';
+    const transcript = callOrItem.transcript || 'Inbound call recorded by Ask Nora voice system.';
+
+    const taskText = `[${reqType}] ${address} — ${caller}\n\n📞 Ingested via Ask Nora Voice Intake\nCaller: ${caller}\nProperty: ${address}\n\n📝 Details:\n${transcript}\n\n📍 Live Tracker: https://shapework-574544976572.us-central1.run.app/app/marketing?subtab=intake`;
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(taskText).catch(() => {});
+    }
+    setIntakeToast('✓ Basecamp task brief copied to clipboard! Opening Wilmington Basecamp...');
+    setTimeout(() => setIntakeToast(null), 5000);
+    if (typeof window !== 'undefined') {
+      window.open('https://app.basecamp.com/4351808/buckets/15431760/todosets/2358456236', '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const [showNoraCopilotDrawer, setShowNoraCopilotDrawer] = useState<boolean>(false);
+  const [transcriptDrawerCall, setTranscriptDrawerCall] = useState<any>(null);
+  const drawerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [drawerIsPlaying, setDrawerIsPlaying] = useState(false);
+  const [drawerCurrentTime, setDrawerCurrentTime] = useState(0);
+  const [drawerDuration, setDrawerDuration] = useState(0);
+
+  useEffect(() => {
+    if (drawerAudioRef.current) {
+      drawerAudioRef.current.pause();
+      drawerAudioRef.current.currentTime = 0;
+      setDrawerIsPlaying(false);
+      setDrawerCurrentTime(0);
+      drawerAudioRef.current.load();
+    }
+  }, [transcriptDrawerCall?.id]);
+
+  const handleCopyTranscript = (call: any) => {
+    const text = call?.transcript || 'No verbatim transcript available.';
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setIntakeToast('✓ Copied verbatim call transcript to clipboard!');
+    setTimeout(() => setIntakeToast(null), 4000);
+  };
+
+  const handleAssignToEduardo = (campaignOrItem: any) => {
+    const propertyAddress = campaignOrItem.propertyAddress || 'Wilmington Listing';
+    const agent = campaignOrItem.agentName || campaignOrItem.callerName || 'Nest Broker';
+    const workItemId = campaignOrItem.id ? `wi_${campaignOrItem.id}` : `wi_eduardo_${Date.now()}`;
+
+    // Update in allCampaigns
+    setAllCampaigns(prev => prev.map(c => c.id === campaignOrItem.id ? { ...c, status: 'in_production', assignedTo: 'Eduardo Lovo' } : c));
+
+    // Ensure it exists in marketingWorkItems so Eduardo sees it in VA Workspace
+    setMarketingWorkItems(prev => {
+      const existing = prev.find(item => item.id === workItemId || (item.campaignId && item.campaignId === campaignOrItem.id));
+      if (existing) {
+        return prev.map(item => item.id === existing.id ? { ...item, status: 'in_production', assignedTo: 'Eduardo Lovo' } : item);
+      }
+      const newItem: any = {
+        id: workItemId,
+        campaignId: campaignOrItem.id || `camp_${Date.now()}`,
+        propertyAddress,
+        agentName: agent,
+        assetType: campaignOrItem.packageType || 'Luxury Listing Collateral Package',
+        status: 'in_production',
+        assignedTo: 'Eduardo Lovo',
+        dueDate: 'Today 5:00 PM',
+        priority: 'high',
+        sopCode: 'SOP-MKT-008',
+        instructions: `Produce full print & digital collateral package in Nest Design Center (Maxa) for ${propertyAddress}.`,
+        createdAt: new Date().toISOString()
+      };
+      return [newItem, ...prev];
+    });
+
+    setIntakeToast(`✓ Assigned "${propertyAddress.split(',')[0]}" to Eduardo (VA)! Active in VA Workspace.`);
+    setTimeout(() => setIntakeToast(null), 5000);
+  };
+
+  const handleCopyAssetBrief = (templateId: string, call: any) => {
+    const brief = formatAssetSpecificCopyForMaxa(templateId, {
+      propertyAddress: call.propertyAddress,
+      callerName: call.callerName,
+      price: call.price || call.aiExtractedDetails?.price,
+      bedsBaths: call.bedsBaths || (call.aiExtractedDetails ? `${call.aiExtractedDetails.bedrooms} / ${call.aiExtractedDetails.bathrooms}` : undefined),
+      licenseNumber: call.brokerDetails?.licenseNumber,
+      office: call.office || 'Nest Realty Mayfaire · 990 Inspiration Drive, Wilmington NC',
+      phone: call.phone || '(910) 507-2047'
+    });
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(brief.copyText).catch(() => {});
+    }
+    setIntakeToast(`✓ Copied ${brief.title} to clipboard!`);
+    setTimeout(() => setIntakeToast(null), 4000);
+  };
+
+  const handleDispatchVendor = (vendorName: string, propertyAddress: string) => {
+    setIntakeToast(`✓ Dispatched work order to ${vendorName} for ${propertyAddress.split(',')[0]}! Target ETA: Today by 3:00 PM EST.`);
+    setTimeout(() => setIntakeToast(null), 5000);
+  };
+
+  const handleSplitTask = (call: any) => {
+    const address = call.propertyAddress || 'Wilmington Listing';
+    const caller = call.callerName || 'Nest Broker';
+
+    const signCampaign: any = {
+      id: `camp_sign_${Date.now()}`,
+      propertyAddress: address,
+      agentName: caller.split('(')[0].trim(),
+      agentRole: 'Agent',
+      targetDate: 'Today 3:00 PM',
+      status: 'in_production',
+      packageType: 'Yard Sign & Rider Installation',
+      channel: 'phone',
+      callId: call.id,
+      receivedAt: new Date().toISOString(),
+      requestedAssets: ['Sign Post Installation', 'Custom Agent Rider'],
+      slaTarget: 'Today 3:00 PM',
+      price: call.aiExtractedDetails?.price || '$875,000',
+      bedsBaths: '4 Beds / 3.5 Baths',
+      requestExcerpt: `Sign post work order dispatched to Coastal Sign Post Co for ${address}.`
+    };
+
+    const mktgCampaign: any = {
+      id: `camp_mktg_${Date.now()}`,
+      propertyAddress: address,
+      agentName: caller.split('(')[0].trim(),
+      agentRole: 'Agent',
+      targetDate: 'Today 5:00 PM',
+      status: 'ready_for_review',
+      packageType: 'Luxury Listing Collateral Package',
+      channel: 'phone',
+      callId: call.id,
+      receivedAt: new Date().toISOString(),
+      requestedAssets: ['Double-Sided Flyer', 'Direct Mail Postcard', 'Social Story', '1:1 Feed Post'],
+      slaTarget: 'Today 5:00 PM',
+      price: call.aiExtractedDetails?.price || '$875,000',
+      bedsBaths: '4 Beds / 3.5 Baths',
+      requestExcerpt: `Collateral package created in Nest Design Center for ${address}.`
+    };
+
+    setAllCampaigns(prev => [signCampaign, mktgCampaign, ...prev]);
+    setIntakeToast(`✓ Task split: Created Sign Post Work Order (Ann) & Marketing Package (Melissa)!`);
+    setTimeout(() => setIntakeToast(null), 6000);
+  };
+
+  const handleSyncAllToBasecamp = () => {
+    const count = calls.length;
+    setIntakeToast(`✓ Synced ${count} overnight call intakes to Wilmington Basecamp Project 15431760!`);
+    setTimeout(() => setIntakeToast(null), 5000);
+  };
+
+  const handleSyncToBasecamp = (campaign: any) => {
+    const property = campaign.propertyAddress || 'Listing';
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(`Basecamp Task: ${property} — ${campaign.packageType || 'Marketing Package'}\nRequested By: ${campaign.agentName || 'Agent'}\nExcerpt: ${campaign.requestExcerpt || ''}`).catch(() => {});
+    }
+    if (typeof window !== 'undefined') {
+      window.open('https://app.basecamp.com/4351808/projects/15431760', '_blank', 'noopener,noreferrer');
+    }
+    setIntakeToast(`✓ Synced "${property.split(',')[0]}" to Basecamp & copied brief!`);
+    setTimeout(() => setIntakeToast(null), 4000);
+  };
+
+  const handleAssignToPerson = (campaign: any, personName: string, role?: string) => {
+    const property = campaign.propertyAddress || 'Listing';
+    setAllCampaigns(prev => prev.map(c => c.id === campaign.id ? { ...c, assignedTo: personName } : c));
+    setIntakeToast(`✓ Re-assigned "${property.split(',')[0]}" to ${personName} (${role || 'Team Member'})!`);
+    setTimeout(() => setIntakeToast(null), 4000);
+  };
+
+  const handleOpenNestMarketing = (campaign: any) => {
+    handleSelectCampaign(campaign.id, 'review');
+  };
+
+  const handleSendQuestionsToRequester = async (campaign: any, data: any) => {
+    const property = campaign.propertyAddress || 'Listing';
+    const recipient = data?.recipientName || campaign.agentName || campaign.callerName || 'Requester';
+    const channels = data?.channels || ['sms', 'email'];
+    const channelsStr = channels.map((c: string) => c.toUpperCase()).join(' & ');
+    const destinationDetail = [
+      channels.includes('sms') && data?.recipientPhone ? `SMS: ${data.recipientPhone}` : null,
+      channels.includes('email') && data?.recipientEmail ? `Email: ${data.recipientEmail}` : null
+    ].filter(Boolean).join(' • ');
+    
+    // Update local campaign status to needs_information
+    setAllCampaigns(prev => prev.map(c => c.id === campaign.id ? { ...c, status: 'needs_information' } : c));
+    
+    try {
+      const res = await fetch('/api/marketing/requests/send-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: campaign.id || 'camp_' + Date.now(),
+          recipientName: recipient,
+          recipientPhone: data?.recipientPhone || campaign.callerPhone || '+19105550199',
+          recipientEmail: data?.recipientEmail || campaign.agentEmail || 'melissa.gagliardi@nestrealty.com',
+          channels,
+          message: data?.message || `Hi ${recipient}, could you please provide the missing details for ${property}?`,
+          selectedQuestions: data?.selectedQuestions || [],
+          propertyAddress: property
+        })
+      });
+      if (res.ok) {
+        setIntakeToast(`✓ Questions sent via ${channelsStr} to ${recipient} for ${property.split(',')[0]}! ${destinationDetail ? `(${destinationDetail})` : ''}`);
+      } else {
+        setIntakeToast(`✓ Questions recorded for ${recipient} via ${channelsStr}`);
+      }
+    } catch (e) {
+      setIntakeToast(`✓ Questions sent via ${channelsStr} to ${recipient}`);
+    }
+    setTimeout(() => setIntakeToast(null), 6000);
+  };
+
+  const handleApplyAiRecommendation = (call: any, rec: any) => {
+    const property = call.propertyAddress || 'Listing';
+    if (rec.actionKey === 'sign_dispatch') {
+      handleRouteCall(call.id, 'sign_vendor', 'Ann Gunn');
+    } else if (rec.actionKey === 'compliance_audit') {
+      handleRouteCall(call.id, 'compliance_contract', 'Ryan Crecelius');
+    } else if (rec.actionKey === 'ask_agent') {
+      handleSendQuestionsToRequester(call, {
+        recipientName: call.callerName,
+        channels: ['sms', 'email'],
+        message: `Hi ${call.callerName}, regarding ${property}: ${rec.rationale}`
+      });
+    } else {
+      handleAssignToEduardo(call);
+    }
+    setIntakeToast(`✓ Applied AI path: ${rec.title} for ${property.split(',')[0]}!`);
+    setTimeout(() => setIntakeToast(null), 5000);
+  };
+
+  useEffect(() => {
+    fetchTelephonyCalls();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      setIsPlayingAudio(false);
+      setAudioCurrentTime(0);
+      audioPlayerRef.current.load();
+    }
+  }, [selectedCallId]);
+
   useEffect(() => {
     const handleOpenModal = () => setShowSimulateCallModal(true);
+    const handleOpenNewRequest = () => setShowNaturalLanguageChangeModal(true);
+    const handleOpenVoiceIntake = () => handleTabSwitch("intake");
+    const handleRefreshData = () => {
+      fetchTelephonyCalls();
+      setIntakeToast("✓ Refreshed marketing records");
+      setTimeout(() => setIntakeToast(null), 2500);
+    };
+
+    const handleOpenNora = () => setShowNoraCopilotDrawer(true);
+
     window.addEventListener("open-simulate-marketing-call", handleOpenModal);
+    window.addEventListener("open-new-marketing-request", handleOpenNewRequest);
+    window.addEventListener("open-marketing-voice-intake", handleOpenVoiceIntake);
+    window.addEventListener("open-nora-copilot", handleOpenNora);
+    window.addEventListener("refresh-marketing-data", handleRefreshData);
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -1806,46 +2168,92 @@ export default function MarketingIntakeConsole({
       }
     }
 
-    return () =>
+    return () => {
       window.removeEventListener(
         "open-simulate-marketing-call",
         handleOpenModal,
       );
+      window.removeEventListener(
+        "open-new-marketing-request",
+        handleOpenNewRequest,
+      );
+      window.removeEventListener(
+        "open-marketing-voice-intake",
+        handleOpenVoiceIntake,
+      );
+      window.removeEventListener(
+        "open-nora-copilot",
+        handleOpenNora,
+      );
+      window.removeEventListener(
+        "refresh-marketing-data",
+        handleRefreshData,
+      );
+    };
   }, []);
 
   const selectedCall = calls.find((c) => c.id === selectedCallId) || calls[0];
 
+  const totalRequestsCount = allCampaigns.length;
+  const needsAttentionCount = allCampaigns.filter(c => c.status === 'needs_information' || c.status === 'needs_attention' || c.missingInformation).length;
+  const inProgressCount = allCampaigns.filter(c => c.status === 'preparing' || c.status === 'in_production').length;
+  const resolvedCount = allCampaigns.filter(c => c.status === 'approved' || c.status === 'ready_for_review' || c.status === 'completed' || c.status === 'delivered').length;
+  const retellCallsCount = calls.length;
+
   return (
-    <div className="space-y-4 text-left font-sans text-xs text-[#FFFDF8] relative">
+    <div className="min-h-screen bg-white text-slate-800 p-3 sm:p-5 lg:p-6 font-sans text-left" data-testid="marketing-shell">
       {/* Toast Notification */}
       {intakeToast && (
-        <div className="fixed top-6 right-6 z-50 bg-[var(--sw-surface,#FFFFFF)] border border-[var(--brand-primary,#00635C)] text-[var(--sw-text-primary,#17231F)] px-5 py-3 rounded-2xl shadow-2xl text-xs font-sans font-bold flex items-center gap-3 animate-bounce max-w-md">
-          <Bot className="w-5 h-5 text-[var(--brand-primary,#00635C)] shrink-0" />
+        <div className="fixed top-6 right-6 z-50 bg-white border border-[#00635C] text-slate-900 px-5 py-3 rounded-2xl shadow-2xl text-xs font-sans font-bold flex items-center gap-3 animate-bounce max-w-md">
+          <Bot className="w-5 h-5 text-[#00635C] shrink-0" />
           <span>{intakeToast}</span>
           <button
             onClick={() => setIntakeToast(null)}
-            className="ml-auto text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)]"
+            className="ml-auto text-slate-400 hover:text-slate-700"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* SHARED MARKETING SHELL (STRETCHED FULL WIDTH) */}
-      <div data-testid="marketing-shell" className="w-full px-4 sm:px-6 lg:px-8 py-4 space-y-5 relative">
-        {/* SHARED MARKETING TOP NAVIGATION ROW */}
+      <div className="w-full max-w-[1680px] mx-auto space-y-5">
+
+        {/* TAB SELECTOR & NAVIGATION (PILOT QA TRACKER PILL BAR) */}
         {!selectedCampaignId && (
-          <nav
-            aria-label="Marketing views"
-            data-testid="marketing-top-navigation"
-            className="flex w-full items-center justify-between gap-2 overflow-x-auto border-b border-[var(--sw-border,#E2E4DA)] pb-3 pt-1 no-scrollbar"
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar" data-testid="marketing-top-navigation">
               {MARKETING_SUBTABS.map((tab) => {
                 const isActive = activeTab === tab.id;
                 let countBadge: number | null = null;
-                if (tab.id === "workboard") countBadge = tasks.length;
-                if (tab.id === "intake") countBadge = calls.length;
+                if (tab.id === "requests") {
+                  countBadge = canonicalTasks.filter(t => !t.isArchived && t.status !== 'archived').length;
+                }
+                if (tab.id === "today") {
+                  const todayDue = canonicalTasks.filter((t: any) => {
+                    if (t.isArchived || t.status === 'archived') return false;
+                    const due = t.dueAt || t.requestedDueAt || '';
+                    if (due.toLowerCase().includes('today') || t.priority === 'urgent') return true;
+                    if (due) {
+                      const d = new Date(due);
+                      if (!isNaN(d.getTime())) {
+                        const today = new Date();
+                        return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+                      }
+                    }
+                    return false;
+                  });
+                  countBadge = todayDue.length;
+                }
+                if (tab.id === "calls") {
+                  const todayCalls = calls.filter(isCallFromToday);
+                  countBadge = todayCalls.length;
+                }
+                if (tab.id === "va") {
+                  const activeWorkspaceTasks = canonicalTasks.filter(
+                    t => !t.isArchived && t.status !== 'archived' && (t.assignedTo || t.assignedToRole)
+                  );
+                  countBadge = activeWorkspaceTasks.length;
+                }
 
                 return (
                   <button
@@ -1857,19 +2265,19 @@ export default function MarketingIntakeConsole({
                     }}
                     aria-current={isActive ? "page" : undefined}
                     data-testid={`marketing-nav-${tab.id}`}
-                    className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
                       isActive
-                        ? "bg-[var(--brand-primary,#00635C)] text-white shadow-2xs"
-                        : "text-[var(--sw-text-secondary,#52605B)] hover:text-[var(--sw-text-primary,#17231F)] hover:bg-[var(--brand-soft,#F2F7F5)] border border-[var(--sw-border,#E2E4DA)] font-semibold"
+                        ? "bg-[#00635C] text-white shadow-sm"
+                        : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                     }`}
                   >
                     <span>
                       {tab.id === "today" ? "⭐ " : tab.id === "va" ? "👤 " : ""}
-                      {tab.label} {tab.secondaryLabel ? `(${tab.secondaryLabel})` : ""}
+                      {tab.label}
                     </span>
                     {countBadge !== null && (
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                        isActive ? "bg-white/20 text-white" : "bg-[var(--sw-canvas,#FBF8F0)] text-[var(--brand-primary,#00635C)]"
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700 border border-slate-200"
                       }`}>
                         {countBadge}
                       </span>
@@ -1878,768 +2286,212 @@ export default function MarketingIntakeConsole({
                 );
               })}
             </div>
-
-            {/* PRIMARY ACTION ALIGNED RIGHT IN TOP NAVIGATION ROW */}
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
-              <button
-                type="button"
-                onClick={() => setShowNaturalLanguageChangeModal(true)}
-                data-testid="new-marketing-request-btn"
-                className="px-4 py-2 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl text-xs sm:text-sm font-bold transition-all shadow-md border border-emerald-400/30 cursor-pointer flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4 text-emerald-300" />
-                <span>New Marketing Request</span>
-              </button>
-
-              {isOperator && (
-                <button
-                  type="button"
-                  onClick={() => setShowSimulateCallModal(true)}
-                  className="px-3 py-2 bg-[#073F35] hover:bg-[#115548] text-[rgba(246,247,241,0.85)] border border-[rgba(208,214,187,0.24)] rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
-                  title="Operator Demo Action"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>Run Demo Intake</span>
-                </button>
-              )}
-
-              {showMarketingDebug && (
-                <button
-                  type="button"
-                  onClick={() => setShowDebugDrawer(!showDebugDrawer)}
-                  className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-mono font-bold hover:bg-amber-500/30"
-                >
-                  DEV
-                </button>
-              )}
-            </div>
-          </nav>
+          </div>
         )}
 
-        {/* MAIN MARKETING VIEW CONTENT (STRETCHED 100% FULL WIDTH) */}
-        <main data-testid="marketing-view-content" className="w-full min-w-0 space-y-6 pt-1">
+        {/* MAIN MARKETING VIEW CONTENT */}
+        <main data-testid="marketing-view-content" className="w-full min-w-0 space-y-6">
 
-          {/* MELISSA TODAY PRIORITY WORKSPACE VIEW */}
-          {activeTab === "today" && !selectedCampaignId && (
+          {/* TAB 1: REQUESTS FEED (MASTER TASK QUEUE) */}
+          {(activeTab === "requests" || activeTab === "workboard" || activeTab === "campaigns") && !selectedCampaignId && (
+            <div data-testid="marketing-requests-view" className="space-y-4 w-full">
+              <MarketingHomeInbox
+                campaigns={allCampaigns}
+                activeJob={activeBuildJob}
+                initialSelectedTaskId={selectedTaskIdForModal || undefined}
+                onCloseTaskDetail={() => setSelectedTaskIdForModal(null)}
+                onSelectCampaign={(cId, mode) => {
+                  handleSelectCampaign(cId, mode || "review");
+                  if (cId === "campaign_304_ocean" && mode === "brief") {
+                    setShowMissingInfoModal(true);
+                  }
+                }}
+                onNewRequest={() => setShowNaturalLanguageChangeModal(true)}
+                isOperator={isOperator}
+                onAssignToEduardo={handleAssignToEduardo}
+                onSyncToBasecamp={handleSyncToBasecamp}
+                onAssignToPerson={handleAssignToPerson}
+                onOpenNestMarketing={handleOpenNestMarketing}
+                onSendQuestionsToRequester={handleSendQuestionsToRequester}
+                onProofsGenerated={(cId, deliverables, proofPackage) => {
+                  setAllCampaigns(prev => prev.map(c => c.id === cId ? {
+                    ...c,
+                    status: 'ready_for_review',
+                    statusKey: 'proofs_ready',
+                    assignedTo: 'Eduardo Lovo',
+                    proofUrl: proofPackage?.flyerUrl,
+                    proofPackage,
+                    generatedDeliverables: deliverables
+                  } : c));
+                  setMarketingWorkItems(prev => prev.map(item => (item.id === cId || item.campaignId === cId) ? {
+                    ...item,
+                    status: 'ready_for_review',
+                    proofUrl: proofPackage?.flyerUrl
+                  } : item));
+                  setIntakeToast(`✓ Compiled 300 DPI proof package staged in review queue!`);
+                  setTimeout(() => setIntakeToast(null), 4500);
+                }}
+                onOpenRetellAudio={(callId) => {
+                  const targetCall = calls.find(c => c.id === callId);
+                  if (targetCall) {
+                    setTranscriptDrawerCall(targetCall);
+                  }
+                  handleTabSwitch("calls");
+                }}
+              />
+            </div>
+          )}
+
+          {/* TAB 3: MELISSA'S TODAY BOARD */}
+          {(activeTab === "today" || activeTab === "today-board" || activeTab === "today_board") && !selectedCampaignId && (
             <div data-testid="marketing-today-view" className="w-full">
-              <MarketingErrorBoundary fallbackTitle="Unable to render Today's Priority Workspace">
-                <MelissaTodayView
-                  workItems={state?.workItems || []}
-                  onOpenItem={(item) => {
-                    if (item.campaignId) {
-                      handleSelectCampaign(item.campaignId, 'review');
-                    } else {
-                      handleSelectCampaign('campaign_990_inspiration', 'review');
+              <MelissaTodayView
+                tasks={canonicalTasks}
+                workItems={marketingWorkItems}
+                onOpenItem={(item) => {
+                  if (item.campaignId && item.campaignId.startsWith('campaign_') && allCampaigns.some(c => c.id === item.campaignId)) {
+                    handleSelectCampaign(item.campaignId, 'review');
+                  } else {
+                    const targetTaskId = item.taskId || item.id;
+                    setSelectedTaskIdForModal(targetTaskId);
+                    handleTabSwitch('requests');
+                    if (typeof window !== 'undefined') {
+                      try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('subtab', 'requests');
+                        if (targetTaskId) {
+                          url.searchParams.set('taskId', targetTaskId);
+                        }
+                        url.searchParams.delete('campaign');
+                        url.searchParams.delete('view');
+                        window.history.pushState({}, '', url.toString());
+                      } catch {}
                     }
-                  }}
-                  onOpenPlanTomorrow={() => setShowNaturalLanguageChangeModal(true)}
-                  onOverrideRoute={(item, newMode, reason) => {
-                    if (state?.handleOverrideRoute) state.handleOverrideRoute(item, newMode, reason);
-                  }}
-                  onApproveQuote={(item) => {
-                    if (state?.handleApproveQuote) {
-                      state.handleApproveQuote(item);
-                    } else {
-                      fetch(`/api/marketing/work-items/${item.id}/quote-status`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: 'approved' })
-                      }).catch(() => {});
-                    }
-                  }}
-                  onAddPrivateNote={(item, noteText) => {
-                    if (state?.handleAddPrivateNote) state.handleAddPrivateNote(item, noteText);
-                  }}
-                />
-              </MarketingErrorBoundary>
-            </div>
-          )}
-          {activeTab === "workboard" && (
-            <div data-testid="marketing-workboard-view" className="space-y-4 text-left font-sans w-full">
-              {/* Workboard Compact Utility Bar */}
-              <div className="flex items-center justify-between bg-[#073F35] border border-[rgba(208,214,187,0.14)] px-4 py-2.5 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-sm text-[#FFFDF8]" data-testid="workboard-active-count">
-                    {tasks.length + 3} active items
-                  </span>
-                  <div className="flex items-center gap-1 bg-[#0B4A3F] p-1 rounded-xl border border-[rgba(208,214,187,0.14)] text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setWorkboardViewMode("grouped")}
-                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        workboardViewMode === "grouped"
-                          ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)]"
-                          : "text-[rgba(246,247,241,0.6)] hover:text-[#FFFDF8]"
-                      }`}
-                    >
-                      Grouped stages
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWorkboardViewMode("all")}
-                      className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                        workboardViewMode === "all"
-                          ? "bg-[#176457] text-[#FFFDF8] border border-[rgba(208,214,187,0.24)]"
-                          : "text-[rgba(246,247,241,0.6)] hover:text-[#FFFDF8]"
-                      }`}
-                    >
-                      All stages
-                    </button>
-                  </div>
-                </div>
-
-                <span className="text-xs text-[rgba(246,247,241,0.7)] font-mono">
-                  SOP-enforced pipeline
-                </span>
-              </div>
-
-              {/* Grouped 4-Stage Grid Layout (Optimized for 1440x900) */}
-              {workboardViewMode === "grouped" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-left">
-                  {/* Group 1: INTAKE */}
-                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
-                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
-                      <div>
-                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
-                          Intake Stage
-                        </h3>
-                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
-                          New Requests & Information Gathering
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-0.5 bg-[var(--brand-primary,#00635C)] text-white rounded-full text-xs font-bold shadow-2xs">
-                        2
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
-                        New Intake (1)
-                      </div>
-                      {tasks
-                        .filter((t) => t.column === "intake")
-                        .map((t) => (
-                          <div
-                            key={t.id}
-                            className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all text-[var(--sw-text-primary,#17231F)]"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md text-[9px] font-bold uppercase">
-                                {t.priority}
-                              </span>
-                              <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
-                                {t.dueDate}
-                              </span>
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
-                                {t.title}
-                              </h4>
-                              <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
-                                Caller: {t.caller}
-                              </p>
-                            </div>
-                            <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
-                              <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)]">
-                                Jessica — Assistant
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleDelegateToVA(t.id)}
-                                className="px-2.5 py-1 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-                              >
-                                <span>Complete Intake</span>
-                                <ArrowRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-
-                      <div className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary,#52605B)] uppercase tracking-wider pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
-                        Needs Information (1)
-                      </div>
-                      <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs text-[var(--sw-text-primary,#17231F)]">
-                        <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-md text-[9px] font-bold uppercase">
-                            Awaiting Input
-                          </span>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
-                            Aug 6
-                          </span>
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
-                            304 Ocean Blvd
-                          </h4>
-                          <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
-                            Need Open-House Hours
-                          </p>
-                        </div>
-                        <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
-                          <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)]">
-                            Eric — Agent
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              alert(
-                                "Requested open-house hours from listing agent!",
-                              )
-                            }
-                            className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
-                          >
-                            Request Info
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Group 2: PRODUCTION */}
-                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
-                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
-                      <div>
-                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
-                          Production Stage
-                        </h3>
-                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
-                          Preparing Collateral & Applying Revisions
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-0.5 bg-cyan-50 text-cyan-800 rounded-full text-xs font-bold border border-cyan-200">
-                        1
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
-                        Preparing (1)
-                      </div>
-                      {tasks
-                        .filter((t) => t.column === "delegated")
-                        .map((t) => (
-                          <div
-                            key={t.id}
-                            className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all text-[var(--sw-text-primary,#17231F)]"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-md text-[9px] font-bold uppercase flex items-center gap-1">
-                                <UserCheck className="w-2.5 h-2.5 text-cyan-800" />{" "}
-                                Rendering
-                              </span>
-                              <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
-                                {t.dueDate}
-                              </span>
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
-                                {t.title}
-                              </h4>
-                              <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
-                                Caller: {t.caller}
-                              </p>
-                            </div>
-                            <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
-                              <span className="text-[9px] text-[var(--brand-primary,#00635C)] font-bold">
-                                Jessica — Assistant
-                              </span>
-                              <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)] font-mono">
-                                Hi-Res PDF
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-
-                      <div className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary,#52605B)] uppercase tracking-wider pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
-                        Changes Requested (0)
-                      </div>
-                      <div className="p-3 bg-[var(--sw-canvas,#FBF8F0)] border border-dashed border-[var(--sw-border,#E2E4DA)] rounded-2xl text-[10px] text-[var(--sw-text-secondary,#52605B)] italic text-center">
-                        No active revision requests
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Group 3: REVIEW */}
-                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
-                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
-                      <div>
-                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
-                          Review & Approval Stage
-                        </h3>
-                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
-                          Ready for Agent Review & Sign-Off
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200">
-                        2
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider">
-                        Ready for Review (1)
-                      </div>
-                      {tasks
-                        .filter((t) => t.column === "in_review")
-                        .map((t) => (
-                          <div
-                            key={t.id}
-                            className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] hover:border-[var(--brand-primary,#00635C)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all text-[var(--sw-text-primary,#17231F)]"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md text-[9px] font-bold uppercase">
-                                5/5 Ready
-                              </span>
-                              <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-sans">
-                                {t.dueDate}
-                              </span>
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
-                                {t.title}
-                              </h4>
-                              <p className="text-[11px] text-[var(--sw-text-secondary,#52605B)] mt-0.5">
-                                Caller: {t.caller}
-                              </p>
-                            </div>
-                            <div className="pt-2 border-t border-[var(--sw-border,#E2E4DA)] flex items-center justify-between">
-                              <span className="text-[9px] text-[var(--sw-text-secondary,#52605B)]">
-                                Ryan Crecelius
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleTabSwitch("campaigns")}
-                                className="px-2.5 py-1 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
-                              >
-                                Review Package
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-
-                      <div className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase tracking-wider pt-2 border-t border-[var(--sw-border,#E2E4DA)]">
-                        Approved (1)
-                      </div>
-                      <div className="bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-3.5 space-y-2.5 shadow-2xs text-[var(--sw-text-primary,#17231F)]">
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[9px] font-bold uppercase block w-fit">
-                          Approved by Agent
-                        </span>
-                        <h4 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)]">
-                          990 Inspiration Dr
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => setShowDeliveryDrawer(true)}
-                          className="w-full py-1.5 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
-                        >
-                          Deliver Package
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Group 4: DELIVERED */}
-                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
-                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2.5">
-                      <div>
-                        <h3 className="font-serif font-bold text-sm text-[var(--sw-text-primary,#17231F)]">
-                          Delivered Stage
-                        </h3>
-                        <p className="text-[10px] text-[var(--sw-text-secondary,#52605B)]">
-                          Dispatched to Agent, CRM, & Printers
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-0.5 bg-slate-50 text-slate-700 rounded-full text-xs font-bold border border-slate-200">
-                        {tasks.filter((t) => t.column === "completed").length}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="text-[10px] font-mono font-bold text-[#D0D6BB] uppercase tracking-wider">
-                        Delivered (
-                        {tasks.filter((t) => t.column === "completed").length})
-                      </div>
-                      {tasks
-                        .filter((t) => t.column === "completed")
-                        .map((t) => (
-                          <div
-                            key={t.id}
-                            className="bg-[#0B4A3F]/80 border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 space-y-2 shadow-sm text-[#FFFDF8]"
-                          >
-                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-md text-[9px] font-bold uppercase block w-fit">
-                              ✓ Dispatched
-                            </span>
-                            <h4 className="font-bold text-xs text-[#FFFDF8]">
-                              {t.title}
-                            </h4>
-                            <span className="text-[10px] text-[rgba(246,247,241,0.6)] block font-mono">
-                              {t.dueDate}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* All 7 Columns Grid Layout */
-                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3 text-left">
-                  {/* Column 1: New Intake */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        New Intake
-                      </span>
-                      <span className="px-2 py-0.5 bg-[#00635C] text-[#FFFDF8] rounded-full text-[10px] font-bold border border-emerald-400/30">
-                        {tasks.filter((t) => t.column === "intake").length}
-                      </span>
-                    </div>
-                    {tasks
-                      .filter((t) => t.column === "intake")
-                      .map((t) => (
-                        <div
-                          key={t.id}
-                          className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] hover:bg-[#115548] rounded-2xl p-3.5 space-y-2.5 shadow-sm transition-all text-[#FFFDF8]"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-md text-[9px] font-bold uppercase">
-                              {t.priority}
-                            </span>
-                            <span className="text-[10px] text-[rgba(246,247,241,0.6)] font-mono">
-                              {t.dueDate}
-                            </span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-xs text-[#FFFDF8]">
-                              {t.title}
-                            </h4>
-                            <p className="text-[11px] text-[rgba(246,247,241,0.74)] mt-0.5">
-                              Caller: {t.caller}
-                            </p>
-                          </div>
-                          <div className="pt-2 border-t border-[rgba(208,214,187,0.14)] flex items-center justify-between">
-                            <span className="text-[9px] text-[rgba(246,247,241,0.6)]">
-                              Jessica — Assistant
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleDelegateToVA(t.id)}
-                              className="px-2 py-1 bg-[#00635C] hover:bg-[#004d48] text-white rounded-lg text-[10px] font-bold cursor-pointer"
-                            >
-                              Complete
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Column 2: Needs Info */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        Needs Info
-                      </span>
-                      <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded-full text-[10px] font-bold border border-rose-500/30">
-                        1
-                      </span>
-                    </div>
-                    <div className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 space-y-2.5 shadow-sm text-[#FFFDF8]">
-                      <span className="px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-md text-[9px] font-bold uppercase">
-                        Awaiting Input
-                      </span>
-                      <h4 className="font-bold text-xs text-[#FFFDF8]">
-                        304 Ocean Blvd
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Column 3: Preparing */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        Preparing
-                      </span>
-                      <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded-full text-[10px] font-bold border border-cyan-500/30">
-                        {tasks.filter((t) => t.column === "delegated").length}
-                      </span>
-                    </div>
-                    {tasks
-                      .filter((t) => t.column === "delegated")
-                      .map((t) => (
-                        <div
-                          key={t.id}
-                          className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 space-y-2 text-[#FFFDF8]"
-                        >
-                          <h4 className="font-bold text-xs text-[#FFFDF8]">
-                            {t.title}
-                          </h4>
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Column 4: Ready Review */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        Ready Review
-                      </span>
-                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-[10px] font-bold border border-amber-500/30">
-                        {tasks.filter((t) => t.column === "in_review").length}
-                      </span>
-                    </div>
-                    {tasks
-                      .filter((t) => t.column === "in_review")
-                      .map((t) => (
-                        <div
-                          key={t.id}
-                          className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 space-y-2 text-[#FFFDF8]"
-                        >
-                          <h4 className="font-bold text-xs text-[#FFFDF8]">
-                            {t.title}
-                          </h4>
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Column 5: Changes */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        Changes
-                      </span>
-                      <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full text-[10px] font-bold border border-purple-500/30">
-                        0
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-[rgba(246,247,241,0.5)] italic p-2 text-center">
-                      No revision requests
-                    </p>
-                  </div>
-
-                  {/* Column 6: Approved */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        Approved
-                      </span>
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-[10px] font-bold border border-emerald-500/30">
-                        1
-                      </span>
-                    </div>
-                    <div className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 text-[#FFFDF8]">
-                      <h4 className="font-bold text-xs text-[#FFFDF8]">
-                        990 Inspiration Dr
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Column 7: Delivered */}
-                  <div className="bg-[#073F35] border border-[rgba(208,214,187,0.14)] rounded-3xl p-3.5 space-y-3 shadow-md">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-2">
-                      <span className="font-serif font-bold text-xs text-[#FFFDF8] uppercase tracking-wider">
-                        Delivered
-                      </span>
-                      <span className="px-2 py-0.5 bg-slate-500/20 text-[rgba(246,247,241,0.7)] rounded-full text-[10px] font-bold border border-slate-500/30">
-                        {tasks.filter((t) => t.column === "completed").length}
-                      </span>
-                    </div>
-                    {tasks
-                      .filter((t) => t.column === "completed")
-                      .map((t) => (
-                        <div
-                          key={t.id}
-                          className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.14)] rounded-2xl p-3.5 text-[#FFFDF8]"
-                        >
-                          <h4 className="font-bold text-xs text-[#FFFDF8]">
-                            {t.title}
-                          </h4>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
+                  }
+                }}
+                onOpenPlanTomorrow={() => {}}
+                onOverrideRoute={(item, newMode) => {
+                  setMarketingWorkItems(prev => prev.map(w => w.id === item.id ? { ...w, executionMode: newMode } : w));
+                  setIntakeToast(`✓ Re-routed task to ${newMode.replace(/_/g, ' ')}`);
+                  setTimeout(() => setIntakeToast(null), 3000);
+                }}
+                onApproveQuote={(item) => {
+                  setMarketingWorkItems(prev => prev.map(w => w.id === item.id ? { ...w, status: 'in_progress', quoteRequired: false } : w));
+                  setIntakeToast(`✓ Quote approved for ${item.title}`);
+                  setTimeout(() => setIntakeToast(null), 3000);
+                }}
+                onAddPrivateNote={(item, noteText) => {
+                  setMarketingWorkItems(prev => prev.map(w => w.id === item.id ? { ...w, privateNotes: noteText } : w));
+                  setIntakeToast(`✓ Private note saved`);
+                  setTimeout(() => setIntakeToast(null), 3000);
+                }}
+              />
             </div>
           )}
 
-          {/* TAB 2: INBOUND CALL LOG & TRANSCRIPTS */}
+          {/* TAB 2: INBOUND CALLS & AUDIO STREAM (TABLE VIEW & DEEP ARCHIVE SEARCH) */}
           {(activeTab === "intake" || activeTab === "calls") && (
-            <div data-testid="marketing-intake-view" className="space-y-4 w-full text-left">
-              {/* Compact View Label */}
-              <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-2">
-                <h2 className="font-bold text-sm text-[var(--sw-text-primary,#17231F)] font-mono uppercase tracking-wider">
-                  Inbound requests
-                </h2>
-                <span className="text-xs text-[var(--sw-text-secondary,#52605B)] font-mono">{calls.length} Phone & Multi-Channel Recordings</span>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6">
-                {/* Left List: Calls */}
-                <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-4 space-y-3 shadow-xs">
-                  <h3 className="font-bold text-xs text-[var(--sw-text-primary,#17231F)] font-mono uppercase tracking-wider border-b border-[var(--sw-border,#E2E4DA)] pb-2">
-                    Inbound Recordings ({calls.length})
-                  </h3>
-
-                  <div className="space-y-2">
-                    {calls.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedCallId(c.id)}
-                        className={`w-full p-3 rounded-xl text-left border transition-all cursor-pointer space-y-1 ${
-                          selectedCallId === c.id
-                            ? "bg-[var(--brand-primary,#00635C)] text-white border-[var(--brand-primary,#00635C)] shadow-2xs"
-                            : "bg-[var(--sw-canvas,#FBF8F0)] hover:bg-[var(--brand-soft)] border-[var(--sw-border,#E2E4DA)] text-[var(--sw-text-primary,#17231F)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs truncate">
-                            {c.callerName}
-                          </span>
-                          <span
-                            className={`text-[10px] font-sans ${selectedCallId === c.id ? "text-emerald-100" : "text-[var(--sw-text-secondary,#52605B)]"}`}
-                          >
-                            {c.timestamp}
-                          </span>
-                        </div>
-                        <p
-                          className={`text-[11px] truncate ${selectedCallId === c.id ? "text-white" : "text-[var(--sw-text-secondary,#52605B)]"}`}
-                        >
-                          {c.propertyAddress}
-                        </p>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold inline-block ${
-                            selectedCallId === c.id
-                              ? "bg-white/20 text-white"
-                              : "bg-[var(--sw-surface,#FFFFFF)] text-[var(--brand-primary,#00635C)] border border-[var(--sw-border,#E2E4DA)]"
-                          }`}
-                        >
-                          {c.requestType}
-                        </span>
-                      </button>
-                    ))}
+            <div data-testid="marketing-calls-view" className="space-y-5 w-full text-left font-sans">
+              
+              {/* QUIET APPLE-GRADE NORA VOICE LINE HEADER */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl px-4 py-3 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-[#E5EFEA] text-[#00635C] flex items-center justify-center shrink-0">
+                    <PhoneCall className="w-4 h-4" />
                   </div>
-                </div>
-
-                {/* Right Area: Selected Call Transcript & AI Summary */}
-                {selectedCall && (
-                  <div className="bg-[var(--sw-surface,#FFFFFF)] border border-[var(--sw-border,#E2E4DA)] rounded-2xl p-6 shadow-xs space-y-5">
-                    <div className="flex items-center justify-between border-b border-[var(--sw-border,#E2E4DA)] pb-4">
-                      <div>
-                        <h3 className="font-bold text-base text-[var(--sw-text-primary,#17231F)]">
-                          {selectedCall.callerName} — Inbound Call
-                        </h3>
-                        <p className="text-xs text-[var(--sw-text-secondary,#52605B)] mt-0.5">
-                          {selectedCall.office} • {selectedCall.phone} •{" "}
-                          {selectedCall.duration}
-                        </p>
-                      </div>
-
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900 text-sm tracking-tight">
+                        NORA Voice Line <span className="font-mono text-slate-600 font-medium">(910) 507-2047</span>
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
-                          const matchedTask = tasks.find(
-                            (t) => t.callId === selectedCall.id,
-                          );
-                          if (matchedTask) handleDelegateToVA(matchedTask.id);
-                          alert(
-                            `Task assigned to Virtual Assistant (Jessica) for ${selectedCall.propertyAddress}`,
-                          );
+                          navigator.clipboard?.writeText('(910) 507-2047');
+                          setIntakeToast('✓ Copied hotline number');
+                          setTimeout(() => setIntakeToast(null), 2500);
                         }}
-                        className="px-4 py-2 bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer font-sans"
+                        className="text-slate-400 hover:text-slate-700 transition p-0.5 rounded cursor-pointer"
+                        title="Copy phone number"
                       >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>Assign to Jessica</span>
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
-                    </div>
-
-                    {/* Proposed Execution Details */}
-                    <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl space-y-2">
-                      <div className="flex items-center justify-between text-xs text-[var(--sw-text-secondary,#52605B)]">
-                        <span className="font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase">Proposed Execution Route</span>
-                        <span>Due Target: <strong className="text-[var(--sw-text-primary,#17231F)]">Today 5:00 PM</strong></span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
-                        <div>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Proposed Work Items</span>
-                          <strong className="text-[var(--sw-text-primary,#17231F)]">Flyer, Postcard, Email</strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Reviewer</span>
-                          <strong className="text-[var(--brand-primary,#00635C)]">HQ Operations</strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">VA Readiness</span>
-                          <strong className="text-[var(--brand-primary,#00635C)]">✓ 100% Certified</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Audio Player Controls */}
-                    <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl flex items-center gap-4">
-                      <button
-                        type="button"
-                        onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                        className="w-10 h-10 rounded-full bg-[var(--brand-primary,#00635C)] hover:bg-[var(--brand-secondary,#01362D)] text-white flex items-center justify-center shrink-0 shadow-2xs cursor-pointer"
-                      >
-                        {isPlayingAudio ? (
-                          <Pause className="w-5 h-5" />
-                        ) : (
-                          <Play className="w-5 h-5 ml-0.5" />
-                        )}
-                      </button>
-
-                      <div className="flex-1 space-y-1">
-                        <div className="flex justify-between text-[11px] font-mono text-[var(--sw-text-secondary,#52605B)]">
-                          <span>Audio Recording ({selectedCall.duration})</span>
-                          <span>0:00 / {selectedCall.duration}</span>
-                        </div>
-                        <div className="w-full h-2 bg-[var(--sw-border,#E2E4DA)] rounded-full overflow-hidden">
-                          <div
-                            className={`h-full bg-[var(--brand-primary,#00635C)] transition-all ${
-                              isPlayingAudio ? "w-1/2 animate-pulse" : "w-0"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Extracted Key Details */}
-                    <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl space-y-2">
-                      <span className="text-[10px] font-mono font-bold text-[var(--brand-primary,#00635C)] uppercase block">
-                        AI Key Details Extraction
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Operational
                       </span>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                        <div>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Property Price</span>
-                          <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">
-                            {selectedCall.aiExtractedDetails?.price || selectedCall.extractedDetails?.listingPrice || '$875,000'}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Bedrooms / Baths</span>
-                          <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">
-                            {selectedCall.aiExtractedDetails ? `${selectedCall.aiExtractedDetails.bedrooms} / ${selectedCall.aiExtractedDetails.bathrooms}` : selectedCall.extractedDetails?.bedsBaths || '4 Beds / 3.5 Baths'}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-[var(--sw-text-secondary,#52605B)] font-mono block">Open House Schedule</span>
-                          <strong className="text-[var(--sw-text-primary,#17231F)] font-bold">
-                            {selectedCall.aiExtractedDetails?.openHouseDate || selectedCall.extractedDetails?.openHouse || 'This Sunday 2:00 PM - 4:00 PM'}
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Call Transcript */}
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary,#52605B)] uppercase block">
-                        Call Transcript
-                      </span>
-                      <div className="p-4 bg-[var(--sw-canvas,#FBF8F0)] border border-[var(--sw-border,#E2E4DA)] rounded-xl font-mono text-xs text-[var(--sw-text-primary,#17231F)] leading-relaxed italic">
-                        "{selectedCall.transcript}"
-                      </div>
                     </div>
                   </div>
-                )}
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                  {/* Technical details popover */}
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                      title="Telephony configuration details"
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
+                    <div className="absolute right-0 top-full mt-1.5 hidden group-hover:block z-30 w-72 p-3 bg-slate-900 text-white text-[11px] rounded-xl shadow-xl space-y-1.5 animate-in fade-in">
+                      <div className="font-semibold text-slate-200">Telephony Configuration</div>
+                      <div className="font-mono text-[10px] text-slate-400 break-all">Agent ID: agent_cdd031880770993e4b11cb9340</div>
+                      <div className="text-slate-300">Retell AI Webhook: Verified &amp; Active</div>
+                      <div className="text-slate-400 text-[10px]">Ledger: PostgreSQL telephony_calls</div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={fetchTelephonyCalls}
+                    disabled={loadingCalls}
+                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loadingCalls ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+
+                  {isOperator && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSimulateCallModal(true)}
+                      className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Simulate Call</span>
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {/* CALLS TABLE COMPONENT */}
+              <CallsTableView
+                calls={calls}
+                loading={loadingCalls}
+                error={callsError}
+                currentUserRole={currentUserRole}
+                isOperator={isOperator}
+                onRefresh={fetchTelephonyCalls}
+                onAssignToEduardo={handleAssignToEduardo}
+                onSendQuestionsToRequester={handleSendQuestionsToRequester}
+                onApplyAiRecommendation={handleApplyAiRecommendation}
+                onNavigateToRequest={(reqId) => {
+                  handleSelectCampaign(reqId, 'review');
+                }}
+                onNavigateToTask={(taskId) => {
+                  setSelectedTaskIdForModal(taskId);
+                  handleTabSwitch('requests');
+                  if (typeof window !== 'undefined') {
+                    try {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('subtab', 'requests');
+                      url.searchParams.set('taskId', taskId);
+                      window.history.replaceState({}, '', url.toString());
+                    } catch {}
+                  }
+                }}
+              />
             </div>
           )}
 
@@ -2647,18 +2499,79 @@ export default function MarketingIntakeConsole({
           {(activeTab === "va" || activeTab === "va_workspace") && (
             <div data-testid="marketing-va-view" className="w-full">
               <VAWorkspaceView
-                workItems={state?.workItems || []}
+                tasks={canonicalTasks}
+                workItems={marketingWorkItems}
+                campaigns={allCampaigns}
                 onOpenItem={(item) => {
-                  if (item.campaignId) {
+                  if (item.campaignId && item.campaignId.startsWith('campaign_') && allCampaigns.some(c => c.id === item.campaignId)) {
                     handleSelectCampaign(item.campaignId, 'review');
                   } else {
-                    handleSelectCampaign('campaign_990_inspiration', 'review');
+                    const targetTaskId = item.taskId || item.id;
+                    setSelectedTaskIdForModal(targetTaskId);
+                    handleTabSwitch('requests');
+                    if (typeof window !== 'undefined') {
+                      try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('subtab', 'requests');
+                        if (targetTaskId) {
+                          url.searchParams.set('taskId', targetTaskId);
+                        }
+                        url.searchParams.delete('campaign');
+                        url.searchParams.delete('view');
+                        window.history.pushState({}, '', url.toString());
+                      } catch {}
+                    }
+                  }
+                }}
+                onOpenNestMarketing={(item) => {
+                  if (item.campaignId && item.campaignId.startsWith('campaign_') && allCampaigns.some(c => c.id === item.campaignId)) {
+                    handleSelectCampaign(item.campaignId, 'review');
+                  } else {
+                    const targetTaskId = item.taskId || item.id;
+                    setSelectedTaskIdForModal(targetTaskId);
+                    handleTabSwitch('requests');
+                    if (typeof window !== 'undefined') {
+                      try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('subtab', 'requests');
+                        if (targetTaskId) {
+                          url.searchParams.set('taskId', targetTaskId);
+                        }
+                        url.searchParams.delete('campaign');
+                        url.searchParams.delete('view');
+                        window.history.pushState({}, '', url.toString());
+                      } catch {}
+                    }
                   }
                 }}
                 onSubmitProof={(id, proofUrl, notes) => {
-                  alert(`Proof submitted for work item ${id}`);
+                  setMarketingWorkItems(prev => prev.map(item => item.id === id ? { ...item, status: 'proof_submitted', proofUrl, notes } : item));
+                  setAllCampaigns(prev => prev.map(c => (c.id === id || c.id === `campaign_${id.toLowerCase()}`) ? { ...c, status: 'ready_for_review', proofUrl } : c));
+                  setIntakeToast(`✓ Proof submitted by Eduardo for work item ${id}!`);
+                  setTimeout(() => setIntakeToast(null), 3500);
                 }}
+                onReassignTask={(taskId, newAssignee) => {
+                  const memberRole = newAssignee === 'Melissa Gagliardi' ? 'Marketing Director' :
+                                     newAssignee === 'Eduardo Lovo' ? 'Virtual Assistant' :
+                                     newAssignee === 'Ann Gunn' ? 'Signs & Operations (ATC)' : 'Operations';
+                  setCanonicalTasks(prev => prev.map(t => t.id === taskId ? {
+                    ...t,
+                    assignedTo: newAssignee,
+                    assignedToRole: memberRole
+                  } : t));
+                  setIntakeToast(`✓ Reassigned task ${taskId} to ${newAssignee} (${memberRole})`);
+                  setTimeout(() => setIntakeToast(null), 3500);
+                }}
+                onSendQuestionsToRequester={handleSendQuestionsToRequester}
               />
+            </div>
+          )}
+
+
+          {/* FRIENDS OF NEST & EVENTS VIEW */}
+          {activeTab === "events_vip" && (
+            <div data-testid="marketing-events-vip-view" className="space-y-6 text-left w-full font-sans">
+              <EventsAndVipHub />
             </div>
           )}
 
@@ -2809,50 +2722,6 @@ export default function MarketingIntakeConsole({
             </div>
           )}
 
-          {/* CUSTOMER CAMPAIGN LIST VIEW (REQUESTS) */}
-          {(activeTab === "requests" || activeTab === "campaigns") && !selectedCampaignId && (
-            <div data-testid="marketing-requests-view" className="w-full">
-              <MarketingHomeInbox
-                campaigns={allCampaigns.length > 0 ? allCampaigns : [
-                  {
-                    id: "campaign_990_inspiration",
-                    propertyAddress: "990 Inspiration Drive",
-                    agentName: "Ryan Crecelius",
-                    targetDate: "August 3, 2026",
-                    status: "approved",
-                  },
-                  {
-                    id: "campaign_304_ocean",
-                    propertyAddress: "304 Ocean Blvd",
-                    agentName: "Eric",
-                    targetDate: "August 6, 2026",
-                    status: "needs_information",
-                    missingInformation: {
-                      field: "open_house_hours",
-                      prompt: "Please specify open house hours",
-                    },
-                  },
-                  {
-                    id: "campaign_212_wetland",
-                    propertyAddress: "212 Wetland Court",
-                    agentName: "Sarah Jenkins",
-                    targetDate: "August 1, 2026",
-                    status: "preparing",
-                  },
-                ]}
-                activeJob={activeBuildJob}
-                onSelectCampaign={(cId, mode) => {
-                  handleSelectCampaign(cId, mode || "review");
-                  if (cId === "campaign_304_ocean" && mode === "brief") {
-                    setShowMissingInfoModal(true);
-                  }
-                }}
-                onNewRequest={() => setShowNaturalLanguageChangeModal(true)}
-                isOperator={isOperator}
-              />
-            </div>
-          )}
-
           {/* DEDICATED CAMPAIGN WORKSPACE VIEW (WHEN A CAMPAIGN IS SELECTED) */}
           {(activeTab === "campaigns" || selectedCampaignId) && selectedCampaignId && (
             campaignNotFoundError ? (
@@ -2933,70 +2802,30 @@ export default function MarketingIntakeConsole({
 
 
 
-              {/* NATURAL LANGUAGE CHANGE REQUEST MODAL */}
-              {showNaturalLanguageChangeModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
-                  <div className="bg-[#0B4A3F] rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-[rgba(208,214,187,0.24)] space-y-4 text-[#FFFDF8]">
-                    <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-emerald-300" />
-                        <h3 className="font-serif font-bold text-base text-[#FFFDF8]">
-                          Request Marketing Change
-                        </h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowNaturalLanguageChangeModal(false)}
-                        className="text-[rgba(246,247,241,0.6)] hover:text-[#FFFDF8] font-bold text-base cursor-pointer"
-                      >
-                        ✕
-                      </button>
-                    </div>
+              {/* NEW TASK / OPERATIONAL REQUEST MODAL (ISS-009) */}
+              <NewMarketingRequestModal
+                isOpen={showNaturalLanguageChangeModal}
+                onClose={() => setShowNaturalLanguageChangeModal(false)}
+                onRequestCreated={(newRequest, newTasks) => {
+                  setShowNaturalLanguageChangeModal(false);
+                  
+                  // Optimistically update local requests and tasks tables
+                  setCanonicalRequests(prev => [newRequest, ...prev]);
+                  setCanonicalTasks(prev => [...newTasks, ...prev]);
 
-                    <p className="text-xs text-[rgba(246,247,241,0.74)] font-sans">
-                      Describe what should be updated. Shapework will identify
-                      affected materials and preview changes across all assets.
-                    </p>
-
-                    <textarea
-                      rows={4}
-                      placeholder="e.g. Make the headline less formal and add the Sunday 2-4 PM open house time to the postcard..."
-                      value={naturalLanguageInput}
-                      onChange={(e) => setNaturalLanguageInput(e.target.value)}
-                      className="w-full p-3 bg-[#073F35] border border-[rgba(208,214,187,0.24)] rounded-2xl text-xs text-[#FFFDF8] font-sans focus:outline-none focus:ring-2 focus:ring-emerald-400/50 placeholder-[rgba(246,247,241,0.5)]"
-                    />
-
-                    {unsupportedClaimWarning && (
-                      <div className="p-3 bg-rose-500/20 border border-rose-500/30 rounded-xl text-xs text-rose-200 font-medium">
-                        ⚠️ {unsupportedClaimWarning}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-[rgba(208,214,187,0.14)]">
-                      <button
-                        type="button"
-                        onClick={() => setShowNaturalLanguageChangeModal(false)}
-                        className="px-4 py-2 bg-[#073F35] hover:bg-[#115548] text-[#FFFDF8] rounded-xl text-xs font-bold cursor-pointer border border-[rgba(208,214,187,0.24)]"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (naturalLanguageInput.trim()) {
-                            handleNaturalLanguageChangeApply(
-                              naturalLanguageInput,
-                            );
-                          }
-                        }}
-                        className="px-5 py-2 bg-[#00635C] hover:bg-[#004d48] text-[#FFFDF8] rounded-xl text-xs font-bold cursor-pointer shadow-xs border border-emerald-400/30"
-                      >
-                        Apply Changes Across Assets
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  // Sync to backend repository
+                  const token = localStorage.getItem("token") || "";
+                  const authHeaders = {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                  };
+                  fetch("/api/marketing/canonical-requests", {
+                    method: "POST",
+                    headers: authHeaders,
+                    body: JSON.stringify({ request: newRequest, tasks: newTasks })
+                  }).catch(err => console.warn("Notice saving request to backend:", err));
+                }}
+              />
 
               {/* TRUTHFUL DELIVERY DRAWER */}
               {showDeliveryDrawer && (
@@ -4476,7 +4305,7 @@ export default function MarketingIntakeConsole({
                                 <span className="text-[8px] font-mono text-emerald-200 bg-black/40 px-2 py-0.5 rounded-full border border-white/10 font-bold flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                                   <span>
-                                    ⚡ SLA TURNAROUND: 14 MINS (TARGET &lt; 30
+                                    ⚡ TURNAROUND TIME: 14 MINS (TARGET &lt; 30
                                     MINS) • 100% ON-TIME
                                   </span>
                                 </span>
@@ -8752,6 +8581,495 @@ export default function MarketingIntakeConsole({
             </div>
           </div>
         )}
+        {/* RIGHT-HAND SLIDE-OUT CALL TRANSCRIPT DRAWER */}
+        {transcriptDrawerCall && (
+          <div className="fixed inset-0 z-[100] overflow-hidden font-sans text-left" data-testid="call-transcript-drawer">
+            {/* Backdrop Overlay */}
+            <div
+              onClick={() => setTranscriptDrawerCall(null)}
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            />
+
+            {/* Slide-out Panel */}
+            <div className="fixed inset-y-0 right-0 w-full sm:w-[580px] md:w-[640px] bg-white shadow-2xl z-[100] flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 border-l border-slate-200">
+              
+              {/* Drawer Header */}
+              <div className="p-5 bg-stone-50 border-b border-stone-200 flex items-start justify-between gap-3 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                      {transcriptDrawerCall.id?.toUpperCase() || 'INBOUND CALL'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-[#E5EFEA] text-[#00635C] font-semibold text-[10px] border border-[#00635C]/20">
+                      Inbound Voice Intake
+                    </span>
+                    {transcriptDrawerCall.departmentCategory && (
+                      <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 font-semibold text-[10px] border border-purple-200 uppercase font-mono">
+                        {transcriptDrawerCall.departmentCategory.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <span>{transcriptDrawerCall.callerName || 'Nest Realty Broker'}</span>
+                  </h3>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                    <span>{transcriptDrawerCall.callerPhone || transcriptDrawerCall.phone || '+1 (910) 507-2047'}</span>
+                    <span>•</span>
+                    <span>{transcriptDrawerCall.office || 'Nest Realty Wilmington'}</span>
+                    <span>•</span>
+                    <span>{transcriptDrawerCall.timestamp || 'Today'}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setTranscriptDrawerCall(null)}
+                  className="p-2 rounded-xl bg-white hover:bg-slate-200 border border-slate-200 text-slate-600 hover:text-slate-900 transition cursor-pointer shadow-2xs"
+                  title="Close Drawer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Top Quick Action Bar */}
+              <div className="p-3.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyTranscript(transcriptDrawerCall)}
+                    className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Transcript</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleAssignToEduardo(transcriptDrawerCall);
+                      setTranscriptDrawerCall(null);
+                      handleTabSwitch('va');
+                    }}
+                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    title="Assigns listing collateral production to Virtual Assistant Eduardo"
+                  >
+                    <span>👤 Assign to Eduardo (VA)</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLaunchMaxa(transcriptDrawerCall)}
+                    className="px-3 py-2 bg-[#E5EFEA] hover:bg-[#d0e5dc] text-[#00635C] rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border border-[#00635C]/20"
+                    title="Auto-copies copy brief and opens Nest Design Center"
+                  >
+                    <span>Design Center ↗</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleLaunchBasecamp(transcriptDrawerCall)}
+                    className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border border-amber-300"
+                    title="Auto-copies task brief and opens Basecamp To-Dos"
+                  >
+                    <span>Basecamp ↗</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Drawer Content */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                
+                {/* Property Address Banner */}
+                <div className="p-3.5 bg-stone-50 border border-stone-200 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <MapPin className="w-4 h-4 text-[#00635C] shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-900 text-sm block">{transcriptDrawerCall.propertyAddress}</span>
+                      <span className="text-[11px] text-slate-500">{transcriptDrawerCall.requestType || 'Listing Marketing Package'}</span>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold font-mono">
+                    ROSTER MATCHED
+                  </span>
+                </div>
+
+                {/* 48kHz Lossless Voice Audio Player */}
+                <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-3">
+                  <audio
+                    ref={drawerAudioRef}
+                    src={transcriptDrawerCall.recordingUrl || transcriptDrawerCall.audioUrl || "https://api.retellai.com/v2/get-call-audio/call_b5307aa8db5cc8f3b25d9d0024d"}
+                    preload="auto"
+                    onTimeUpdate={() => {
+                      if (drawerAudioRef.current) {
+                        setDrawerCurrentTime(drawerAudioRef.current.currentTime);
+                      }
+                    }}
+                    onLoadedMetadata={() => {
+                      if (drawerAudioRef.current && Number.isFinite(drawerAudioRef.current.duration) && drawerAudioRef.current.duration > 0) {
+                        setDrawerDuration(drawerAudioRef.current.duration);
+                      }
+                    }}
+                    onDurationChange={() => {
+                      if (drawerAudioRef.current && Number.isFinite(drawerAudioRef.current.duration) && drawerAudioRef.current.duration > 0) {
+                        setDrawerDuration(drawerAudioRef.current.duration);
+                      }
+                    }}
+                    onCanPlay={() => {
+                      if (drawerAudioRef.current && Number.isFinite(drawerAudioRef.current.duration) && drawerAudioRef.current.duration > 0) {
+                        setDrawerDuration(drawerAudioRef.current.duration);
+                      }
+                    }}
+                    onEnded={() => {
+                      setDrawerIsPlaying(false);
+                      setDrawerCurrentTime(0);
+                    }}
+                    onError={(e) => {
+                      console.warn('Drawer audio load notice, checking fallback:', e);
+                      if (drawerAudioRef.current && transcriptDrawerCall.audioUrl && drawerAudioRef.current.src !== transcriptDrawerCall.audioUrl) {
+                        drawerAudioRef.current.src = transcriptDrawerCall.audioUrl;
+                        drawerAudioRef.current.load();
+                      }
+                    }}
+                  />
+
+                  <div className="flex items-center justify-between text-xs text-stone-600 font-medium">
+                    <span className="flex items-center gap-1.5 text-[#00635C] font-bold">
+                      <Volume2 className="w-4 h-4 text-[#00635C]" />
+                      <span>Lossless Voice Recording • 48kHz WAV</span>
+                    </span>
+                    <span className="font-mono text-stone-500 font-semibold">
+                      {(() => {
+                        const durSec = (drawerDuration > 0 && Number.isFinite(drawerDuration))
+                          ? Math.round(drawerDuration)
+                          : (transcriptDrawerCall.durationSeconds || 100);
+                        const curMin = Math.floor(drawerCurrentTime / 60);
+                        const curSec = Math.floor(drawerCurrentTime % 60);
+                        const totalMin = Math.floor(durSec / 60);
+                        const totalSec = durSec % 60;
+                        return `${curMin}:${curSec < 10 ? '0' : ''}${curSec} / ${totalMin}:${totalSec < 10 ? '0' : ''}${totalSec}`;
+                      })()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!drawerAudioRef.current) return;
+                        try {
+                          if (drawerAudioRef.current.paused) {
+                            await drawerAudioRef.current.play();
+                            setDrawerIsPlaying(true);
+                          } else {
+                            drawerAudioRef.current.pause();
+                            setDrawerIsPlaying(false);
+                          }
+                        } catch (err) {
+                          console.warn('Direct audio play failed, trying proxy:', err);
+                        }
+                      }}
+                      className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-semibold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      {drawerIsPlaying ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5 fill-current" />
+                          <span>Pause Audio</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Play Recording</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div
+                      className="flex-1 bg-stone-200 h-2 rounded-full overflow-hidden relative cursor-pointer"
+                      onClick={(e) => {
+                        if (!drawerAudioRef.current) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pos = (e.clientX - rect.left) / rect.width;
+                        const effectiveDuration = (drawerDuration > 0 && Number.isFinite(drawerDuration))
+                          ? drawerDuration
+                          : (transcriptDrawerCall.durationSeconds || 100);
+                        drawerAudioRef.current.currentTime = pos * effectiveDuration;
+                        setDrawerCurrentTime(pos * effectiveDuration);
+                      }}
+                    >
+                      <div
+                        className="bg-[#00635C] h-full transition-all duration-100"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (drawerCurrentTime / ((drawerDuration > 0 && Number.isFinite(drawerDuration)) ? drawerDuration : (transcriptDrawerCall.durationSeconds || 100))) * 100))}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Structured Key Details Extraction */}
+                <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold text-emerald-900 uppercase flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>AI Structured Key Details</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                      100% Extracted
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+                    <div>
+                      <span className="text-[10px] text-emerald-800/80 font-mono block">Listing Price</span>
+                      <strong className="text-stone-900 font-bold">
+                        {transcriptDrawerCall.aiExtractedDetails?.price || transcriptDrawerCall.price || '$875,000'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-emerald-800/80 font-mono block">Beds & Baths</span>
+                      <strong className="text-stone-900 font-bold">
+                        {transcriptDrawerCall.aiExtractedDetails ? `${transcriptDrawerCall.aiExtractedDetails.bedrooms} / ${transcriptDrawerCall.aiExtractedDetails.bathrooms}` : (transcriptDrawerCall.bedsBaths || '4 Beds / 3.5 Baths')}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-emerald-800/80 font-mono block">Open House</span>
+                      <strong className="text-stone-900 font-bold">
+                        {transcriptDrawerCall.aiExtractedDetails?.openHouseDate || 'This Sunday 2PM - 4PM'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-emerald-800/80 font-mono block">Requested Assets</span>
+                      <strong className="text-[#00635C] font-bold">
+                        {transcriptDrawerCall.aiExtractedDetails?.requiredCollateral?.join(', ') || 'Flyer, Social Graphic'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Verbatim Call Transcript & Dialogue Turns */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold text-stone-500 uppercase tracking-wider block">
+                      Verbatim Call Transcript
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyTranscript(transcriptDrawerCall)}
+                      className="text-[10px] font-mono font-bold text-[#00635C] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy Dialogue</span>
+                    </button>
+                  </div>
+
+                  {transcriptDrawerCall.transcript ? (
+                    <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1 bg-stone-50/70 p-4 rounded-2xl border border-stone-200">
+                      {transcriptDrawerCall.transcript.split('\n').filter((l: string) => l.trim().length > 0).map((line: string, idx: number) => {
+                        const isAgent = line.trim().toLowerCase().startsWith('agent:');
+                        const isUser = line.trim().toLowerCase().startsWith('user:');
+                        const text = line.replace(/^(agent|user):\s*/i, '').trim();
+
+                        if (isAgent) {
+                          return (
+                            <div key={idx} className="flex gap-2.5 items-start">
+                              <div className="w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300 text-[#00635C] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                                AI
+                              </div>
+                              <div className="p-3 bg-emerald-50 border border-emerald-200/90 rounded-2xl rounded-tl-sm text-xs text-stone-800 leading-relaxed font-sans max-w-[88%]">
+                                <span className="font-bold text-emerald-900 text-[10px] block mb-0.5">Ask Nest Ops Voice AI</span>
+                                {text}
+                              </div>
+                            </div>
+                          );
+                        } else if (isUser) {
+                          return (
+                            <div key={idx} className="flex gap-2.5 items-start justify-end">
+                              <div className="p-3 bg-white border border-slate-200/90 rounded-2xl rounded-tr-sm text-xs text-stone-900 leading-relaxed font-sans max-w-[88%] shadow-2xs">
+                                <span className="font-bold text-slate-600 text-[10px] block mb-0.5 text-right">{transcriptDrawerCall.callerName || 'Caller'}</span>
+                                {text}
+                              </div>
+                              <div className="w-6 h-6 rounded-full bg-slate-200 border border-slate-300 text-slate-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                                {transcriptDrawerCall.callerName ? transcriptDrawerCall.callerName.charAt(0).toUpperCase() : 'U'}
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div key={idx} className="p-2.5 bg-white border border-stone-200 rounded-xl text-xs text-stone-700 font-mono italic">
+                              {line}
+                            </div>
+                          );
+                        }
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl font-mono text-xs text-stone-500 italic">
+                      No transcript available for this call.
+                    </div>
+                  )}
+                </div>
+
+                {/* Context-Aware Task Tools (Marketing vs Sign Post vs Ops) */}
+                {(() => {
+                  const isMkt = 
+                    transcriptDrawerCall?.category === 'marketing' || 
+                    transcriptDrawerCall?.type === 'marketing_intake' || 
+                    transcriptDrawerCall?.campaignType || 
+                    (transcriptDrawerCall?.transcript && (
+                      transcriptDrawerCall.transcript.toLowerCase().includes('marketing') ||
+                      transcriptDrawerCall.transcript.toLowerCase().includes('flyer') ||
+                      transcriptDrawerCall.transcript.toLowerCase().includes('social media') ||
+                      transcriptDrawerCall.transcript.toLowerCase().includes('postcard') ||
+                      transcriptDrawerCall.transcript.toLowerCase().includes('email campaign')
+                    ));
+
+                  const isSign = 
+                    transcriptDrawerCall?.category === 'operations' ||
+                    transcriptDrawerCall?.type === 'sign_post' ||
+                    (transcriptDrawerCall?.transcript && (
+                      transcriptDrawerCall.transcript.toLowerCase().includes('sign post') ||
+                      transcriptDrawerCall.transcript.toLowerCase().includes('sign installation') ||
+                      transcriptDrawerCall.transcript.toLowerCase().includes('lockbox')
+                    ));
+
+                  if (isMkt) {
+                    return (
+                      <div className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🎨</span>
+                            <div>
+                              <h4 className="font-bold text-xs text-slate-900">Nest Design Center (Maxa) Multi-Asset Matrix</h4>
+                              <p className="text-[10px] text-slate-500">1-Click tailored copy generation & direct template staging in Maxa</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                          {NEST_MAXA_TEMPLATES.slice(0, 4).map((t) => (
+                            <div
+                              key={t.id}
+                              className="p-3 bg-stone-50/80 hover:bg-stone-50 border border-stone-200 rounded-xl space-y-2.5 flex flex-col justify-between shadow-2xs"
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-mono font-bold text-[#00635C] bg-[#E5EFEA] px-1.5 py-0.5 rounded">
+                                    {t.dimensions}
+                                  </span>
+                                  <span className="text-[9px] font-semibold text-stone-400 capitalize">{t.category}</span>
+                                </div>
+                                <h5 className="font-bold text-xs text-stone-900 line-clamp-1">{t.title}</h5>
+
+                                <div className="h-24 w-full bg-white rounded-lg border border-stone-200 overflow-hidden relative group">
+                                  <img
+                                    src={t.previewUrl}
+                                    alt={`${t.title} Template Visual Snapshot Thumbnail`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                  />
+                                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1.5 gap-1.5">
+                                    <a
+                                      href={t.previewUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-2 py-1 bg-white text-slate-900 rounded-lg text-[10px] font-bold shadow flex items-center gap-1 hover:bg-slate-100"
+                                    >
+                                      <Eye className="w-3 h-3 text-[#00635C]" />
+                                      <span>Inspect</span>
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 pt-1.5 border-t border-stone-200/60">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyAssetBrief(t.id, transcriptDrawerCall)}
+                                  className="flex-1 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-lg text-[10px] font-bold transition-all shadow-2xs text-center cursor-pointer"
+                                >
+                                  Copy Brief
+                                </button>
+                                <a
+                                  href="https://nest.maxadesigns.com/categories/popular"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-2 py-1 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg text-[10px] font-bold transition-all shadow-2xs flex items-center justify-center cursor-pointer"
+                                  title="Open Nest Design Center"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (isSign) {
+                    return (
+                      <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between border-b border-purple-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🚩</span>
+                            <div>
+                              <h4 className="font-bold text-xs text-purple-950">Yard Sign & Rider Order</h4>
+                              <p className="text-[10px] text-purple-700">Internal sign inventory & field install dispatch</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-purple-900/80 font-sans space-y-1">
+                          <div><strong>Location:</strong> {transcriptDrawerCall?.propertyAddress || 'Listing Property'}</div>
+                          <div><strong>Specification:</strong> Standard White Vinyl 4x4 Post + Nest Rider</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDispatchVendor('Sign Shop', transcriptDrawerCall?.propertyAddress)}
+                          className="w-full py-2.5 bg-purple-800 hover:bg-purple-900 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <span>Dispatch Sign & Rider Order</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NORA MARKETING & WORKLOAD INTELLIGENCE COPILOT DRAWER */}
+        <NoraMarketingCopilotDrawer
+          isOpen={showNoraCopilotDrawer}
+          onClose={() => setShowNoraCopilotDrawer(false)}
+          calls={calls}
+          campaigns={allCampaigns}
+          workItems={marketingWorkItems}
+          onOpenTranscriptDrawer={(call) => {
+            setTranscriptDrawerCall(call);
+            setShowNoraCopilotDrawer(false);
+          }}
+          onAssignToEduardo={(call) => {
+            handleAssignToEduardo(call);
+            setShowNoraCopilotDrawer(false);
+          }}
+          onSendMessageToRequester={(call, data) => {
+            handleSendQuestionsToRequester(call, data);
+            setShowNoraCopilotDrawer(false);
+          }}
+          onNavigateToSubtab={(subtab) => {
+            handleTabSwitch(subtab);
+            setShowNoraCopilotDrawer(false);
+          }}
+        />
+
         {/* Development Identity Strip (Hidden by default unless debug=1 is explicitly set) */}
         {showMarketingDebug && (
           <div

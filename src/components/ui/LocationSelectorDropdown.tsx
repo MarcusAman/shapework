@@ -109,8 +109,8 @@ export default function LocationSelectorDropdown({
     localStorage.setItem('shapework_active_location', loc.id);
     setIsOpen(false);
     
-    // Determine targetTab if selecting Wilmington / Mayfaire vs other locations
-    const targetTab = loc.id === 'wilmington_nc' ? 'Ryan Shield' : 'Workboard';
+    // Determine targetTab
+    const targetTab = 'Workboard';
 
     // Notify all listeners with location, targetTab and isUserClick flag
     try {

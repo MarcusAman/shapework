@@ -60,9 +60,15 @@ We do not sell personal information for money.
 
 We do not use Customer Data for third-party advertising.
 
-If our practices change in a way that constitutes “sale” or “sharing” under applicable privacy laws, we will update this policy and provide required choices.
+## 6. Mobile Information & SMS Messaging Privacy
 
-## 6. Data Retention
+Shapework, Inc. strictly protects your mobile privacy and complies with CTIA and 10DLC carrier standards.
+
+Mobile telephone numbers, SMS opt-in consent data, and text messaging records collected for notification and verification purposes will **NOT** be sold, rented, leased, or shared with third parties, affiliates, or external marketers for marketing or promotional purposes under any circumstances.
+
+We only use your mobile phone number to deliver requested operational workflow notifications, task dispatch updates, photo requests, and account verification messages in accordance with our [SMS Consent Policy](/sms-consent) and [SMS Terms of Service](/sms-terms).
+
+## 7. Data Retention
 
 We retain information for as long as needed to provide the Service, comply with legal obligations, resolve disputes, enforce agreements, maintain security, and support legitimate business purposes.
 

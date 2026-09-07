@@ -36,6 +36,7 @@ const ADMIN_GROUPS = [
 const CLIENT_ITEMS = [
   { id: 'shield', label: 'Ryan Shield' },
   { id: 'roles', label: 'Role & Escalation Map' },
+  { id: 'dispatch', label: 'Vendor Dispatch & Equipment' },
   { id: 'brief', label: 'Owner Weekly Brief' }
 ];
 

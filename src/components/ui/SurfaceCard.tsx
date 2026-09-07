@@ -8,12 +8,14 @@
 
 import React from 'react';
 
-export interface SurfaceCardProps {
-  children: React.ReactNode;
+export interface SurfaceCardProps extends React.HTMLAttributes<HTMLDivElement> {
+  children?: React.ReactNode;
   className?: string;
   elevated?: boolean;
   interactive?: boolean;
-  onClick?: () => void;
+  onClick?: any;
+  key?: any;
+  [key: string]: any;
 }
 
 export default function SurfaceCard({

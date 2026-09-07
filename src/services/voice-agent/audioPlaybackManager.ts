@@ -2,19 +2,112 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * AudioPlaybackManager — Singleton Audio Concurrency Lock & Earcon Chime Manager
+ * AudioPlaybackManager — Singleton Audio Concurrency Lock & Earcon / Cognitive Noise Manager
  * Aligns Ask Nest Ops Voice Assistant with Siri/Alexa audio operating standards.
  */
+
+export type NoraNoiseKey = 
+  | 'crickets' 
+  | 'undertaker' 
+  | 'heaven_harp' 
+  | 'jackpot' 
+  | 'keyboard_typing' 
+  | 'kaching';
+
+export interface NoraNoiseMetadata {
+  key: NoraNoiseKey;
+  label: string;
+  url: string;
+  defaultMaxSeconds: number;
+}
+
+export const NORA_NOISE_ASSETS: Record<NoraNoiseKey, NoraNoiseMetadata> = {
+  crickets: {
+    key: 'crickets',
+    label: 'Crickets (Quiet / No Result)',
+    url: '/assets/crickets.mp3',
+    defaultMaxSeconds: 5
+  },
+  undertaker: {
+    key: 'undertaker',
+    label: 'Undertaker (Urgent / Escalation)',
+    url: '/assets/Undertaker.mp3',
+    defaultMaxSeconds: 5
+  },
+  heaven_harp: {
+    key: 'heaven_harp',
+    label: 'Heaven Harp (Compliance / BIC Approved)',
+    url: '/assets/Heaven_Harp.mp3',
+    defaultMaxSeconds: 5
+  },
+  jackpot: {
+    key: 'jackpot',
+    label: 'Jackpot (Win / Lead Match)',
+    url: '/assets/Jackpot.mp3',
+    defaultMaxSeconds: 4
+  },
+  keyboard_typing: {
+    key: 'keyboard_typing',
+    label: 'Keyboard Typing (Calculating / Reasoning)',
+    url: '/assets/Keyboard_typing.mp3',
+    defaultMaxSeconds: 4
+  },
+  kaching: {
+    key: 'kaching',
+    label: 'KaChing (Financials / Commission)',
+    url: '/assets/KaChing.mp3',
+    defaultMaxSeconds: 3
+  }
+};
+
+export const NORA_ROTATING_NOISE_SEQUENCE: NoraNoiseKey[] = [
+  'keyboard_typing',
+  'kaching',
+  'heaven_harp',
+  'jackpot',
+  'undertaker',
+  'crickets'
+];
+
+let globalNoiseRotationIndex = 0;
+
+/**
+ * Rotates the sound effect every time a question is asked to Nora.
+ * Sequentially cycles through: Keyboard Typing -> KaChing -> Heaven Harp -> Jackpot -> Undertaker -> Crickets.
+ */
+export function selectCognitiveNoiseForQuery(query?: string): NoraNoiseKey {
+  const chosenNoise = NORA_ROTATING_NOISE_SEQUENCE[globalNoiseRotationIndex % NORA_ROTATING_NOISE_SEQUENCE.length];
+  globalNoiseRotationIndex++;
+  return chosenNoise;
+}
+
+export function getNextRotatingCognitiveNoise(): NoraNoiseKey {
+  return selectCognitiveNoiseForQuery();
+}
+
+export function resetCognitiveNoiseRotation(index: number = 0): void {
+  globalNoiseRotationIndex = index;
+}
+
+export function getCurrentNoiseRotationIndex(): number {
+  return globalNoiseRotationIndex;
+}
 
 class AudioPlaybackManagerSingleton {
   private activeAudio: HTMLAudioElement | null = null;
   private audioContext: AudioContext | null = null;
+  private activeTimer: any = null;
 
   /**
    * Stop and destroy any currently playing audio stream or speech synthesis instance.
    * Completely prevents double/overlapping voices.
    */
   public stopAll(): void {
+    if (this.activeTimer) {
+      clearTimeout(this.activeTimer);
+      this.activeTimer = null;
+    }
+
     if (this.activeAudio) {
       try {
         this.activeAudio.pause();
@@ -52,6 +145,78 @@ class AudioPlaybackManagerSingleton {
         resolve();
       };
       audio.play().catch(() => resolve());
+    });
+  }
+
+  /**
+   * Play a cognitive noise effect (crickets, undertaker, heaven_harp, jackpot, keyboard_typing, kaching).
+   * Runs for up to maxDurationSeconds (default 5s) or ends naturally if the sound is shorter,
+   * after which Nora delivers the grounded results.
+   */
+  public async playCognitiveNoise(
+    selectedSound?: NoraNoiseKey | string,
+    maxDurationSeconds: number = 5
+  ): Promise<void> {
+    if (typeof window === 'undefined') return;
+
+    this.stopAll();
+
+    const normalizedKey = (selectedSound || getNextRotatingCognitiveNoise()).toLowerCase().trim() as NoraNoiseKey;
+    const meta = NORA_NOISE_ASSETS[normalizedKey] || NORA_NOISE_ASSETS.keyboard_typing;
+    const soundUrl = meta.url;
+    const maxSec = Math.min(5, Math.max(1, maxDurationSeconds || meta.defaultMaxSeconds || 5));
+
+    return new Promise((resolve) => {
+      try {
+        const audio = new Audio(soundUrl);
+        audio.volume = 0.7;
+        this.activeAudio = audio;
+
+        let isCompleted = false;
+
+        const finalizePlayback = () => {
+          if (isCompleted) return;
+          isCompleted = true;
+          if (this.activeTimer) {
+            clearTimeout(this.activeTimer);
+            this.activeTimer = null;
+          }
+          if (this.activeAudio === audio) {
+            try {
+              audio.pause();
+              audio.currentTime = 0;
+            } catch (e) {}
+            this.activeAudio = null;
+          }
+          resolve();
+        };
+
+        // Strict 5s maximum ceiling (or shorter if sound naturally finishes earlier)
+        this.activeTimer = setTimeout(() => {
+          try {
+            if (audio && !audio.paused && audio.volume > 0.1) {
+              audio.volume = Math.max(0, audio.volume - 0.3);
+            }
+          } catch (e) {}
+          finalizePlayback();
+        }, maxSec * 1000);
+
+        audio.onended = () => finalizePlayback();
+        audio.onerror = (e) => {
+          console.warn('[AudioPlaybackManager] Noise audio playback error on URL:', soundUrl, e);
+          finalizePlayback();
+        };
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('[AudioPlaybackManager] Noise play blocked/failed:', soundUrl, err);
+            // Even if autoplay was blocked by browser policy, let timer complete smoothly
+          });
+        }
+      } catch (e) {
+        resolve();
+      }
     });
   }
 

@@ -26,7 +26,7 @@ export default function CustomerCutoverRunbook() {
     const defaultSteps: RunbookStep[] = [
       // Before Launch
       { id: 'b1', category: 'before_launch', title: 'Confirm workspace profile', owner: 'Onboarding Lead', dueDate: 'T-5 Days', blocking: true, completed: true, evidence: 'Wizard profile complete' },
-      { id: 'b2', category: 'before_launch', title: 'Confirm users and roles', owner: 'Onboarding Lead', dueDate: 'T-5 Days', blocking: true, completed: true, evidence: 'Sarah & Diane mapped' },
+      { id: 'b2', category: 'before_launch', title: 'Confirm users and roles', owner: 'Onboarding Lead', dueDate: 'T-5 Days', blocking: true, completed: true, evidence: 'Ann & Diane mapped' },
       { id: 'b3', category: 'before_launch', title: 'Confirm routing rules', owner: 'Operations Lead', dueDate: 'T-4 Days', blocking: false, completed: true, evidence: '24h SLA target active' },
       { id: 'b4', category: 'before_launch', title: 'Confirm approval policy', owner: 'Operations Lead', dueDate: 'T-4 Days', blocking: true, completed: true, evidence: 'Outbound writeback locked' },
       { id: 'b5', category: 'before_launch', title: 'Confirm compliance checklist', owner: 'Operations Lead', dueDate: 'T-3 Days', blocking: true, completed: false },

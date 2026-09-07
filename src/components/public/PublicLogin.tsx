@@ -27,12 +27,7 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
       .then(data => {
         if (data && data.user) {
           const email = (data.user.email || '').toLowerCase().trim();
-          const isAdminUser = ['marcus@shapework.co', 'adam@shapework.co', 'matt@shapework.co', 'admin@shapework.co'].includes(email);
-          if (isAdminUser) {
-            onNavigate('/internal');
-          } else {
-            onNavigate('/app');
-          }
+          onNavigate('/app/workboard');
         }
       })
       .catch(() => {});
@@ -64,12 +59,7 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
       }
 
       sessionStorage.removeItem('shapework_logged_out');
-      const isAdminUser = ['marcus@shapework.co', 'adam@shapework.co', 'matt@shapework.co', 'admin@shapework.co'].includes(email.toLowerCase().trim());
-      if (isAdminUser) {
-        onNavigate('/internal');
-      } else {
-        onNavigate('/app');
-      }
+      onNavigate('/app/workboard');
     } catch (err: any) {
       console.error('[Login] Error during authentication:', err);
       setErrorMsg(err.message || 'Connection error. Please try again.');
@@ -104,29 +94,26 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans bg-[#F7F3EA] text-[#1E2520] select-none">
       
-      {/* Left Panel: Cover Image */}
-      <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-[#18382B]">
-        <motion.div
-          initial={{ scale: shouldReduceMotion ? 1.05 : 1.08 }}
-          animate={{ scale: 1.05 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 1.5, ease: 'easeOut' }}
-          className="absolute -inset-4 bg-cover bg-center filter blur-[2.5px] brightness-[0.9]"
-          style={{ backgroundImage: `url('/nest_background_img.png')` }}
-        />
-        {/* Deep contrast dark green gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#0b2118]/90 via-[#143326]/80 to-[#18382B]/60" />
+      {/* Left Panel: Shapework Cover */}
+      <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-gradient-to-br from-[#01362D] via-[#00635C] to-[#01251F]">
+        {/* Subtle geometric glow accents */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#A4D4CB]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#000000]/25 rounded-full blur-2xl pointer-events-none" />
         
-        {/* Branding on cover image */}
+        {/* Branding on cover */}
         <div className="absolute inset-0 p-12 flex flex-col justify-end z-10 text-[#FFFDF7]">
           <div className="space-y-4 mb-8">
+            <div className="font-serif font-bold text-2xl text-white tracking-tight">
+              shapework<span className="text-[#A4D4CB]">.</span>
+            </div>
             <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-md">
               Calm operations for modern brokerages.
             </h2>
-            <p className="text-sm text-[#F0F7F2] font-bold max-w-md leading-relaxed drop-shadow">
+            <p className="text-sm text-[#E5EFEA] font-medium max-w-md leading-relaxed">
               We design the operating layer that turns scattered emails, files, and updates into structured, automated work.
             </p>
           </div>
-          <div className="text-[11px] text-[#DDEBDD]/80 font-bold font-mono tracking-wider">
+          <div className="text-[11px] text-[#A4D4CB]/80 font-bold font-mono tracking-wider">
             EST. 2026 / WILMINGTON, NC
           </div>
         </div>

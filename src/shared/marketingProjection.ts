@@ -191,7 +191,10 @@ export function deriveCampaignProjection(
       renderedAssetCount++;
     } else if (isRendered) {
       renderedAssetCount++;
-    } else if (campaign?.missingInformation?.some((m: any) => m.affectedMaterialTypes?.includes(type))) {
+    } else if (
+      (Array.isArray(campaign?.missingInformation) && campaign.missingInformation.some((m: any) => m.affectedMaterialTypes?.includes(type))) ||
+      (campaign?.missingInformation && !Array.isArray(campaign.missingInformation))
+    ) {
       blockedAssetCount++;
     }
   });
@@ -205,7 +208,7 @@ export function deriveCampaignProjection(
     campaignState = 'exported';
   } else if (campaign?.status === 'cancelled') {
     campaignState = 'cancelled';
-  } else if (campaign?.missingInformation && campaign.missingInformation.length > 0) {
+  } else if (campaign?.missingInformation && (Array.isArray(campaign.missingInformation) ? campaign.missingInformation.length > 0 : Boolean(campaign.missingInformation))) {
     campaignState = 'needs_information';
   } else if (approvedAssetCount >= requestedAssetCount && requestedAssetCount > 0) {
     campaignState = 'approved';
@@ -223,7 +226,9 @@ export function deriveCampaignProjection(
   let nextAction: MarketingNextAction;
 
   if (campaignState === 'needs_information') {
-    const missingField = campaign?.missingInformation?.[0]?.label || 'Open-house hours';
+    const missingField = Array.isArray(campaign?.missingInformation)
+      ? (campaign?.missingInformation?.[0]?.label || 'Open-house hours')
+      : (campaign?.missingInformation?.prompt || 'Required listing details');
     nextAction = {
       type: 'provide_information',
       title: 'Missing Information',

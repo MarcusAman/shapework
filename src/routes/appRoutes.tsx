@@ -545,11 +545,11 @@ export default function AppRoutes({ state }: AppRoutesProps) {
                 <div className="divide-y divide-border-soft/60">
                   <div className="py-3 text-xs flex justify-between">
                     <span className="text-success font-semibold">Approved: Foundation Contingency Crack Waiver</span>
-                    <span className="text-text-tertiary">Sarah Jenkins · 15m ago</span>
+                    <span className="text-text-tertiary">Jessica Keenan · 15m ago</span>
                   </div>
                   <div className="py-3 text-xs flex justify-between">
                     <span className="text-success font-semibold">Approved: Wire Ingest Matching Exception Close</span>
-                    <span className="text-text-tertiary">Sarah Jenkins · 1h ago</span>
+                    <span className="text-text-tertiary">Jessica Keenan · 1h ago</span>
                   </div>
                   <div className="py-3 text-xs flex justify-between">
                     <span className="text-text-secondary">Auto-logged: Lockbox opened at 109 Woodlawn</span>

@@ -132,46 +132,53 @@ export class ContractVoiceSdkService {
         }
       };
 
-      if (conversationToken) {
-        this.conversation = await Conversation.startSession({
-          conversationToken,
-          clientTools,
-          onConnect: () => {
-            this.setState('listening', 'Ask Nest Ops is listening...');
-          },
-          onDisconnect: () => {
-            this.setState('idle', 'Voice session ended.');
-          },
-          onMessage: (message: any) => {
-            if (message?.source === 'ai' && message?.message) {
-              this.callbacks.onTranscriptMessage?.({
-                sender: 'ai',
-                text: message.message,
-                timestamp: new Date().toISOString()
-              });
-            } else if (message?.source === 'user' && message?.message) {
-              this.callbacks.onTranscriptMessage?.({
-                sender: 'user',
-                text: message.message,
-                timestamp: new Date().toISOString()
-              });
-            }
-          },
-          onError: (err: any) => {
-            const errorMsg = typeof err === 'string' ? err : err?.message || 'Voice connection error';
-            this.setState('error', errorMsg);
-            this.callbacks.onError?.(errorMsg);
-          },
-          onModeChange: (mode: any) => {
-            if (mode?.mode === 'speaking') {
-              this.setState('speaking', 'Ask Nest Ops is speaking...');
-            } else if (mode?.mode === 'listening') {
-              this.setState('listening', 'Ask Nest Ops is listening...');
-            }
+      const sessionOptions: any = {
+        clientTools,
+        onConnect: () => {
+          this.setState('listening', 'Ask Nest Ops is listening...');
+        },
+        onDisconnect: () => {
+          this.setState('idle', 'Voice session ended.');
+        },
+        onMessage: (message: any) => {
+          if (message?.source === 'ai' && message?.message) {
+            this.callbacks.onTranscriptMessage?.({
+              sender: 'ai',
+              text: message.message,
+              timestamp: new Date().toISOString()
+            });
+          } else if (message?.source === 'user' && message?.message) {
+            this.callbacks.onTranscriptMessage?.({
+              sender: 'user',
+              text: message.message,
+              timestamp: new Date().toISOString()
+            });
           }
-        });
+        },
+        onError: (err: any) => {
+          const errorMsg = typeof err === 'string' ? err : err?.message || 'Voice connection error';
+          this.setState('error', errorMsg);
+          this.callbacks.onError?.(errorMsg);
+        },
+        onModeChange: (mode: any) => {
+          if (mode?.mode === 'speaking') {
+            this.setState('speaking', 'Ask Nest Ops is speaking...');
+          } else if (mode?.mode === 'listening') {
+            this.setState('listening', 'Ask Nest Ops is listening...');
+          }
+        }
+      };
+
+      if (signedUrl) {
+        sessionOptions.signedUrl = signedUrl;
+        sessionOptions.connectionType = 'websocket';
+        this.conversation = await Conversation.startSession(sessionOptions);
+      } else if (conversationToken) {
+        sessionOptions.conversationToken = conversationToken;
+        sessionOptions.connectionType = 'webrtc';
+        this.conversation = await Conversation.startSession(sessionOptions);
       } else {
-        // Fallback or demo WebRTC mode
+        // Fallback or demo mode
         this.setState('listening', 'Voice session active in mock mode.');
       }
     } catch (err: any) {

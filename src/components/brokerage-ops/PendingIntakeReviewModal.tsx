@@ -95,7 +95,7 @@ export const PendingIntakeReviewModal: React.FC<PendingIntakeReviewModalProps> =
                   {channelLabel}
                 </span>
               </div>
-              <p className="text-xs text-[#52605B] mt-0.5">Received through Ask Nest Ops</p>
+              <p className="text-xs text-[#52605B] mt-0.5">Received through Ask Nora</p>
             </div>
           </div>
 
@@ -119,7 +119,7 @@ export const PendingIntakeReviewModal: React.FC<PendingIntakeReviewModalProps> =
           <div className="bg-[#F7F8F5] border border-stone-200/80 rounded-xl p-4 space-y-1">
             <h4 className="text-xs font-bold text-[#01362D]">Here's what I captured</h4>
             <p className="text-xs text-[#52605B] leading-relaxed">
-              Ask Nest Ops captured these details from your message. Review them before continuing.
+              Ask Nora captured these details from your message. Review them before continuing.
             </p>
           </div>
 

@@ -23,6 +23,9 @@ export interface SopStep {
   stepNumber: number;
   action: string;
   role: string;
+  assignedRole?: string;
+  title?: string;
+  instruction?: string;
   systemUsed?: string;
 }
 
@@ -51,9 +54,14 @@ export interface SopDocument {
   openQuestions: string[];
   status: SopStatus;
   author: string;
+  createdBy?: string;
   aiAssisted: true;
   transcriptRetention: TranscriptRetentionChoice;
   transcript?: Array<{ sender: 'ai' | 'user' | 'system'; text: string; timestamp: string }>;
+  tags?: string[];
+  escalationBehavior?: any;
+  expectedOutcome?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
   version: number;

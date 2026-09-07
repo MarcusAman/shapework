@@ -14,6 +14,7 @@ export interface AIAuditLog {
   error?: string;
   suggestionApplied?: 'applied' | 'dismissed' | 'pending' | 'none';
   userFeedback?: any;
+  metadata?: any;
 }
 
 export class AIAuditService {

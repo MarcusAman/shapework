@@ -7,10 +7,12 @@ interface PublicFooterProps {
 export default function PublicFooter({ onNavigate }: PublicFooterProps) {
   const footerLinks = [
     {
-      title: "Legal",
+      title: "Legal & Compliance",
       items: [
-        { label: "Terms", path: "/terms" },
-        { label: "Privacy", path: "/privacy" },
+        { label: "Terms of Service", path: "/terms" },
+        { label: "Privacy Policy", path: "/privacy" },
+        { label: "SMS Consent Policy", path: "/sms-consent" },
+        { label: "SMS Terms of Service", path: "/sms-terms" },
       ]
     }
   ];

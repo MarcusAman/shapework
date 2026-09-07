@@ -286,7 +286,7 @@ export const ContractCopilotCard: React.FC<ContractCopilotCardProps> = ({ worksp
           </div>
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="text-lg font-serif font-black text-[#01362D]">Ask Nest Ops — Contract Copilot</h3>
+              <h3 className="text-lg font-serif font-black text-[#01362D]">Ask Nora — Contract Copilot</h3>
               <span className={`px-2.5 py-0.5 border text-xs font-bold uppercase rounded-full ${stage.color}`}>
                 {stage.label}
               </span>
@@ -613,7 +613,7 @@ export const ContractCopilotCard: React.FC<ContractCopilotCardProps> = ({ worksp
               <ShieldCheck className="w-4 h-4 text-[#00635C]" />
               <h5 className="text-xs font-bold text-[#01362D] uppercase tracking-wide">Brokerage BIC Compliance Audit Ledger</h5>
             </div>
-            <span className="text-[10px] font-bold text-[#00635C] bg-emerald-100/60 px-2 py-0.5 rounded-md">Matt Orr (BIC #281940)</span>
+            <span className="text-[10px] font-bold text-[#00635C] bg-emerald-100/60 px-2 py-0.5 rounded-md">Eric Knight (BIC #278908)</span>
           </div>
 
           <div className="space-y-1.5 pt-1">

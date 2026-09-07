@@ -171,7 +171,7 @@ export default function ApprovalCenter({ state = {} }: ApprovalCenterProps) {
               <div className="space-y-1">
                 <span className="text-[9px] text-[var(--sw-text-secondary)] uppercase font-bold block select-none">Recipient & Location</span>
                 <p className="text-[var(--sw-text-primary)] font-bold capitalize">
-                  {app.recipient_display || app.recipientDisplay || app.relatedLabel || 'Sarah Jenkins'} ({app.channel || 'api'})
+                  {app.recipient_display || app.recipientDisplay || app.relatedLabel || 'Ann Gunn'} ({app.channel || 'api'})
                 </p>
               </div>
 

@@ -17,6 +17,7 @@ export type DiagnosticEventType =
   | 'turn_committed'
   | 'turn_cancelled'
   | 'duplicate_turn_suppressed'
+  | 'duplicate_ignored'
   | 'intent_selected'
   | 'backend_request_started'
   | 'backend_request_aborted'
@@ -27,6 +28,7 @@ export type DiagnosticEventType =
   | 'tts_response_received'
   | 'audio_playback_started'
   | 'audio_playback_failed'
+  | 'turn_completed'
   | 'listening_resumed';
 
 export interface DiagnosticEvent {

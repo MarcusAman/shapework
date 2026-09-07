@@ -293,11 +293,123 @@ export function getRechatRouter(dbState: any): Router {
   });
 
   /**
-   * POST /api/integrations/rechat/webhook
-   * Default/legacy webhook receiver
+   * ==========================================
+   * RECHAT MODEL CONTEXT PROTOCOL (MCP) ROUTES
+   * Endpoint: https://mcp.cluster.rechat.com/mcp
+   * ==========================================
    */
-  router.post('/webhook', async (req, res) => {
-    await handleRechatWebhook(req, res, 'nest-realty-demo');
+
+  /**
+   * GET /api/integrations/rechat/mcp/status
+   * Checks status and capability matrix of Rechat MCP connection
+   */
+  router.get('/mcp/status', async (req, res) => {
+    try {
+      const { rechatMcpClient } = await import('./rechatMcpClient.js');
+      const status = rechatMcpClient.getStatus();
+      return res.json({ success: true, ...status });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Failed to get MCP status' });
+    }
+  });
+
+  /**
+   * POST /api/integrations/rechat/mcp/configure
+   * Configures Rechat MCP credentials
+   */
+  router.post('/mcp/configure', async (req, res) => {
+    try {
+      const { apiToken } = req.body;
+      const { rechatMcpClient } = await import('./rechatMcpClient.js');
+      if (apiToken) {
+        rechatMcpClient.setApiToken(apiToken);
+      }
+      return res.json({ success: true, message: 'Rechat MCP connection configured successfully.', status: rechatMcpClient.getStatus() });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Configuration failed' });
+    }
+  });
+
+  /**
+   * POST /api/integrations/rechat/mcp/query
+   * Invokes Rechat MCP tools (search_listings, search_contacts, get_deals, etc.)
+   */
+  router.post('/mcp/query', async (req, res) => {
+    try {
+      const { toolName, arguments: toolArgs, method = 'tools/call' } = req.body;
+      const { rechatMcpClient } = await import('./rechatMcpClient.js');
+
+      let result;
+      if (method === 'initialize') {
+        result = await rechatMcpClient.sendJsonRpc('initialize');
+      } else if (method === 'tools/list') {
+        result = await rechatMcpClient.sendJsonRpc('tools/list');
+      } else {
+        result = await rechatMcpClient.sendJsonRpc('tools/call', {
+          name: toolName,
+          arguments: toolArgs || {}
+        });
+      }
+
+      return res.json({ success: true, result });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'MCP tool execution failed' });
+    }
+  });
+
+  /**
+   * GET /api/integrations/rechat/mcp/listings/lookup
+   * Direct address/MLS lookup for Task Detail Modal and Nora Real Estate Ops
+   */
+  router.get('/mcp/listings/lookup', async (req, res) => {
+    try {
+      const address = String(req.query.address || '');
+      if (!address) {
+        return res.status(400).json({ success: false, error: 'Query parameter "address" is required' });
+      }
+
+      const { rechatMcpClient } = await import('./rechatMcpClient.js');
+      const listing = await rechatMcpClient.lookupListingByAddress(address);
+
+      return res.json({
+        success: true,
+        address,
+        found: Boolean(listing),
+        listing
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Listing lookup failed' });
+    }
+  });
+
+  /**
+   * GET /api/integrations/rechat/mcp/contacts/lookup
+   * Direct contact search in Rechat People Center
+   */
+  router.get('/mcp/contacts/lookup', async (req, res) => {
+    try {
+      const query = String(req.query.query || '');
+      const { rechatMcpClient } = await import('./rechatMcpClient.js');
+      const rpcRes = await rechatMcpClient.sendJsonRpc('tools/call', {
+        name: 'search_contacts',
+        arguments: { query }
+      });
+
+      let contacts = [];
+      try {
+        const text = rpcRes?.content?.[0]?.text;
+        if (text) {
+          const parsed = JSON.parse(text);
+          contacts = parsed.contacts || [];
+        }
+      } catch {
+        // ignore parse
+      }
+
+      return res.json({ success: true, query, contacts });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || 'Contact search failed' });
+    }
   });
 
   return router;

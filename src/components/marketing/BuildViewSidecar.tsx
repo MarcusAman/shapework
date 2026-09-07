@@ -10,7 +10,7 @@ import {
   Image,
   Layers
 } from 'lucide-react';
-import { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
+import type { ListingMarketingCampaign } from '../../../server/persistence/marketingCampaignsRepository';
 import { getDerivedAssetState } from '../../shared/marketingStateModel';
 
 export interface BuildViewSidecarProps {
@@ -60,7 +60,7 @@ export const BuildViewSidecar: React.FC<BuildViewSidecarProps> = ({
 
   const preparingMaterials = materialList.filter((m) => {
     const st = getDerivedAssetState(m.id, campaign, job);
-    return (st === 'preparing' || st === 'ready_to_prepare') && !readyMaterials.includes(m);
+    return ((st as string) === 'preparing' || (st as string) === 'ready_to_prepare') && !readyMaterials.includes(m);
   });
 
   const waitingMaterials = materialList.filter(

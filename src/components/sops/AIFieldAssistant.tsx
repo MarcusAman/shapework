@@ -2,18 +2,28 @@ import React, { useState } from 'react';
 import { Zap, HelpCircle, Loader2, RefreshCw, X, Check, ArrowRight } from 'lucide-react';
 
 interface AIFieldAssistantProps {
-  fieldType: string; // e.g. "purpose", "expectedOutcome", "scope", etc.
-  fieldValue: string;
-  sopContext: any;
-  onApply: (newValue: string) => void;
+  fieldType?: string;
+  field?: string;
+  fieldValue?: string;
+  value?: string;
+  sopContext?: any;
+  onApply?: (newValue: string) => void;
+  onChange?: (newValue: string) => void;
 }
 
 export default function AIFieldAssistant({
   fieldType,
+  field,
   fieldValue,
+  value,
   sopContext,
-  onApply
+  onApply,
+  onChange
 }: AIFieldAssistantProps) {
+  const actualFieldType = fieldType || field || 'general';
+  const actualFieldValue = fieldValue ?? value ?? '';
+  const handleApplyValue = onApply || onChange || (() => {});
+
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +55,8 @@ export default function AIFieldAssistant({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          field: fieldType,
-          value: fieldValue,
+          field: actualFieldType,
+          value: actualFieldValue,
           actionType,
           sopForm: sopContext
         })
@@ -65,25 +75,24 @@ export default function AIFieldAssistant({
         setEditValue(result.suggestion || '');
       }
     } catch (err: any) {
-      setError(err.message || 'AI service unavailable.');
+      setError(err.message || 'AI drafting assistance is currently unavailable.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFeedback = async (state: 'accepted' | 'edited' | 'rejected' | 'dismissed') => {
-    // Send feedback to server
     try {
       await fetch('/api/ops/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           objectType: 'ai_response',
-          objectId: `field_${fieldType}`,
+          objectId: `field_${actualFieldType}`,
           interactionType: 'field_assist',
           helpful: state === 'accepted' || state === 'edited',
           reasonCodes: state === 'rejected' ? ['not_useful'] : [],
-          comment: `State: ${state} for field: ${fieldType}`,
+          comment: `State: ${state} for field: ${actualFieldType}`,
           createdAt: new Date().toISOString()
         })
       });
@@ -98,16 +107,16 @@ export default function AIFieldAssistant({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#00635C]/30 hover:bg-[#00635C]/50 border border-white/10 text-emerald-300 hover:text-emerald-200 rounded-xl transition-all cursor-pointer font-mono text-[9px] uppercase tracking-wider block"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#E5EFEA] hover:bg-[#d5e7df] border border-[#00635C]/20 text-[#00635C] rounded-lg transition-colors cursor-pointer text-[11px] font-semibold"
         >
-          <Zap className="w-3 h-3 text-emerald-400" />
+          <Zap className="w-3 h-3 text-[#00635C]" />
           <span>AI Field Assist</span>
         </button>
       ) : (
-        <div className="bg-[#01241f] border border-white/10 rounded-2xl p-4 space-y-3.5 shadow-xl text-left animate-scale-in">
-          <div className="flex justify-between items-center border-b border-white/5 pb-2">
-            <span className="font-mono font-bold text-[9px] text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5" /> AI Field Assistant
+        <div className="bg-white border border-stone-200 rounded-2xl p-4 space-y-3.5 shadow-md text-left animate-fadeIn">
+          <div className="flex justify-between items-center border-b border-stone-100 pb-2">
+            <span className="font-bold text-xs text-[#00635C] uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-[#00635C]" /> AI Field Assistant
             </span>
             <button
               type="button"
@@ -117,9 +126,9 @@ export default function AIFieldAssistant({
                 setError(null);
                 handleFeedback('dismissed');
               }}
-              className="text-stone-400 hover:text-white transition-all cursor-pointer"
+              className="text-stone-400 hover:text-stone-700 transition-colors cursor-pointer p-1 rounded-md"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -130,7 +139,7 @@ export default function AIFieldAssistant({
                   type="button"
                   key={a.type}
                   onClick={() => handleAction(a.type)}
-                  className="px-2.5 py-1.5 bg-black/25 hover:bg-black/40 border border-white/5 hover:border-emerald-500/20 text-[#D0D6BB] hover:text-emerald-300 rounded-xl cursor-pointer text-[10px] transition-all font-mono"
+                  className="px-2.5 py-1.5 bg-stone-50 hover:bg-[#E5EFEA] border border-stone-200 hover:border-[#00635C]/30 text-stone-700 hover:text-[#00635C] rounded-xl cursor-pointer text-xs transition-colors font-medium"
                 >
                   {a.label}
                 </button>
@@ -139,19 +148,19 @@ export default function AIFieldAssistant({
           )}
 
           {loading && (
-            <div className="flex items-center gap-2 py-4 justify-center text-stone-400 font-mono text-[10px]">
-              <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+            <div className="flex items-center gap-2 py-4 justify-center text-stone-500 font-sans text-xs">
+              <Loader2 className="w-4 h-4 animate-spin text-[#00635C]" />
               <span>Analyzing context & rewriting...</span>
             </div>
           )}
 
           {error && (
             <div className="space-y-2">
-              <p className="text-red-400 bg-red-950/20 border border-red-500/10 p-2.5 rounded-xl font-mono text-[10px]">{error}</p>
+              <p className="text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-xl text-xs">{error}</p>
               <button
                 type="button"
                 onClick={() => setError(null)}
-                className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg cursor-pointer"
+                className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg cursor-pointer text-xs font-medium"
               >
                 Try Again
               </button>
@@ -159,60 +168,60 @@ export default function AIFieldAssistant({
           )}
 
           {suggestion && !loading && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                <div className="p-3 bg-black/20 border border-white/5 rounded-xl space-y-1">
-                  <span className="text-[8px] font-mono uppercase text-stone-500 block font-bold">Original</span>
-                  <p className="text-[#D0D6BB] italic leading-relaxed text-[11px]">{fieldValue || '(Empty)'}</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-1">
+                  <span className="text-[10px] uppercase text-stone-400 block font-bold">Original</span>
+                  <p className="text-stone-600 italic leading-relaxed text-xs">{actualFieldValue || '(Empty)'}</p>
                 </div>
-                <div className="p-3 bg-emerald-950/15 border border-emerald-500/10 rounded-xl space-y-1">
-                  <span className="text-[8px] font-mono uppercase text-emerald-400 block font-bold">Suggested</span>
+                <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-1">
+                  <span className="text-[10px] uppercase text-emerald-800 block font-bold">Suggested</span>
                   {isEditing ? (
                     <textarea
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
-                      className="w-full bg-black/30 border border-white/10 rounded-lg p-1.5 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-stone-300 rounded-lg p-2 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                       rows={3}
                     />
                   ) : (
-                    <p className="text-white font-medium leading-relaxed text-[11px]">{editValue}</p>
+                    <p className="text-stone-900 font-medium leading-relaxed text-xs">{editValue}</p>
                   )}
                 </div>
               </div>
 
               {explanation && (
-                <div className="p-3 bg-[#013028] border border-white/5 rounded-xl">
-                  <span className="text-[8px] font-mono uppercase text-[#D0D6BB]/50 block font-bold">Why this is stronger</span>
-                  <p className="text-[#D0D6BB] text-[10px] mt-0.5 leading-relaxed">{explanation}</p>
+                <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl">
+                  <span className="text-[10px] uppercase text-stone-400 block font-bold">Why this is stronger</span>
+                  <p className="text-stone-600 text-xs mt-0.5 leading-relaxed">{explanation}</p>
                 </div>
               )}
 
               {missingInfo.length > 0 && (
-                <div className="p-3 bg-amber-950/20 border border-amber-500/10 rounded-xl space-y-1">
-                  <span className="text-[8px] font-mono uppercase text-amber-400 block font-bold">Missing Details to Supply</span>
-                  <ul className="list-disc pl-4 space-y-0.5 text-amber-300 text-[10px]">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                  <span className="text-[10px] uppercase text-amber-800 block font-bold">Missing Details to Supply</span>
+                  <ul className="list-disc pl-4 space-y-0.5 text-amber-900 text-xs">
                     {missingInfo.map((m, idx) => <li key={idx}>{m}</li>)}
                   </ul>
                 </div>
               )}
 
               {examples.length > 0 && (
-                <div className="p-3 bg-blue-950/20 border border-blue-500/10 rounded-xl space-y-1">
-                  <span className="text-[8px] font-mono uppercase text-blue-400 block font-bold">Suggested Examples</span>
-                  <ul className="list-disc pl-4 space-y-0.5 text-blue-300 text-[10px]">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+                  <span className="text-[10px] uppercase text-blue-800 block font-bold">Suggested Examples</span>
+                  <ul className="list-disc pl-4 space-y-0.5 text-blue-900 text-xs">
                     {examples.map((ex, idx) => <li key={idx}>{ex}</li>)}
                   </ul>
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2 justify-end text-[10px]">
+              <div className="flex flex-wrap gap-2 justify-end text-xs pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setSuggestion('');
                     handleFeedback('rejected');
                   }}
-                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-stone-300 hover:text-white rounded-xl transition-all cursor-pointer font-mono font-bold uppercase"
+                  className="px-3 py-1.5 border border-stone-200 hover:bg-stone-50 text-stone-600 rounded-xl transition-colors cursor-pointer font-semibold"
                 >
                   Discard
                 </button>
@@ -221,31 +230,31 @@ export default function AIFieldAssistant({
                   onClick={() => {
                     setIsEditing(!isEditing);
                   }}
-                  className="px-3 py-1.5 bg-black/30 hover:bg-black/50 border border-white/5 rounded-xl transition-all cursor-pointer font-mono font-bold uppercase"
+                  className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors cursor-pointer font-semibold"
                 >
                   {isEditing ? 'Cancel Edit' : 'Edit Before Applying'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    onApply(editValue + '\n' + fieldValue);
+                    handleApplyValue(actualFieldValue ? `${actualFieldValue}\n${editValue}` : editValue);
                     setSuggestion('');
                     setIsOpen(false);
                     handleFeedback('edited');
                   }}
-                  className="px-3 py-1.5 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/20 text-emerald-300 rounded-xl transition-all cursor-pointer font-mono font-bold uppercase"
+                  className="px-3.5 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl transition-colors cursor-pointer font-semibold"
                 >
-                  Insert Below
+                  Append
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    onApply(editValue);
+                    handleApplyValue(editValue);
                     setSuggestion('');
                     setIsOpen(false);
                     handleFeedback(isEditing ? 'edited' : 'accepted');
                   }}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all cursor-pointer font-mono font-bold uppercase flex items-center gap-1"
+                  className="px-3.5 py-1.5 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl transition-colors cursor-pointer font-semibold shadow-xs flex items-center gap-1"
                 >
                   <Check className="w-3.5 h-3.5" /> Replace
                 </button>

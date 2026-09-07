@@ -12,11 +12,12 @@ import { safeLower } from '../../utils/string';
 
 export interface StatusBadgeProps {
   status: string;
+  label?: string;
   size?: 'sm' | 'md';
   className?: string;
 }
 
-export default function StatusBadge({ status, size = 'md', className = '' }: StatusBadgeProps) {
+export default function StatusBadge({ status, label, size = 'md', className = '' }: StatusBadgeProps) {
   const getVariant = (): 'success' | 'warning' | 'danger' | 'info' | 'ai' | 'neutral' => {
     switch (safeLower(status)) {
       case 'active':
@@ -49,7 +50,7 @@ export default function StatusBadge({ status, size = 'md', className = '' }: Sta
     }
   };
 
-  const formattedText = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const formattedText = label || status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
     <Badge variant={getVariant()} size={size} className={className}>

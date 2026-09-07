@@ -31,7 +31,7 @@ export const AgentHudCard: React.FC<AgentHudCardProps> = ({
   latestActionCard,
   isMicMuted,
   isSpeakerMuted,
-  orbVideoSrc = '/nest_ops_orb.mp4',
+  orbVideoSrc = '/nest_orb_2.mp4',
   onToggleMic,
   onToggleSpeaker,
   onConfirmProposal,

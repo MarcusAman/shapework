@@ -9,7 +9,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Info, Sparkles, X } from 'lucide-react';
 import { useToast, ToastItem } from './ToastContext';
 
-function ToastCard({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string) => void }) {
+function ToastCard({ toast, onDismiss }: { key?: any; toast: ToastItem; onDismiss: (id: string) => void }) {
   const [isHovered, setIsHovered] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 

@@ -7,6 +7,7 @@ import { orgChartService, OrgSop } from '../../services/orgChartService';
 import { SopDocument, SopStep, VoiceConsentPreferences } from '../../types/sopWorkflow';
 import { calculateSopDraftProgress } from '../../utils/sopDraftProgress';
 import { useSopVoiceSession } from '../../hooks/useSopVoiceSession';
+import { useToast } from '../ui';
 
 interface StaffSOPTemplateModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function StaffSOPTemplateModal({
   defaultRoleId,
   onSopCreated
 }: StaffSOPTemplateModalProps) {
+  const { toast } = useToast();
   // 1. All Hook Declarations MUST be Unconditional at Top
   const [viewMode, setViewMode] = useState<'studio' | 'review_summary'>('studio');
   const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
@@ -135,7 +137,7 @@ export default function StaffSOPTemplateModal({
   const handleTestSpeaker = async () => {
     setIsTestingSpeaker(true);
     try {
-      const audio = new Audio('/nest_ops_orb.mp4');
+      const audio = new Audio('/nest_orb_2.mp4');
       audio.volume = 0.5;
       await audio.play().catch(() => {});
       setTimeout(() => setIsTestingSpeaker(false), 600);
@@ -204,10 +206,17 @@ export default function StaffSOPTemplateModal({
             updatedAt: data.sop.updatedAt
           });
         }
-        alert('SOP draft saved successfully!');
+        toast.success({
+          title: 'SOP draft saved',
+          description: 'Your changes have been saved successfully.'
+        });
       }
     } catch (e) {
       setIsSubmitting(false);
+      toast.error({
+        title: 'Save failed',
+        description: 'Could not save the draft.'
+      });
     }
   };
 
@@ -223,10 +232,17 @@ export default function StaffSOPTemplateModal({
       setIsSubmitting(false);
       if (data.success && data.sop) {
         setSopDraft(data.sop);
-        alert('SOP published and certified successfully!');
+        toast.success({
+          title: 'SOP published',
+          description: 'SOP published and certified successfully!'
+        });
       }
     } catch (e) {
       setIsSubmitting(false);
+      toast.error({
+        title: 'Publish failed',
+        description: 'Could not publish the SOP.'
+      });
     }
   };
 
@@ -383,7 +399,7 @@ export default function StaffSOPTemplateModal({
                     `}
                   >
                     <video
-                      src="/nest_ops_orb.mp4"
+                      src="/nest_orb_2.mp4"
                       autoPlay
                       muted
                       loop

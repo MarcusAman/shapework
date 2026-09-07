@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, AlertCircle, Check, Trash2, Zap, Loader2, HelpCircle, Plus, Copy, Info } from 'lucide-react';
+import { 
+  AlertTriangle, 
+  AlertCircle, 
+  Check, 
+  Trash2, 
+  Zap, 
+  Loader2, 
+  HelpCircle, 
+  Plus, 
+  Copy, 
+  Info,
+  Sparkles,
+  ArrowLeft,
+  ArrowRight,
+  X
+} from 'lucide-react';
 import { SOPField, SOPStep, SOPDecision } from './sopTemplates';
 import { OrgPosition } from '../../services/orgChartService';
 import AIFieldAssistant from './AIFieldAssistant';
@@ -98,20 +113,20 @@ export default function SOPWizard({
     setAiLoading(true);
     setAiError(null);
     try {
-      const res = await fetch('/api/ops/ai/generate-draft', {
+      const res = await fetch('/api/ops/ai/draft-sop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ promptText: aiBrief })
+        body: JSON.stringify({ brief: aiBrief })
       });
       if (!res.ok) {
-        throw new Error('Failed to generate draft. System fallback active.');
+        throw new Error('Failed to generate AI SOP draft. Please refine your brief.');
       }
       const data = await res.json();
-      if (data.response && data.response.result) {
-        setSuggestedDraft(data.response.result);
+      if (data.sop) {
+        setSuggestedDraft(data.sop);
       }
     } catch (err: any) {
-      setAiError(err.message || 'AI service is temporarily offline.');
+      setAiError(err.message || 'AI service unavailable.');
     } finally {
       setAiLoading(false);
     }
@@ -119,54 +134,28 @@ export default function SOPWizard({
 
   const handleApplyDraft = () => {
     if (!suggestedDraft) return;
-    const updatedForm = { ...sopForm };
-    if (selectedSections.title) updatedForm.title = suggestedDraft.title;
-    if (selectedSections.purpose) updatedForm.purpose = suggestedDraft.purpose;
-    if (selectedSections.expectedOutcome) updatedForm.expectedOutcome = suggestedDraft.expectedOutcome;
-    if (selectedSections.scope) updatedForm.scope = suggestedDraft.scope;
-    if (selectedSections.exclusions) updatedForm.exclusions = suggestedDraft.exclusions;
-    
-    if (selectedSections.trigger) {
-      updatedForm.triggerType = suggestedDraft.triggerType || 'request_received';
-      updatedForm.trigger = suggestedDraft.trigger;
-    }
-    
-    if (selectedSections.requiredInfo && suggestedDraft.requiredInfo) {
-      updatedForm.requiredInfo = suggestedDraft.requiredInfo.map((f: any, i: number) => ({
-        id: `field_${Date.now()}_${i}`,
-        ...f
-      }));
-    }
-    
-    if (selectedSections.steps && suggestedDraft.steps) {
-      updatedForm.steps = suggestedDraft.steps.map((s: any, i: number) => ({
-        id: `step_${Date.now()}_${i}`,
-        ...s
-      }));
-    }
-    
-    if (selectedSections.decisions && suggestedDraft.decisions) {
-      updatedForm.decisions = suggestedDraft.decisions.map((d: any, i: number) => ({
-        id: `dec_${Date.now()}_${i}`,
-        ...d
-      }));
-    }
-    
-    if (selectedSections.escalationBehavior) {
-      updatedForm.escalationBehavior = suggestedDraft.escalationBehavior;
-    }
-    
-    if (selectedSections.completionEvidence) {
-      updatedForm.completionEvidence = suggestedDraft.completionEvidence;
-    }
-    
-    if (selectedSections.governance) {
-      updatedForm.governance = suggestedDraft.governance;
-    }
 
-    updatedForm.changeSummary = 'AI-generated draft — review required';
-    setSopForm(updatedForm);
+    const merged = { ...sopForm };
+    if (selectedSections.title && suggestedDraft.title) merged.title = suggestedDraft.title;
+    if (selectedSections.purpose && suggestedDraft.purpose) merged.purpose = suggestedDraft.purpose;
+    if (selectedSections.expectedOutcome && suggestedDraft.expectedOutcome) merged.expectedOutcome = suggestedDraft.expectedOutcome;
+    if (selectedSections.scope && suggestedDraft.scope) merged.scope = suggestedDraft.scope;
+    if (selectedSections.exclusions && suggestedDraft.exclusions) merged.exclusions = suggestedDraft.exclusions;
+    if (selectedSections.trigger && suggestedDraft.trigger) {
+      merged.trigger = suggestedDraft.trigger;
+      merged.triggerType = suggestedDraft.triggerType || merged.triggerType;
+    }
+    if (selectedSections.requiredInfo && suggestedDraft.requiredInfo) merged.requiredInfo = suggestedDraft.requiredInfo;
+    if (selectedSections.steps && suggestedDraft.steps) merged.steps = suggestedDraft.steps;
+    if (selectedSections.decisions && suggestedDraft.decisions) merged.decisions = suggestedDraft.decisions;
+    if (selectedSections.escalationBehavior && suggestedDraft.escalationBehavior) merged.escalationBehavior = suggestedDraft.escalationBehavior;
+    if (selectedSections.completionEvidence && suggestedDraft.completionEvidence) merged.completionEvidence = suggestedDraft.completionEvidence;
+    
+    merged.changeSummary = 'AI-generated draft — review required';
+
+    setSopForm(merged);
     setSuggestedDraft(null);
+    setAiBrief('');
   };
 
   const handleFetchStageSuggestions = async (stageNum: number) => {
@@ -176,17 +165,18 @@ export default function SOPWizard({
       const res = await fetch('/api/ops/ai/stage-suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: stageNum, sopForm })
+        body: JSON.stringify({
+          stageNumber: stageNum,
+          sopContext: sopForm
+        })
       });
-      if (!res.ok) {
-        throw new Error('AI Stage Suggestion service is currently offline.');
-      }
+      if (!res.ok) throw new Error('Could not fetch stage suggestions.');
       const data = await res.json();
-      if (data.response && data.response.result) {
-        setStageSuggestions(data.response.result);
+      if (data.suggestions) {
+        setStageSuggestions(data.suggestions);
       }
     } catch (err: any) {
-      setStageError(err.message || 'AI suggest unavailable.');
+      setStageError(err.message || 'Suggestions unavailable.');
     } finally {
       setStageLoading(false);
     }
@@ -196,54 +186,36 @@ export default function SOPWizard({
     setReviewLoading(true);
     setReviewError(null);
     try {
-      const res = await fetch('/api/ops/ai/review-sop', {
+      const res = await fetch('/api/ops/ai/review-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sop: sopForm })
+        body: JSON.stringify({ sopForm })
       });
-      if (!res.ok) {
-        throw new Error('AI Review service offline.');
-      }
+      if (!res.ok) throw new Error('AI Review service unavailable.');
       const data = await res.json();
-      if (data.response && data.response.result && data.response.result.findings) {
-        setReviewFindings(data.response.result.findings.map((f: any) => ({ ...f, applied: false })));
-      } else {
-        setReviewFindings([]);
+      if (data.findings) {
+        setReviewFindings(data.findings);
       }
     } catch (err: any) {
-      setReviewError(err.message || 'Failed to review draft.');
+      setReviewError(err.message || 'Review failed.');
     } finally {
       setReviewLoading(false);
     }
   };
 
-  const handleApplyFinding = (idx: number, finding: any) => {
+  const handleApplyFinding = (findingIdx: number, finding: any) => {
     const updatedForm = { ...sopForm };
-    const sec = finding.section.toLowerCase();
-    
-    if (sec.includes('purpose')) {
+    if (finding.section === 'purpose' && finding.proposedImprovement) {
       updatedForm.purpose = finding.proposedImprovement;
-    } else if (sec.includes('outcome')) {
-      updatedForm.expectedOutcome = finding.proposedImprovement;
-    } else if (sec.includes('scope')) {
-      updatedForm.scope = finding.proposedImprovement;
-    } else if (sec.includes('owner') || sec.includes('role')) {
-      if (finding.proposedImprovement.includes('operations_manager')) {
-        updatedForm.ownerRole = 'operations_manager';
-      } else if (finding.proposedImprovement.includes('owner')) {
-        updatedForm.ownerRole = 'owner';
-      }
-    } else if (sec.includes('backup')) {
-      if (finding.proposedImprovement.includes('operations_manager')) {
-        updatedForm.backupRole = 'operations_manager';
-      } else if (finding.proposedImprovement.includes('owner')) {
-        updatedForm.backupRole = 'owner';
-      }
+    } else if (finding.section === 'steps' && finding.proposedStep) {
+      updatedForm.steps.push(finding.proposedStep);
+    } else if (finding.section === 'escalation' && finding.proposedEscalation) {
+      updatedForm.escalationBehavior = finding.proposedEscalation;
     }
-
     setSopForm(updatedForm);
+
     const updatedFindings = [...reviewFindings];
-    updatedFindings[idx].applied = true;
+    updatedFindings[findingIdx].applied = true;
     setReviewFindings(updatedFindings);
   };
 
@@ -263,12 +235,26 @@ export default function SOPWizard({
   };
 
   return (
-    <div className="flex-grow flex flex-col md:flex-row min-h-0 bg-[#01362D] text-left select-none">
-      {/* Stepper Rail */}
-      <div className="w-full md:w-64 shrink-0 bg-[#012a23] border-r border-white/10 p-5 flex flex-col justify-between select-none overflow-y-auto">
+    <div className="flex-grow flex flex-col md:flex-row min-h-0 bg-[#F7F8F5] text-stone-900 text-left select-none font-sans">
+      
+      {/* Stepper Rail (Light Mode) */}
+      <div className="w-full md:w-72 shrink-0 bg-white border-r border-stone-200/90 p-5 flex flex-col justify-between select-none overflow-y-auto shadow-2xs">
         <div className="space-y-4">
-          <span className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider block font-mono">SOP BUILDER</span>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between pb-1 border-b border-stone-100">
+            <span className="text-[11px] font-bold text-[#00635C] uppercase tracking-wider block font-mono">
+              SOP BUILDER
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentView('library')}
+              className="text-stone-400 hover:text-stone-700 text-xs font-semibold flex items-center gap-1 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Library</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2">
             {[
               { num: 1, label: 'Phase 1: Define', desc: 'Purpose, title, expected outcomes' },
               { num: 2, label: 'Phase 2: Procedure', desc: 'Prerequisites, steps, decisions, evidence' },
@@ -278,42 +264,70 @@ export default function SOPWizard({
               <button
                 key={step.num}
                 onClick={() => setWizardStep(step.num)}
-                className={`flex items-center gap-3 p-2 rounded-xl text-left transition-colors cursor-pointer w-full ${
-                  wizardStep === step.num ? 'bg-[#00635C] border border-white/10 shadow-sm' : 'hover:bg-white/5 border border-transparent'
+                className={`flex items-center gap-3 p-3 rounded-2xl text-left transition-all cursor-pointer w-full ${
+                  wizardStep === step.num 
+                    ? 'bg-[#00635C] text-white shadow-xs border border-[#00635C]' 
+                    : 'bg-stone-50 hover:bg-stone-100/90 text-stone-700 border border-stone-200/80'
                 }`}
               >
-                <div className={`w-5 h-5 rounded-full border flex items-center justify-center font-mono text-[9px] font-black shrink-0 ${
-                  wizardStep === step.num ? 'bg-emerald-400 border-emerald-300 text-[#01362D]' : 'border-white/20 text-[#D0D6BB]/40'
+                <div className={`w-6 h-6 rounded-full border flex items-center justify-center font-mono text-[10px] font-bold shrink-0 ${
+                  wizardStep === step.num 
+                    ? 'bg-white text-[#00635C] border-white shadow-2xs' 
+                    : 'border-stone-300 bg-white text-stone-600'
                 }`}>
                   {step.num}
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold block uppercase tracking-wider text-white leading-tight">{step.label}</span>
-                  <span className="text-[8px] font-mono text-[#D0D6BB]/40 block">{step.desc}</span>
+                  <span className={`text-xs font-bold block leading-tight ${
+                    wizardStep === step.num ? 'text-white' : 'text-stone-900'
+                  }`}>
+                    {step.label}
+                  </span>
+                  <span className={`text-[10px] block mt-0.5 ${
+                    wizardStep === step.num ? 'text-[#E5EFEA]' : 'text-stone-500'
+                  }`}>
+                    {step.desc}
+                  </span>
                 </div>
               </button>
             ))}
           </div>
         </div>
-        <div className="pt-4 border-t border-white/5 text-[9px] text-[#D0D6BB]/40 leading-relaxed font-mono">
-          Step values are stored as structured JSON. All draft iterations are version locked.
+
+        <div className="pt-4 border-t border-stone-100 text-[10px] text-stone-400 leading-relaxed font-mono">
+          Structured procedural model. All draft revisions are version-locked.
         </div>
       </div>
 
-      {/* Form Area */}
-      <div className="flex-grow overflow-y-auto p-8 relative space-y-6 bg-black/10">
+      {/* Form Canvas Area (Light Mode) */}
+      <div className="flex-grow overflow-y-auto p-6 md:p-8 relative space-y-6 bg-[#F7F8F5]">
         
         {/* AI Draft Review Screen Modal */}
         {suggestedDraft && (
-          <div className="fixed inset-0 bg-[#012a23]/95 z-50 overflow-y-auto p-8 flex flex-col items-center justify-center backdrop-blur-sm">
-            <div className="max-w-xl w-full bg-[#012a23] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 text-left select-none max-h-[90vh] overflow-y-auto">
-              <div>
-                <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 block font-bold">AI Draft — Review Required</span>
-                <h2 className="font-serif font-black text-base text-white uppercase mt-0.5">Review Generated SOP Draft</h2>
-                <p className="text-[10px] text-[#D0D6BB]/60 font-mono mt-0.5">Check the sections you want to apply. Deselected sections will not be written.</p>
+          <div className="fixed inset-0 bg-stone-900/50 z-50 overflow-y-auto p-4 flex flex-col items-center justify-center backdrop-blur-xs animate-fadeIn">
+            <div className="max-w-2xl w-full bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 text-left select-none max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#00635C] block font-bold">
+                    AI Draft — Review Required
+                  </span>
+                  <h2 className="font-serif font-bold text-lg text-stone-900 mt-0.5">
+                    Review Generated SOP Draft
+                  </h2>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Select the sections you want to apply to this SOP.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSuggestedDraft(null); setAiBrief(''); }}
+                  className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                 {[
                   { key: 'title', label: 'SOP Title', val: suggestedDraft.title },
                   { key: 'purpose', label: 'Purpose', val: suggestedDraft.purpose },
@@ -327,35 +341,28 @@ export default function SOPWizard({
                   { key: 'escalationBehavior', label: 'Escalation details', val: suggestedDraft.escalationBehavior?.expectedResponse || 'Not configured' },
                   { key: 'completionEvidence', label: 'Completion evidence', val: suggestedDraft.completionEvidence?.description || 'Not configured' }
                 ].map(sec => (
-                  <label key={sec.key} className="flex items-start gap-2.5 p-2.5 bg-black/15 border border-white/5 hover:border-white/10 rounded-xl cursor-pointer transition-all select-none">
+                  <label key={sec.key} className="flex items-start gap-3 p-3 bg-stone-50 border border-stone-200 hover:border-stone-300 rounded-2xl cursor-pointer transition-all select-none">
                     <input
                       type="checkbox"
                       checked={!!selectedSections[sec.key]}
                       onChange={(e) => setSelectedSections({ ...selectedSections, [sec.key]: e.target.checked })}
-                      className="mt-0.5"
+                      className="mt-1 accent-[#00635C]"
                     />
-                    <div>
-                      <strong className="text-[11px] text-white block leading-tight">{sec.label}</strong>
-                      <span className="text-[9px] text-[#D0D6BB]/50 block font-mono leading-relaxed mt-0.5">{sec.val || '(Not defined)'}</span>
+                    <div className="space-y-0.5">
+                      <strong className="text-xs text-stone-900 block leading-tight">{sec.label}</strong>
+                      <span className="text-[11px] text-stone-600 block leading-relaxed">{sec.val || '(Not defined)'}</span>
                     </div>
                   </label>
                 ))}
               </div>
 
-              <div className="flex gap-2 justify-end border-t border-white/5 pt-3 text-[10px] font-mono">
+              <div className="flex gap-2 justify-end border-t border-stone-100 pt-4 text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => { setSuggestedDraft(null); setAiBrief(''); }}
-                  className="px-3 py-1.5 border border-white/10 text-white rounded-lg hover:bg-white/5 cursor-pointer uppercase"
+                  className="px-4 py-2 border border-stone-200 text-stone-700 hover:bg-stone-50 rounded-xl cursor-pointer transition-colors"
                 >
                   Discard
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBuildDraft}
-                  className="px-3 py-1.5 bg-purple-650 hover:bg-purple-750 text-white rounded-lg cursor-pointer uppercase flex items-center gap-1"
-                >
-                  Regenerate
                 </button>
                 <button
                   type="button"
@@ -364,14 +371,14 @@ export default function SOPWizard({
                     setSelectedSections(allTrue);
                     setTimeout(() => handleApplyDraft(), 50);
                   }}
-                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-650 text-white rounded-lg cursor-pointer uppercase font-bold"
+                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl cursor-pointer transition-colors"
                 >
                   Apply All
                 </button>
                 <button
                   type="button"
                   onClick={handleApplyDraft}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg cursor-pointer uppercase font-bold"
+                  className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl cursor-pointer font-bold shadow-xs transition-colors"
                 >
                   Apply Selected
                 </button>
@@ -380,66 +387,67 @@ export default function SOPWizard({
           </div>
         )}
 
-        <div className="max-w-xl mx-auto bg-[#012a23] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 text-left">
+        {/* Main Form White Card */}
+        <div className="max-w-3xl mx-auto bg-white border border-stone-200/90 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 text-left">
           
           {/* AI Banner warning if draft */}
           {sopForm.changeSummary === 'AI-generated draft — review required' && (
-            <div className="p-3 bg-purple-950/20 border border-purple-500/20 text-purple-300 rounded-2xl text-[10px] flex items-center gap-2 select-none font-mono">
-              <Zap className="w-4 h-4 text-purple-400 shrink-0" />
-              <span>AI-generated draft — review required. Ensure fields are verified before publishing.</span>
+            <div className="p-3.5 bg-[#E5EFEA] border border-[#00635C]/30 text-[#00635C] rounded-2xl text-xs flex items-center gap-2.5 font-medium">
+              <Sparkles className="w-4 h-4 text-[#00635C] shrink-0" />
+              <span>AI-generated draft in progress. Please review the details below before publishing.</span>
             </div>
           )}
 
           {/* Phase 1: Define */}
           {wizardStep === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               
               {/* Optional Rough Description start section */}
-              <div className="bg-[#013028]/40 border border-white/10 rounded-2xl p-4 space-y-2">
-                <h4 className="text-xs font-serif font-black uppercase text-white tracking-wider flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-purple-400" />
+              <div className="bg-[#E5EFEA]/40 border border-[#00635C]/30 rounded-2xl p-5 space-y-2.5">
+                <h4 className="text-xs font-serif font-bold uppercase text-[#01362D] tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#00635C]" />
                   Build a Draft From My Description
                 </h4>
-                <p className="text-[10px] text-[#D0D6BB]/60 leading-normal font-sans">
+                <p className="text-xs text-stone-600 leading-normal font-sans">
                   Enter a rough description of the procedure. Shapework AI will draft the entire SOP including steps, decisions, and required fields.
                 </p>
                 <textarea
                   value={aiBrief}
                   onChange={(e) => setAiBrief(e.target.value)}
-                  placeholder="e.g. For marketing launch, agent uploads photos. Melissa prepares flyer templates. Upload drives link to Google Drive folder..."
-                  className="w-full h-20 p-2.5 border border-white/10 rounded-xl bg-black/25 text-xs text-white placeholder-stone-500 focus:outline-none font-sans"
+                  placeholder="e.g. For marketing launch, agent uploads photos. Melissa prepares flyer templates. Upload drive link to Google Drive folder..."
+                  className="w-full h-24 p-3 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] font-sans shadow-2xs"
                 />
                 <button
                   type="button"
                   disabled={aiLoading || !aiBrief.trim()}
                   onClick={handleBuildDraft}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-mono text-[9px] uppercase font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
                 >
-                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3 h-3" />}
-                  Generate SOP Draft
+                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>Generate SOP Draft</span>
                 </button>
-                {aiError && <span className="text-[9px] text-red-400 block font-mono mt-1">{aiError}</span>}
+                {aiError && <span className="text-xs text-red-600 block mt-1">{aiError}</span>}
               </div>
 
               {/* General Fields */}
-              <div className="space-y-3 pt-3 border-t border-white/5">
+              <div className="space-y-4 pt-3 border-t border-stone-100">
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">SOP Title</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">SOP Title</label>
                   <input
                     type="text"
                     value={sopForm.title}
                     onChange={(e) => setSopForm({ ...sopForm, title: e.target.value })}
                     placeholder="e.g. Listing Launch SOP"
-                    className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Department</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Department</label>
                   <select
                     value={sopForm.department}
                     onChange={(e) => setSopForm({ ...sopForm, department: e.target.value })}
-                    className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white font-sans focus:outline-none cursor-pointer"
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer shadow-2xs"
                   >
                     <option value="Operations">Operations</option>
                     <option value="Compliance">Compliance</option>
@@ -449,62 +457,62 @@ export default function SOPWizard({
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Purpose</label>
-                  <div className="relative">
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Purpose</label>
+                  <div className="space-y-1">
                     <textarea
                       value={sopForm.purpose}
                       onChange={(e) => setSopForm({ ...sopForm, purpose: e.target.value })}
                       placeholder="Detail why this standard process exists..."
-                      className="w-full h-16 p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none pr-8"
+                      className="w-full h-20 p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                     />
                     <AIFieldAssistant field="purpose" value={sopForm.purpose} onChange={(val) => setSopForm({ ...sopForm, purpose: val })} />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Expected Outcome</label>
-                  <div className="relative">
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Expected Outcome</label>
+                  <div className="space-y-1">
                     <textarea
                       value={sopForm.expectedOutcome}
                       onChange={(e) => setSopForm({ ...sopForm, expectedOutcome: e.target.value })}
                       placeholder="Detail what is achieved once this SOP is executed..."
-                      className="w-full h-16 p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none pr-8"
+                      className="w-full h-20 p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                     />
                     <AIFieldAssistant field="expectedOutcome" value={sopForm.expectedOutcome} onChange={(val) => setSopForm({ ...sopForm, expectedOutcome: val })} />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Scope</label>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Scope</label>
                     <input
                       type="text"
                       value={sopForm.scope || ''}
                       onChange={(e) => setSopForm({ ...sopForm, scope: e.target.value })}
                       placeholder="All listings/standard agents"
-                      className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Exclusions</label>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Exclusions</label>
                     <input
                       type="text"
                       value={sopForm.exclusions || ''}
                       onChange={(e) => setSopForm({ ...sopForm, exclusions: e.target.value })}
                       placeholder="Commercial/rentals"
-                      className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Intake Trigger Condition</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Intake Trigger Condition</label>
                   <input
                     type="text"
                     value={sopForm.trigger || ''}
                     onChange={(e) => setSopForm({ ...sopForm, trigger: e.target.value })}
                     placeholder="New Listing launch request received"
-                    className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                   />
                 </div>
               </div>
@@ -516,68 +524,68 @@ export default function SOPWizard({
             <div className="space-y-6">
               
               {/* Stage Suggestions box */}
-              <div className="bg-[#013028]/40 border border-white/10 rounded-2xl p-4 space-y-2">
-                <h4 className="text-xs font-serif font-black uppercase text-white tracking-wider flex items-center gap-1.5 select-none">
-                  <Zap className="w-4 h-4 text-purple-400" />
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-2.5">
+                <h4 className="text-xs font-serif font-bold uppercase text-stone-900 tracking-wider flex items-center gap-1.5 select-none">
+                  <Sparkles className="w-4 h-4 text-[#00635C]" />
                   Procedure Suggestion Helpers
                 </h4>
-                <p className="text-[10px] text-[#D0D6BB]/60 leading-normal font-sans">
-                  Fetch AI-driven recommendations based on the active handbook standard rules.
+                <p className="text-xs text-stone-600 leading-normal font-sans">
+                  Fetch AI-driven recommendations based on brokerage handbook standard rules.
                 </p>
-                <div className="flex gap-2 flex-wrap text-[9px] font-mono font-bold select-none">
+                <div className="flex gap-2 flex-wrap text-xs font-semibold select-none">
                   <button
                     type="button"
                     onClick={() => handleFetchStageSuggestions(4)}
-                    className="px-2.5 py-1 bg-black/35 hover:bg-black/50 text-[#D0D6BB] rounded-lg transition-colors cursor-pointer border border-white/5"
+                    className="px-3 py-1.5 bg-white hover:bg-[#E5EFEA] hover:text-[#00635C] text-stone-700 rounded-xl transition-colors cursor-pointer border border-stone-200 shadow-2xs"
                   >
                     Suggest Required Info
                   </button>
                   <button
                     type="button"
                     onClick={() => handleFetchStageSuggestions(5)}
-                    className="px-2.5 py-1 bg-black/35 hover:bg-black/50 text-[#D0D6BB] rounded-lg transition-colors cursor-pointer border border-white/5"
+                    className="px-3 py-1.5 bg-white hover:bg-[#E5EFEA] hover:text-[#00635C] text-stone-700 rounded-xl transition-colors cursor-pointer border border-stone-200 shadow-2xs"
                   >
                     Generate Steps
                   </button>
                   <button
                     type="button"
                     onClick={() => handleFetchStageSuggestions(6)}
-                    className="px-2.5 py-1 bg-black/35 hover:bg-black/50 text-[#D0D6BB] rounded-lg transition-colors cursor-pointer border border-white/5"
+                    className="px-3 py-1.5 bg-white hover:bg-[#E5EFEA] hover:text-[#00635C] text-stone-700 rounded-xl transition-colors cursor-pointer border border-stone-200 shadow-2xs"
                   >
                     Suggest Decisions
                   </button>
                   <button
                     type="button"
                     onClick={() => handleFetchStageSuggestions(8)}
-                    className="px-2.5 py-1 bg-black/35 hover:bg-black/50 text-[#D0D6BB] rounded-lg transition-colors cursor-pointer border border-white/5"
+                    className="px-3 py-1.5 bg-white hover:bg-[#E5EFEA] hover:text-[#00635C] text-stone-700 rounded-xl transition-colors cursor-pointer border border-stone-200 shadow-2xs"
                   >
                     Suggest Evidence
                   </button>
                 </div>
 
                 {stageLoading && (
-                  <div className="flex items-center gap-1 text-[9px] text-[#D0D6BB]/40 font-mono py-2 select-none">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Fetching stage suggestions...
+                  <div className="flex items-center gap-2 text-xs text-stone-500 py-2 select-none">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00635C]" /> Fetching stage suggestions...
                   </div>
                 )}
-                {stageError && <span className="text-[9px] text-red-400 block font-mono">{stageError}</span>}
+                {stageError && <span className="text-xs text-red-600 block">{stageError}</span>}
 
                 {/* Render suggestion output if available */}
                 {stageSuggestions && (
-                  <div className="mt-3 bg-black/30 border border-white/5 p-3 rounded-xl max-h-[180px] overflow-y-auto space-y-2 text-left">
-                    <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 font-bold block select-none">Suggested Items:</span>
+                  <div className="mt-3 bg-white border border-stone-200 p-4 rounded-2xl max-h-56 overflow-y-auto space-y-2 text-left shadow-2xs">
+                    <span className="text-[10px] uppercase tracking-wider text-[#00635C] font-bold block select-none">Suggested Items:</span>
                     
                     {/* suggest required fields */}
                     {stageSuggestions.requiredInfo && stageSuggestions.requiredInfo.map((f: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-[10px] py-1 border-b border-white/5">
-                        <span>{f.name} ({f.dataType})</span>
+                      <div key={idx} className="flex justify-between items-center text-xs py-1.5 border-b border-stone-100">
+                        <span className="text-stone-800">{f.name} ({f.dataType})</span>
                         <button
                           type="button"
                           onClick={() => {
                             const updated = [...sopForm.requiredInfo, { id: `field_${Date.now()}_${idx}`, ...f }];
                             setSopForm({ ...sopForm, requiredInfo: updated });
                           }}
-                          className="px-1.5 py-0.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded font-mono text-[8px]"
+                          className="px-2.5 py-1 bg-[#E5EFEA] hover:bg-[#d5e7df] text-[#00635C] rounded-lg font-semibold text-xs"
                         >
                           + Add
                         </button>
@@ -586,15 +594,15 @@ export default function SOPWizard({
 
                     {/* suggest steps */}
                     {stageSuggestions.steps && stageSuggestions.steps.map((s: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-[10px] py-1 border-b border-white/5">
-                        <span className="truncate max-w-[250px]">{s.title}: {s.instruction}</span>
+                      <div key={idx} className="flex justify-between items-center text-xs py-1.5 border-b border-stone-100">
+                        <span className="truncate max-w-sm text-stone-800">{s.title}: {s.instruction}</span>
                         <button
                           type="button"
                           onClick={() => {
                             const updated = [...sopForm.steps, { id: `step_${Date.now()}_${idx}`, ...s }];
                             setSopForm({ ...sopForm, steps: updated });
                           }}
-                          className="px-1.5 py-0.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded font-mono text-[8px] shrink-0"
+                          className="px-2.5 py-1 bg-[#E5EFEA] hover:bg-[#d5e7df] text-[#00635C] rounded-lg font-semibold text-xs shrink-0"
                         >
                           + Add
                         </button>
@@ -603,15 +611,15 @@ export default function SOPWizard({
 
                     {/* suggest decisions */}
                     {stageSuggestions.decisions && stageSuggestions.decisions.map((d: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-[10px] py-1 border-b border-white/5">
-                        <span>IF {d.condition} THEN {d.action}</span>
+                      <div key={idx} className="flex justify-between items-center text-xs py-1.5 border-b border-stone-100">
+                        <span className="text-stone-800">IF {d.condition} THEN {d.action}</span>
                         <button
                           type="button"
                           onClick={() => {
                             const updated = [...sopForm.decisions, { id: `dec_${Date.now()}_${idx}`, ...d }];
                             setSopForm({ ...sopForm, decisions: updated });
                           }}
-                          className="px-1.5 py-0.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded font-mono text-[8px]"
+                          className="px-2.5 py-1 bg-[#E5EFEA] hover:bg-[#d5e7df] text-[#00635C] rounded-lg font-semibold text-xs"
                         >
                           + Add
                         </button>
@@ -620,17 +628,17 @@ export default function SOPWizard({
 
                     {/* suggest evidence */}
                     {stageSuggestions.completionEvidence && (
-                      <div className="flex justify-between items-start text-[10px] py-1">
+                      <div className="flex justify-between items-start text-xs py-1.5">
                         <div>
-                          <strong className="block text-white">Completion Deliverable ({stageSuggestions.completionEvidence.type})</strong>
-                          <p className="text-[9px] text-[#D0D6BB]/70">{stageSuggestions.completionEvidence.description}</p>
+                          <strong className="block text-stone-900">Completion Deliverable ({stageSuggestions.completionEvidence.type})</strong>
+                          <p className="text-xs text-stone-600">{stageSuggestions.completionEvidence.description}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => {
                             setSopForm({ ...sopForm, completionEvidence: { ...stageSuggestions.completionEvidence } });
                           }}
-                          className="px-1.5 py-0.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded font-mono text-[8px]"
+                          className="px-2.5 py-1 bg-[#E5EFEA] hover:bg-[#d5e7df] text-[#00635C] rounded-lg font-semibold text-xs"
                         >
                           Use
                         </button>
@@ -641,11 +649,11 @@ export default function SOPWizard({
               </div>
 
               {/* 1. Required Information (Fields) */}
-              <div className="space-y-2 pt-3 border-t border-white/5">
+              <div className="space-y-3 pt-3 border-t border-stone-100">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-serif font-black text-xs uppercase text-white tracking-wide">Prerequisite Information</h3>
-                    <p className="text-[9px] font-mono text-[#D0D6BB]/50">Variables collected during intake signals</p>
+                    <h3 className="font-serif font-bold text-xs uppercase text-stone-900 tracking-wide">Prerequisite Information</h3>
+                    <p className="text-xs text-stone-500">Variables collected during intake signals</p>
                   </div>
                   <button
                     type="button"
@@ -654,28 +662,28 @@ export default function SOPWizard({
                       setFieldForm({ name: '', description: '', dataType: 'text', required: 'yes', example: '', source: '' });
                       setIsFieldModalOpen(true);
                     }}
-                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-[9px] font-mono rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-[#00635C] hover:bg-[#00514B] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
                   >
                     + Add Field
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {sopForm.requiredInfo.map((field: SOPField, idx: number) => (
-                    <div key={field.id} className="p-2.5 bg-black/20 border border-white/5 rounded-2xl flex justify-between items-center gap-2">
+                    <div key={field.id} className="p-3 bg-stone-50 border border-stone-200/80 hover:border-stone-300 rounded-2xl flex justify-between items-center gap-2">
                       <div className="text-left">
-                        <span className="font-bold text-xs text-white block">{field.name}</span>
-                        <span className="text-[8px] text-[#D0D6BB]/40 uppercase font-mono">
-                          Type: {field.dataType} | Required: {field.required}
+                        <span className="font-bold text-xs text-stone-900 block">{field.name}</span>
+                        <span className="text-[10px] text-stone-500 uppercase font-mono">
+                          Type: {field.dataType} • Required: {field.required}
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-1 select-none text-[8px]">
+                      <div className="flex items-center gap-1 select-none text-xs">
                         <button
                           type="button"
                           onClick={() => handleMoveField(idx, 'up')}
                           disabled={idx === 0}
-                          className="p-1 hover:bg-white/5 text-[#D0D6BB]/60 hover:text-white rounded disabled:opacity-30 cursor-pointer font-mono"
+                          className="p-1 hover:bg-stone-200 text-stone-500 hover:text-stone-900 rounded disabled:opacity-30 cursor-pointer font-mono"
                         >
                           ▲
                         </button>
@@ -683,7 +691,7 @@ export default function SOPWizard({
                           type="button"
                           onClick={() => handleMoveField(idx, 'down')}
                           disabled={idx === sopForm.requiredInfo.length - 1}
-                          className="p-1 hover:bg-white/5 text-[#D0D6BB]/60 hover:text-white rounded disabled:opacity-30 cursor-pointer font-mono"
+                          className="p-1 hover:bg-stone-200 text-stone-500 hover:text-stone-900 rounded disabled:opacity-30 cursor-pointer font-mono"
                         >
                           ▼
                         </button>
@@ -694,7 +702,7 @@ export default function SOPWizard({
                             setFieldForm(field);
                             setIsFieldModalOpen(true);
                           }}
-                          className="p-1 hover:bg-white/5 text-emerald-400 rounded cursor-pointer font-mono"
+                          className="px-2 py-0.5 hover:bg-stone-200 text-[#00635C] font-semibold rounded cursor-pointer text-xs"
                         >
                           Edit
                         </button>
@@ -704,26 +712,26 @@ export default function SOPWizard({
                             const updated = sopForm.requiredInfo.filter((_: any, i: number) => i !== idx);
                             setSopForm({ ...sopForm, requiredInfo: updated });
                           }}
-                          className="p-1 hover:bg-white/5 text-red-400 rounded cursor-pointer font-mono"
+                          className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer"
                         >
-                          Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
 
                   {sopForm.requiredInfo.length === 0 && (
-                    <p className="text-[10px] text-stone-500 italic py-2 text-center">No prerequisite fields configured.</p>
+                    <p className="text-xs text-stone-400 italic py-3 text-center">No prerequisite fields configured.</p>
                   )}
                 </div>
               </div>
 
               {/* 2. Process Steps */}
-              <div className="space-y-2 pt-3 border-t border-white/5">
+              <div className="space-y-3 pt-3 border-t border-stone-100">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-serif font-black text-xs uppercase text-white tracking-wide">Process Steps</h3>
-                    <p className="text-[9px] font-mono text-[#D0D6BB]/50">Checklist instructions for completing the task</p>
+                    <h3 className="font-serif font-bold text-xs uppercase text-stone-900 tracking-wide">Process Steps</h3>
+                    <p className="text-xs text-stone-500">Checklist instructions for completing the task</p>
                   </div>
                   <button
                     type="button"
@@ -732,29 +740,29 @@ export default function SOPWizard({
                       setStepForm({ title: '', instruction: '', assignedRole: 'marketing_coordinator', backupRole: 'operations_manager', type: 'manual', evidenceRequired: '', expectedDuration: '1h' });
                       setIsStepModalOpen(true);
                     }}
-                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-[9px] font-mono rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-[#00635C] hover:bg-[#00514B] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
                   >
                     + Add Step
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                   {sopForm.steps.map((step: SOPStep, idx: number) => (
-                    <div key={step.id} className="p-2.5 bg-black/20 border border-white/5 rounded-2xl flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 text-left">
-                        <span className="w-4 h-4 rounded-full bg-[#00635C] text-white flex items-center justify-center font-mono text-[8px] font-bold shrink-0">{idx + 1}</span>
+                    <div key={step.id} className="p-3 bg-stone-50 border border-stone-200/80 hover:border-stone-300 rounded-2xl flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 text-left">
+                        <span className="w-5 h-5 rounded-full bg-[#00635C] text-white flex items-center justify-center font-mono text-[9px] font-bold shrink-0">{idx + 1}</span>
                         <div>
-                          <span className="font-bold text-xs text-white block">{step.title}</span>
-                          <span className="text-[8px] text-[#D0D6BB]/40 uppercase font-mono">{step.type} | {step.assignedRole}</span>
+                          <span className="font-bold text-xs text-stone-900 block">{step.title}</span>
+                          <span className="text-[10px] text-stone-500 uppercase font-mono">{step.type} • {step.assignedRole}</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0 select-none text-[8px]">
+                      <div className="flex items-center gap-1 shrink-0 select-none text-xs">
                         <button
                           type="button"
                           onClick={() => handleMoveStep(idx, 'up')}
                           disabled={idx === 0}
-                          className="p-1 hover:bg-white/5 text-[#D0D6BB]/60 hover:text-white rounded disabled:opacity-30 cursor-pointer font-mono"
+                          className="p-1 hover:bg-stone-200 text-stone-500 hover:text-stone-900 rounded disabled:opacity-30 cursor-pointer font-mono"
                         >
                           ▲
                         </button>
@@ -762,17 +770,17 @@ export default function SOPWizard({
                           type="button"
                           onClick={() => handleMoveStep(idx, 'down')}
                           disabled={idx === sopForm.steps.length - 1}
-                          className="p-1 hover:bg-white/5 text-[#D0D6BB]/60 hover:text-white rounded disabled:opacity-30 cursor-pointer font-mono"
+                          className="p-1 hover:bg-stone-200 text-stone-500 hover:text-stone-900 rounded disabled:opacity-30 cursor-pointer font-mono"
                         >
                           ▼
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDuplicateStep(idx)}
-                          className="p-1 hover:bg-white/5 text-purple-400 rounded cursor-pointer font-mono flex items-center gap-0.5"
+                          className="p-1 hover:bg-stone-200 text-purple-600 rounded cursor-pointer flex items-center"
                           title="Duplicate Step"
                         >
-                          <Copy className="w-2.5 h-2.5" />
+                          <Copy className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
@@ -781,7 +789,7 @@ export default function SOPWizard({
                             setStepForm(step);
                             setIsStepModalOpen(true);
                           }}
-                          className="p-1 hover:bg-white/5 text-emerald-400 rounded cursor-pointer font-mono"
+                          className="px-2 py-0.5 hover:bg-stone-200 text-[#00635C] font-semibold rounded cursor-pointer text-xs"
                         >
                           Edit
                         </button>
@@ -791,26 +799,26 @@ export default function SOPWizard({
                             const updated = sopForm.steps.filter((_: any, i: number) => i !== idx);
                             setSopForm({ ...sopForm, steps: updated });
                           }}
-                          className="p-1 hover:bg-white/5 text-red-400 rounded cursor-pointer font-mono"
+                          className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer"
                         >
-                          Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
 
                   {sopForm.steps.length === 0 && (
-                    <p className="text-[10px] text-stone-500 italic py-2 text-center">No process steps configured.</p>
+                    <p className="text-xs text-stone-400 italic py-3 text-center">No process steps configured.</p>
                   )}
                 </div>
               </div>
 
               {/* 3. Decisions & Exceptions */}
-              <div className="space-y-2 pt-3 border-t border-white/5">
+              <div className="space-y-3 pt-3 border-t border-stone-100">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-serif font-black text-xs uppercase text-white tracking-wide">Decisions & Exceptions</h3>
-                    <p className="text-[9px] font-mono text-[#D0D6BB]/50">IF/THEN rules for special conditions</p>
+                    <h3 className="font-serif font-bold text-xs uppercase text-stone-900 tracking-wide">Decisions & Exceptions</h3>
+                    <p className="text-xs text-stone-500">IF/THEN rules for special conditions</p>
                   </div>
                   <button
                     type="button"
@@ -819,22 +827,22 @@ export default function SOPWizard({
                       setDecisionForm({ title: '', condition: '', action: '' });
                       setIsDecisionModalOpen(true);
                     }}
-                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-[9px] font-mono rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-[#00635C] hover:bg-[#00514B] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
                   >
                     + Add Decision
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {sopForm.decisions.map((dec: SOPDecision, idx: number) => (
-                    <div key={dec.id} className="p-2.5 bg-black/20 border border-white/5 rounded-2xl flex justify-between items-center gap-2">
-                      <div className="text-left text-[10px]">
-                        <span className="font-bold text-white block uppercase tracking-wider text-[8px] font-mono">{dec.title}</span>
-                        <p className="text-amber-300 mt-0.5">IF: {dec.condition}</p>
-                        <p className="text-emerald-300">THEN: {dec.action}</p>
+                    <div key={dec.id} className="p-3 bg-stone-50 border border-stone-200/80 hover:border-stone-300 rounded-2xl flex justify-between items-center gap-2">
+                      <div className="text-left text-xs space-y-0.5">
+                        <span className="font-bold text-stone-900 block uppercase tracking-wider text-[10px] font-mono">{dec.title}</span>
+                        <p className="text-amber-700">IF: {dec.condition}</p>
+                        <p className="text-[#00635C]">THEN: {dec.action}</p>
                       </div>
                       
-                      <div className="flex items-center gap-1 select-none text-[8px]">
+                      <div className="flex items-center gap-1 select-none text-xs">
                         <button
                           type="button"
                           onClick={() => {
@@ -842,7 +850,7 @@ export default function SOPWizard({
                             setDecisionForm(dec);
                             setIsDecisionModalOpen(true);
                           }}
-                          className="p-1 hover:bg-white/5 text-emerald-400 rounded cursor-pointer font-mono"
+                          className="px-2 py-0.5 hover:bg-stone-200 text-[#00635C] font-semibold rounded cursor-pointer text-xs"
                         >
                           Edit
                         </button>
@@ -852,23 +860,23 @@ export default function SOPWizard({
                             const updated = sopForm.decisions.filter((_: any, i: number) => i !== idx);
                             setSopForm({ ...sopForm, decisions: updated });
                           }}
-                          className="p-1 hover:bg-white/5 text-red-400 rounded cursor-pointer font-mono"
+                          className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer"
                         >
-                          Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
 
                   {sopForm.decisions.length === 0 && (
-                    <p className="text-[10px] text-stone-500 italic py-2 text-center">No exception rules configured.</p>
+                    <p className="text-xs text-stone-400 italic py-3 text-center">No exception rules configured.</p>
                   )}
                 </div>
               </div>
 
               {/* 4. Completion Evidence */}
-              <div className="space-y-2 pt-3 border-t border-white/5">
-                <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase">Completion Evidence Verification</label>
+              <div className="space-y-2 pt-3 border-t border-stone-100">
+                <label className="block text-[11px] font-semibold text-stone-700 mb-1">Completion Evidence Verification</label>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-1">
                     <select
@@ -877,7 +885,7 @@ export default function SOPWizard({
                         ...sopForm,
                         completionEvidence: { ...sopForm.completionEvidence, type: e.target.value }
                       })}
-                      className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white font-sans focus:outline-none cursor-pointer"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer shadow-2xs"
                     >
                       <option value="manual">Manual Confirm</option>
                       <option value="file_upload">Upload File</option>
@@ -894,7 +902,7 @@ export default function SOPWizard({
                         completionEvidence: { ...sopForm.completionEvidence, description: e.target.value }
                       })}
                       placeholder="e.g. Upload Drive sharing link folder of active launch..."
-                      className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                     />
                   </div>
                 </div>
@@ -905,12 +913,12 @@ export default function SOPWizard({
 
           {/* Phase 3: Connect Operations */}
           {wizardStep === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               
               {/* Category / Routing Rule Selector */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/70 uppercase">Link Intake Request Category</label>
+                  <label className="block text-[11px] font-semibold text-stone-700">Link Intake Request Category</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -933,15 +941,15 @@ export default function SOPWizard({
                         }
                       }
                     }}
-                    className="text-[9px] font-mono text-emerald-400 hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-xs font-semibold text-[#00635C] hover:underline cursor-pointer flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" /> Add New Category
+                    <Plus className="w-3.5 h-3.5" /> Add New Category
                   </button>
                 </div>
                 <select
                   value={selectedCategory}
                   onChange={(e) => handleSelectCategory(e.target.value)}
-                  className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white font-sans focus:outline-none cursor-pointer"
+                  className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer shadow-2xs"
                 >
                   <option value="">-- Start Manually Only --</option>
                   {routingRules.map((rule: any) => (
@@ -950,17 +958,17 @@ export default function SOPWizard({
                     </option>
                   ))}
                 </select>
-                <p className="text-[9px] text-[#D0D6BB]/40 mt-1 font-sans">
+                <p className="text-xs text-stone-500 mt-1 font-sans">
                   SOP ownership and triggers map directly to Request Routing rules across all brokerage offices.
                 </p>
               </div>
 
               {/* Owner Conflict Banner */}
               {isConflictingOwner && (
-                <div className="p-3 bg-amber-950/25 border border-amber-500/30 text-amber-300 rounded-2xl text-[10px] space-y-2 font-sans leading-relaxed">
+                <div className="p-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl text-xs space-y-2 font-sans leading-relaxed">
                   <div className="flex justify-between items-start">
                     <div>
-                      <strong className="block uppercase tracking-wider font-mono text-amber-400">Owner Conflict Warning</strong>
+                      <strong className="block uppercase tracking-wider font-mono text-amber-800 text-[10px]">Owner Conflict Warning</strong>
                       <p className="mt-0.5">Selected owner position ({sopForm.ownerRole}) differs from the mapped Request Routing rule ({matchedRule.primaryOwnerPositionId}) for category "{selectedCategory}".</p>
                     </div>
                   </div>
@@ -973,7 +981,7 @@ export default function SOPWizard({
                         backupRole: matchedRule.backupOwnerPositionId || sopForm.backupRole || ''
                       });
                     }}
-                    className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-black font-mono text-[9px] font-bold uppercase rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                   >
                     ⚡ Align with Request Routing ({matchedRule.primaryOwnerPositionId})
                   </button>
@@ -981,14 +989,14 @@ export default function SOPWizard({
               )}
 
               {/* Owner and Backup selectors */}
-              <div className="space-y-3 pt-2 border-t border-white/5">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4 pt-2 border-t border-stone-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[9px] font-mono text-[#D0D6BB]/70 uppercase mb-1">Responsible Primary Position</label>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Responsible Primary Position</label>
                     <select
                       value={sopForm.ownerRole}
                       onChange={(e) => setSopForm({ ...sopForm, ownerRole: e.target.value })}
-                      className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white font-sans focus:outline-none cursor-pointer"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer shadow-2xs"
                     >
                       {positions.map(p => (
                         <option key={p.id} value={p.id}>{p.title} ({p.name})</option>
@@ -997,12 +1005,12 @@ export default function SOPWizard({
                     {(() => {
                       const pos = positions.find(p => p.id === sopForm.ownerRole);
                       return (
-                        <p className="text-[9px] text-emerald-300/80 mt-1 font-sans flex items-center justify-between">
-                          <span>Currently filled by: <strong>{pos ? pos.name : 'Unassigned'}</strong></span>
+                        <p className="text-xs text-stone-500 mt-1 font-sans flex items-center justify-between">
+                          <span>Filled by: <strong className="text-stone-800">{pos ? pos.name : 'Unassigned'}</strong></span>
                           <button
                             type="button"
                             onClick={() => setCurrentView('builder')}
-                            className="text-[#D0D6BB]/60 hover:text-white underline font-mono text-[8px]"
+                            className="text-[#00635C] hover:underline font-semibold text-[11px]"
                           >
                             Manage Roles
                           </button>
@@ -1011,11 +1019,11 @@ export default function SOPWizard({
                     })()}
                   </div>
                   <div>
-                    <label className="block text-[9px] font-mono text-[#D0D6BB]/70 uppercase mb-1">Backup Coverage Position</label>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Backup Coverage Position</label>
                     <select
                       value={sopForm.backupRole || ''}
                       onChange={(e) => setSopForm({ ...sopForm, backupRole: e.target.value })}
-                      className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white font-sans focus:outline-none cursor-pointer"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer shadow-2xs"
                     >
                       <option value="">-- No Backup Role configured --</option>
                       {positions.map(p => (
@@ -1027,11 +1035,11 @@ export default function SOPWizard({
               </div>
 
               {/* Tokenized Tag Input */}
-              <div className="pt-2 border-t border-white/5 space-y-1.5">
-                <label className="block text-[9px] font-mono text-[#D0D6BB]/70 uppercase">SOP Tags (Categorization & Search)</label>
-                <div className="p-2 bg-black/25 border border-white/10 rounded-xl flex flex-wrap items-center gap-1.5 min-h-[42px]">
+              <div className="pt-2 border-t border-stone-100 space-y-1.5">
+                <label className="block text-[11px] font-semibold text-stone-700">SOP Tags (Categorization & Search)</label>
+                <div className="p-2.5 bg-stone-50 border border-stone-300 rounded-xl flex flex-wrap items-center gap-1.5 min-h-[44px]">
                   {(sopForm.tags || []).map((tag: string, idx: number) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono flex items-center gap-1">
+                    <span key={idx} className="px-2.5 py-1 rounded-lg bg-[#E5EFEA] border border-[#00635C]/30 text-[#00635C] text-xs font-semibold flex items-center gap-1">
                       {tag}
                       <button
                         type="button"
@@ -1039,7 +1047,7 @@ export default function SOPWizard({
                           const updated = (sopForm.tags || []).filter((_: any, i: number) => i !== idx);
                           setSopForm({ ...sopForm, tags: updated });
                         }}
-                        className="hover:text-red-400 font-bold ml-0.5"
+                        className="hover:text-red-600 font-bold ml-0.5 text-xs"
                       >
                         ×
                       </button>
@@ -1047,7 +1055,7 @@ export default function SOPWizard({
                   ))}
                   <input
                     type="text"
-                    placeholder="Type tag and press Enter or comma..."
+                    placeholder="Type tag and press Enter..."
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
                         e.preventDefault();
@@ -1065,11 +1073,11 @@ export default function SOPWizard({
                         e.currentTarget.value = '';
                       }
                     }}
-                    className="flex-1 bg-transparent text-white text-xs focus:outline-none min-w-[150px] placeholder-[#D0D6BB]/40 font-sans"
+                    className="flex-1 bg-transparent text-stone-900 text-xs focus:outline-none min-w-[150px] placeholder:text-stone-400 font-sans"
                   />
                 </div>
-                <p className="text-[9px] text-[#D0D6BB]/40 font-sans">
-                  Supports comma, Enter, Tab, and paste (e.g. <code>legal, compliance, urgent</code>).
+                <p className="text-xs text-stone-500 font-sans">
+                  Supports Enter, comma, or paste (e.g. <code>legal, compliance, urgent</code>).
                 </p>
               </div>
             </div>
@@ -1077,65 +1085,65 @@ export default function SOPWizard({
 
           {/* Phase 4: Review and Publish */}
           {wizardStep === 4 && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               
               <div>
-                <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Draft Status</span>
-                <h3 className="font-serif font-black text-sm text-white mt-1 leading-snug">Readiness Verification Review</h3>
-                <p className="text-[10px] text-[#D0D6BB]/60 leading-normal font-sans mt-0.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 block font-bold">Draft Status</span>
+                <h3 className="font-serif font-bold text-base text-stone-900 mt-0.5">Readiness Verification Review</h3>
+                <p className="text-xs text-stone-500 mt-0.5">
                   Confirm checklist data integrity and perform a validation check before publishing.
                 </p>
               </div>
 
               {/* Review Draft with AI action panel */}
-              <div className="bg-[#013028]/40 border border-white/10 rounded-2xl p-4 space-y-3">
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 space-y-3">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-xs font-serif font-black uppercase text-white tracking-wider flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-purple-400" />
+                  <h4 className="text-xs font-serif font-bold uppercase text-stone-900 tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#00635C]" />
                     Review Draft with AI
                   </h4>
                   <button
                     type="button"
                     disabled={reviewLoading}
                     onClick={handleRunAiReview}
-                    className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-mono text-[9px] uppercase font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
                   >
-                    {reviewLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Run Review'}
+                    {reviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Run Review'}
                   </button>
                 </div>
-                <p className="text-[10px] text-[#D0D6BB]/60 leading-normal font-sans">
+                <p className="text-xs text-stone-600 leading-normal font-sans">
                   Scan the draft procedure for structural improvements, missing coverage roles, or step clarity.
                 </p>
 
-                {reviewError && <p className="text-[9px] text-red-400 font-mono">{reviewError}</p>}
+                {reviewError && <p className="text-xs text-red-600">{reviewError}</p>}
 
                 {reviewFindings.length > 0 && (
-                  <div className="space-y-2 mt-2 max-h-[220px] overflow-y-auto pr-1">
+                  <div className="space-y-2 mt-2 max-h-56 overflow-y-auto pr-1">
                     {reviewFindings.map((finding, idx) => (
-                      <div key={idx} className="p-3 bg-black/35 border border-white/5 rounded-xl space-y-1.5 text-left text-[10px]">
+                      <div key={idx} className="p-3.5 bg-white border border-stone-200 rounded-xl space-y-1.5 text-left text-xs shadow-2xs">
                         <div className="flex justify-between items-center">
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono uppercase ${
-                            finding.level === 'critical' ? 'bg-red-500/10 text-red-300' :
-                            finding.level === 'recommended' ? 'bg-amber-500/10 text-amber-300' : 'bg-blue-500/10 text-blue-300'
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            finding.level === 'critical' ? 'bg-red-100 text-red-800' :
+                            finding.level === 'recommended' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                           }`}>
                             {finding.level}
                           </span>
-                          <span className="text-[8px] font-mono text-stone-500">{finding.section}</span>
+                          <span className="text-xs text-stone-400 font-mono">{finding.section}</span>
                         </div>
-                        <p className="text-white font-medium">{finding.problem}</p>
-                        <p className="text-[#D0D6BB]/60">{finding.reason}</p>
-                        <div className="bg-black/25 border border-white/5 p-2 rounded-lg mt-1 space-y-1">
-                          <span className="text-[8px] font-mono text-stone-500 block uppercase">Proposed Fix:</span>
-                          <span className="text-emerald-300">{finding.proposedImprovement}</span>
+                        <p className="text-stone-900 font-semibold">{finding.problem}</p>
+                        <p className="text-stone-600">{finding.reason}</p>
+                        <div className="bg-stone-50 border border-stone-200 p-2.5 rounded-lg mt-1 space-y-1">
+                          <span className="text-[10px] text-stone-400 block uppercase font-bold">Proposed Fix:</span>
+                          <span className="text-[#00635C] font-medium">{finding.proposedImprovement}</span>
                         </div>
                         <div className="flex justify-end pt-1">
                           {finding.applied ? (
-                            <span className="text-[9px] text-emerald-400 font-bold flex items-center gap-0.5"><Check className="w-3.5 h-3.5" /> Applied</span>
+                            <span className="text-xs text-emerald-700 font-bold flex items-center gap-1"><Check className="w-4 h-4" /> Applied</span>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handleApplyFinding(idx, finding)}
-                              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-mono uppercase"
+                              className="px-3 py-1 bg-[#00635C] hover:bg-[#00514B] text-white rounded-lg text-xs font-semibold shadow-2xs"
                             >
                               Apply Fix
                             </button>
@@ -1145,99 +1153,100 @@ export default function SOPWizard({
                     ))}
                   </div>
                 )}
-                {/* 3-Category Finding Breakdown & 1-Click Auto-Remediation */}
+                
+                {/* 3-Category Finding Breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                  <div className="p-3 bg-red-950/20 border border-red-500/30 rounded-xl space-y-1 text-left text-[10px]">
-                    <span className="font-mono text-red-300 font-bold uppercase text-[9px] block">1. Prerequisite Gaps</span>
-                    <p className="text-white font-medium">lockbox_code field missing</p>
-                    <span className="text-[#D0D6BB]/60 text-[9px] block">Causes 40% of initial checklist blocks.</span>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-1 text-left text-xs">
+                    <span className="text-red-800 font-bold uppercase text-[10px] block">1. Prerequisite Gaps</span>
+                    <p className="text-stone-900 font-medium">lockbox_code field missing</p>
+                    <span className="text-stone-500 text-[11px] block">Reduces checklist delays by 40%.</span>
                   </div>
-                  <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-1 text-left text-[10px]">
-                    <span className="font-mono text-amber-300 font-bold uppercase text-[9px] block">2. Bottleneck Steps</span>
-                    <p className="text-white font-medium">Step 2: Upload Documentation</p>
-                    <span className="text-[#D0D6BB]/60 text-[9px] block">2.4 hrs avg vs 2.0 hrs target SLA.</span>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-left text-xs">
+                    <span className="text-amber-800 font-bold uppercase text-[10px] block">2. Bottleneck Steps</span>
+                    <p className="text-stone-900 font-medium">Step 2: Upload Documentation</p>
+                    <span className="text-stone-500 text-[11px] block">2.4 hrs avg vs 2.0 hrs target due time.</span>
                   </div>
-                  <div className="p-3 bg-blue-950/20 border border-blue-500/30 rounded-xl space-y-1 text-left text-[10px]">
-                    <span className="font-mono text-blue-300 font-bold uppercase text-[9px] block">3. Role Conflicts</span>
-                    <p className="text-white font-medium">Step 3 Owner Alignment</p>
-                    <span className="text-[#D0D6BB]/60 text-[9px] block">Re-align from Staff to Marketing Coordinator.</span>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1 text-left text-xs">
+                    <span className="text-blue-800 font-bold uppercase text-[10px] block">3. Role Conflicts</span>
+                    <p className="text-stone-900 font-medium">Step 3 Owner Alignment</p>
+                    <span className="text-stone-500 text-[11px] block">Re-align from Staff to Marketing Coordinator.</span>
                   </div>
                 </div>
 
                 {/* Pre-Publish Version Impact Scorecard */}
-                <div className="bg-[#012a23] border border-emerald-500/30 rounded-2xl p-4 space-y-2 text-left font-mono">
+                <div className="bg-emerald-50/60 border border-emerald-300 rounded-2xl p-4 space-y-2 text-left">
                   <div className="flex justify-between items-center">
-                    <span className="text-emerald-400 font-bold uppercase text-[10px] tracking-wider">⚡ AI Version Impact Scorecard (v1.1)</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 text-[8px] font-bold">READY TO PUBLISH</span>
+                    <span className="text-[#00635C] font-bold text-xs tracking-wide">⚡ AI Version Impact Scorecard (v1.1)</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">READY TO PUBLISH</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-center pt-1">
-                    <div className="bg-black/25 p-2.5 rounded-xl border border-white/5">
-                      <span className="text-[8px] text-[#D0D6BB]/60 block uppercase font-sans">Projected SLA Reduction</span>
-                      <strong className="text-sm text-emerald-300 block mt-0.5">-35% SLA Delay</strong>
+                    <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs">
+                      <span className="text-[11px] text-stone-500 block">Projected SLA Reduction</span>
+                      <strong className="text-base text-[#00635C] block mt-0.5">-35% SLA Delay</strong>
                     </div>
-                    <div className="bg-black/25 p-2.5 rounded-xl border border-white/5">
-                      <span className="text-[8px] text-[#D0D6BB]/60 block uppercase font-sans">First-Time Completion Rate</span>
-                      <strong className="text-sm text-emerald-400 block mt-0.5">+18% Success</strong>
+                    <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs">
+                      <span className="text-[11px] text-stone-500 block">First-Time Completion</span>
+                      <strong className="text-base text-emerald-700 block mt-0.5">+18% Success</strong>
                     </div>
                   </div>
-                  <p className="text-[10px] text-[#D0D6BB]/80 font-sans leading-relaxed pt-1">
+                  <p className="text-xs text-stone-600 leading-relaxed pt-1">
                     Delta: Added lockbox_code prerequisite, re-aligned Step 3 to Marketing Coordinator, and reduced SLA bottleneck duration by 0.4 hrs.
                   </p>
                 </div>
               </div>
 
               {/* Publish validation checks */}
-              <div className="bg-[#01241e] border border-white/5 rounded-2xl p-4 space-y-2.5 text-xs text-[#D0D6BB]/80">
-                <span className="text-[8px] font-mono uppercase text-stone-500 font-bold block select-none">Pre-flight Verification checks:</span>
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-2.5 text-xs text-stone-700">
+                <span className="text-[10px] uppercase text-stone-400 font-bold block select-none">Pre-flight Verification checks:</span>
                 
                 <div className="flex items-center gap-2">
-                  {sopForm.title ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
-                  <span>SOP Title configured: <strong className="text-white font-medium">{sopForm.title || 'Missing'}</strong></span>
+                  {sopForm.title ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
+                  <span>SOP Title configured: <strong className="text-stone-900 font-semibold">{sopForm.title || 'Missing'}</strong></span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {sopForm.purpose ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
-                  <span>Purpose configured: <strong className="text-white font-medium">{sopForm.purpose ? 'Yes' : 'Missing'}</strong></span>
+                  {sopForm.purpose ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
+                  <span>Purpose configured: <strong className="text-stone-900 font-semibold">{sopForm.purpose ? 'Yes' : 'Missing'}</strong></span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {sopForm.steps && sopForm.steps.length > 0 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <AlertTriangle className="w-3.5 h-3.5 text-red-400" />}
-                  <span>Checklist steps total: <strong className="text-white font-medium">{sopForm.steps?.length || 0} step(s)</strong></span>
+                  {sopForm.steps && sopForm.steps.length > 0 ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-red-600" />}
+                  <span>Checklist steps total: <strong className="text-stone-900 font-semibold">{sopForm.steps?.length || 0} step(s)</strong></span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {sopForm.completionEvidence?.description ? <Check className="w-3.5 h-3.5 text-[#00E5C9]" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
-                  <span>Evidence checklist confirmed: <strong className="text-white font-medium">{sopForm.completionEvidence?.description ? 'Yes' : 'Missing'}</strong></span>
+                  {sopForm.completionEvidence?.description ? <Check className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
+                  <span>Evidence checklist confirmed: <strong className="text-stone-900 font-semibold">{sopForm.completionEvidence?.description ? 'Yes' : 'Missing'}</strong></span>
                 </div>
               </div>
 
               {/* Versioning & Review inputs */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-stone-100">
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Version ID</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Version ID</label>
                   <input
                     type="text"
                     value={sopForm.version || '1.0'}
                     onChange={(e) => setSopForm({ ...sopForm, version: e.target.value })}
                     placeholder="1.0"
-                    className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-mono text-[#D0D6BB]/40 uppercase mb-1">Revision Changelog</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Revision Changelog</label>
                   <input
                     type="text"
                     value={sopForm.changeSummary || ''}
                     onChange={(e) => setSopForm({ ...sopForm, changeSummary: e.target.value })}
                     placeholder="Initial release details"
-                    className="w-full p-2.5 border border-white/10 rounded-xl bg-black/20 text-xs text-white placeholder-stone-500 font-sans focus:outline-none"
+                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
                   />
                 </div>
               </div>
 
               {publishErrors.length > 0 && (
-                <div className="p-3 bg-red-950/20 border border-red-500/25 rounded-2xl space-y-1 font-mono text-[9px] text-red-400">
-                  <span className="font-bold text-red-300 block uppercase select-none">Publish Errors Blocked</span>
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl space-y-1 text-xs text-red-700">
+                  <span className="font-bold text-red-800 block uppercase select-none">Publish Errors Blocked</span>
                   {publishErrors.map((err, i) => <p key={i}>• {err}</p>)}
                 </div>
               )}
@@ -1245,8 +1254,8 @@ export default function SOPWizard({
             </div>
           )}
 
-          {/* Stepper buttons */}
-          <div className="border-t border-white/5 pt-4 flex justify-between select-none text-[10px] font-mono font-bold">
+          {/* Stepper Bottom Navigation */}
+          <div className="border-t border-stone-100 pt-5 flex justify-between select-none text-xs font-semibold">
             <button
               type="button"
               onClick={() => {
@@ -1256,25 +1265,27 @@ export default function SOPWizard({
                   setCurrentView('library');
                 }
               }}
-              className="px-4 py-2 hover:bg-white/5 border border-white/10 text-white font-bold rounded-xl transition-all cursor-pointer uppercase"
+              className="px-4 py-2 hover:bg-stone-50 border border-stone-300 text-stone-700 rounded-xl transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5"
             >
-              Back
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
             </button>
 
             {wizardStep < 4 ? (
               <button
                 type="button"
                 onClick={() => setWizardStep(wizardStep + 1)}
-                className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white font-bold rounded-xl transition-all cursor-pointer uppercase"
+                className="px-5 py-2.5 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
               >
-                Next Step
+                <span>Next Step</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <button
                   type="button"
                   onClick={() => handleSaveSop('draft')}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold rounded-xl transition-all cursor-pointer uppercase"
+                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors cursor-pointer"
                 >
                   Save Draft
                 </button>
@@ -1287,9 +1298,10 @@ export default function SOPWizard({
                       handleSaveSop('published');
                     }
                   }}
-                  className="px-4 py-2 bg-[#00E5C9] hover:bg-[#00c2ab] text-[#01362D] font-bold rounded-xl transition-all cursor-pointer uppercase tracking-wider"
+                  className="px-5 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl transition-colors cursor-pointer shadow-xs font-bold flex items-center gap-1.5"
                 >
-                  Publish v{sopForm.version}
+                  <Check className="w-4 h-4" />
+                  <span>Publish v{sopForm.version}</span>
                 </button>
               </div>
             )}
@@ -1300,33 +1312,33 @@ export default function SOPWizard({
 
       {/* Role Conflict Publish Modal */}
       {isConflictModalOpen && (
-        <div className="fixed inset-0 bg-[#012a23]/95 z-50 overflow-y-auto p-8 flex flex-col items-center justify-center backdrop-blur-sm">
-          <div className="max-w-md w-full bg-[#012a23] border border-amber-500/30 rounded-3xl p-6 shadow-2xl space-y-4 text-left select-none">
-            <div className="flex items-center gap-2 text-amber-400">
+        <div className="fixed inset-0 bg-stone-900/50 z-50 overflow-y-auto p-4 flex flex-col items-center justify-center backdrop-blur-xs animate-fadeIn">
+          <div className="max-w-md w-full bg-white border border-amber-300 rounded-3xl p-6 shadow-2xl space-y-4 text-left select-none">
+            <div className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="w-5 h-5 shrink-0" />
-              <h3 className="font-serif font-black text-sm uppercase text-white tracking-wider">Owner Role Conflict Detected</h3>
+              <h3 className="font-serif font-bold text-base text-stone-900">Owner Role Conflict Detected</h3>
             </div>
             
-            <p className="text-xs text-[#D0D6BB]/80 leading-relaxed font-sans">
-              The assigned SOP owner (<strong className="text-amber-300 font-mono">{sopForm.ownerRole}</strong>) differs from the mapped Request Routing category owner (<strong className="text-emerald-300 font-mono">{matchedRule?.primaryOwnerPositionId}</strong>).
+            <p className="text-xs text-stone-600 leading-relaxed font-sans">
+              The assigned SOP owner (<strong className="text-amber-800 font-mono">{sopForm.ownerRole}</strong>) differs from the mapped Request Routing category owner (<strong className="text-[#00635C] font-mono">{matchedRule?.primaryOwnerPositionId}</strong>).
             </p>
 
-            <div className="p-3 bg-black/30 border border-white/5 rounded-xl space-y-1 font-mono text-[10px] text-[#D0D6BB]/60">
+            <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl space-y-1 font-mono text-xs text-stone-600">
               <div className="flex justify-between">
                 <span>Routing Category:</span>
-                <span className="text-white font-bold">{selectedCategory}</span>
+                <span className="text-stone-900 font-bold">{selectedCategory}</span>
               </div>
               <div className="flex justify-between">
                 <span>Routing Matrix Owner:</span>
-                <span className="text-emerald-400 font-bold">{matchedRule?.primaryOwnerPositionId}</span>
+                <span className="text-[#00635C] font-bold">{matchedRule?.primaryOwnerPositionId}</span>
               </div>
               <div className="flex justify-between">
                 <span>Current SOP Owner:</span>
-                <span className="text-amber-400 font-bold">{sopForm.ownerRole}</span>
+                <span className="text-amber-700 font-bold">{sopForm.ownerRole}</span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-white/10 pt-4 text-[10px] font-mono font-bold">
+            <div className="flex flex-col gap-2 border-t border-stone-100 pt-4 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => {
@@ -1338,7 +1350,7 @@ export default function SOPWizard({
                   setIsConflictModalOpen(false);
                   setTimeout(() => handleSaveSop('published'), 100);
                 }}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer uppercase transition-all"
+                className="w-full py-2.5 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl cursor-pointer transition-colors shadow-xs"
               >
                 ⚡ Align with Routing & Publish
               </button>
@@ -1349,7 +1361,7 @@ export default function SOPWizard({
                   setIsConflictModalOpen(false);
                   handleSaveSop('published');
                 }}
-                className="w-full py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl cursor-pointer uppercase transition-all"
+                className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl cursor-pointer transition-colors"
               >
                 Publish with Custom Override
               </button>
@@ -1357,7 +1369,7 @@ export default function SOPWizard({
               <button
                 type="button"
                 onClick={() => setIsConflictModalOpen(false)}
-                className="w-full py-2 border border-white/10 hover:bg-white/5 text-white/70 rounded-xl cursor-pointer uppercase transition-all"
+                className="w-full py-2 border border-stone-200 hover:bg-stone-50 text-stone-600 rounded-xl cursor-pointer transition-colors"
               >
                 Cancel
               </button>

@@ -12,7 +12,7 @@ export type ContractTransactionType =
 
 export type ContractRepresentationSide = 'buyer' | 'seller' | 'dual_unsupported';
 
-export type ContractChannel = 'web' | 'retell' | 'retell_phone' | 'elevenlabs' | 'sms' | 'email';
+export type ContractChannel = 'web' | 'retell' | 'retell_phone' | 'retell_sms' | 'elevenlabs' | 'sms' | 'email';
 
 export type ContractSessionStatus =
   | 'intake_started'
@@ -60,6 +60,8 @@ export interface ContractProperty {
   legalDescriptionSourceRef?: string;
 }
 
+export type PropertyAddress = ContractProperty;
+
 export interface ContractTerms {
   // Monetary values stored in safe integer cents
   purchasePriceCents?: number;
@@ -67,6 +69,7 @@ export interface ContractTerms {
   initialEarnestMoneyCents?: number;
   additionalEarnestMoneyCents?: number;
   sellerConcessionCents?: number;
+  sellerConcessionsCents?: number;
 
   // Dates in ISO YYYY-MM-DD calendar format
   offerDate?: string;
@@ -74,6 +77,7 @@ export interface ContractTerms {
   settlementDate?: string;
 
   financingCategory?: 'cash' | 'conventional' | 'fha' | 'va' | 'usda' | 'seller_financing_unsupported';
+  financingType?: string;
   personalPropertyInclusions?: string[];
   personalPropertyExclusions?: string[];
 
@@ -144,7 +148,7 @@ export interface ContractAuditEvent {
 
 export interface ContractValidationIssue {
   code: string;
-  severity: 'blocking' | 'warning' | 'bic_review_required';
+  severity: 'blocking' | 'warning' | 'bic_review_required' | 'critical';
   fieldPath?: string;
   message: string;
   timestamp: string;

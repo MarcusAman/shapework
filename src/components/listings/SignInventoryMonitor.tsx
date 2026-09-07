@@ -164,7 +164,7 @@ export default function SignInventoryMonitor() {
             <span className="text-xs font-bold text-text-primary uppercase tracking-wider block">
               Asset Hoarding Alerts
             </span>
-            <p className="text-[10px] text-text-secondary mt-0.5">Spare signs held in agent garages beyond SLA limits</p>
+            <p className="text-[10px] text-text-secondary mt-0.5">Spare signs held in agent garages beyond allowed return time</p>
           </div>
 
           <div className="space-y-3">

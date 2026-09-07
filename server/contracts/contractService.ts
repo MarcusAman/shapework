@@ -20,7 +20,8 @@ import {
   ContractChannel,
   ContractTransactionType,
   TransactionParty,
-  ContractProperty
+  ContractProperty,
+  ContractAuditEvent
 } from './contractDomainTypes.js';
 
 export interface CreateSessionParams {

@@ -91,7 +91,7 @@ export default function NeedsRyanActionDrawer({
             <div className="flex justify-between items-center text-[10px] font-mono">
               <span className="text-[var(--sw-text-secondary)] uppercase">Current Handler: <strong className="text-[var(--sw-text-primary)] font-bold">{item.currentHandler}</strong></span>
               <span className={`px-2 py-0.5 rounded font-bold uppercase ${isUrgent ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
-                SLA: {item.responseWindow}
+                Due: {item.responseWindow}
               </span>
             </div>
             <p className="text-sm font-medium text-[var(--sw-text-primary)] leading-relaxed">{item.reason}</p>

@@ -6,19 +6,12 @@
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { convertKeysToSnake, convertKeysToCamel } from './databaseRepositories';
+import { convertKeysToSnake, convertKeysToCamel } from './databaseRepositories.js';
 import crypto from 'crypto';
 import { hashPassword } from '../auth/password.js';
 import { NEST_FULL_ROSTER_72 } from './nestRosterSeed.js';
 
-const resolvedFilename = typeof import.meta !== 'undefined' && import.meta.url 
-  ? fileURLToPath(import.meta.url) 
-  : (typeof __filename !== 'undefined' ? __filename : '');
-
-const resolvedDirname = typeof import.meta !== 'undefined' && import.meta.url 
-  ? path.dirname(resolvedFilename) 
-  : (typeof __dirname !== 'undefined' ? __dirname : '');
+const resolvedDirname = typeof process !== 'undefined' && process.cwd ? path.join(process.cwd(), 'server', 'persistence') : '';
 
 // Run database schema migrations
 export async function initDatabaseSchema(pool: pg.Pool) {
@@ -81,8 +74,12 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         expires_at TIMESTAMPTZ NOT NULL,
         used_at TIMESTAMPTZ,
         used_by_ip VARCHAR(100),
+        requested_ip VARCHAR(100),
+        user_agent TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE password_reset_tokens ADD COLUMN IF NOT EXISTS requested_ip VARCHAR(100);
+      ALTER TABLE password_reset_tokens ADD COLUMN IF NOT EXISTS user_agent TEXT;
 
       CREATE TABLE IF NOT EXISTS auth_audit_logs (
         id VARCHAR(100) PRIMARY KEY,
@@ -95,6 +92,322 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         metadata JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS nora_durable_actions (
+        id VARCHAR(100) PRIMARY KEY,
+        request_id VARCHAR(100),
+        idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+        authenticated_user_id VARCHAR(100) NOT NULL,
+        tenant_id VARCHAR(100) NOT NULL,
+        workspace_id VARCHAR(100) NOT NULL,
+        action_name VARCHAR(100) NOT NULL,
+        entity_id VARCHAR(255),
+        normalized_args JSONB NOT NULL DEFAULT '{}',
+        external_provider_id VARCHAR(255),
+        execution_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        verification_status BOOLEAN NOT NULL DEFAULT TRUE,
+        final_result_status VARCHAR(50) NOT NULL DEFAULT 'completed',
+        human_readable_summary TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_nora_durable_actions_idempotency ON nora_durable_actions(idempotency_key);
+      CREATE INDEX IF NOT EXISTS idx_nora_durable_actions_workspace_action ON nora_durable_actions(workspace_id, action_name, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS nora_pending_actions (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        user_id VARCHAR(100) NOT NULL,
+        session_id VARCHAR(100) NOT NULL,
+        action_type VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        lifecycle_state VARCHAR(50),
+        channel VARCHAR(50) DEFAULT 'typed_chat',
+        originating_turn_id VARCHAR(100),
+        fields JSONB NOT NULL DEFAULT '{}',
+        missing_fields TEXT[] NOT NULL DEFAULT '{}',
+        last_clarification_prompt TEXT,
+        idempotency_key VARCHAR(255),
+        execution_result JSONB,
+        error TEXT,
+        version INTEGER NOT NULL DEFAULT 1,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_nora_pending_actions_lookup ON nora_pending_actions(workspace_id, user_id, session_id);
+      CREATE INDEX IF NOT EXISTS idx_nora_pending_actions_status ON nora_pending_actions(status, expires_at);
+
+      CREATE TABLE IF NOT EXISTS nora_conversation_states (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        user_id VARCHAR(100) NOT NULL,
+        session_id VARCHAR(100) NOT NULL,
+        channel VARCHAR(50) NOT NULL DEFAULT 'typed',
+        active_goal JSONB,
+        active_entities JSONB NOT NULL DEFAULT '[]',
+        collected_fields JSONB NOT NULL DEFAULT '{}',
+        missing_fields TEXT[] NOT NULL DEFAULT '{}',
+        corrections JSONB NOT NULL DEFAULT '[]',
+        suspended_goals JSONB NOT NULL DEFAULT '[]',
+        recent_evidence_ids TEXT[] NOT NULL DEFAULT '{}',
+        version INTEGER NOT NULL DEFAULT 1,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (workspace_id, user_id, session_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_nora_conv_states_lookup ON nora_conversation_states(workspace_id, user_id, session_id);
+
+      CREATE TABLE IF NOT EXISTS nora_operational_commitments (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        user_id VARCHAR(100) NOT NULL,
+        session_id VARCHAR(100),
+        target_record_type VARCHAR(100) NOT NULL,
+        target_record_id VARCHAR(100) NOT NULL,
+        condition_type VARCHAR(100) NOT NULL,
+        condition_expression JSONB NOT NULL DEFAULT '{}',
+        owner VARCHAR(255) NOT NULL,
+        recipient_id VARCHAR(100),
+        recipient_channel VARCHAR(50) NOT NULL DEFAULT 'in_app',
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        evaluate_at TIMESTAMPTZ NOT NULL,
+        last_evaluated_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        cancellation_reason TEXT,
+        idempotency_key VARCHAR(255) UNIQUE,
+        execution_receipt JSONB,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS nora_execution_plans (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        user_id VARCHAR(100) NOT NULL,
+        originating_query TEXT NOT NULL,
+        summary TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'planning',
+        steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        executed_count INTEGER NOT NULL DEFAULT 0,
+        failed_step_id VARCHAR(100),
+        completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_nora_exec_plans_user ON nora_execution_plans(workspace_id, user_id, status);
+
+      CREATE TABLE IF NOT EXISTS canonical_marketing_requests (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        property_address TEXT NOT NULL,
+        normalized_property_key VARCHAR(255),
+        agent_name VARCHAR(255) NOT NULL,
+        agent_phone VARCHAR(50),
+        agent_email VARCHAR(255),
+        channel VARCHAR(50) NOT NULL DEFAULT 'web',
+        status VARCHAR(50) NOT NULL DEFAULT 'request_received',
+        category VARCHAR(100),
+        task_ids TEXT[] NOT NULL DEFAULT '{}',
+        is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS normalized_property_key VARCHAR(255);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS field_conflicts JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS field_provenance JSONB DEFAULT '{}'::jsonb;
+      CREATE INDEX IF NOT EXISTS idx_canonical_mkt_req_ws ON canonical_marketing_requests(workspace_id, is_archived);
+      CREATE INDEX IF NOT EXISTS idx_canonical_mkt_req_prop_key ON canonical_marketing_requests(workspace_id, normalized_property_key);
+
+      -- Partial Unique Index enforcing EXACTLY ONE active request container per property in a workspace
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_mkt_req_prop 
+      ON canonical_marketing_requests(workspace_id, normalized_property_key) 
+      WHERE is_archived = FALSE AND status NOT IN ('completed', 'merged', 'archived') AND normalized_property_key IS NOT NULL AND normalized_property_key != '';
+
+      CREATE TABLE IF NOT EXISTS canonical_marketing_tasks (
+        id VARCHAR(100) PRIMARY KEY,
+        request_id VARCHAR(100) NOT NULL,
+        workspace_id VARCHAR(100) NOT NULL,
+        request_title VARCHAR(255),
+        property_address TEXT,
+        agent_name VARCHAR(255),
+        title VARCHAR(255) NOT NULL,
+        category VARCHAR(100),
+        assigned_to VARCHAR(255),
+        assigned_to_role VARCHAR(100),
+        status VARCHAR(50) NOT NULL DEFAULT 'request_received',
+        due_at TIMESTAMPTZ,
+        notes TEXT,
+        is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+        archived_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        approval_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_canonical_mkt_tasks_req ON canonical_marketing_tasks(request_id, is_archived);
+      CREATE INDEX IF NOT EXISTS idx_canonical_mkt_tasks_assignee ON canonical_marketing_tasks(assigned_to, is_archived);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_owner VARCHAR(255);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS covering_staff VARCHAR(255);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS coverage_history JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS requirements JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS internal_flags JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS governing_sop_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS governing_sop_version VARCHAR(50);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routing_rule_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routing_policy_version INTEGER;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS department_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS primary_role_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_role_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_owner_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS assignee_staff_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS original_staff_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS covering_staff_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routing_state VARCHAR(50) NOT NULL DEFAULT 'resolved';
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routing_reasons TEXT[] DEFAULT '{}';
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routing_snapshot JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routing_policy_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS fulfillment_role_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS original_review_owner_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_covering_staff_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS original_assignee_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS assignee_covering_staff_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS classification_confidence NUMERIC(4,3);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routed_at TIMESTAMPTZ;
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS created_by_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS created_by_name VARCHAR(255);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS on_behalf_of VARCHAR(255);
+
+      CREATE TABLE IF NOT EXISTS published_routing_policies (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington',
+        version INTEGER NOT NULL DEFAULT 1,
+        published_by VARCHAR(255) NOT NULL,
+        published_by_user_id VARCHAR(100),
+        published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        rules_count INTEGER NOT NULL DEFAULT 0,
+        validation_hash VARCHAR(64),
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_routing_policy_ws_version UNIQUE (workspace_id, version)
+      );
+
+      CREATE TABLE IF NOT EXISTS published_routing_rules (
+        id VARCHAR(100) PRIMARY KEY,
+        policy_id VARCHAR(100) NOT NULL,
+        workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington',
+        rule_index INTEGER NOT NULL DEFAULT 0,
+        category VARCHAR(100) NOT NULL,
+        subcategory VARCHAR(100),
+        display_name VARCHAR(255),
+        match_keywords TEXT[] DEFAULT '{}',
+        office_condition JSONB,
+        primary_position_id VARCHAR(100) NOT NULL,
+        primary_role_id VARCHAR(100),
+        primary_staff_id VARCHAR(100) NOT NULL,
+        review_position_id VARCHAR(100),
+        review_role_id VARCHAR(100),
+        review_staff_id VARCHAR(100),
+        backup_position_id VARCHAR(100),
+        backup_staff_id VARCHAR(100),
+        governing_sop_id VARCHAR(100),
+        governing_sop_version VARCHAR(50),
+        sla_hours INTEGER DEFAULT 24,
+        sla_display VARCHAR(50) DEFAULT '24 hours',
+        escalation_policy_id VARCHAR(100),
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS user_notification_preferences (
+        user_id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington',
+        email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        sms_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        preferred_channel VARCHAR(50) NOT NULL DEFAULT 'both',
+        quiet_hours_start VARCHAR(20) NOT NULL DEFAULT '17:00',
+        quiet_hours_end VARCHAR(20) NOT NULL DEFAULT '09:00',
+        timezone VARCHAR(100) NOT NULL DEFAULT 'America/New_York',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington';
+
+      CREATE TABLE IF NOT EXISTS operations_directory_staff (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington',
+        full_name VARCHAR(255) NOT NULL,
+        title VARCHAR(255),
+        role VARCHAR(100),
+        email VARCHAR(255),
+        phone VARCHAR(100),
+        avatar_url TEXT,
+        active_workload_count INTEGER DEFAULT 0,
+        max_workload_capacity INTEGER DEFAULT 10,
+        skills TEXT[] DEFAULT '{}',
+        escalation_contact_id VARCHAR(100),
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        backup_staff_id VARCHAR(100),
+        backup_staff_name VARCHAR(255),
+        out_of_office_reason TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE operations_directory_staff ADD COLUMN IF NOT EXISTS workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington';
+
+      CREATE TABLE IF NOT EXISTS inbound_email_idempotency_log (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        provider VARCHAR(50) NOT NULL DEFAULT 'google_workspace',
+        mailbox_id VARCHAR(255) NOT NULL,
+        message_id VARCHAR(255) NOT NULL,
+        thread_id VARCHAR(255),
+        sender_email VARCHAR(255) NOT NULL,
+        processing_status VARCHAR(50) NOT NULL DEFAULT 'processing',
+        attempt_count INTEGER NOT NULL DEFAULT 1,
+        last_error_code VARCHAR(100),
+        task_id VARCHAR(100),
+        request_id VARCHAR(100),
+        processing_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        lease_expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '5 minutes'),
+        completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_inbound_email_workspace_provider_mailbox_msg UNIQUE (workspace_id, provider, mailbox_id, message_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_inbound_email_lookup ON inbound_email_idempotency_log(workspace_id, provider, mailbox_id, message_id);
+      CREATE INDEX IF NOT EXISTS idx_inbound_email_status ON inbound_email_idempotency_log(processing_status, lease_expires_at);
+
+      CREATE TABLE IF NOT EXISTS outbound_email_outbox (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        message_type VARCHAR(100) NOT NULL,
+        idempotency_key VARCHAR(255) UNIQUE NOT NULL,
+        recipient VARCHAR(255) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        payload JSONB NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        max_attempts INTEGER NOT NULL DEFAULT 5,
+        next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        lease_expires_at TIMESTAMPTZ,
+        provider_message_id VARCHAR(255),
+        last_error_code VARCHAR(100),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        sent_at TIMESTAMPTZ,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_outbox_queue ON outbound_email_outbox(status, next_attempt_at) WHERE status IN ('pending', 'failed');
+      CREATE INDEX IF NOT EXISTS idx_outbox_key ON outbound_email_outbox(idempotency_key);
 
       CREATE TABLE IF NOT EXISTS workspace_memberships (
         id VARCHAR(100) PRIMARY KEY,
@@ -220,7 +533,7 @@ export async function initDatabaseSchema(pool: pg.Pool) {
     });
 
     if (migrationsDir) {
-      const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+      const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql') && !f.endsWith('_down.sql')).sort();
       for (const file of files) {
         try {
           const filePath = path.join(migrationsDir, file);
@@ -235,18 +548,17 @@ export async function initDatabaseSchema(pool: pg.Pool) {
     }
 
     // Default seed for UAT workspaces if table is empty
-    const wsCheck = await pool.query('SELECT COUNT(*) as cnt FROM workspaces');
-    if (parseInt(wsCheck.rows[0].cnt, 10) === 0) {
-      await pool.query(`
-        INSERT INTO workspaces (id, name, slug, status, phase)
-        VALUES 
-          ('ws_wilmington', 'Nest Realty Wilmington (Mayfaire)', 'nest-wilmington', 'active', 'production'),
-          ('ws_carolina_beach', 'Nest Realty Carolina Beach', 'nest-carolina-beach', 'active', 'production'),
-          ('uat_workspace_a', 'Nest UAT Workspace A', 'nest-uat-a', 'active', 'production'),
-          ('uat_workspace_b', 'Nest UAT Workspace B', 'nest-uat-b', 'active', 'production')
-        ON CONFLICT (id) DO NOTHING;
-      `);
-    }
+    await pool.query(`
+      INSERT INTO workspaces (id, name, slug, status, phase)
+      VALUES 
+        ('ws_wilmington', 'Nest Realty Wilmington (Mayfaire)', 'nest-wilmington', 'active', 'production'),
+        ('nest-realty-wilmington', 'Nest Realty Wilmington', 'nest-realty-wilmington', 'active', 'production'),
+        ('nest-realty-demo', 'Nest Realty Demo', 'nest-realty-demo', 'active', 'production'),
+        ('ws_carolina_beach', 'Nest Realty Carolina Beach', 'nest-carolina-beach', 'active', 'production'),
+        ('uat_workspace_a', 'Nest UAT Workspace A', 'nest-uat-a', 'active', 'production'),
+        ('uat_workspace_b', 'Nest UAT Workspace B', 'nest-uat-b', 'active', 'production')
+      ON CONFLICT (id) DO NOTHING;
+    `);
 
     // 1. Create directory_people first in a separate call to avoid PostgreSQL compilation/dependency errors
     await pool.query(`
@@ -419,6 +731,64 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         refresh_token_expires_at VARCHAR(100),
         last_synced_at VARCHAR(100),
         last_error TEXT,
+        token_version INTEGER DEFAULT 1,
+        last_refresh_attempt TIMESTAMPTZ,
+        last_successful_refresh TIMESTAMPTZ,
+        last_refresh_error_category VARCHAR(100),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE workspace_integration_connections ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1;
+      ALTER TABLE workspace_integration_connections ADD COLUMN IF NOT EXISTS last_refresh_attempt TIMESTAMPTZ;
+      ALTER TABLE workspace_integration_connections ADD COLUMN IF NOT EXISTS last_successful_refresh TIMESTAMPTZ;
+      ALTER TABLE workspace_integration_connections ADD COLUMN IF NOT EXISTS last_refresh_error_category VARCHAR(100);
+
+      CREATE TABLE IF NOT EXISTS workspace_calendar_settings (
+        workspace_id VARCHAR(100) PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+        selected_calendar_id VARCHAR(255) NOT NULL,
+        selected_calendar_name VARCHAR(255) NOT NULL,
+        access_role VARCHAR(50) NOT NULL,
+        timezone VARCHAR(100) NOT NULL DEFAULT 'America/New_York',
+        auto_meet_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        is_dedicated_nora_calendar BOOLEAN NOT NULL DEFAULT TRUE,
+        last_verified_at TIMESTAMPTZ,
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS scheduled_brokerage_meetings (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        calendar_id VARCHAR(255) NOT NULL,
+        google_event_id VARCHAR(255),
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        meeting_date VARCHAR(100) NOT NULL,
+        start_time VARCHAR(100) NOT NULL,
+        end_time VARCHAR(100) NOT NULL,
+        start_iso TIMESTAMPTZ,
+        end_iso TIMESTAMPTZ,
+        location TEXT,
+        organizer_email VARCHAR(255) NOT NULL,
+        requester_name VARCHAR(255) NOT NULL,
+        target_audience TEXT,
+        resolved_scope_description TEXT,
+        attendee_count INT NOT NULL DEFAULT 0,
+        attendees JSONB NOT NULL DEFAULT '[]'::jsonb,
+        google_calendar_url TEXT,
+        html_link TEXT,
+        hangout_link TEXT,
+        ical_content TEXT,
+        dispatched_via VARCHAR(100) NOT NULL,
+        mode VARCHAR(50) NOT NULL,
+        conference_status VARCHAR(50) NOT NULL,
+        is_external_verified BOOLEAN NOT NULL DEFAULT FALSE,
+        idempotency_key VARCHAR(255),
+        pending_action_id VARCHAR(100),
+        provider_timestamp TIMESTAMPTZ,
+        spoken_confirmation TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -718,6 +1088,140 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS news_sources (
+        id VARCHAR(100) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        feed_url TEXT NOT NULL,
+        site_url TEXT NOT NULL,
+        feed_type VARCHAR(50) NOT NULL,
+        is_enabled BOOLEAN DEFAULT TRUE,
+        priority INTEGER DEFAULT 1,
+        description TEXT,
+        last_synced_at TIMESTAMPTZ,
+        last_error TEXT,
+        item_count INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS news_items (
+        id VARCHAR(100) PRIMARY KEY,
+        workspace_id VARCHAR(100) NOT NULL,
+        title TEXT NOT NULL,
+        source_name VARCHAR(255) NOT NULL,
+        source_url TEXT NOT NULL,
+        canonical_url TEXT NOT NULL,
+        author VARCHAR(255),
+        published_at TIMESTAMPTZ NOT NULL,
+        discovered_at TIMESTAMPTZ NOT NULL,
+        content_type VARCHAR(50) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        geography VARCHAR(50) NOT NULL,
+        image_url TEXT,
+        video_url TEXT,
+        podcast_url TEXT,
+        duration VARCHAR(50),
+        source_excerpt TEXT,
+        nora_summary TEXT NOT NULL,
+        why_worth_knowing TEXT NOT NULL,
+        tags TEXT[],
+        source_priority INTEGER DEFAULT 1,
+        featured BOOLEAN DEFAULT FALSE,
+        secondary_recommendation VARCHAR(50),
+        saved BOOLEAN DEFAULT FALSE,
+        hidden BOOLEAN DEFAULT FALSE,
+        content_hash VARCHAR(64) NOT NULL,
+        duplicate_group_id VARCHAR(100),
+        also_covered_by TEXT[],
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE news_items ADD COLUMN IF NOT EXISTS original_url TEXT;
+      ALTER TABLE news_items ADD COLUMN IF NOT EXISTS resolved_url TEXT;
+      ALTER TABLE news_items ADD COLUMN IF NOT EXISTS url_status VARCHAR(50) DEFAULT 'unverified';
+      ALTER TABLE news_items ADD COLUMN IF NOT EXISTS url_http_status INTEGER;
+      ALTER TABLE news_items ADD COLUMN IF NOT EXISTS url_last_verified_at TIMESTAMPTZ;
+      ALTER TABLE news_items ADD COLUMN IF NOT EXISTS redirect_count INTEGER DEFAULT 0;
+
+      CREATE INDEX IF NOT EXISTS idx_news_items_url_status ON news_items(url_status);
+
+      -- Purge fabricated demo seed stories with broken/unreachable URLs
+      DELETE FROM news_items WHERE id IN (
+        'news_featured_1', 
+        'news_video_1', 
+        'news_local_1', 
+        'news_podcast_1', 
+        'news_housing_1', 
+        'news_local_2'
+      );
+
+      -- Backfill existing valid rows with default URL integrity values if missing
+      UPDATE news_items 
+      SET 
+        original_url = COALESCE(original_url, source_url),
+        resolved_url = COALESCE(resolved_url, canonical_url, source_url),
+        url_status = 'valid',
+        url_last_verified_at = COALESCE(url_last_verified_at, NOW())
+      WHERE url_status = 'unverified' OR resolved_url IS NULL OR original_url IS NULL;
+
+      CREATE TABLE IF NOT EXISTS news_user_actions (
+        id VARCHAR(100) PRIMARY KEY,
+        user_id VARCHAR(100) NOT NULL,
+        item_id VARCHAR(100) NOT NULL,
+        action_type VARCHAR(50) NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- NORA Follow-Up Emails Ledger Table
+      CREATE TABLE IF NOT EXISTS nora_followup_emails (
+        id VARCHAR(100) PRIMARY KEY,
+        conversation_id VARCHAR(100) NOT NULL,
+        conversation_channel VARCHAR(50) NOT NULL DEFAULT 'voice',
+        idempotency_key VARCHAR(255) NOT NULL UNIQUE,
+        recipient_email VARCHAR(255) NOT NULL,
+        recipient_name VARCHAR(255) NOT NULL,
+        represented_agent_id VARCHAR(100),
+        caller_name VARCHAR(255),
+        caller_phone VARCHAR(50),
+        intent VARCHAR(100),
+        subject VARCHAR(255) NOT NULL,
+        body_text TEXT NOT NULL,
+        body_html TEXT NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        error_message TEXT,
+        message_id VARCHAR(100),
+        knowledge_assertion_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+        sop_codes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        resource_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+        warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        sent_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_nora_followup_conversation ON nora_followup_emails(conversation_id);
+      CREATE INDEX IF NOT EXISTS idx_nora_followup_recipient ON nora_followup_emails(recipient_email);
+      CREATE INDEX IF NOT EXISTS idx_nora_followup_status ON nora_followup_emails(status);
+
+      ALTER TABLE telephony_calls 
+      ADD COLUMN IF NOT EXISTS follow_up_email_id VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS follow_up_status VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS follow_up_sent_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS conversation_goal TEXT,
+      ADD COLUMN IF NOT EXISTS knowledge_used_summary JSONB DEFAULT '[]'::jsonb;
+
+      -- News editorial quality & destination accuracy columns
+      ALTER TABLE news_items
+        ADD COLUMN IF NOT EXISTS destination_accuracy VARCHAR(20) DEFAULT 'exact',
+        ADD COLUMN IF NOT EXISTS editorial_decision VARCHAR(30) DEFAULT 'publish',
+        ADD COLUMN IF NOT EXISTS editorial_rejection_reason VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS event_cluster_id VARCHAR(100);
+
+      CREATE INDEX IF NOT EXISTS idx_news_items_editorial_decision ON news_items (editorial_decision);
+      CREATE INDEX IF NOT EXISTS idx_news_items_destination_accuracy ON news_items (destination_accuracy);
+      CREATE INDEX IF NOT EXISTS idx_news_items_canonical_url ON news_items (canonical_url);
     `);
 
     // Sequentially execute the hardening migration
@@ -939,32 +1443,46 @@ export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Pr
 
   if (!state.directoryPeople || state.directoryPeople.length < 70) {
     try {
+      const targetWsId = (workspaceId === 'nest-realty-demo' || workspaceId === 'nest-realty-wilmington') ? 'ws_wilmington' : workspaceId;
       for (const person of NEST_FULL_ROSTER_72) {
         await pool.query(`
           INSERT INTO directory_people (
             id, workspace_id, first_name, last_name, display_name, email, phone,
-            title, role, person_type, primary_office_name, is_broker_in_charge, status, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+            title, role, person_type, office_ids, office_names, primary_office_id, primary_office_name,
+            is_broker_in_charge, status, tags, source, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
           ON CONFLICT (id) DO UPDATE SET
+            workspace_id = EXCLUDED.workspace_id,
             display_name = EXCLUDED.display_name,
             title = EXCLUDED.title,
             role = EXCLUDED.role,
             person_type = EXCLUDED.person_type,
+            office_ids = EXCLUDED.office_ids,
+            office_names = EXCLUDED.office_names,
+            primary_office_id = EXCLUDED.primary_office_id,
             primary_office_name = EXCLUDED.primary_office_name,
             is_broker_in_charge = EXCLUDED.is_broker_in_charge,
             status = EXCLUDED.status,
+            tags = EXCLUDED.tags,
+            source = EXCLUDED.source,
             updated_at = NOW();
         `, [
-          person.id, workspaceId, person.firstName, person.lastName, person.displayName,
+          person.id, targetWsId, person.firstName, person.lastName, person.displayName,
           person.email, person.phone, person.title, person.role, person.personType,
-          person.primaryOfficeName, person.isBrokerInCharge, person.status || 'active'
+          person.officeIds || ['mayfaire'], person.officeNames || ['Mayfaire'],
+          person.primaryOfficeId || 'mayfaire', person.primaryOfficeName || 'Mayfaire',
+          person.isBrokerInCharge || false, person.status || 'active',
+          person.tags || ['agent'], person.source || 'nest_2026_agents_sheet'
         ]);
       }
-      const reloaded = await pool.query('SELECT * FROM directory_people WHERE workspace_id = $1', [workspaceId]);
+      const reloaded = await pool.query(
+        'SELECT * FROM directory_people WHERE workspace_id = $1 OR workspace_id = \'ws_wilmington\'',
+        [workspaceId]
+      );
       state.directoryPeople = reloaded.rows.map(row => convertKeysToCamel(row));
     } catch (e) {
       console.error('Failed to seed DB directory_people:', e);
-      state.directoryPeople = NEST_FULL_ROSTER_72.map(p => ({ ...p, workspaceId }));
+      state.directoryPeople = NEST_FULL_ROSTER_72.map(p => ({ ...p, workspaceId: 'ws_wilmington' }));
     }
   }
 
@@ -1359,6 +1877,92 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
       }
     } catch (err) {
       console.error(`[Database] Error ensuring Super Admin ${sa.email}:`, err);
+    }
+  }
+}
+
+export const PILOT_TEAM_USERS = [
+  { id: 'usr_ryan', email: 'ryan@nestrealty.com', name: 'Ryan Crecelius', role: 'owner', password: 'Ih@tep@$$word$' },
+  { id: 'usr_matt_full', email: 'matt.orr@nestrealty.com', name: 'Matt Orr', role: 'bic', password: 'Ih@tep@$$word$' },
+  { id: 'usr_matt_nest', email: 'matt@nestrealty.com', name: 'Matt Orr', role: 'bic', password: 'Ih@tep@$$word$' },
+  { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', role: 'admin', password: 'shapework2026' },
+  { id: 'usr_marcus_nest', email: 'marcus@nestrealty.com', name: 'Marcus Aman', role: 'admin', password: 'Ih@tep@$$word$' },
+  { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus Aman', role: 'admin', password: 'shapework2026' },
+  { id: 'usr_marcus_ai', email: 'marcus@capefearai.com', name: 'Marcus Aman', role: 'admin', password: 'Ih@tep@$$word$' },
+  { id: 'usr_admin', email: 'admin@shapework.co', name: 'Platform Admin', role: 'admin', password: 'shapework2026' },
+  { id: 'usr_adam', email: 'adam@shapework.co', name: 'Adam', role: 'admin', password: 'shapework2026' },
+  { id: 'usr_melissa_mg', email: 'mg@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_melissa', email: 'melissa@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_melissa_full', email: 'melissa.gagliardi@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_ann', email: 'ann@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', password: 'Ih@tep@$$word$' },
+  { id: 'usr_ann_full', email: 'ann.gunn@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', password: 'Ih@tep@$$word$' },
+  { id: 'usr_james', email: 'james@nestrealty.com', name: 'James Fort', role: 'transaction_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_james_full', email: 'james.fort@nestrealty.com', name: 'James Fort', role: 'transaction_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_eric', email: 'eric@nestrealty.com', name: 'Eric Knight', role: 'bic', password: 'Ih@tep@$$word$' },
+  { id: 'usr_eric_full', email: 'eric.knight@nestrealty.com', name: 'Eric Knight', role: 'bic', password: 'Ih@tep@$$word$' },
+  { id: 'usr_jessica_full', email: 'jessica.keenan@nestrealty.com', name: 'Jessica Keenan', role: 'bic', password: 'Ih@tep@$$word$' },
+  { id: 'usr_jessica', email: 'jessica@nestrealty.com', name: 'Jessica Keenan', role: 'bic', password: 'Ih@tep@$$word$' },
+  { id: 'usr_eduardo_full', email: 'eduardo.lovo@nestrealty.com', name: 'Eduardo Lovo', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_eduardo', email: 'eduardo@nestrealty.com', name: 'Eduardo Lovo', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_asknora', email: 'asknora@nestrealty.com', name: 'Nora Operations Assistant', role: 'operations_lead', password: 'Ih@tep@$$word$' },
+  { id: 'usr_asknora_dash', email: 'ask-nora@nestrealty.com', name: 'Nora Operations Assistant', role: 'operations_lead', password: 'Ih@tep@$$word$' }
+];
+
+export async function ensurePilotUsersExist(pool: pg.Pool) {
+  for (const pu of PILOT_TEAM_USERS) {
+    try {
+      const userRes = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [pu.email.trim()]);
+      let userId = pu.id;
+      const pwdHash = hashPassword(pu.password);
+
+      if (userRes.rows.length === 0) {
+        await pool.query(
+          'INSERT INTO users (id, email, name, password_hash, status) VALUES ($1, $2, $3, $4, $5)',
+          [userId, pu.email.toLowerCase().trim(), pu.name, pwdHash, 'active']
+        );
+        console.log(`[Database] Seeded Pilot User: ${pu.email} (${pu.name})`);
+      } else {
+        userId = userRes.rows[0].id;
+        await pool.query(
+          'UPDATE users SET password_hash = $1, status = $2, name = $3 WHERE id = $4',
+          [pwdHash, 'active', pu.name, userId]
+        );
+      }
+
+      const targetWorkspaces = ['ws_wilmington', 'nest-realty-demo', 'nest-realty-wilmington'];
+      for (const wsId of targetWorkspaces) {
+        const wsRes = await pool.query('SELECT 1 FROM workspaces WHERE id = $1', [wsId]);
+        if (wsRes.rows.length > 0) {
+          const memRes = await pool.query(
+            'SELECT 1 FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2',
+            [wsId, userId]
+          );
+          const permissions = [
+            'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
+            'view_compliance', 'manage_compliance', 'approve_actions', 'manage_integrations',
+            'manage_users', 'configure_routing', 'view_audit', 'export_audit',
+            'manage_workspace', 'directory.read', 'directory.manage', 'directory.sync',
+            'org_chart.read', 'org_chart.write', 'org_chart.audit.read',
+            'sops.read', 'sops.write', 'sops.delete',
+            'owner_digest.read', 'owner_digest.configure',
+            'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
+            'contract_authoring', 'marketing.campaign.read_all', 'marketing.campaign.create', 'marketing.campaign.approve', 'marketing.campaign.export', 'marketing.ask'
+          ];
+          if (memRes.rows.length === 0) {
+            await pool.query(
+              'INSERT INTO workspace_memberships (id, workspace_id, user_id, role, permissions) VALUES ($1, $2, $3, $4, $5)',
+              [`m_${userId}_${wsId}`, wsId, userId, pu.role, permissions]
+            );
+          } else {
+            await pool.query(
+              'UPDATE workspace_memberships SET role = $1, permissions = $2 WHERE workspace_id = $3 AND user_id = $4',
+              [pu.role, permissions, wsId, userId]
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[Database] Error ensuring Pilot User ${pu.email}:`, err);
     }
   }
 }

@@ -485,7 +485,7 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
       expect(serverRes).toBeDefined();
 
       // Parity check: Server answers appropriately and does not contradict client
-      const spoken = serverRes.spokenAnswer || serverRes.spokenResponse || '';
+      const spoken = serverRes.spokenAnswer || (serverRes as any).spokenResponse || '';
       expect(spoken.toLowerCase()).toContain(tc.expectedPhrase.toLowerCase());
     }
   });
@@ -520,5 +520,62 @@ describe('NORA Voice Turn-Taking, Multi-Segment Aggregation & Endpointing Suite'
     const history = VoiceDiagnostics.getHistory();
     const commits = history.filter(h => h.type === 'turn_committed');
     expect(commits.length).toBe(1);
+  });
+
+  // TEST 13: Microphone turns off and stays idle after assistant finishes speaking
+  it('Test 13: Microphone turns off completely and status returns to idle after assistant finishes speaking', async () => {
+    const statusChanges: string[] = [];
+    setupMockSpeechRecognition();
+
+    const pipeline = new VoicePipeline({
+      onStatusChange: (status) => statusChanges.push(status),
+      onTranscriptReceived: () => {},
+      onFrequencyUpdate: () => {}
+    });
+
+    pipeline.startListening();
+    expect(statusChanges).toContain('listening');
+
+    // Simulate speaking response
+    let onEndedCb: any = null;
+    const mockAudio = {
+      play: vi.fn().mockImplementation(function() {
+        setTimeout(() => {
+          if (mockAudio.onended) mockAudio.onended();
+        }, 20);
+        return Promise.resolve();
+      }),
+      pause: vi.fn(),
+      currentTime: 0,
+      onended: null as any,
+      onerror: null as any
+    };
+
+    // Mock fetch for TTS
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['audio'], { type: 'audio/mpeg' }))
+    } as any);
+
+    // Mock URL.createObjectURL
+    global.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-audio');
+
+    // Mock Audio constructor
+    (global as any).Audio = vi.fn().mockImplementation(function() { return mockAudio; });
+
+    const speakPromise = pipeline.speakText('Here is the policy for earnest money deposits.');
+    expect(statusChanges).toContain('speaking');
+
+    await vi.advanceTimersByTimeAsync(100);
+    await speakPromise;
+
+    // After speech completes, status must be idle and listening must NOT auto-restart
+    expect(pipeline.isListening()).toBe(false);
+    expect(statusChanges[statusChanges.length - 1]).toBe('idle');
+
+    // Advance more time to ensure no delayed restart occurs
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(pipeline.isListening()).toBe(false);
+    expect(statusChanges[statusChanges.length - 1]).toBe('idle');
   });
 });

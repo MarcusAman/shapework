@@ -36,7 +36,7 @@ const initialEscalations: EscalationItem[] = [
     type: 'Legal Risk',
     record: 'Colonial Ave Land Survey',
     details: 'Neighboring tract owner has formally disputed property boundary lines prior to title insurance underwriting. Closing day at risk.',
-    raisedBy: 'Sarah Jenkins (Compliance Partner)',
+    raisedBy: 'Jessica Keenan (Compliance Partner)',
     age: '5 hours ago',
     actionTaken: false
   },
@@ -45,7 +45,7 @@ const initialEscalations: EscalationItem[] = [
     type: 'Partnership / Growth Proposal',
     record: 'Evergreen Title Co. Integration',
     details: 'Proposal to integrate preferred escrow API in exchange for 10% compliance credit reduction. Requires Owner approval.',
-    raisedBy: 'Sarah Jenkins (Compliance Partner)',
+    raisedBy: 'Jessica Keenan (Compliance Partner)',
     age: '1 day ago',
     actionTaken: false
   },
@@ -54,7 +54,7 @@ const initialEscalations: EscalationItem[] = [
     type: 'Agent Relationship Issue',
     record: 'Todd Howard Compliance Warnings',
     details: 'Todd Howard has failed to respond to three separate automated pre-approval document warnings. Brokerage policy escalation.',
-    raisedBy: 'Sarah Jenkins (Compliance Partner)',
+    raisedBy: 'Jessica Keenan (Compliance Partner)',
     age: '1 day ago',
     actionTaken: false
   }
@@ -85,7 +85,7 @@ const routedLog = [
   {
     id: 'route_4',
     message: 'Where do we download the new MLS agent agreement PDF template?',
-    from: 'Sarah Jenkins',
+    from: 'Jessica Keenan',
     action: 'Emailed document link',
     reason: 'Form Rule: Standard contract files automated by Resource Assistant.'
   }
@@ -158,7 +158,7 @@ export default function OwnerShield() {
           <div>
             <span className="text-[10px] text-text-tertiary font-bold tracking-wider uppercase block">Routine Tasks Routed</span>
             <strong className="text-xl font-bold text-text-primary block leading-tight">{stats.requestsRouted}</strong>
-            <span className="text-[8px] text-text-secondary font-medium block mt-0.5">Emma Watson / Sarah Jenkins / Vendors</span>
+            <span className="text-[8px] text-text-secondary font-medium block mt-0.5">Emma Watson / Jessica Keenan / Vendors</span>
           </div>
         </div>
 

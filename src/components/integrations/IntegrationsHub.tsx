@@ -993,7 +993,7 @@ export default function IntegrationsHub({
       <div className="bg-amber-50 border border-amber-200/50 rounded-2xl p-4 flex gap-3 items-start select-none">
         <Info className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <span className="font-bold text-amber-950 text-xs block">Support Boundary & SLA Limits</span>
+          <span className="font-bold text-amber-950 text-xs block">Support Boundary &amp; Service Promises</span>
           <p className="text-[11px] text-amber-800 leading-relaxed">
             shapework. supports the custom workspace dashboards, routing logic, and outbox approvals configured for your team. 
             Service outages or data syncing errors on connected third-party systems (such as Rechat, Dotloop, or Gmail) 

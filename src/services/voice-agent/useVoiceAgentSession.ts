@@ -11,7 +11,8 @@ import { VoicePipeline, TranscriptPayload } from './voicePipeline';
 import { processUserUtterance } from './transcriptRouter';
 import { AgentPersonaConfig, noraNestOpsConfig } from './agentPromptSpec';
 import { VoiceDiagnostics } from './voiceDiagnostics';
-import { AudioPlaybackManager } from './audioPlaybackManager';
+import { AudioPlaybackManager, selectCognitiveNoiseForQuery } from './audioPlaybackManager';
+import { triggerConfettiBurst } from '../../utils/confetti';
 
 export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNestOpsConfig, userName: string = 'Ryan') {
   const [state, dispatch] = useReducer(agentRuntimeReducer, {
@@ -51,32 +52,24 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
 
     const targetUttId = utteranceId || ('utt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
-    // Cancel any previous in-flight request for superseded turns
-    if (activeAbortControllerRef.current) {
-      activeAbortControllerRef.current.abort();
-      VoiceDiagnostics.log('backend_request_aborted', activeTurnIdRef.current || undefined, 'Superseded by new turn');
-    }
-    const abortController = new AbortController();
-    activeAbortControllerRef.current = abortController;
-    activeTurnIdRef.current = targetUttId;
-
-    // Idempotency Check — Suppress Duplicate Turns
+    // 0. Deduplication Guard
     if (processedUtteranceIdsRef.current.has(targetUttId)) {
-      VoiceDiagnostics.log('duplicate_turn_suppressed', targetUttId, utterance);
+      VoiceDiagnostics.log('duplicate_ignored', targetUttId, 'Duplicate utteranceId');
       return;
     }
     processedUtteranceIdsRef.current.add(targetUttId);
+    activeTurnIdRef.current = targetUttId;
 
-    VoiceDiagnostics.log('turn_dispatch_started', targetUttId, `${source}: ${utterance}`);
+    // Abort any prior in-flight query fetch to maintain strict turn ownership
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    activeAbortControllerRef.current = abortController;
 
-    // Clear ephemeral interim text upon turn commit
-    dispatch({ type: 'CLEAR_INTERIM_TRANSCRIPT' });
+    const cleanUtterance = utterance.trim();
+    if (!cleanUtterance) return;
 
-    const cleanUtterance = utterance
-      .replace(/^(hey|hi)\s+nest,?\s*/i, '')
-      .replace(/^(hey|hi)\s+nora,?\s*/i, '')
-      .replace(/^ask\s+nora,?\s*/i, '')
-      .trim() || utterance;
     let result = processUserUtterance(utterance, stateRef.current, userName, targetUttId);
 
     VoiceDiagnostics.log('intent_selected', targetUttId, `Intent: ${result.intentType} | Category: ${result.category}`);
@@ -94,65 +87,96 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
     dispatch({ type: 'ADD_TRANSCRIPT', payload: { sender: 'user', text: cleanUtterance } });
     dispatch({ type: 'SET_STATUS', payload: 'thinking' });
 
+    // 3. Cognitive Noise & Deliberation Pacing:
+    // Only applied on the initial voice turn; subsequent turns load cleanly and instantly without sound loops.
+    const userTurnCount = (stateRef.current.transcriptHistory.filter(m => m.sender === 'user').length);
+    const isFirstUserTurn = userTurnCount <= 1;
+
+    const chosenNoise = selectCognitiveNoiseForQuery(cleanUtterance);
+    const noisePromise = (!isSpeakerMutedRef.current && isFirstUserTurn && source === 'voice') 
+      ? AudioPlaybackManager.playCognitiveNoise(chosenNoise, 3)
+      : Promise.resolve();
+
+    // No artificial delay for subsequent turns or text chat; respond in real-time
+    const deliberationPacingPromise = (isFirstUserTurn && source === 'voice')
+      ? new Promise(resolve => setTimeout(resolve, 1000))
+      : Promise.resolve();
+
     let spokenText = result.spokenResponse;
     let displayText = result.displayResponse;
+    let apiData: any = null;
 
-    // Call unified context query backend endpoint with multi-turn session memory
-    try {
-      VoiceDiagnostics.log('backend_request_started', targetUttId, `POST /api/voice-agent/context-query: "${cleanUtterance}"`);
-      const apiRes = await fetch('/api/voice-agent/context-query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: abortController.signal,
-        body: JSON.stringify({ 
-          message: cleanUtterance,
-          sessionId: 'session-voice-agent',
-          source,
-          conversationHistory: stateRef.current.transcriptHistory,
-          utteranceId: targetUttId,
-          sessionMemory: sessionMemoryRef.current
-        })
-      });
+    // 5. Query Unified Grounding Engine in Parallel
+    const fetchPromise = (async () => {
+      try {
+        VoiceDiagnostics.log('backend_request_started', targetUttId, `POST /api/voice-agent/context-query: "${cleanUtterance}"`);
+        const sessionToken = typeof window !== 'undefined' ? (localStorage.getItem('shapework_session_token') || localStorage.getItem('token') || '') : '';
+        const apiRes = await fetch('/api/voice-agent/context-query', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-workspace-id': 'nest-realty-demo',
+            'x-user-role': 'regional_leader',
+            'x-user-email': 'ryan@nestrealty.com',
+            ...(sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : { 'Authorization': `Bearer ryan@nestrealty.com` })
+          },
+          credentials: 'include',
+          signal: abortController.signal,
+          body: JSON.stringify({ 
+            message: cleanUtterance,
+            sessionId: 'session-voice-agent',
+            source,
+            conversationHistory: stateRef.current.transcriptHistory,
+            utteranceId: targetUttId,
+            sessionMemory: sessionMemoryRef.current
+          })
+        });
 
-      // Guard: Check if turn was superseded during fetch
-      if (activeTurnIdRef.current !== targetUttId) {
-        VoiceDiagnostics.log('response_suppressed', targetUttId, 'Turn was superseded during network roundtrip');
-        return;
+        // Guard: Check if turn was superseded during fetch
+        if (activeTurnIdRef.current !== targetUttId) {
+          VoiceDiagnostics.log('response_suppressed', targetUttId, 'Turn was superseded during network roundtrip');
+          return;
+        }
+
+        if (apiRes.ok) {
+          apiData = await apiRes.json();
+          VoiceDiagnostics.log('assistant_response_received', targetUttId, apiData.spokenResponse || apiData.spokenAnswer);
+
+          if (apiData.updatedMemory) {
+            sessionMemoryRef.current = apiData.updatedMemory;
+          }
+
+          if (apiData.spokenResponse || apiData.spokenAnswer) {
+            spokenText = apiData.spokenResponse || apiData.spokenAnswer;
+          }
+          if (apiData.displayResponse) {
+            displayText = apiData.displayResponse;
+          } else {
+            displayText = spokenText;
+          }
+          if (apiData.evidenceCard) {
+            result.actionCard = apiData.evidenceCard;
+          }
+          if (apiData.matchedItems && Array.isArray(apiData.matchedItems)) {
+            setActiveMatchedItems(apiData.matchedItems);
+          } else if (result.matchedItems && Array.isArray(result.matchedItems)) {
+            setActiveMatchedItems(result.matchedItems);
+          }
+          VoiceDiagnostics.log('response_accepted', targetUttId, displayText);
+        }
+      } catch (e: any) {
+        if (e?.name === 'AbortError') {
+          VoiceDiagnostics.log('backend_request_aborted', targetUttId, 'Fetch aborted by AbortController');
+          return;
+        }
+        console.warn('[Unified Context Query Warning]:', e);
       }
+    })();
 
-      if (apiRes.ok) {
-        const apiData = await apiRes.json();
-        VoiceDiagnostics.log('assistant_response_received', targetUttId, apiData.spokenResponse || apiData.spokenAnswer);
+    // Await backend data, sound playback (up to 5s), AND minimum deliberation pacing (3.3s)
+    await Promise.all([fetchPromise, noisePromise, deliberationPacingPromise]);
 
-        if (apiData.updatedMemory) {
-          sessionMemoryRef.current = apiData.updatedMemory;
-        }
-
-        if (apiData.spokenResponse || apiData.spokenAnswer) {
-          spokenText = apiData.spokenResponse || apiData.spokenAnswer;
-        }
-        if (apiData.displayResponse) {
-          displayText = apiData.displayResponse;
-        } else {
-          displayText = spokenText;
-        }
-        if (apiData.evidenceCard) {
-          result.actionCard = apiData.evidenceCard;
-        }
-        if (apiData.matchedItems && Array.isArray(apiData.matchedItems)) {
-          setActiveMatchedItems(apiData.matchedItems);
-        }
-        VoiceDiagnostics.log('response_accepted', targetUttId, displayText);
-      }
-    } catch (e: any) {
-      if (e?.name === 'AbortError') {
-        VoiceDiagnostics.log('backend_request_aborted', targetUttId, 'Fetch aborted by AbortController');
-        return;
-      }
-      console.warn('[Unified Context Query Warning]:', e);
-    }
-
-    // Secondary turn check after body parsing
+    // Secondary turn check after body parsing and sound playback
     if (activeTurnIdRef.current !== targetUttId) {
       VoiceDiagnostics.log('response_suppressed', targetUttId, 'Turn superseded after parsing');
       return;
@@ -170,12 +194,38 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
       dispatch({ type: 'REJECT_PROPOSAL' });
     }
 
-    dispatch({ type: 'ADD_TRANSCRIPT', payload: { sender: 'agent', text: displayText } });
+    const turnMatchedItems = (apiData && Array.isArray(apiData.matchedItems) && apiData.matchedItems.length > 0)
+      ? apiData.matchedItems
+      : (result.matchedItems || []);
+
+    // 5. Deliver Nora's Grounded Results & Trigger Confetti Pop
+    dispatch({ 
+      type: 'ADD_TRANSCRIPT', 
+      payload: { 
+        sender: 'agent', 
+        text: displayText,
+        matchedItems: turnMatchedItems,
+        relatedSop: apiData?.relatedSop || null,
+        reasoningSteps: apiData?.reasoningSteps || (result as any)?.reasoningSteps || undefined,
+        thoughtDurationMs: apiData?.thoughtDurationMs || 1050,
+        actions: apiData?.suggestedActions || apiData?.actions || undefined,
+        intentType: apiData?.status || result.intentType,
+        meetingWizard: apiData?.meetingWizard || result.meetingWizard || undefined
+      } 
+    });
+
+    // Joyful confetti pop on first initial turn only
+    if (isFirstUserTurn) {
+      triggerConfettiBurst();
+    }
 
     // Voice input automatically triggers ElevenLabs TTS playback
     if (source === 'voice' && pipelineRef.current && !isSpeakerMutedRef.current) {
       await pipelineRef.current.speakText(spokenText, targetUttId);
     } else {
+      if (pipelineRef.current) {
+        pipelineRef.current.stopListening();
+      }
       dispatch({ type: 'SET_STATUS', payload: 'idle' });
     }
   }, [userName]);
@@ -219,6 +269,12 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
       pipeline.destroy();
     };
   }, [processUtterance]);
+
+  const setMediaStream = useCallback((stream: MediaStream) => {
+    if (pipelineRef.current) {
+      pipelineRef.current.setMediaStream(stream);
+    }
+  }, []);
 
   const listen = useCallback(() => {
     if (pipelineRef.current) {
@@ -282,20 +338,9 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
   const STORAGE_KEY = 'nest_ops_nora_history';
 
   // Hydrate history from localStorage on initial mount
+  // Start with clean transcript history on initial mount unless explicitly requested
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            dispatch({ type: 'LOAD_TRANSCRIPTS', payload: parsed });
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[useVoiceAgentSession] Failed to load history from localStorage:', e);
-    }
+    // Fresh session on mount
   }, []);
 
   // Synchronize history to localStorage whenever transcriptHistory updates
@@ -367,6 +412,7 @@ export function useVoiceAgentSession(personaConfig: AgentPersonaConfig = noraNes
     confirmProposal,
     rejectProposal,
     toggleMicMute,
-    toggleSpeakerMute
+    toggleSpeakerMute,
+    setMediaStream
   };
 }

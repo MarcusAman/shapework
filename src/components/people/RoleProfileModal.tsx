@@ -71,9 +71,6 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
     setRoleDesc('');
   }, [person, workspaceId, isOpen]);
 
-  if (!isOpen) return null;
-  if (typeof window === 'undefined') return null;
-
   // Retrieve org chart model to get position, roles, sops, etc.
   const orgModel = orgChartService.getOrgChart(workspaceId);
   const position = orgModel.positions.find(
@@ -144,10 +141,11 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
         department: person.personType === 'agent' ? 'Sales' : 'Operations',
         office: person.primaryOfficeName || 'Wilmington',
         status: 'active',
-        isVacant: false,
         connectedTools: [],
         sopIds: [],
-        roleIds: []
+        roleIds: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
       model.positions.push(pos);
     }
@@ -253,14 +251,14 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
           id: s.id,
           title: s.name,
           type: 'sop' as const,
-          summary: s.summary,
+          summary: (s as any).summary || s.aiSummary || '',
           trigger: s.trigger
         })),
         ...docs.map(d => ({
           id: d.id,
           title: d.title,
           type: 'knowledge' as const,
-          summary: d.summary
+          summary: (d as any).summary || d.aiSummary || ''
         }))
       ],
       backupCoverage: rawCoverage
@@ -275,15 +273,15 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
     const filename = `${cleanName || 'Role'}_Role_Profile.pdf`;
 
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: 0,
       filename,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
         scale: 2, 
-        useCORS: true,
+        useCORS: true, 
         backgroundColor: '#ffffff'
       },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' as const }
     };
 
     try {
@@ -301,6 +299,8 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
       return () => clearTimeout(timer);
     }
   }, [isOpen, autoDownloadPDF]);
+
+  if (!isOpen || typeof window === 'undefined') return null;
 
   const hasSops = sops.length > 0 || docs.length > 0;
   const hasBackups = backupCoverageItems.length > 0;

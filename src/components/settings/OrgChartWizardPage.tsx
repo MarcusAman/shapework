@@ -70,6 +70,10 @@ export function OrgAvatar({ name, avatarUrl, avatarCrop, size = 40, className = 
         <img
           src={avatarUrl}
           alt={`${name} profile image`}
+          width={size}
+          height={size}
+          loading="lazy"
+          decoding="async"
           onError={() => setImgError(true)}
           style={{
             position: 'absolute',
@@ -334,9 +338,10 @@ interface OrgChartWizardPageProps {
   state: any;
   fullPage?: boolean;
   embeddedTab?: 'visual' | 'guided' | 'routing';
+  onSelectPosition?: (pos: OrgPosition) => void;
 }
 
-export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgChartWizardPageProps) {
+export default function OrgChartWizardPage({ onClose, state, embeddedTab, onSelectPosition }: OrgChartWizardPageProps) {
   const workspaceId = state.workspaceId || 'nest-realty-demo';
   const workspaceName = workspaceId === 'nest-realty-demo' ? 'Nest Realty' : 'Workspace';
 
@@ -832,13 +837,38 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       }, 50);
       const timer2 = setTimeout(() => {
         handleFitView();
-      }, 250);
+      }, 200);
+      const timer3 = setTimeout(() => {
+        handleFitView();
+      }, 500);
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
+        clearTimeout(timer3);
       };
     }
   }, [activeTab, activeViewMode, showAgents, model.positions.length]);
+
+  // ResizeObserver to ensure canvas fits immediately once dimensions are measured
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+
+    let hasInitiallyFitted = false;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          if (!hasInitiallyFitted) {
+            hasInitiallyFitted = true;
+            handleFitView();
+          }
+        }
+      }
+    });
+
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [model.positions.length]);
 
   // Synchronize coordinates for roles, SOPs, escalations, logic nodes if they don't have them in Workflow mode
   useEffect(() => {
@@ -1591,20 +1621,20 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
     const posEscalations = model.escalationPolicies.filter(e => e.fromPositionId === activePos.id || e.escalateToPositionId === activePos.id);
 
     return (
-      <div className="flex-grow flex min-h-0 bg-[#013028] text-white font-sans w-full">
+      <div className="flex-grow flex min-h-0 bg-[var(--sw-canvas)] text-[var(--sw-text-primary)] font-sans w-full">
         {/* Left Side Position Selector Column */}
-        <div className="w-72 border-r border-white/10 bg-[#012620]/75 flex flex-col min-h-0 shrink-0">
-          <div className="p-4 border-b border-white/5 space-y-2">
-            <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-[#D0D6BB]/60 text-left">Select Position</h4>
+        <div className="w-72 border-r border-stone-200 bg-white flex flex-col min-h-0 shrink-0">
+          <div className="p-4 border-b border-stone-100 space-y-2">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-stone-500 text-left">Select Position</h4>
             <div className="relative">
               <input
                 type="text"
                 placeholder="filter seats..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 pl-7 text-[11px] text-white focus:outline-none focus:border-emerald-500 lowercase"
+                className="w-full bg-stone-50 border border-stone-200 rounded-lg px-2.5 py-1.5 pl-7 text-[11px] text-stone-900 focus:outline-none focus:border-[#00635C] lowercase placeholder-stone-400"
               />
-              <Search className="w-3 h-3 text-[#D0D6BB]/50 absolute left-2.5 top-2.5" />
+              <Search className="w-3 h-3 text-stone-400 absolute left-2.5 top-2.5" />
             </div>
           </div>
           <div className="flex-grow overflow-y-auto p-2 space-y-1">
@@ -1947,51 +1977,56 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       const posSops = model.sops.filter(s => s.ownerPositionId === pos.id);
       const posKbs = model.knowledgeDocuments?.filter(d => d.ownerPositionId === pos.id) || [];
       const backupName = model.positions.find(p => p.id === pos.backupPositionId)?.name || 'None';
-      const backupForPositions = model.positions.filter(p => p.backupPositionId === pos.id);
+      const backupPositions = model.positions.filter(p => p.backupPositionId === pos.id);
       const backupRoles = model.roles.filter(r => r.backupOwnerPositionId === pos.id);
       const backupSops = model.sops.filter(s => s.backupPositionId === pos.id);
       const backupRouting = (model.routingMatrix || []).filter(r => r.backupOwnerPositionId === pos.id);
-      const backupPositions = model.positions.filter(p => p.backupPositionId === pos.id);
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+        <div className="w-84 md:w-96 border-l border-[#E4DCCB] bg-[#FFFDF7] p-5 md:p-6 flex flex-col gap-4 shrink-0 text-[#1E2520] font-sans overflow-y-auto inspector-panel-container shadow-[-8px_0_24px_rgba(55,47,35,0.06)] z-20">
+          <div className="flex justify-between items-center border-b border-[#E4DCCB] pb-3">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400">Position Node</span>
-              <h3 className="text-sm font-bold truncate max-w-[200px]">{pos.name}</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#00635C] bg-[#00635C]/10 px-2 py-0.5 rounded-md inline-block">
+                Position Node
+              </span>
+              <h3 className="text-base font-bold text-[#1E2520] truncate max-w-[220px] mt-1">{pos.name}</h3>
             </div>
-            <button onClick={() => setSelectedElement(null)} className="text-[#D0D6BB]/50 hover:text-white transition-colors cursor-pointer">
+            <button 
+              onClick={() => setSelectedElement(null)} 
+              className="p-1.5 rounded-lg text-[#68736A] hover:text-[#1E2520] hover:bg-[#E4DCCB]/40 transition-colors cursor-pointer"
+              title="Close panel"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-3.5 text-xs text-left">
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Full Name</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Full Name</label>
               <input
                 type="text"
                 value={pos.name}
                 onChange={e => handleUpdateElementInline('name', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Seat Title</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Seat Title</label>
               <input
                 type="text"
                 value={pos.title}
                 onChange={e => handleUpdateElementInline('title', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Seat Status</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Seat Status</label>
               <select
                 value={pos.status || 'active'}
                 onChange={e => handleUpdateElementInline('status', e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
               >
                 <option value="active">Active Seat</option>
                 <option value="open">Open / Vacant</option>
@@ -2004,21 +2039,21 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Department</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Department</label>
               <input
                 type="text"
                 value={pos.department || ''}
                 onChange={e => handleUpdateElementInline('department', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Reports To</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Reports To</label>
               <select
                 value={pos.reportsToPositionId || ''}
                 onChange={e => handleUpdateElementInline('reportsToPositionId', e.target.value || undefined)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
               >
                 <option value="">(None - Top Level)</option>
                 {model.positions.filter(p => p.id !== pos.id).map(p => (
@@ -2028,11 +2063,11 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             </div>
             
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Backup Seat Owner</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Backup Seat Owner</label>
               <select
                 value={pos.backupPositionId || ''}
                 onChange={e => handleUpdateElementInline('backupPositionId', e.target.value || undefined)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
               >
                 <option value="">(None)</option>
                 {model.positions.filter(p => p.id !== pos.id).map(p => (
@@ -2041,51 +2076,52 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
               </select>
             </div>
 
-            <div className="space-y-1.5 pt-2">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Calculated Backup</span>
-              <div className="px-3 py-2 bg-black/30 border border-white/5 rounded-lg text-emerald-400 font-bold">
-                {backupName}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Calculated Backup</span>
+              <div className="px-3.5 py-2.5 bg-emerald-50/90 border border-emerald-200 rounded-xl text-[#00635C] font-bold text-xs flex items-center justify-between shadow-xs">
+                <span>{backupName}</span>
+                <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded">Active</span>
               </div>
             </div>
 
-            <div className="space-y-1.5 pt-2">
+            <div className="space-y-2 pt-2 border-t border-[#E4DCCB]">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">Assigned Roles</span>
+                <span className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Assigned Roles</span>
                 <button
                   type="button"
                   onClick={() => openAddDrawer('role')}
-                  className="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded text-[9px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-2 py-0.5 bg-[#00635C]/10 hover:bg-[#00635C]/20 text-[#00635C] border border-[#00635C]/20 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus className="w-2.5 h-2.5" />
                   <span>Add</span>
                 </button>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {posRoles.map(r => (
-                  <div key={r.id} className="p-2.5 bg-black/20 border border-white/5 rounded-xl text-left">
-                    <div className="font-bold text-teal-300 text-[11px]">{r.name}</div>
-                    <div className="text-[10px] text-[#D0D6BB]/70 mt-0.5 line-clamp-2 leading-relaxed">{r.description}</div>
+                  <div key={r.id} className="p-3 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-left hover:border-[#00635C]/50 transition-colors shadow-xs">
+                    <div className="font-bold text-[#00635C] text-xs">{r.name}</div>
+                    {r.description && <div className="text-[11px] text-[#68736A] mt-0.5 line-clamp-2 leading-relaxed">{r.description}</div>}
                   </div>
                 ))}
                 {posRoles.length === 0 && (
-                  <span className="text-[10px] text-[#D0D6BB]/40 italic block">No roles assigned.</span>
+                  <span className="text-[11px] text-[#68736A] italic block p-2 bg-[#FBF8F0] rounded-xl border border-dashed border-[#E4DCCB] text-center">No roles assigned.</span>
                 )}
               </div>
             </div>
 
-            <div className="space-y-1.5 pt-2">
+            <div className="space-y-2 pt-2 border-t border-[#E4DCCB]">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/50 block">SOPs & Knowledge Bases</span>
+                <span className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">SOPs & Knowledge Bases</span>
                 <button
                   type="button"
                   onClick={() => openAddDrawer('sop')}
-                  className="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded text-[9px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-2 py-0.5 bg-[#00635C]/10 hover:bg-[#00635C]/20 text-[#00635C] border border-[#00635C]/20 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus className="w-2.5 h-2.5" />
                   <span>Add</span>
                 </button>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {posSops.map(s => (
                   <button
                     key={s.id}
@@ -2094,30 +2130,30 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                       setSelectedSopForModal(s);
                       setSopModalOpen(true);
                     }}
-                    className="w-full text-left p-2.5 bg-black/20 hover:bg-emerald-500/10 border border-white/5 hover:border-emerald-500/30 rounded-xl transition-all cursor-pointer block"
+                    className="w-full text-left p-3 bg-[#FBF8F0] hover:bg-emerald-50/50 border border-[#E4DCCB] hover:border-[#00635C]/40 rounded-xl transition-all cursor-pointer block shadow-xs group"
                   >
-                    <div className="font-bold text-green-300 text-[11px] hover:underline">{s.name}</div>
-                    <div className="text-[9px] text-[#D0D6BB]/60 mt-0.5">Trigger: {s.trigger}</div>
-                    <span className="text-[8px] text-green-400 font-mono block mt-1 uppercase">Click to read document</span>
+                    <div className="font-bold text-[#00635C] text-xs group-hover:underline">{s.name}</div>
+                    <div className="text-[10px] text-[#68736A] mt-0.5">Trigger: {s.trigger}</div>
+                    <span className="text-[9px] text-[#00635C] font-semibold block mt-1 uppercase">Click to read document →</span>
                   </button>
                 ))}
                 {posKbs.map(d => (
-                  <div key={d.id} className="p-2.5 bg-black/20 border border-white/5 rounded-xl text-left">
-                    <div className="font-bold text-sky-300 text-[11px]">{d.title}</div>
-                    <div className="text-[9px] text-[#D0D6BB]/65 mt-0.5">File: {d.fileName} ({d.documentType})</div>
-                    {d.aiSummary && <div className="text-[9px] text-[#D0D6BB]/40 mt-1 italic">{d.aiSummary}</div>}
+                  <div key={d.id} className="p-3 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-left shadow-xs">
+                    <div className="font-bold text-sky-800 text-xs">{d.title}</div>
+                    <div className="text-[10px] text-[#68736A] mt-0.5">File: {d.fileName} ({d.documentType})</div>
+                    {d.aiSummary && <div className="text-[10px] text-[#68736A] mt-1 italic">{d.aiSummary}</div>}
                   </div>
                 ))}
                 {posSops.length === 0 && posKbs.length === 0 && (
-                  <span className="text-[10px] text-[#D0D6BB]/40 italic block">No SOPs or Knowledge bases documented.</span>
+                  <span className="text-[11px] text-[#68736A] italic block p-2 bg-[#FBF8F0] rounded-xl border border-dashed border-[#E4DCCB] text-center">No SOPs or Knowledge bases documented.</span>
                 )}
               </div>
             </div>
 
             {/* Unified Backup Coverage & Responsibilities */}
-            <div className="space-y-1.5 pt-2 border-t border-white/5">
+            <div className="space-y-2 pt-2 border-t border-[#E4DCCB]">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400 block font-bold">Backup Coverage</span>
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block font-bold">Backup Coverage</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -2126,45 +2162,45 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     setDrawerMode('edit');
                     setDrawerOpen(true);
                   }}
-                  className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded text-[9px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-md text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Plus className="w-2.5 h-2.5" />
-                  <span>Add</span>
+                  <span>Edit</span>
                 </button>
               </div>
               <div className="space-y-1.5">
                 {backupPositions.map(bp => (
-                  <div key={bp.id} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
-                    <span className="font-bold text-amber-300">Seat Backup for:</span> <span className="text-white">{bp.name} ({bp.title})</span>
+                  <div key={bp.id} className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-left text-xs">
+                    <span className="font-bold text-amber-900">Seat Backup for:</span> <span className="text-stone-900 font-medium">{bp.name} ({bp.title})</span>
                   </div>
                 ))}
                 
                 {backupRoles.map(br => (
-                  <div key={br.id} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
-                    <span className="font-bold text-amber-300">Backup for Role:</span> <span className="text-white">{br.name}</span>
+                  <div key={br.id} className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-left text-xs">
+                    <span className="font-bold text-amber-900">Backup for Role:</span> <span className="text-stone-900 font-medium">{br.name}</span>
                   </div>
                 ))}
 
                 {backupSops.map(bs => (
-                  <div key={bs.id} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
-                    <span className="font-bold text-amber-300">Backup for SOP:</span> <span className="text-white">{bs.name}</span>
+                  <div key={bs.id} className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-left text-xs">
+                    <span className="font-bold text-amber-900">Backup for SOP:</span> <span className="text-stone-900 font-medium">{bs.name}</span>
                   </div>
                 ))}
 
                 {backupRouting.map((br, rIdx) => (
-                  <div key={rIdx} className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl text-left text-[10px]">
-                    <span className="font-bold text-amber-300">Backup for Request:</span> <span className="text-white">{br.category}</span>
+                  <div key={rIdx} className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-left text-xs">
+                    <span className="font-bold text-amber-900">Backup for Request:</span> <span className="text-stone-900 font-medium">{br.category}</span>
                   </div>
                 ))}
 
                 {backupPositions.length === 0 && backupRoles.length === 0 && backupSops.length === 0 && backupRouting.length === 0 && (
-                  <span className="text-[10px] text-[#D0D6BB]/40 italic block">No backup coverage assigned.</span>
+                  <span className="text-[11px] text-[#68736A] italic block p-2 bg-[#FBF8F0] rounded-xl border border-dashed border-[#E4DCCB] text-center">No backup coverage assigned.</span>
                 )}
               </div>
             </div>
 
             {/* Export Profile PDF & Open Full Settings */}
-            <div className="space-y-2 pt-2 border-t border-white/10">
+            <div className="space-y-2 pt-2 border-t border-[#E4DCCB]">
               <button
                 type="button"
                 onClick={() => {
@@ -2181,13 +2217,13 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     primaryOfficeName: pos.office || 'Wilmington'
                   });
                 }}
-                className="w-full px-3.5 py-2.5 bg-[#00635C] hover:bg-[#007c73] text-white border border-emerald-400/30 rounded-xl font-bold font-mono text-[10px] uppercase flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
+                className="w-full px-3.5 py-2.5 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-xs"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export Profile (PDF)</span>
               </button>
 
-              <div className="flex gap-2.5">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -2196,7 +2232,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     setDrawerMode('edit');
                     setDrawerOpen(true);
                   }}
-                  className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold font-mono text-[10px] uppercase text-center cursor-pointer transition-colors"
+                  className="flex-1 px-3 py-2 bg-[#FBF8F0] hover:bg-[#EDE7DA] border border-[#E4DCCB] text-[#1E2520] rounded-xl font-bold text-xs text-center cursor-pointer transition-colors shadow-xs"
                 >
                   Open Full Settings
                 </button>
@@ -2205,9 +2241,107 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
             <button
               onClick={handleDeleteSelectedElement}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-4 text-xs font-mono uppercase text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-2 text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete Node
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'role') {
+      const role = model.roles.find(r => r.id === id);
+      if (!role) return null;
+
+      const rolePosition = model.positions.find(p => p.id === role.positionId);
+      const backupPosition = model.positions.find(p => p.id === role.backupOwnerPositionId);
+
+      return (
+        <div className="w-84 md:w-96 border-l border-[#E4DCCB] bg-[#FFFDF7] p-5 md:p-6 flex flex-col gap-4 shrink-0 text-[#1E2520] font-sans overflow-y-auto inspector-panel-container shadow-[-8px_0_24px_rgba(55,47,35,0.06)] z-20">
+          <div className="flex justify-between items-center border-b border-[#E4DCCB] pb-3">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-100/60 px-2 py-0.5 rounded-md inline-block">
+                Role Node
+              </span>
+              <h3 className="text-base font-bold text-[#1E2520] truncate max-w-[220px] mt-1">{role.name}</h3>
+            </div>
+            <button 
+              onClick={() => setSelectedElement(null)} 
+              className="p-1.5 rounded-lg text-[#68736A] hover:text-[#1E2520] hover:bg-[#E4DCCB]/40 transition-colors cursor-pointer"
+              title="Close panel"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3.5 text-xs text-left">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Role Name</label>
+              <input
+                type="text"
+                value={role.name}
+                onChange={e => handleUpdateElementInline('name', e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Assigned Position</label>
+              <select
+                value={role.positionId || ''}
+                onChange={e => handleUpdateElementInline('positionId', e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
+              >
+                <option value="">(Unassigned)</option>
+                {model.positions.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Backup Position</label>
+              <select
+                value={role.backupOwnerPositionId || ''}
+                onChange={e => handleUpdateElementInline('backupOwnerPositionId', e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
+              >
+                <option value="">(None)</option>
+                {model.positions.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Description</label>
+              <textarea
+                value={role.description || ''}
+                onChange={e => handleUpdateElementInline('description', e.target.value)}
+                rows={3}
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs resize-none"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(role.id);
+                setDrawerType('role');
+                setDrawerMode('edit');
+                setDrawerOpen(true);
+              }}
+              className="w-full px-3 py-2 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl font-bold text-xs text-center cursor-pointer transition-colors shadow-xs"
+            >
+              Open Full Role Editor
+            </button>
+
+            <button
+              onClick={handleDeleteSelectedElement}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-2 text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete Role
             </button>
           </div>
         </div>
@@ -2219,44 +2353,50 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       if (!sop) return null;
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+        <div className="w-84 md:w-96 border-l border-[#E4DCCB] bg-[#FFFDF7] p-5 md:p-6 flex flex-col gap-4 shrink-0 text-[#1E2520] font-sans overflow-y-auto inspector-panel-container shadow-[-8px_0_24px_rgba(55,47,35,0.06)] z-20">
+          <div className="flex justify-between items-center border-b border-[#E4DCCB] pb-3">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400">SOP Node</span>
-              <h3 className="text-sm font-bold truncate max-w-[200px]">{sop.name}</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-md inline-block">
+                SOP Node
+              </span>
+              <h3 className="text-base font-bold text-[#1E2520] truncate max-w-[220px] mt-1">{sop.name}</h3>
             </div>
-            <button onClick={() => setSelectedElement(null)} className="text-[#D0D6BB]/50 hover:text-white transition-colors cursor-pointer">
+            <button 
+              onClick={() => setSelectedElement(null)} 
+              className="p-1.5 rounded-lg text-[#68736A] hover:text-[#1E2520] hover:bg-[#E4DCCB]/40 transition-colors cursor-pointer"
+              title="Close panel"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-3.5 text-xs text-left">
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">SOP Title</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">SOP Title</label>
               <input
                 type="text"
                 value={sop.name}
                 onChange={e => handleUpdateElementInline('name', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Intake Trigger</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Intake Trigger</label>
               <input
                 type="text"
                 value={sop.trigger}
                 onChange={e => handleUpdateElementInline('trigger', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Owner Position</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Owner Position</label>
               <select
                 value={sop.ownerPositionId || ''}
                 onChange={e => handleUpdateElementInline('ownerPositionId', e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
               >
                 {model.positions.map(p => (
                   <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
@@ -2265,12 +2405,12 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Purpose</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Purpose</label>
               <textarea
                 value={sop.purpose || ''}
                 onChange={e => handleUpdateElementInline('purpose', e.target.value)}
                 rows={3}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-sans text-xs resize-none"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs resize-none"
               />
             </div>
 
@@ -2282,14 +2422,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 setDrawerMode('edit');
                 setDrawerOpen(true);
               }}
-              className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold font-mono text-[10px] uppercase text-center cursor-pointer transition-colors"
+              className="w-full px-3 py-2 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl font-bold text-xs text-center cursor-pointer transition-colors shadow-xs"
             >
               Open Full SOP Editor
             </button>
 
             <button
               onClick={handleDeleteSelectedElement}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-4 text-xs font-mono uppercase text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-2 text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete Node
             </button>
@@ -2303,54 +2443,60 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       if (!esc) return null;
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+        <div className="w-84 md:w-96 border-l border-[#E4DCCB] bg-[#FFFDF7] p-5 md:p-6 flex flex-col gap-4 shrink-0 text-[#1E2520] font-sans overflow-y-auto inspector-panel-container shadow-[-8px_0_24px_rgba(55,47,35,0.06)] z-20">
+          <div className="flex justify-between items-center border-b border-[#E4DCCB] pb-3">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-amber-400">Escalation Policy</span>
-              <h3 className="text-sm font-bold truncate max-w-[200px]">{esc.name}</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100/60 px-2 py-0.5 rounded-md inline-block">
+                Escalation Policy
+              </span>
+              <h3 className="text-base font-bold text-[#1E2520] truncate max-w-[220px] mt-1">{esc.name}</h3>
             </div>
-            <button onClick={() => setSelectedElement(null)} className="text-[#D0D6BB]/50 hover:text-white transition-colors cursor-pointer">
+            <button 
+              onClick={() => setSelectedElement(null)} 
+              className="p-1.5 rounded-lg text-[#68736A] hover:text-[#1E2520] hover:bg-[#E4DCCB]/40 transition-colors cursor-pointer"
+              title="Close panel"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-3.5 text-xs text-left">
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Policy Name</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Policy Name</label>
               <input
                 type="text"
                 value={esc.name}
                 onChange={e => handleUpdateElementInline('name', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Trigger event</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Trigger event</label>
               <input
                 type="text"
                 value={esc.trigger}
                 onChange={e => handleUpdateElementInline('trigger', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">SLA Window</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">SLA Window</label>
               <input
                 type="text"
                 value={esc.responseWindow}
                 onChange={e => handleUpdateElementInline('responseWindow', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] font-mono focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Escalate To Seat</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Escalate To Seat</label>
               <select
                 value={esc.escalateToPositionId || ''}
                 onChange={e => handleUpdateElementInline('escalateToPositionId', e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
               >
                 {model.positions.map(p => (
                   <option key={p.id} value={p.id}>{p.name} ({p.title})</option>
@@ -2359,11 +2505,11 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Urgency Level</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Urgency Level</label>
               <select
                 value={esc.urgency}
                 onChange={e => handleUpdateElementInline('urgency', e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs cursor-pointer"
               >
                 <option value="low">Low Priority</option>
                 <option value="normal">Normal Priority</option>
@@ -2380,14 +2526,14 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 setDrawerMode('edit');
                 setDrawerOpen(true);
               }}
-              className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold font-mono text-[10px] uppercase text-center cursor-pointer transition-colors"
+              className="w-full px-3 py-2 bg-[#00635C] hover:bg-[#004d48] text-white rounded-xl font-bold text-xs text-center cursor-pointer transition-colors shadow-xs"
             >
               Open Full Policy Editor
             </button>
 
             <button
               onClick={handleDeleteSelectedElement}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-4 text-xs font-mono uppercase text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-2 text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete Node
             </button>
@@ -2401,41 +2547,47 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       if (!node) return null;
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+        <div className="w-84 md:w-96 border-l border-[#E4DCCB] bg-[#FFFDF7] p-5 md:p-6 flex flex-col gap-4 shrink-0 text-[#1E2520] font-sans overflow-y-auto inspector-panel-container shadow-[-8px_0_24px_rgba(55,47,35,0.06)] z-20">
+          <div className="flex justify-between items-center border-b border-[#E4DCCB] pb-3">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-violet-400">{type === 'logic_split' ? 'Logic Split' : 'Intake Trigger'}</span>
-              <h3 className="text-sm font-bold truncate max-w-[200px]">{node.label}</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-800 bg-violet-100/60 px-2 py-0.5 rounded-md inline-block">
+                {type === 'logic_split' ? 'Logic Split' : 'Intake Trigger'}
+              </span>
+              <h3 className="text-base font-bold text-[#1E2520] truncate max-w-[220px] mt-1">{node.label}</h3>
             </div>
-            <button onClick={() => setSelectedElement(null)} className="text-[#D0D6BB]/50 hover:text-white transition-colors cursor-pointer">
+            <button 
+              onClick={() => setSelectedElement(null)} 
+              className="p-1.5 rounded-lg text-[#68736A] hover:text-[#1E2520] hover:bg-[#E4DCCB]/40 transition-colors cursor-pointer"
+              title="Close panel"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-3.5 text-xs text-left">
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Label / Name</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Label / Name</label>
               <input
                 type="text"
                 value={node.label}
                 onChange={e => handleUpdateElementInline('label', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Description</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Description</label>
               <textarea
                 value={node.description || ''}
                 onChange={e => handleUpdateElementInline('description', e.target.value)}
                 rows={3}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-sans text-xs resize-none"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs resize-none"
               />
             </div>
 
             {type === 'logic_split' && (
               <div className="space-y-2">
-                <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60 block">Routing Branch Options</label>
+                <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Routing Branch Options</label>
                 <div className="space-y-1.5">
                   {(node.conditions || []).map((cond, idx) => (
                     <div key={idx} className="flex gap-2">
@@ -2447,7 +2599,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           branches[idx] = e.target.value;
                           handleUpdateElementInline('conditions', branches);
                         }}
-                        className="flex-1 bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-white focus:outline-none focus:border-emerald-500"
+                        className="flex-1 px-3 py-2 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] shadow-xs"
                       />
                       <button
                         type="button"
@@ -2455,7 +2607,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           const branches = (node.conditions || []).filter((_, i) => i !== idx);
                           handleUpdateElementInline('conditions', branches);
                         }}
-                        className="p-1.5 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 rounded-lg text-red-400 hover:text-red-300 transition-colors"
+                        className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl text-rose-600 transition-colors"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -2467,7 +2619,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                       const branches = [...(node.conditions || []), `Branch Option ${ (node.conditions || []).length + 1 }`];
                       handleUpdateElementInline('conditions', branches);
                     }}
-                    className="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/10 rounded-lg text-[10px] font-bold text-center cursor-pointer transition-colors"
+                    className="w-full py-2 bg-[#FBF8F0] hover:bg-[#EDE7DA] border border-dashed border-[#E4DCCB] rounded-xl text-xs font-bold text-[#00635C] text-center cursor-pointer transition-colors shadow-xs"
                   >
                     + Add Condition Path
                   </button>
@@ -2477,7 +2629,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
             <button
               onClick={handleDeleteSelectedElement}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-4 text-xs font-mono uppercase text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-2 text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete Node
             </button>
@@ -2505,85 +2657,91 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       const toDetails = getPosDetails(toPos);
 
       return (
-        <div className="w-80 border-l border-white/10 bg-[#012a23]/95 backdrop-blur-md p-5 flex flex-col gap-4 shrink-0 text-white font-sans overflow-y-auto inspector-panel-container">
-          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+        <div className="w-84 md:w-96 border-l border-[#E4DCCB] bg-[#FFFDF7] p-5 md:p-6 flex flex-col gap-4 shrink-0 text-[#1E2520] font-sans overflow-y-auto inspector-panel-container shadow-[-8px_0_24px_rgba(55,47,35,0.06)] z-20">
+          <div className="flex justify-between items-center border-b border-[#E4DCCB] pb-3">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-mono uppercase tracking-wider text-[#10b981]">Connection Path</span>
-              <h3 className="text-sm font-bold truncate max-w-[200px]">{conn.label || 'Connection Path'}</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-md inline-block">
+                Connection Path
+              </span>
+              <h3 className="text-base font-bold text-[#1E2520] truncate max-w-[220px] mt-1">{conn.label || 'Connection Path'}</h3>
             </div>
-            <button onClick={() => setSelectedElement(null)} className="text-[#D0D6BB]/50 hover:text-white transition-colors cursor-pointer">
+            <button 
+              onClick={() => setSelectedElement(null)} 
+              className="p-1.5 rounded-lg text-[#68736A] hover:text-[#1E2520] hover:bg-[#E4DCCB]/40 transition-colors cursor-pointer"
+              title="Close panel"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-3.5 text-xs text-left">
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Path Label</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Path Label</label>
               <input
                 type="text"
                 value={conn.label || ''}
                 onChange={e => handleUpdateElementInline('label', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Path Condition</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Path Condition</label>
               <input
                 type="text"
                 value={conn.condition || ''}
                 onChange={e => handleUpdateElementInline('condition', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] placeholder:text-[#68736A]/50 focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
                 placeholder="e.g. if category === 'Marketing'"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-mono uppercase tracking-wider text-[#D0D6BB]/60">Response Window (SLA)</label>
+              <label className="text-[10px] font-bold text-[#68736A] uppercase tracking-wider block">Response Window (SLA)</label>
               <input
                 type="text"
                 value={conn.responseWindow || ''}
                 onChange={e => handleUpdateElementInline('responseWindow', e.target.value)}
-                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full px-3.5 py-2.5 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl text-xs text-[#1E2520] font-mono focus:bg-[#FFFDF7] focus:outline-none focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] transition-all shadow-xs"
                 placeholder="24 hours"
               />
             </div>
 
             {/* Connected Seats Details Accordion */}
-            <div className="space-y-3.5 border-t border-white/5 pt-3.5">
-              <h4 className="text-[10px] font-mono uppercase tracking-wider font-bold text-amber-400">Connected Positions</h4>
+            <div className="space-y-3.5 border-t border-[#E4DCCB] pt-3.5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider font-bold text-amber-800">Connected Positions</h4>
               
               {fromDetails && (
-                <div className="p-3 bg-black/25 border border-white/5 rounded-xl space-y-2">
+                <div className="p-3 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl space-y-2 shadow-xs">
                   <div>
-                    <span className="text-[8px] font-mono uppercase text-[#D0D6BB]/50 block">Source / Parent</span>
-                    <strong className="text-white text-xs block">{fromDetails.pos.name}</strong>
-                    <span className="text-[9px] text-[#D0D6BB]/70">{fromDetails.pos.title}</span>
+                    <span className="text-[8px] font-mono uppercase text-[#68736A] block font-bold">Source / Parent</span>
+                    <strong className="text-[#1E2520] text-xs block">{fromDetails.pos.name}</strong>
+                    <span className="text-[10px] text-[#68736A]">{fromDetails.pos.title}</span>
                   </div>
                   
                   {fromDetails.roles.length > 0 && (
-                    <div className="text-[9px] text-[#D0D6BB]/80">
-                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Roles:</span>
-                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
-                        {fromDetails.roles.map(r => <div key={r.id} className="text-teal-300 font-medium truncate">{r.name}</div>)}
+                    <div className="text-[10px] text-[#68736A]">
+                      <span className="text-[#68736A] block font-mono text-[8px] uppercase font-bold">Roles:</span>
+                      <div className="pl-1.5 border-l border-[#E4DCCB] mt-0.5 space-y-0.5">
+                        {fromDetails.roles.map(r => <div key={r.id} className="text-[#00635C] font-semibold truncate">{r.name}</div>)}
                       </div>
                     </div>
                   )}
 
                   {fromDetails.sops.length > 0 && (
-                    <div className="text-[9px] text-[#D0D6BB]/80">
-                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">SOPs:</span>
-                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
-                        {fromDetails.sops.map(s => <div key={s.id} className="text-green-300 font-medium truncate">{s.name}</div>)}
+                    <div className="text-[10px] text-[#68736A]">
+                      <span className="text-[#68736A] block font-mono text-[8px] uppercase font-bold">SOPs:</span>
+                      <div className="pl-1.5 border-l border-[#E4DCCB] mt-0.5 space-y-0.5">
+                        {fromDetails.sops.map(s => <div key={s.id} className="text-emerald-700 font-semibold truncate">{s.name}</div>)}
                       </div>
                     </div>
                   )}
 
                   {fromDetails.kbs.length > 0 && (
-                    <div className="text-[9px] text-[#D0D6BB]/80">
-                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Knowledge:</span>
-                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
-                        {fromDetails.kbs.map(k => <div key={k.id} className="text-sky-300 font-medium truncate">{k.title}</div>)}
+                    <div className="text-[10px] text-[#68736A]">
+                      <span className="text-[#68736A] block font-mono text-[8px] uppercase font-bold">Knowledge:</span>
+                      <div className="pl-1.5 border-l border-[#E4DCCB] mt-0.5 space-y-0.5">
+                        {fromDetails.kbs.map(k => <div key={k.id} className="text-sky-800 font-semibold truncate">{k.title}</div>)}
                       </div>
                     </div>
                   )}
@@ -2591,36 +2749,36 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
               )}
 
               {toDetails && (
-                <div className="p-3 bg-black/25 border border-white/5 rounded-xl space-y-2">
+                <div className="p-3 bg-[#FBF8F0] border border-[#E4DCCB] rounded-xl space-y-2 shadow-xs">
                   <div>
-                    <span className="text-[8px] font-mono uppercase text-[#D0D6BB]/50 block">Target / Child</span>
-                    <strong className="text-white text-xs block">{toDetails.pos.name}</strong>
-                    <span className="text-[9px] text-[#D0D6BB]/70">{toDetails.pos.title}</span>
+                    <span className="text-[8px] font-mono uppercase text-[#68736A] block font-bold">Target / Child</span>
+                    <strong className="text-[#1E2520] text-xs block">{toDetails.pos.name}</strong>
+                    <span className="text-[10px] text-[#68736A]">{toDetails.pos.title}</span>
                   </div>
                   
                   {toDetails.roles.length > 0 && (
-                    <div className="text-[9px] text-[#D0D6BB]/80">
-                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Roles:</span>
-                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
-                        {toDetails.roles.map(r => <div key={r.id} className="text-teal-300 font-medium truncate">{r.name}</div>)}
+                    <div className="text-[10px] text-[#68736A]">
+                      <span className="text-[#68736A] block font-mono text-[8px] uppercase font-bold">Roles:</span>
+                      <div className="pl-1.5 border-l border-[#E4DCCB] mt-0.5 space-y-0.5">
+                        {toDetails.roles.map(r => <div key={r.id} className="text-[#00635C] font-semibold truncate">{r.name}</div>)}
                       </div>
                     </div>
                   )}
 
                   {toDetails.sops.length > 0 && (
-                    <div className="text-[9px] text-[#D0D6BB]/80">
-                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">SOPs:</span>
-                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
-                        {toDetails.sops.map(s => <div key={s.id} className="text-green-300 font-medium truncate">{s.name}</div>)}
+                    <div className="text-[10px] text-[#68736A]">
+                      <span className="text-[#68736A] block font-mono text-[8px] uppercase font-bold">SOPs:</span>
+                      <div className="pl-1.5 border-l border-[#E4DCCB] mt-0.5 space-y-0.5">
+                        {toDetails.sops.map(s => <div key={s.id} className="text-emerald-700 font-semibold truncate">{s.name}</div>)}
                       </div>
                     </div>
                   )}
 
                   {toDetails.kbs.length > 0 && (
-                    <div className="text-[9px] text-[#D0D6BB]/80">
-                      <span className="text-[#D0D6BB]/50 block font-mono text-[8px] uppercase">Knowledge:</span>
-                      <div className="pl-1.5 border-l border-white/5 mt-0.5 space-y-0.5">
-                        {toDetails.kbs.map(k => <div key={k.id} className="text-sky-300 font-medium truncate">{k.title}</div>)}
+                    <div className="text-[10px] text-[#68736A]">
+                      <span className="text-[#68736A] block font-mono text-[8px] uppercase font-bold">Knowledge:</span>
+                      <div className="pl-1.5 border-l border-[#E4DCCB] mt-0.5 space-y-0.5">
+                        {toDetails.kbs.map(k => <div key={k.id} className="text-sky-800 font-semibold truncate">{k.title}</div>)}
                       </div>
                     </div>
                   )}
@@ -2630,7 +2788,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
             <button
               onClick={handleDeleteSelectedElement}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-4 text-xs font-mono uppercase text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 mt-2 text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" /> Disconnect Path
             </button>
@@ -2738,11 +2896,11 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
     return (
       <div className="flex-grow flex flex-col min-h-0 text-left relative select-none">
         {/* Toolbar */}
-        <div className="sticky top-0 z-30 px-3 py-1.5 bg-[#012a23]/92 backdrop-blur-md border-b border-white/10 flex flex-row items-center justify-between gap-1.5 font-mono text-[8px] uppercase shrink-0 visual-org-map-toolbar overflow-x-auto whitespace-nowrap scrollbar-none">
+        <div className="sticky top-0 z-30 px-3 py-1.5 bg-white/95 backdrop-blur-md border-b border-stone-200 flex flex-row items-center justify-between gap-1.5 font-mono text-[8px] uppercase shrink-0 visual-org-map-toolbar overflow-x-auto whitespace-nowrap scrollbar-none text-stone-800">
           {/* Left Group */}
           <div className="flex items-center gap-1.5 shrink-0">
             {/* View Switcher */}
-            <div className="flex gap-0.5 bg-black/25 p-0.5 rounded-md border border-white/5 shrink-0">
+            <div className="flex gap-0.5 bg-stone-100 p-0.5 rounded-md border border-stone-200 shrink-0">
               {[
                 { mode: 'org', label: 'Org View', icon: Layers },
                 { mode: 'position', label: 'Position View', icon: User }
@@ -2756,8 +2914,8 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                   }}
                   className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all cursor-pointer flex items-center gap-0.5 ${
                     activeViewMode === mode
-                      ? 'bg-[#00635C] text-white shadow'
-                      : 'text-[#D0D6BB]/50 hover:text-white'
+                      ? 'bg-[#00635C] text-white shadow-xs'
+                      : 'text-stone-600 hover:text-stone-900'
                   }`}
                 >
                   <Icon className="w-2.5 h-2.5" />
@@ -2868,12 +3026,11 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
           ) : (
             <div 
               ref={canvasContainerRef}
-              className="flex-grow min-h-0 relative overflow-hidden cursor-grab active:cursor-grabbing border-t border-white/10 visual-org-map-canvas-shell"
+              className="flex-grow min-h-0 relative overflow-hidden cursor-grab active:cursor-grabbing border-t border-stone-200 bg-[#F8F9FA] visual-org-map-canvas-shell"
               style={{
-                backgroundImage: activeViewMode === 'workflow'
-                  ? 'radial-gradient(rgba(246, 247, 241, 0.12) 1.2px, transparent 1.2px), radial-gradient(circle at center, #014c3f 0%, #01241e 100%)'
-                  : 'radial-gradient(rgba(246, 247, 241, 0.08) 1.2px, transparent 1.2px), radial-gradient(circle at center, #014c3f 0%, #01241e 100%)',
-                backgroundSize: '20px 20px, 100% 100%'
+                backgroundImage: 'radial-gradient(#CBD5E1 1.2px, transparent 1.2px)',
+                backgroundSize: '24px 24px',
+                backgroundColor: '#F8F9FA'
               }}
               onPointerDown={(e) => {
                 if ((e.target as HTMLElement).closest('.canvas-node-card') || (e.target as HTMLElement).closest('.connection-line')) return;
@@ -3034,11 +3191,101 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                     50% {
                       box-shadow: 0 0 14px rgba(239, 68, 68, 0.45), 0 0 5px rgba(239, 68, 68, 0.2);
                       border-color: rgba(239, 68, 68, 0.55);
-                    }
-                  }
-                  .vacant-node-pulse {
+                                    .vacant-node-pulse {
                     animation: vacant-pulse 4s infinite ease-in-out !important;
                     border-style: dashed !important;
+                  }
+
+                  /* ── Apple Light Mode Overrides for Role & Org Map ── */
+                  .role-map-root-container,
+                  .role-map-root-container .bg-\[\#013028\],
+                  .role-map-root-container .bg-\[\#01362D\],
+                  .role-map-root-container .bg-\[\#012620\],
+                  .role-map-root-container .bg-\[\#01201b\],
+                  .role-map-root-container .bg-\[\#012a23\] {
+                    background-color: #F8F9FA !important;
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .visual-org-map-canvas-shell {
+                    background-color: #F8F9FA !important;
+                    background-image: radial-gradient(#CBD5E1 1.2px, transparent 1.2px) !important;
+                    background-size: 24px 24px !important;
+                  }
+
+                  .role-map-root-container .visual-org-map-toolbar {
+                    background-color: rgba(255, 255, 255, 0.95) !important;
+                    border-bottom: 1px solid #e4e4e7 !important;
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .canvas-node-card {
+                    background-color: #ffffff !important;
+                    background: #ffffff !important;
+                    border: 1px solid #e4e4e7 !important;
+                    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04) !important;
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .canvas-node-card:hover {
+                    transform: translateY(-3px) !important;
+                    box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1) !important;
+                    border-color: #00635C !important;
+                  }
+
+                  .role-map-root-container .canvas-node-card h4,
+                  .role-map-root-container .canvas-node-card h5 {
+                    color: #18181b !important;
+                    text-shadow: none !important;
+                  }
+
+                  .role-map-root-container .canvas-node-card .bg-black\/35,
+                  .role-map-root-container .canvas-node-card .bg-black\/20,
+                  .role-map-root-container .canvas-node-card .bg-black\/25 {
+                    background-color: #f8fafc !important;
+                    border: 1px solid #f1f5f9 !important;
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .bg-white\/5,
+                  .role-map-root-container .bg-white\/10 {
+                    background-color: #ffffff !important;
+                    border: 1px solid #e4e4e7 !important;
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .bg-black\/20,
+                  .role-map-root-container .bg-black\/25,
+                  .role-map-root-container .bg-black\/35,
+                  .role-map-root-container .bg-black\/40 {
+                    background-color: #ffffff !important;
+                    border: 1px solid #e4e4e7 !important;
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .border-white\/5,
+                  .role-map-root-container .border-white\/10,
+                  .role-map-root-container .border-white\/20 {
+                    border-color: #e4e4e7 !important;
+                  }
+
+                  .role-map-root-container .text-white {
+                    color: #18181b !important;
+                  }
+
+                  .role-map-root-container .text-\[\#D0D6BB\] {
+                    color: #71717a !important;
+                  }
+
+                  .role-map-root-container .text-emerald-300,
+                  .role-map-root-container .text-teal-300 {
+                    color: #00635C !important;
+                  }
+
+                  .role-map-root-container .inspector-panel-container {
+                    background-color: #ffffff !important;
+                    border-left: 1px solid #e4e4e7 !important;
+                    color: #18181b !important;
                   }
 
                   /* Mobile-responsive styles for the inspector panel */
@@ -3051,9 +3298,9 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                       z-index: 50 !important;
                       width: 85% !important;
                       max-width: 320px !important;
-                      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.6) !important;
-                      border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
-                      background-color: #01201b !important;
+                      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15) !important;
+                      border-left: 1px solid rgba(228, 228, 231, 0.9) !important;
+                      background-color: #ffffff !important;
                     }
                     /* Hide stats inspector on mobile completely */
                     .role-map-root-container .inspector-stats-panel {
@@ -3105,10 +3352,10 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                   /* ── Idle Breathing Pulse (very subtle) ─────────────── */
                   @keyframes cardBreathe {
                     0%, 100% {
-                      box-shadow: 0 4px 16px -3px rgba(0, 0, 0, 0.3), 0 0 0 rgba(16, 185, 129, 0);
+                      box-shadow: 0 4px 16px -3px rgba(0, 0, 0, 0.06), 0 0 0 rgba(16, 185, 129, 0);
                     }
                     50% {
-                      box-shadow: 0 6px 22px -3px rgba(0, 0, 0, 0.35), 0 0 8px rgba(16, 185, 129, 0.06);
+                      box-shadow: 0 6px 22px -3px rgba(0, 0, 0, 0.09), 0 0 8px rgba(16, 185, 129, 0.06);
                     }
                   }
                   .canvas-node-card:not(:hover):not(.ryan-node-card):not(.ai-node-glow):not(.vacant-node-pulse) {
@@ -3378,16 +3625,16 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           }}
                           onClick={(e) => {
                             if ((e.target as HTMLElement).closest('button')) return;
-                            
-                            // If user clicked & dragged the card, do not toggle right drawer
                             if (nodePointerRef.current && nodePointerRef.current.moved) {
                               nodePointerRef.current = null;
                               return;
                             }
-
-                            // Single click pops open the right side drawer
-                            setSelectedElement({ type: 'position', id: pos.id });
-                            setActivePositionId(pos.id);
+                            if (onSelectPosition) {
+                              onSelectPosition(pos);
+                            } else {
+                              setSelectedElement({ type: 'position', id: pos.id });
+                              setActivePositionId(pos.id);
+                            }
                             nodePointerRef.current = null;
                           }}
                           onDoubleClick={(e) => {
@@ -3409,7 +3656,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                               });
                             }
                           }}
-                          className={`absolute position-card canvas-node-card ${pos.id === 'pos_ryan' ? 'ryan-node-card w-[320px] p-5.5' : 'w-[300px] p-5'} ${status === 'virtual_ai' ? 'ai-node-glow' : ''} ${isFutureRole ? 'vacant-node-pulse' : ''} bg-[#012620]/90 backdrop-blur-md border rounded-[24px] flex flex-col gap-3 pointer-events-auto cursor-pointer ${highlightClass}`}
+                          className={`absolute position-card canvas-node-card ${pos.id === 'pos_ryan' ? 'ryan-node-card w-[320px] p-5.5' : 'w-[300px] p-5'} ${status === 'virtual_ai' ? 'ai-node-glow' : ''} ${isFutureRole ? 'vacant-node-pulse' : ''} bg-white border border-stone-200/90 shadow-sm rounded-[24px] flex flex-col gap-3 pointer-events-auto cursor-pointer ${highlightClass}`}
                           style={{
                             left: `${nodeX}px`,
                             top: `${nodeY}px`,
@@ -3417,18 +3664,18 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                         >
                           {/* Lighting Backing Glow around card */}
                           {!isFutureRole ? (
-                            <div className="absolute -inset-4 bg-[#D0D6BB]/5 blur-[25px] rounded-[32px] -z-10 pointer-events-none" />
+                            <div className="absolute -inset-4 bg-stone-200/40 blur-[20px] rounded-[32px] -z-10 pointer-events-none" />
                           ) : (
-                            <div className="absolute -inset-4 bg-white/5 blur-[15px] rounded-[32px] -z-10 pointer-events-none" />
+                            <div className="absolute -inset-4 bg-amber-200/40 blur-[20px] rounded-[32px] -z-10 pointer-events-none" />
                           )}
                           {status === 'virtual_ai' && (
-                            <div className="absolute -inset-4 bg-emerald-400/10 blur-[30px] rounded-[32px] -z-10 pointer-events-none" />
+                            <div className="absolute -inset-4 bg-emerald-100/30 blur-[30px] rounded-[32px] -z-10 pointer-events-none" />
                           )}
                           {isSelected && (
-                            <div className="absolute -inset-6 bg-amber-400/15 blur-[20px] rounded-[32px] -z-10 pointer-events-none" />
+                            <div className="absolute -inset-6 bg-amber-100/30 blur-[20px] rounded-[32px] -z-10 pointer-events-none" />
                           )}
                           <div 
-                            className="flex justify-between items-start cursor-grab active:cursor-grabbing select-none border-b border-white/5 pb-2.5"
+                            className="flex justify-between items-start cursor-grab active:cursor-grabbing select-none border-b border-stone-100 pb-2.5"
                             onPointerDown={(e) => {
                               if ((e.target as HTMLElement).closest('button')) return;
                               setDraggedNodeId(pos.id);
@@ -3445,33 +3692,33 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           >
                             <div className="flex items-center gap-2.5 max-w-[200px]">
                               {status === 'active' || status === 'fractional' || status === 'outsourced' ? (
-                                <OrgAvatar name={pos.name} avatarUrl={pos.avatarUrl} avatarCrop={pos.avatarCrop} size={48} className="border border-white/10 shadow-sm" />
+                                <OrgAvatar name={pos.name} avatarUrl={pos.avatarUrl} avatarCrop={pos.avatarCrop} size={48} className="border border-stone-200 shadow-xs" />
                               ) : status === 'virtual_ai' ? (
-                                <div className="w-[48px] h-[48px] rounded-full bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center shrink-0 shadow-sm text-emerald-300">
+                                <div className="w-[48px] h-[48px] rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 shadow-xs text-emerald-800">
                                   <span className="text-lg">🤖</span>
                                 </div>
                               ) : (
-                                <div className="w-[48px] h-[48px] rounded-full bg-white/5 border border-dashed border-white/20 flex items-center justify-center shrink-0 shadow-sm text-[#D0D6BB]/40 hover:text-white hover:bg-white/10 transition-colors">
+                                <div className="w-[48px] h-[48px] rounded-full bg-stone-50 border border-dashed border-stone-300 flex items-center justify-center shrink-0 shadow-xs text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors">
                                   <span className="text-sm font-bold">+</span>
                                 </div>
                               )}
                               <div className="space-y-0.5 text-left truncate">
-                                <h4 className="font-sans font-extrabold text-white truncate text-[15px] tracking-tight drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.95)]">{pos.name}</h4>
-                                <span className="text-[10.5px] font-semibold uppercase text-emerald-300 block truncate">{pos.title}</span>
+                                <h4 className="font-sans font-bold text-stone-900 truncate text-[15px] tracking-tight">{pos.name}</h4>
+                                <span className="text-[10.5px] font-semibold uppercase text-[#00635C] block truncate">{pos.title}</span>
                               </div>
                             </div>
                             
                             <div className="flex flex-col items-end gap-1 shrink-0">
-                              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[8.5px] font-mono uppercase text-[#D0D6BB] max-w-[85px] truncate">
+                              <span className="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-200 text-[8.5px] font-mono uppercase text-stone-600 max-w-[85px] truncate">
                                 {pos.department || 'Staff'}
                               </span>
                               {isFutureRole && (
-                                <span className="px-1.5 py-0.2 bg-amber-950/40 border border-amber-500/30 text-amber-300 text-[8.5px] font-mono uppercase font-bold rounded">
+                                <span className="px-1.5 py-0.2 bg-amber-50 border border-amber-200 text-amber-800 text-[8.5px] font-mono uppercase font-bold rounded">
                                   {status.toUpperCase()}
                                 </span>
                               )}
                               {status === 'virtual_ai' && (
-                                <span className="px-1.5 py-0.2 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[8.5px] font-mono uppercase font-bold rounded">
+                                <span className="px-1.5 py-0.2 bg-emerald-50 border border-emerald-200 text-[#00635C] text-[8.5px] font-mono uppercase font-bold rounded">
                                   AI Agent
                                 </span>
                               )}
@@ -3479,47 +3726,47 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           </div>
 
                           {status === 'virtual_ai' ? (
-                            <div className="space-y-1.5 text-left text-[11px] font-mono text-[#D0D6BB] flex-1">
-                              <div className="text-[10px] truncate">Tools: <span className="text-white">{pos.phone || 'Gemini API'}</span></div>
-                              <div className="text-[10px] truncate">Backup Owner: <span className="text-white">{
+                            <div className="space-y-1.5 text-left text-[11px] font-mono text-stone-600 flex-1">
+                              <div className="text-[10px] truncate">Tools: <span className="text-stone-900 font-semibold">{pos.phone || 'Gemini API'}</span></div>
+                              <div className="text-[10px] truncate">Backup Owner: <span className="text-stone-900 font-semibold">{
                                 model.positions.find(p => p.id === pos.backupPositionId)?.name || 'Ann Gunn'
                               }</span></div>
-                              <div className="flex justify-between items-center border-t border-white/5 pt-1 mt-1 text-[10px]">
+                              <div className="flex justify-between items-center border-t border-stone-100 pt-1 mt-1 text-[10px]">
                                 <span>{posRoles.length} Skills</span>
-                                <span className="text-emerald-300">Routing active</span>
+                                <span className="text-[#00635C] font-semibold">Routing active</span>
                               </div>
                             </div>
                           ) : isFutureRole ? (
-                            <div className="space-y-1.5 text-left text-[11px] font-mono text-[#D0D6BB] flex-1">
-                              <div className="p-1.5 bg-amber-950/40 border border-amber-500/30 rounded-lg text-[10px] font-mono text-amber-300 flex items-center justify-between gap-1">
+                            <div className="space-y-1.5 text-left text-[11px] font-mono text-stone-600 flex-1">
+                              <div className="p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] font-mono text-amber-800 flex items-center justify-between gap-1">
                                 <span className="font-bold uppercase tracking-wider">⚡ Vacancy Coverage</span>
-                                <span className="text-white/90">
+                                <span className="text-stone-900 font-semibold">
                                   Backup: {model.positions.find(p => p.id === pos.backupPositionId)?.name || 'Ann Gunn'}
                                 </span>
                               </div>
                               {pos.coverageGap && (
-                                <div className="text-white leading-relaxed truncate" title={pos.coverageGap}>
-                                  Gap: <span className="text-[#D0D6BB]/80">{pos.coverageGap}</span>
+                                <div className="text-stone-900 leading-relaxed truncate" title={pos.coverageGap}>
+                                  Gap: <span className="text-stone-600">{pos.coverageGap}</span>
                                 </div>
                               )}
-                              <div className="space-y-0.5 border-t border-white/5 pt-1 mt-1 text-[10px] text-[#D0D6BB]/60 flex justify-between">
-                                <span>Priority: <span className="text-white">{pos.priority || 'Normal'}</span></span>
-                                {pos.estimatedCost && <span>Budget: <span className="text-emerald-300">{pos.estimatedCost}</span></span>}
+                              <div className="space-y-0.5 border-t border-stone-100 pt-1 mt-1 text-[10px] text-stone-500 flex justify-between">
+                                <span>Priority: <span className="text-stone-900 font-semibold">{pos.priority || 'Normal'}</span></span>
+                                {pos.estimatedCost && <span>Budget: <span className="text-[#00635C] font-semibold">{pos.estimatedCost}</span></span>}
                               </div>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-3 gap-1 text-center font-mono text-[11px] flex-1">
-                              <div className="bg-black/35 p-1.5 rounded-xl border border-white/5">
-                                <span className="text-white font-extrabold block text-sm">{posRoles.length}</span>
-                                <span className="text-[8.5px] text-[#D0D6BB]/40 block uppercase">Roles</span>
+                            <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[11px] flex-1">
+                              <div className="bg-stone-50 p-1.5 rounded-xl border border-stone-100">
+                                <span className="text-stone-900 font-bold block text-sm">{posRoles.length}</span>
+                                <span className="text-[8.5px] text-stone-500 block uppercase">Roles</span>
                               </div>
-                              <div className="bg-black/35 p-1.5 rounded-xl border border-white/5">
-                                <span className="text-emerald-300 font-extrabold block text-sm">{sopsCount}</span>
-                                <span className="text-[8.5px] text-[#D0D6BB]/40 block uppercase">SOPs</span>
+                              <div className="bg-stone-50 p-1.5 rounded-xl border border-stone-100">
+                                <span className="text-[#00635C] font-bold block text-sm">{sopsCount}</span>
+                                <span className="text-[8.5px] text-stone-500 block uppercase">SOPs</span>
                               </div>
-                              <div className="bg-black/35 p-1.5 rounded-xl border border-white/5">
-                                <span className="text-amber-300 font-extrabold block text-sm">{escCount}</span>
-                                <span className="text-[8.5px] text-[#D0D6BB]/40 block uppercase">Escs</span>
+                              <div className="bg-stone-50 p-1.5 rounded-xl border border-stone-100">
+                                <span className="text-amber-700 font-bold block text-sm">{escCount}</span>
+                                <span className="text-[8.5px] text-stone-500 block uppercase">Escs</span>
                               </div>
                             </div>
                           )}
@@ -3530,8 +3777,8 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             const posSopsList = model.sops.filter(s => s.ownerPositionId === pos.id || roleIds.includes(s.roleId || ''));
                             if (posSopsList.length > 0 && !isFutureRole) {
                               return (
-                                <div className="space-y-1 text-left border-t border-white/5 pt-1.5 mt-0.5">
-                                  <span className="text-[9.5px] font-mono uppercase text-[#D0D6BB]/40 block font-bold leading-none">SOPs & Checklists:</span>
+                                <div className="space-y-1 text-left border-t border-stone-100 pt-1.5 mt-0.5">
+                                  <span className="text-[9.5px] font-mono uppercase text-stone-400 block font-bold leading-none">SOPs & Checklists:</span>
                                   <div className="flex flex-col gap-0.5 max-h-[52px] overflow-y-auto pr-0.5 pointer-events-auto">
                                     {posSopsList.map(s => (
                                       <button
@@ -3542,7 +3789,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                           setSelectedSopForModal(s);
                                           setSopModalOpen(true);
                                         }}
-                                        className="text-[10.5px] text-emerald-400 font-sans truncate text-left hover:underline cursor-pointer flex items-center gap-1 w-full bg-transparent border-none p-0 leading-tight"
+                                        className="text-[10.5px] text-[#00635C] font-sans font-medium truncate text-left hover:underline cursor-pointer flex items-center gap-1 w-full bg-transparent border-none p-0 leading-tight"
                                       >
                                         📋 <span className="truncate">{s.name}</span>
                                       </button>
@@ -3554,27 +3801,20 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                             return null;
                           })()}
 
-                          <div className="flex justify-between items-center text-[10px] font-mono text-[#D0D6BB]/40 border-t border-white/5 pt-2">
+                          <div className="flex justify-between items-center text-[10px] font-mono text-stone-500 border-t border-stone-100 pt-2">
                             <span>{pos.office || 'Corporate'}</span>
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingId(pos.id);
-                                  setDrawerType('position');
-                                  setDrawerMode('edit');
-                                  setDrawerOpen(true);
+                                  setSelectedElement({ type: 'position', id: pos.id });
+                                  setActivePositionId(pos.id);
                                 }}
-                                className="text-emerald-400 font-bold hover:underline cursor-pointer bg-transparent border-none p-0 text-[8px] uppercase font-mono"
+                                className="text-[#00635C] hover:underline font-semibold cursor-pointer"
                               >
-                                Edit Seat
+                                Configure Seat
                               </button>
-                              <span className="text-[#D0D6BB]/25">|</span>
-                              <span className="text-emerald-400 font-bold hover:underline cursor-pointer" onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedElement({ type: 'position', id: pos.id });
-                              }}>Configure Seat</span>
                             </div>
                           </div>
                         </div>
@@ -3813,21 +4053,6 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                 </div>
 
               </div>
-
-              {/* Floating Positions Notice Fallback */}
-              {visiblePositions.length > 0 && (
-                <div className="absolute print-hidden bottom-4 left-4 z-10 px-4 py-2 bg-[#012620]/95 backdrop-blur-md border border-white/10 text-[#D0D6BB] text-[10px] font-mono rounded-xl pointer-events-auto shadow-md">
-                  Positions loaded but not visible. Click{' '}
-                  <button
-                    type="button"
-                    onClick={handleFitView}
-                    className="underline font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
-                  >
-                    Fit View
-                  </button>
-                  .
-                </div>
-              )}
             </div>
           )}
 
@@ -4482,104 +4707,192 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
   return (
     <>
       <div className="w-full h-full flex flex-col bg-[var(--sw-canvas)] text-[var(--sw-text-primary)] font-sans relative overflow-hidden border-none shadow-none role-map-root-container">
+        <style>{`
+          .role-map-root-container,
+          .role-map-root-container .bg-\\[\\#013028\\],
+          .role-map-root-container .bg-\\[\\#01362D\\],
+          .role-map-root-container .bg-\\[\\#012620\\],
+          .role-map-root-container .bg-\\[\\#01201b\\],
+          .role-map-root-container .bg-\\[\\#012a23\\] {
+            background-color: #F8F9FA !important;
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .visual-org-map-canvas-shell {
+            background-color: #F8F9FA !important;
+            background-image: radial-gradient(#CBD5E1 1.2px, transparent 1.2px) !important;
+            background-size: 24px 24px !important;
+          }
+
+          .role-map-root-container .visual-org-map-toolbar {
+            background-color: rgba(255, 255, 255, 0.95) !important;
+            border-bottom: 1px solid #e4e4e7 !important;
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .canvas-node-card {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            border: 1px solid #e4e4e7 !important;
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04) !important;
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .canvas-node-card h4,
+          .role-map-root-container .canvas-node-card h5 {
+            color: #18181b !important;
+            text-shadow: none !important;
+          }
+
+          .role-map-root-container .canvas-node-card .bg-black\\/35,
+          .role-map-root-container .canvas-node-card .bg-black\\/20,
+          .role-map-root-container .canvas-node-card .bg-black\\/25 {
+            background-color: #f8fafc !important;
+            border: 1px solid #f1f5f9 !important;
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .bg-white\\/5,
+          .role-map-root-container .bg-white\\/10 {
+            background-color: #ffffff !important;
+            border: 1px solid #e4e4e7 !important;
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .bg-black\\/20,
+          .role-map-root-container .bg-black\\/25,
+          .role-map-root-container .bg-black\\/35,
+          .role-map-root-container .bg-black\\/40 {
+            background-color: #ffffff !important;
+            border: 1px solid #e4e4e7 !important;
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .border-white\\/5,
+          .role-map-root-container .border-white\\/10,
+          .role-map-root-container .border-white\\/20 {
+            border-color: #e4e4e7 !important;
+          }
+
+          .role-map-root-container .text-white {
+            color: #18181b !important;
+          }
+
+          .role-map-root-container .text-\\[\\#D0D6BB\\] {
+            color: #71717a !important;
+          }
+
+          .role-map-root-container .text-emerald-300,
+          .role-map-root-container .text-teal-300 {
+            color: #00635C !important;
+          }
+
+          .role-map-root-container .inspector-panel-container {
+            background-color: #ffffff !important;
+            border-left: 1px solid #e4e4e7 !important;
+            color: #18181b !important;
+          }
+        `}</style>
       
       {/* --- TOP HEADER BAR (Section Tabs & Metrics) --- */}
-      <div className="h-auto min-h-[56px] px-4 md:px-6 py-2 border-b border-[var(--sw-border)] bg-[var(--sw-surface)] flex flex-wrap items-center justify-between shrink-0 gap-3 text-left visual-org-map-header select-none text-[var(--sw-text-primary)]">
-        {/* Left: Back Button + Section Tabs */}
-        <div className="flex items-center gap-3 flex-grow min-w-0">
-          {(onClose || !embeddedTab) && (
-            <button
-              onClick={onClose || (() => window.location.assign('/app/settings'))}
-              className="p-2 bg-[var(--sw-canvas)] hover:bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-xl text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)] transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium shrink-0 mr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Back
-            </button>
-          )}
-
-          {/* Org Chart Section Tabs */}
-          <div className="flex gap-1 bg-[var(--sw-canvas)] p-1 rounded-xl border border-[var(--sw-border)] items-center shrink-0 overflow-x-auto max-w-full">
-            {[
-              { id: 'org_chart', label: 'Org Chart' },
-              { id: 'overview', label: 'Overview' },
-              { id: 'by_position', label: 'By Position' },
-              { id: 'routing', label: 'Request Routing' },
-              { id: 'escalations', label: 'Escalations' },
-              { id: 'connected_tools', label: 'Connected Tools' }
-            ].map(tab => (
+      {!embeddedTab && (
+        <div className="h-auto min-h-[56px] px-4 md:px-6 py-2 border-b border-[var(--sw-border)] bg-[var(--sw-surface)] flex flex-wrap items-center justify-between shrink-0 gap-3 text-left visual-org-map-header select-none text-[var(--sw-text-primary)]">
+          {/* Left: Back Button + Section Tabs */}
+          <div className="flex items-center gap-3 flex-grow min-w-0">
+            {onClose && (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer border font-medium shrink-0 ${
-                  activeTab === tab.id
-                    ? 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)] shadow-xs border-[var(--brand-primary)] font-semibold'
-                    : 'bg-transparent text-[var(--sw-text-secondary)] border-transparent hover:text-[var(--sw-text-primary)] hover:bg-[var(--sw-surface)]'
-                }`}
+                onClick={onClose || (() => window.location.assign('/app/settings'))}
+                className="p-2 bg-[var(--sw-canvas)] hover:bg-[var(--sw-surface)] border border-[var(--sw-border)] rounded-xl text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)] transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-medium shrink-0 mr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
               >
-                {tab.label}
+                <ChevronLeft className="w-4 h-4" />
+                Back
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: Seat Metrics Summary & Save Changes */}
-        <div className="flex items-center gap-3 shrink-0">
-          
-          <div className="hidden sm:flex items-center gap-2.5 border-l border-[var(--sw-border)] pl-3 text-xs font-sans">
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--sw-text-secondary)]">Total:</span>
-              <span className="font-semibold text-[var(--sw-text-primary)]">{model.positions.length}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--sw-text-secondary)]">Vacant:</span>
-              <span className="font-semibold text-[var(--state-danger)] px-1.5 py-0.5 rounded bg-[var(--state-danger-bg)] text-[11px]">{model.positions.filter(p => p.status === 'open').length}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--sw-text-secondary)]">Planned:</span>
-              <span className="font-semibold text-[var(--state-info)] px-1.5 py-0.5 rounded bg-[var(--state-info-bg)] text-[11px]">{model.positions.filter(p => p.status === 'planned').length}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[var(--sw-text-secondary)]">AI:</span>
-              <span className="font-semibold text-[var(--state-ai)] px-1.5 py-0.5 rounded bg-[var(--state-ai-bg)] text-[11px]">{model.positions.filter(p => p.status === 'virtual_ai').length}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 ml-auto sm:ml-0">
-            {hasChanges ? (
-              <span 
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-[var(--state-warning)] bg-[var(--state-warning-bg)] border border-[var(--state-warning)]/20"
-                aria-live="polite"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--state-warning)] animate-pulse" />
-                Unsaved
-              </span>
-            ) : (
-              <span 
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--state-success)]"
-                aria-live="polite"
-              >
-                <Check className="w-3.5 h-3.5 text-[var(--state-success)]" />
-                Saved
-              </span>
             )}
 
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges || saveStatus === 'saving'}
-              aria-disabled={!hasChanges || saveStatus === 'saving'}
-              aria-label={saveStatus === 'saving' ? 'Saving changes' : saveStatus === 'saved' ? 'Changes saved' : hasChanges ? 'Save changes' : 'No changes to save'}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all min-h-[44px] sm:min-h-0 ${
-                hasChanges 
-                  ? 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)] hover:bg-[var(--brand-primary)]/90 border border-[var(--brand-primary)] shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2' 
-                  : 'bg-[var(--sw-canvas)] border border-[var(--sw-border)] text-[var(--sw-text-secondary)] opacity-[var(--sw-opacity-disabled)] cursor-not-allowed'
-              }`}
-            >
-              <Check className="w-3.5 h-3.5" />
-              {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
-            </button>
+            {/* Org Chart Section Tabs */}
+            <div className="flex gap-1 bg-[var(--sw-canvas)] p-1 rounded-xl border border-[var(--sw-border)] items-center shrink-0 overflow-x-auto max-w-full">
+              {[
+                { id: 'org_chart', label: 'Org Chart' },
+                { id: 'overview', label: 'Overview' },
+                { id: 'by_position', label: 'By Position' },
+                { id: 'routing', label: 'Request Routing' },
+                { id: 'escalations', label: 'Escalations' },
+                { id: 'connected_tools', label: 'Connected Tools' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer border font-medium shrink-0 ${
+                    activeTab === tab.id
+                      ? 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)] shadow-xs border-[var(--brand-primary)] font-semibold'
+                      : 'bg-transparent text-[var(--sw-text-secondary)] border-transparent hover:text-[var(--sw-text-primary)] hover:bg-[var(--sw-surface)]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: Seat Metrics Summary & Save Changes */}
+          <div className="flex items-center gap-3 shrink-0">
+            
+            <div className="hidden sm:flex items-center gap-2.5 border-l border-[var(--sw-border)] pl-3 text-xs font-sans">
+              <div className="flex items-center gap-1">
+                <span className="text-[var(--sw-text-secondary)]">Total:</span>
+                <span className="font-semibold text-[var(--sw-text-primary)]">{model.positions.length}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[var(--sw-text-secondary)]">Vacant:</span>
+                <span className="font-semibold text-[var(--state-danger)] px-1.5 py-0.5 rounded bg-[var(--state-danger-bg)] text-[11px]">{model.positions.filter(p => p.status === 'open').length}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[var(--sw-text-secondary)]">Planned:</span>
+                <span className="font-semibold text-[var(--state-info)] px-1.5 py-0.5 rounded bg-[var(--state-info-bg)] text-[11px]">{model.positions.filter(p => p.status === 'planned').length}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[var(--sw-text-secondary)]">AI:</span>
+                <span className="font-semibold text-[var(--state-ai)] px-1.5 py-0.5 rounded bg-[var(--state-ai-bg)] text-[11px]">{model.positions.filter(p => p.status === 'virtual_ai').length}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+              {hasChanges ? (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-[var(--state-warning)] bg-[var(--state-warning-bg)] border border-[var(--state-warning)]/20"
+                  aria-live="polite"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--state-warning)] animate-pulse" />
+                  Unsaved
+                </span>
+              ) : (
+                <span 
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--state-success)]"
+                  aria-live="polite"
+                >
+                  <Check className="w-3.5 h-3.5 text-[var(--state-success)]" />
+                  Saved
+                </span>
+              )}
+
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || saveStatus === 'saving'}
+                aria-disabled={!hasChanges || saveStatus === 'saving'}
+                aria-label={saveStatus === 'saving' ? 'Saving changes' : saveStatus === 'saved' ? 'Changes saved' : hasChanges ? 'Save changes' : 'No changes to save'}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all min-h-[44px] sm:min-h-0 ${
+                  hasChanges 
+                    ? 'bg-[var(--brand-primary)] text-[var(--brand-on-primary)] hover:bg-[var(--brand-primary)]/90 border border-[var(--brand-primary)] shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2' 
+                    : 'bg-[var(--sw-canvas)] border border-[var(--sw-border)] text-[var(--sw-text-secondary)] opacity-[var(--sw-opacity-disabled)] cursor-not-allowed'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
         {/* --- STEPPER PROGRESS BAR & MULTI-COLUMN LAYOUT --- */}
         {activeTab === 'guided' && (
@@ -5802,7 +6115,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
       )}
 
         {activeTab === 'overview' && (
-          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[#013028]">
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[var(--sw-canvas)] text-[var(--sw-text-primary)]">
             <div className="max-w-[1200px] mx-auto space-y-6">
               {/* Header */}
               <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-wrap items-center justify-between gap-4">
@@ -6139,7 +6452,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
           };
 
           return (
-            <div className="flex-1 overflow-y-auto p-6 text-left bg-[#013028] font-sans">
+            <div className="flex-1 overflow-y-auto p-6 text-left bg-[var(--sw-canvas)] text-[var(--sw-text-primary)] font-sans">
               <div className="w-full max-w-7xl mx-auto space-y-6">
                 
                 {/* Header area */}
@@ -7117,7 +7430,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
         })()}
 
         {activeTab === 'escalations' && (
-          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[#013028]">
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[var(--sw-canvas)] text-[var(--sw-text-primary)]">
             <div className="max-w-[1000px] mx-auto space-y-6">
               <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex justify-between items-center">
                 <div className="space-y-1">
@@ -7234,7 +7547,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                           <span>➔</span>
                           <span>Escalation Recipient: <strong className="text-white">{toPos ? toPos.name : 'Unknown'}</strong> ({toPos ? toPos.title : ''})</span>
                           <span>•</span>
-                          <span>Target SLA: <strong className="text-amber-400">{esc.responseWindow}</strong></span>
+                          <span>Due Time: <strong className="text-amber-400">{esc.responseWindow}</strong></span>
                         </div>
                       </button>
                     );
@@ -7246,7 +7559,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
 
 
         {activeTab === 'connected_tools' && (
-          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[#013028] font-sans">
+          <div className="flex-grow overflow-y-auto p-6 space-y-6 text-left bg-[var(--sw-canvas)] text-[var(--sw-text-primary)] font-sans">
             <div className="max-w-[1000px] mx-auto space-y-6">
               
               {/* Header card with action */}
@@ -7353,7 +7666,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                       credentials: 'include',
                                       body: JSON.stringify({
                                         propertyAddress: '142 Market St, Wilmington, NC',
-                                        listingAgentName: 'Sarah Jenkins',
+                                        listingAgentName: 'Jessica Keenan',
                                         listPrice: '$485,000',
                                         targetGoLiveDate: '2026-08-01',
                                         hasLockboxCode: true
@@ -7506,7 +7819,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                       credentials: 'include',
                                       body: JSON.stringify({
                                         amount: 3450,
-                                        payeeName: 'Sarah Jenkins (Listing Agent)',
+                                        payeeName: 'Jessica Keenan (Listing Agent)',
                                         description: 'Commission Payout - 142 Market St'
                                       })
                                     });
@@ -7556,7 +7869,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                       headers: { 'Content-Type': 'application/json' },
                                       credentials: 'include',
                                       body: JSON.stringify({
-                                        senderEmail: 'agent.sarah@nestrealty.com',
+                                        senderEmail: 'agent.jessicakeenan@nestrealty.com',
                                         subject: 'New Listing Setup Request - 142 Market St',
                                         body: 'Please launch marketing materials for 142 Market St.',
                                         propertyAddress: '142 Market St',
@@ -7786,7 +8099,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
                                       credentials: 'include',
-                                      body: JSON.stringify({ callerName: 'Sarah Jenkins (Agent)', transcriptQuery: 'What is the earnest money deposit deadline?' })
+                                      body: JSON.stringify({ callerName: 'Jessica Keenan (Agent)', transcriptQuery: 'What is the earnest money deposit deadline?' })
                                     });
                                     const data = await res.json();
                                     if (data.success) {
@@ -7989,7 +8302,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
                                       credentials: 'include',
-                                      body: JSON.stringify({ senderEmail: 'sarah.j@nestrealty.com', subject: 'New Listing Intake Request - 142 Market St' })
+                                      body: JSON.stringify({ senderEmail: 'jessica.keenan@nestrealty.com', subject: 'New Listing Intake Request - 142 Market St' })
                                     });
                                     const data = await res.json();
                                     if (data.success) {
@@ -8034,7 +8347,7 @@ export default function OrgChartWizardPage({ onClose, state, embeddedTab }: OrgC
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
                                       credentials: 'include',
-                                      body: JSON.stringify({ emailSubject: 'Need yard sign installation & lockbox for 142 Market St', senderEmail: 'sarah.jenkins@nestrealty.com', propertyAddress: '142 Market St' })
+                                      body: JSON.stringify({ emailSubject: 'Need yard sign installation & lockbox for 142 Market St', senderEmail: 'jessica.keenan@nestrealty.com', propertyAddress: '142 Market St' })
                                     });
                                     const data = await res.json();
                                     if (data.success) {
@@ -10521,7 +10834,7 @@ function OrgChartDrawerOverlay({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Target SLA Window</label>
+                  <label className="text-[9px] font-bold text-[#D0D6BB] uppercase font-mono block">Target Due Time Window</label>
                   <input
                     type="text"
                     value={roleSla}

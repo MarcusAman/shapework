@@ -326,7 +326,7 @@ export function getDerivedAssetState(
   campaign: CampaignRecordState | null,
   job: JobRecordState | null
 ): MarketingAssetState {
-  if (campaign?.approvalReceipts && campaign.approvalReceipts.some(r => r.assetId === assetType)) {
+  if (Array.isArray(campaign?.approvalReceipts) && campaign.approvalReceipts.some(r => r.assetId === assetType)) {
     return 'approved';
   }
   if (campaign?.assetApprovals && campaign.assetApprovals[assetType]) {
@@ -425,6 +425,8 @@ export type MarketingPriority =
 
 export type MarketingWorkItemStatus =
   | 'new'
+  | 'request_received'
+  | 'assigned'
   | 'needs_triage'
   | 'needs_scope'
   | 'ready'
@@ -433,16 +435,93 @@ export type MarketingWorkItemStatus =
   | 'waiting_on_approval'
   | 'waiting_on_quote'
   | 'waiting_on_vendor'
+  | 'agent_review'
+  | 'revisions'
   | 'ready_for_review'
   | 'ready_to_send'
   | 'sent'
   | 'printing'
+  | 'with_vendor'
   | 'ready_for_pickup'
   | 'physically_delivered'
+  | 'approved'
   | 'complete'
+  | 'completed'
+  | 'archived'
   | 'blocked'
   | 'deferred'
   | 'cancelled';
+
+/**
+ * Canonical Marketing Task Lifecycle Status per Melissa's Verified Workflow
+ */
+export type MarketingTaskStatus =
+  | 'request_received'   // New / Unassigned waiting for someone to take ownership
+  | 'assigned'           // Assigned to a person (Melissa, Eduardo, Ann), waiting to Start Work
+  | 'in_progress'        // Active design / production underway
+  | 'agent_review'       // Waiting for agent approval
+  | 'revisions'          // Changes requested by agent, waiting for rework
+  | 'approved'           // Approved (digital complete/published)
+  | 'with_vendor'        // Far right: Approved and dispatched to FastSigns/printer/vendor
+  | 'completed'          // Finished
+  | 'archived';          // Archived from active board
+
+export type MarketingCategory =
+  | 'farming'
+  | 'listing_launch'
+  | 'open_house'
+  | 'social'
+  | 'signage'
+  | 'print'
+  | 'mailer'
+  | 'other';
+
+export interface MarketingTaskItem {
+  id: string;
+  requestId: string;
+  requestTitle?: string;
+  propertyAddress?: string; // optional (e.g. for Farming, Mailers)
+  agentName: string;
+  agentRole?: string;
+  title: string;
+  category: MarketingCategory;
+  assignedTo?: string; // e.g. 'Melissa Gagliardi', 'Eduardo Lovo', 'Ann Gunn', or undefined
+  assignedToRole?: string;
+  status: MarketingTaskStatus;
+  dueAt?: string; // ISO date string e.g. '2026-09-01' or '2027-03-01'
+  vendorName?: string; // e.g. 'FastSigns', 'Coastal Sign Post Co.'
+  vendorNotes?: string; // e.g. 'Proof approved — waiting on production'
+  notes?: string;
+  startedAt?: string;
+  startedBy?: string;
+  completedAt?: string;
+  archivedAt?: string;
+  isArchived?: boolean;
+  approvalHistory?: Array<{
+    action: 'sent_for_review' | 'changes_requested' | 'approved' | 'sent_to_vendor' | 'completed' | 'archived';
+    performedBy: string;
+    timestamp: string;
+    note?: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketingRequestContainer {
+  id: string;
+  title: string;
+  propertyAddress?: string;
+  category: MarketingCategory;
+  agentName: string;
+  agentRole?: string;
+  channel: 'phone' | 'email' | 'web' | 'sms' | 'portal' | 'manual';
+  requestExcerpt: string;
+  tasks: MarketingTaskItem[];
+  receivedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  isArchived?: boolean;
+}
 
 export type PrintWorkflowStatus =
   | 'not_required'
@@ -547,6 +626,7 @@ export interface RoutingPolicyOverride {
 
 export interface MarketingWorkItem {
   id: string;
+  taskId?: string;
   requestId: string;
   campaignId?: string;
   workType:

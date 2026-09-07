@@ -71,7 +71,7 @@ export default function ApprovalCard({
           <span className="font-mono font-semibold text-[#00635C]">{refValue}</span>
         </div>
         <div>
-          <span className="text-[#01362D]/50 block font-medium">SLA status</span>
+          <span className="text-[#01362D]/50 block font-medium">Due time status</span>
           <span className="font-semibold text-[#01362D]">On schedule</span>
         </div>
       </div>

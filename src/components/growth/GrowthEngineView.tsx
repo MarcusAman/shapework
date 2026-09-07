@@ -1109,7 +1109,7 @@ export default function GrowthEngineView({ state }: GrowthEngineViewProps) {
                   type="text"
                   value={newProspect.name}
                   onChange={e => setNewProspect({ ...newProspect, name: e.target.value })}
-                  placeholder="e.g. Sarah Jenkins"
+                  placeholder="e.g. Jane Doe"
                   className="w-full p-2.5 border border-stone-200 rounded-lg text-xs mt-1 bg-stone-50/50 focus:bg-white"
                   required
                 />

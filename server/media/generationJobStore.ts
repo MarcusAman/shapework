@@ -58,8 +58,8 @@ export interface MarketingGenerationJob {
     affectedAssets: MarketingAssetType[];
   };
 
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type MarketingBuildEvent =
@@ -203,7 +203,7 @@ export function getGenerationJobFromStore(jobId: string): MarketingGenerationJob
       },
       startedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      initiatedBy: 'Sarah Jenkins'
+      initiatedBy: 'Matt Orr'
     };
     jobsMemoryStore.set('job_demo_990', demoJob);
     return demoJob;

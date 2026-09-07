@@ -157,8 +157,8 @@ export default function RyanShieldPage({ data, onAction, state }: RyanShieldPage
                         <span className="font-bold text-xs text-[var(--sw-text-primary)]">{item.type}</span>
                         <StatusBadge status={item.urgency === 'urgent' ? 'at_risk' : 'awaiting_approval'} size="sm" />
                       </div>
-                      <p className="text-xs text-[var(--sw-text-secondary)]">{item.summary}</p>
-                      <span className="text-[11px] text-[var(--sw-text-muted)] font-mono">{item.impact}</span>
+                      <p className="text-xs text-[var(--sw-text-secondary)]">{item.reason}</p>
+                      <span className="text-[11px] text-[var(--sw-text-muted)] font-mono">{item.recommendedAction}</span>
                     </div>
 
                     <Button

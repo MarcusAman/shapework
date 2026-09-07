@@ -15,9 +15,10 @@ import {
   CheckSquare,
   Clock,
   Building2,
-  Wrench,
   BarChart3,
-  Phone
+  Phone,
+  TrendingUp,
+  Newspaper
 } from 'lucide-react';
 
 export type ProductExperience =
@@ -36,32 +37,64 @@ export interface ProductModuleAccess {
   comingSoon?: boolean;
 }
 
+export const PILOT_TEAM_EMAILS = [
+  'ryan@nestrealty.com',
+  'matt@nestrealty.com',
+  'matt.orr@nestrealty.com',
+  'marcus@nestrealty.com',
+  'marcus@capefearai.com',
+  'mg@nestrealty.com',
+  'melissa@nestrealty.com',
+  'melissa.gagliardi@nestrealty.com',
+  'ann@nestrealty.com',
+  'ann.gunn@nestrealty.com',
+  'james@nestrealty.com',
+  'james.fort@nestrealty.com',
+  'eric@nestrealty.com',
+  'eric.knight@nestrealty.com',
+  'jessica.keenan@nestrealty.com',
+  'jessica@nestrealty.com',
+  'eduardo.lovo@nestrealty.com',
+  'eduardo@nestrealty.com',
+  'asknora@nestrealty.com',
+  'ask-nora@nestrealty.com'
+];
+
 export function getProductProfile(
   email: string | undefined,
   role: string | undefined,
   workspaceId: string
 ): { experience: ProductExperience; modules: ProductModuleAccess[] } {
-  const isWilmington = workspaceId === 'nest-realty-demo' || workspaceId === 'nest-realty-wilmington';
+  const isWilmington = workspaceId === 'nest-realty-demo' || workspaceId === 'nest-realty-wilmington' || workspaceId === 'ws_wilmington';
   
   if (isWilmington) {
-    const isRestrictedUser = email === 'ryan@nestrealty.com';
-    if (isRestrictedUser) {
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const isPilotUser = PILOT_TEAM_EMAILS.includes(cleanEmail) || (!role?.includes('admin') && cleanEmail.endsWith('@nestrealty.com'));
+    if (isPilotUser) {
       return {
         experience: 'ryan_pilot',
         modules: [
           {
             moduleId: 'workboard',
-            name: 'Ask Nest Ops',
+            name: 'Ask Nora',
             tab: 'Workboard',
             icon: Brain,
             visible: true,
             enabled: true
           },
           {
-            moduleId: 'ryan_shield',
-            name: 'Ryan Shield',
-            tab: 'Ryan Shield',
-            icon: Shield,
+            moduleId: 'marketing',
+            name: 'Tasks',
+            tab: 'Tasks',
+            icon: CheckSquare,
+            visible: true,
+            enabled: true
+          },
+          {
+            moduleId: 'news',
+            name: 'News',
+            tab: 'News',
+            icon: Newspaper,
             visible: true,
             enabled: true
           },
@@ -82,26 +115,18 @@ export function getProductProfile(
             enabled: true
           },
           {
-            moduleId: 'owner_briefing',
-            name: 'Owner Briefing',
-            tab: 'Owner Brief',
-            icon: BarChart3,
-            visible: true,
-            enabled: true
-          },
-          {
             moduleId: 'sops',
-            name: 'Staff SOP Templates',
+            name: 'Knowledge Library',
             tab: 'Staff SOP Templates',
             icon: FileText,
             visible: true,
             enabled: true
           },
           {
-            moduleId: 'marketing',
-            name: 'Marketing Intake',
-            tab: 'Marketing Intake',
-            icon: Phone,
+            moduleId: 'market_intelligence',
+            name: 'Market Intelligence',
+            tab: 'Market Intelligence',
+            icon: TrendingUp,
             visible: true,
             enabled: true
           },
@@ -142,14 +167,6 @@ export function getProductProfile(
 function getFullCustomerModules(): ProductModuleAccess[] {
   return [
     {
-      moduleId: 'pitch_demo',
-      name: "Pitch & 'Aha!' Demo",
-      tab: 'Pitch Demo',
-      icon: Zap,
-      visible: true,
-      enabled: true
-    },
-    {
       moduleId: 'pocket_matches',
       name: 'Pre-MLS Board',
       tab: 'Pre-MLS Board',
@@ -158,34 +175,10 @@ function getFullCustomerModules(): ProductModuleAccess[] {
       enabled: true
     },
     {
-      moduleId: 'vendor_dispatch',
-      name: 'Vendor Dispatch',
-      tab: 'Vendor Dispatch',
-      icon: Wrench,
-      visible: true,
-      enabled: true
-    },
-    {
       moduleId: 'workboard',
-      name: 'Ask Nest Ops',
+      name: 'Ask Nora',
       tab: 'Workboard',
       icon: Brain,
-      visible: true,
-      enabled: true
-    },
-    {
-      moduleId: 'work_queue',
-      name: 'Requests',
-      tab: 'Work Queue',
-      icon: Inbox,
-      visible: true,
-      enabled: true
-    },
-    {
-      moduleId: 'approvals',
-      name: 'Approvals',
-      tab: 'Approvals',
-      icon: CheckCircle,
       visible: true,
       enabled: true
     },
@@ -194,14 +187,6 @@ function getFullCustomerModules(): ProductModuleAccess[] {
       name: 'Owner Brief',
       tab: 'Owner Brief',
       icon: BarChart3,
-      visible: true,
-      enabled: true
-    },
-    {
-      moduleId: 'operating_record',
-      name: 'Operating Record',
-      tab: 'Operating Record',
-      icon: Layers,
       visible: true,
       enabled: true
     },
@@ -223,9 +208,25 @@ function getFullCustomerModules(): ProductModuleAccess[] {
     },
     {
       moduleId: 'marketing',
-      name: 'Marketing Intake',
-      tab: 'Marketing Intake',
-      icon: FileText,
+      name: 'Tasks',
+      tab: 'Tasks',
+      icon: CheckSquare,
+      visible: true,
+      enabled: true
+    },
+    {
+      moduleId: 'news',
+      name: 'News',
+      tab: 'News',
+      icon: Newspaper,
+      visible: true,
+      enabled: true
+    },
+    {
+      moduleId: 'market_intelligence',
+      name: 'Market Intelligence',
+      tab: 'Market Intelligence',
+      icon: TrendingUp,
       visible: true,
       enabled: true
     },
@@ -247,7 +248,7 @@ function getFullCustomerModules(): ProductModuleAccess[] {
     },
     {
       moduleId: 'sops',
-      name: 'Staff SOP Templates',
+      name: 'Knowledge Library',
       tab: 'Staff SOP Templates',
       icon: CheckSquare,
       visible: true,

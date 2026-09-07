@@ -26,7 +26,7 @@ describe('Staff SOP Template Dynamic RAG & NORA Voice Integration', () => {
 
     expect(res.matchedDomain).toBe('sops');
     expect(res.spokenAnswer).toContain('Buyer Contract Verification');
-    expect(res.spokenAnswer).toContain('Matt Orr');
+    expect(res.spokenAnswer).toContain('Eric Knight');
     expect(res.displayResponse).toContain('Earnest Money Deposit');
     expect(res.evidenceCard?.deepLinkUrl).toContain('sop_contract_verification_002');
   });
@@ -49,7 +49,7 @@ describe('Staff SOP Template Dynamic RAG & NORA Voice Integration', () => {
     expect(res.evidenceCard?.deepLinkUrl).toBe('/app/ask-nest-ops?tab=sops');
   });
 
-  it('instant zero-lag dynamic reflection: newly authored draft SOP is immediately queryable', async () => {
+  it('strictly isolates RAG retrieval to published-only policies and reflects newly published SOPs', async () => {
     const customSopId = `sop_custom_open_house_${Date.now()}`;
     const customTitle = `Luxury Waterfront Open House Protocol ${Date.now()}`;
     const customDraftSop: SopDocument = {
@@ -73,7 +73,7 @@ describe('Staff SOP Template Dynamic RAG & NORA Voice Integration', () => {
       completionEvidence: 'Buyer check-in roster exported to CRM.',
       expectedTiming: '2 hours prior to event start',
       systemsUsed: ['Shapework Kiosk', 'Vendor Concierge'],
-      reviewer: 'Matt Orr — BIC',
+      reviewer: 'Eric Knight — BIC',
       publisher: '',
       effectiveDate: '',
       reviewDate: '',
@@ -90,17 +90,20 @@ describe('Staff SOP Template Dynamic RAG & NORA Voice Integration', () => {
     // 1. Save draft into repository
     await sopRepository.saveDraft(customDraftSop);
 
-    // 2. Query Unified Context Engine immediately (0 latency)
-    const res = queryUnifiedContext(`What is the ${customTitle} procedure?`, { tenantId, workspaceId });
+    // 2. Query Unified Context Engine — draft MUST NOT be returned as active policy
+    const draftRes = queryUnifiedContext(`What is the ${customTitle} procedure?`, { tenantId, workspaceId });
+    if (draftRes.matchedDomain === 'sops' && draftRes.evidenceCard?.title) {
+      expect(draftRes.evidenceCard.title).not.toBe(customTitle);
+    }
 
-    // 3. Verify it was immediately retrieved with Draft distinction
-    expect(res.matchedDomain).toBe('sops');
-    expect(res.spokenAnswer).toContain(customTitle);
-    expect(res.spokenAnswer).toContain('currently a draft under review by Matt Orr');
-    expect(res.displayResponse).toContain('Draft SOP in Review');
-    expect(res.displayResponse).toContain('Sarah Jenkins — Luxury Associate');
-    expect(res.evidenceCard?.deepLinkUrl).toContain(customSopId);
-    expect(res.needsEscalation).toBe(true);
+    // 3. Publish the SOP
+    await sopRepository.publishSop(customSopId, tenantId, 'Ryan Crecelius (Owner)');
+
+    // 4. Query again — published SOP MUST now be immediately retrieved
+    const pubRes = queryUnifiedContext(`What is the ${customTitle} procedure?`, { tenantId, workspaceId });
+    expect(pubRes.matchedDomain).toBe('sops');
+    expect(pubRes.spokenAnswer).toContain(customTitle);
+    expect(pubRes.evidenceCard?.deepLinkUrl).toContain(customSopId);
   });
 
   it('strictly isolates SOP retrieval across tenants', () => {

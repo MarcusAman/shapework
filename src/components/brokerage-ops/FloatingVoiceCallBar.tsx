@@ -19,7 +19,7 @@ export const FloatingVoiceCallBar: React.FC<FloatingVoiceCallBarProps> = ({
   isMicMuted,
   isSpeakerMuted,
   frequencyData,
-  orbVideoSrc = '/nest_ops_orb.mp4',
+  orbVideoSrc = '/nest_orb_2.mp4',
   onToggleMic,
   onToggleSpeaker,
   onToggleDrawer,
@@ -53,7 +53,7 @@ export const FloatingVoiceCallBar: React.FC<FloatingVoiceCallBarProps> = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <span className="font-serif font-black text-sm text-[var(--brand-primary,#01362D)]">
-                Ask Nest Ops Voice
+                Ask Nora Voice
               </span>
             </div>
 

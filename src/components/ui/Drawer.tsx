@@ -41,6 +41,8 @@ export default function Drawer({
 }: DrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const titleId = useId();
 
   useEffect(() => {
@@ -50,7 +52,21 @@ export default function Drawer({
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
 
+      const timer = setTimeout(() => {
+        if (drawerRef.current) {
+          if (!drawerRef.current.contains(document.activeElement)) {
+            const firstInput = drawerRef.current.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+            if (firstInput) {
+              firstInput.focus();
+            } else {
+              drawerRef.current.focus();
+            }
+          }
+        }
+      }, 50);
+
       return () => {
+        clearTimeout(timer);
         document.body.style.overflow = originalOverflow;
         if (previousActiveElement.current && typeof previousActiveElement.current.focus === 'function') {
           previousActiveElement.current.focus();
@@ -65,7 +81,7 @@ export default function Drawer({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -94,22 +110,10 @@ export default function Drawer({
 
     window.addEventListener('keydown', handleKeyDown);
 
-    const timer = setTimeout(() => {
-      if (drawerRef.current) {
-        const firstInput = drawerRef.current.querySelector<HTMLElement>('input, button, select, textarea');
-        if (firstInput) {
-          firstInput.focus();
-        } else {
-          drawerRef.current.focus();
-        }
-      }
-    }, 50);
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(timer);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

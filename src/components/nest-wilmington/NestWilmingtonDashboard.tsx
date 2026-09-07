@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, FileText, ExternalLink, Menu, X, ChevronRight, ChevronLeft, LogOut, HelpCircle, PhoneCall, Calendar } from 'lucide-react';
+import { Shield, Users, FileText, ExternalLink, Menu, X, ChevronRight, ChevronLeft, LogOut, HelpCircle, PhoneCall, Calendar, Truck, Wrench } from 'lucide-react';
 import { orgChartService } from '../../services/orgChartService';
 import {
   buildRyanShieldSummary,
@@ -13,16 +13,11 @@ import OwnerWeeklyBriefPage from './OwnerWeeklyBriefPage';
 import SectionNavigationBar from '../ui/SectionNavigationBar';
 import SOPStudio from '../sops/SOPStudio';
 import MarketingIntakeConsole from '../marketing/MarketingIntakeConsole';
+import { VendorDispatchHub } from '../vendors/VendorDispatchHub';
 
-type NavId = 'shield' | 'roles' | 'sops' | 'marketing' | 'brief';
+type NavId = 'roles' | 'dispatch' | 'sops' | 'marketing';
 
 const NAV_ITEMS: Array<{ id: NavId; label: string; sub: string; icon: React.FC<{ className?: string }> }> = [
-  {
-    id: 'shield',
-    label: 'Ryan Shield',
-    sub: 'What needs you. What got handled.',
-    icon: Shield,
-  },
   {
     id: 'roles',
     label: 'Role & Escalation Map',
@@ -30,9 +25,15 @@ const NAV_ITEMS: Array<{ id: NavId; label: string; sub: string; icon: React.FC<{
     icon: Users,
   },
   {
+    id: 'dispatch',
+    label: 'Vendor Dispatch & Field Equipment',
+    sub: 'Yard signs, Coastal Sign Post Co., HDR media & lockbox fleet.',
+    icon: Truck,
+  },
+  {
     id: 'sops',
-    label: 'Staff SOP Templates',
-    sub: '5-section staff self-authoring & review.',
+    label: 'Knowledge Library',
+    sub: 'Procedures, knowledge documents & active checklist runs.',
     icon: FileText,
   },
   {
@@ -40,12 +41,6 @@ const NAV_ITEMS: Array<{ id: NavId; label: string; sub: string; icon: React.FC<{
     label: 'Marketing Intake',
     sub: 'Hotline call logs, AI transcripts & VA delegation.',
     icon: PhoneCall,
-  },
-  {
-    id: 'brief',
-    label: 'Owner Weekly Brief',
-    sub: 'Weekly digest of brokerage activity.',
-    icon: Calendar,
   },
 ];
 
@@ -57,13 +52,12 @@ interface NestWilmingtonDashboardProps {
 
 export default function NestWilmingtonDashboard({ currentTab, state, embedded = true }: NestWilmingtonDashboardProps) {
   const mapTabToNav = (tab?: string): NavId => {
-    if (!tab) return 'shield';
+    if (!tab) return 'roles';
     const lower = tab.toLowerCase();
-    if (lower.includes('role')) return 'roles';
-    if (lower.includes('sop')) return 'sops';
+    if (lower.includes('dispatch') || lower.includes('vendor') || lower.includes('equipment') || lower.includes('sign') || lower.includes('repair')) return 'dispatch';
+    if (lower.includes('sop') || lower.includes('knowledge')) return 'sops';
     if (lower.includes('marketing')) return 'marketing';
-    if (lower.includes('brief')) return 'brief';
-    return 'shield';
+    return 'roles';
   };
 
   const [activeNav, setActiveNav] = useState<NavId>(() => mapTabToNav(currentTab));
@@ -139,15 +133,28 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
   }
 
   const renderPage = () => {
-    if (activeNav === 'shield') {
-      return <RyanShieldPage data={shieldData || buildRyanShieldSummary(rawModel || fallbackModel as any)} state={state} />;
-    }
     if (activeNav === 'roles') {
       return (
         <RoleEscalationMapPage 
           data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
           model={rawModel || fallbackModel} 
         />
+      );
+    }
+    if (activeNav === 'dispatch') {
+      return (
+        <div className="p-4 md:p-6">
+          <VendorDispatchHub 
+            workspaceId={state?.workspaceId || 'nest-realty-wilmington'} 
+            onNavigateToSopRun={(runId) => {
+              if (state?.setCurrentTab) {
+                state.setCurrentTab('Knowledge Library');
+              } else {
+                setActiveNav('sops');
+              }
+            }}
+          />
+        </div>
       );
     }
     if (activeNav === 'sops') {
@@ -164,10 +171,12 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
         </div>
       );
     }
-    if (activeNav === 'brief') {
-      return <OwnerWeeklyBriefPage data={briefData || buildOwnerWeeklyBrief()} />;
-    }
-    return null;
+    return (
+      <RoleEscalationMapPage 
+        data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
+        model={rawModel || fallbackModel} 
+      />
+    );
   };
 
   const activeNavItem = NAV_ITEMS.find(n => n.id === activeNav)!;
@@ -298,20 +307,18 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
     return (
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative nest-layered-bg">
         {/* Scrollable page body or full-bleed Map */}
-        {activeNav === 'roles' ? (
-          <div className="flex-1 min-h-0 relative p-6">
-            <RoleEscalationMapPage 
-              data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
-              model={rawModel || fallbackModel} 
-            />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-24 relative print:p-0 print:overflow-visible">
+          <div className="max-w-[1600px] mx-auto space-y-6">
+            {activeNav === 'roles' ? (
+              <RoleEscalationMapPage 
+                data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
+                model={rawModel || fallbackModel} 
+              />
+            ) : (
+              renderPage()
+            )}
           </div>
-        ) : (
-          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
-            <div className="max-w-[1600px] mx-auto space-y-6">
-              {renderPage()}
-            </div>
-          </main>
-        )}
+        </main>
       </div>
     );
   }
@@ -359,18 +366,19 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
           variant="client" 
         />
 
-        {/* Scrollable page body or full-bleed Map */}
-        {activeNav === 'roles' && rolesData && rawModel ? (
-          <div className="flex-1 min-h-0 relative p-6">
-            <RoleEscalationMapPage data={rolesData} model={rawModel} />
+        {/* Scrollable page body */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-24 relative print:p-0 print:overflow-visible">
+          <div className="max-w-[1600px] mx-auto space-y-6">
+            {activeNav === 'roles' ? (
+              <RoleEscalationMapPage 
+                data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
+                model={rawModel || fallbackModel} 
+              />
+            ) : (
+              renderPage()
+            )}
           </div>
-        ) : (
-          <main className="flex-1 overflow-y-auto p-6 pb-24 md:pb-20 relative">
-            <div className="max-w-[1600px] mx-auto space-y-6">
-              {renderPage()}
-            </div>
-          </main>
-        )}
+        </main>
       </div>
     </div>
   );

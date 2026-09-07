@@ -33,7 +33,7 @@ export default function RechatLaunchSetupPanel({
   // Simulated Rechat Users list for mapping
   const [rechatUsers, setRechatUsers] = useState([
     { id: 'ru_1', name: 'Diane Ross', email: 'diane.ross@nestrealty.com', mappedRole: 'transaction_coordinator' },
-    { id: 'ru_2', name: 'Sarah Jenkins', email: 'sarah.j@nestrealty.com', mappedRole: 'operations_lead' },
+    { id: 'ru_2', name: 'Jessica Keenan', email: 'jessica.keenan@nestrealty.com', mappedRole: 'compliance_lead' },
     { id: 'ru_3', name: 'John Broker', email: 'owner@nestrealty.com', mappedRole: 'owner' },
     { id: 'ru_4', name: 'Ann', email: 'ann@nestrealty.com', mappedRole: 'admin' },
     { id: 'ru_5', name: 'Melissa Gagliardi', email: 'melissa.gagliardi@nestrealty.com', mappedRole: 'admin' },

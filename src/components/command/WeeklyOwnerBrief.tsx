@@ -141,7 +141,7 @@ export default function WeeklyOwnerBrief({ state = {} }: WeeklyOwnerBriefProps) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'completed',
-          userName: activeProfile?.name || 'Sarah Jenkins',
+          userName: activeProfile?.name || 'Ann Gunn',
           userRole: activeProfile?.role || 'operations_lead'
         })
       });

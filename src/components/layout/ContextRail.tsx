@@ -285,7 +285,7 @@ export default function ContextRail({
             </span>
           </div>
           <h3 className="font-serif font-bold text-text-primary text-base leading-snug">{item.title || item.record}</h3>
-          <p className="text-xs text-text-secondary mt-1">Owner: {item.owner || 'Sarah Jenkins'}</p>
+          <p className="text-xs text-text-secondary mt-1">Owner: {item.owner || 'Ann Gunn'}</p>
         </div>
 
         {item.raw?.before && item.raw?.after && (

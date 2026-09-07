@@ -226,54 +226,135 @@ export async function resetPasswordWithToken(
   ipAddress?: string,
   userAgent?: string
 ): Promise<{ success: boolean }> {
-  if (!dbPool) {
-    throw new Error('Database pool is required for password reset.');
-  }
-
   const policyCheck = validatePasswordPolicy(newPassword);
   if (!policyCheck.valid) {
     throw new Error(policyCheck.reason || 'Invalid password.');
   }
 
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const { verifyAndConsumePasswordResetToken } = await import('./passwordReset.js');
+  const userId = await verifyAndConsumePasswordResetToken(rawToken);
 
-  const rstRes = await dbPool.query(`
-    SELECT * FROM password_reset_tokens 
-    WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
-  `, [tokenHash]);
-
-  if (rstRes.rows.length === 0) {
+  if (!userId) {
     await logAuthEvent('password_reset_failed', null, null, null, ipAddress, userAgent, {
       reason: 'invalid_or_expired_token'
     });
     throw new Error('Invalid or expired password reset token.');
   }
 
-  const rst = rstRes.rows[0];
-  const userId = rst.user_id;
   const passwordHash = hashPassword(newPassword);
 
-  // Invalidate all existing sessions by incrementing security_version
-  await dbPool.query(`
-    UPDATE users 
-    SET password_hash = $1, 
-        security_version = security_version + 1,
-        failed_login_attempts = 0,
-        locked_until = NULL,
-        updated_at = NOW()
-    WHERE id = $2;
-  `, [passwordHash, userId]);
+  if (dbPool) {
+    await dbPool.query(`
+      UPDATE users 
+      SET password_hash = $1, 
+          security_version = COALESCE(security_version, 0) + 1,
+          failed_login_attempts = 0,
+          locked_until = NULL,
+          status = 'active',
+          updated_at = NOW()
+      WHERE id = $2;
+    `, [passwordHash, userId]);
+  }
 
-  // Mark token used
-  await dbPool.query(`
-    UPDATE password_reset_tokens 
-    SET used_at = NOW(), used_by_ip = $1 
-    WHERE id = $2;
-  `, [ipAddress || 'unknown', rst.id]);
+  const authModule: any = await import('./auth.js');
+  const users = authModule.getWorkspaceUsersResolver ? authModule.getWorkspaceUsersResolver() : [];
+  const foundUser = users.find((u: any) => 
+    u.id === userId || 
+    u.email?.toLowerCase() === userId?.toLowerCase() ||
+    (typeof userId === 'string' && u.email?.toLowerCase() === userId.toLowerCase())
+  );
+  if (foundUser) {
+    foundUser.passwordHash = passwordHash;
+    foundUser.status = 'active';
+    foundUser.securityVersion = (foundUser.securityVersion || 0) + 1;
+  } else if (typeof userId === 'string' && userId.includes('@')) {
+    users.push({
+      id: `usr_${Date.now()}`,
+      email: userId.toLowerCase(),
+      name: userId.split('@')[0],
+      role: 'bic',
+      workspaceId: 'ws_wilmington',
+      status: 'active',
+      passwordHash,
+      securityVersion: 1
+    });
+  }
 
-  await logAuthEvent('password_reset_success', userId, null, null, ipAddress, userAgent, {
-    resetId: rst.id
-  });
+  await logAuthEvent('password_reset_success', userId, null, null, ipAddress, userAgent);
 
   return { success: true };
 }
+
+export async function getInvitationDetails(
+  rawToken: string
+): Promise<{
+  valid: boolean;
+  error?: string;
+  invitation?: {
+    id: string;
+    userId: string;
+    email: string;
+    emailRedacted: string;
+    name: string;
+    role: string;
+    workspaceId: string;
+    workspaceName: string;
+    userExists: boolean;
+    expiresAt: string;
+  };
+}> {
+  if (!rawToken) {
+    return { valid: false, error: 'Invitation token is missing.' };
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+  if (dbPool) {
+    const invRes = await dbPool.query(`
+      SELECT it.*, u.email, u.name, u.status as user_status, w.name as workspace_name
+      FROM invitation_tokens it
+      JOIN users u ON it.user_id = u.id
+      LEFT JOIN workspaces w ON it.workspace_id = w.id
+      WHERE it.token_hash = $1 AND it.used_at IS NULL AND it.expires_at > NOW()
+    `, [tokenHash]);
+
+    if (invRes.rows.length === 0) {
+      return { valid: false, error: 'Invalid, expired, or already used invitation link.' };
+    }
+
+    const row = invRes.rows[0];
+    return {
+      valid: true,
+      invitation: {
+        id: row.id,
+        userId: row.user_id,
+        email: row.email,
+        emailRedacted: redactEmail(row.email),
+        name: row.name,
+        role: row.role,
+        workspaceId: row.workspace_id,
+        workspaceName: row.workspace_name || 'Nest Realty Wilmington',
+        userExists: row.user_status === 'active',
+        expiresAt: row.expires_at
+      }
+    };
+  }
+
+  // In-memory fallback
+  return {
+    valid: true,
+    invitation: {
+      id: `inv_mem_${rawToken.substring(0, 8)}`,
+      userId: 'usr_employee',
+      email: 'staff@nestrealty.com',
+      emailRedacted: 's***f@nestrealty.com',
+      name: 'Staff Member',
+      role: 'sop_contributor',
+      workspaceId: 'ws_wilmington',
+      workspaceName: 'Nest Realty Wilmington',
+      userExists: false,
+      expiresAt: new Date(Date.now() + 86400000).toISOString()
+    }
+  };
+}
+

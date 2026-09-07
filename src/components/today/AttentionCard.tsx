@@ -207,7 +207,7 @@ export default function AttentionCard({
     const role = card.originalRecord?.ownerRole || 'Broker Owner';
     const roleLabel = role === 'transaction_coordinator' ? 'Transaction Coordinator' : (role === 'compliance_partner' ? 'Compliance Partner' : 'Broker Owner');
     if (owner && owner.includes('Marcus')) return `${owner} (${roleLabel})`;
-    if (owner && owner.includes('Sarah')) return `${owner} (${roleLabel})`;
+    if (owner && owner.includes('Ann')) return `${owner} (${roleLabel})`;
     return `${owner} (${roleLabel})`;
   };
 

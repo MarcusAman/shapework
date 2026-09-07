@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Shield, User, Users, Activity, Phone, Mail, ChevronRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { StaffMemberProfile } from '../../../server/persistence/operationsDirectoryRepository';
+import type { StaffMemberProfile } from '../../../server/persistence/operationsDirectoryRepository';
 
 interface OperationsDirectoryModalProps {
   isOpen: boolean;
