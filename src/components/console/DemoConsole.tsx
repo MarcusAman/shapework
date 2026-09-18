@@ -4,7 +4,6 @@ import CustomerAppRoutes from '../../routes/CustomerAppRoutes';
 import EvidenceDrawer from '../ui/EvidenceDrawer';
 import { useDemoConsoleState } from '../../state/useDemoConsoleState';
 import ErrorBoundary from '../system/ErrorBoundary';
-import DemoDataNotice from '../system/DemoDataNotice';
 import WorkspaceAccessGate from '../system/WorkspaceAccessGate';
 
 export default function DemoConsole() {
@@ -68,7 +67,6 @@ export default function DemoConsole() {
   return (
     <WorkspaceAccessGate>
       <div className="flex flex-col h-screen w-screen overflow-hidden">
-        <DemoDataNotice />
         <AppShell
           appMode={appMode}
           workspaceId={workspaceId}

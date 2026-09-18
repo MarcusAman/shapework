@@ -21,11 +21,11 @@ export default function CommandPlanCard({
   onCancel,
   onEdit
 }: CommandPlanProps) {
-  if (!plan) return null;
-
   const [dryRunRunning, setDryRunRunning] = useState(false);
   const [dryRunActive, setDryRunActive] = useState(false);
   const [dryRunLogs, setDryRunLogs] = useState<string[]>([]);
+
+  if (!plan) return null;
 
   const isRunning = plan.execution_status === 'running';
   const isCompleted = plan.execution_status === 'completed';

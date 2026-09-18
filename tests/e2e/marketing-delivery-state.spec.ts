@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing Delivery State', () => {
   test('delivery options available only when campaign is approved and distinguishes download vs delivered', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_304_ocean&mode=delivered');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_304_ocean&mode=delivered');
 
     // Delivery options button becomes available in header or right panel
     const deliveryBtn = page.locator('button:has-text("Delivery Options"), button:has-text("Open Delivery Options")').first();

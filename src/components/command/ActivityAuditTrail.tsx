@@ -1,12 +1,12 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState } from 'react';
-import { History, ShieldAlert, ArrowLeftRight, RotateCcw, Filter, CheckCircle2, AlertTriangle, Eye, Search } from 'lucide-react';
+import { History, RotateCcw, Filter, CheckCircle2, Search, Activity, Shield } from 'lucide-react';
 import { AuditEvent } from '../../types/shapework';
-import { safeLower, safeText, safeDate } from '../../utils/string';
+import { safeLower, safeDate } from '../../utils/string';
+import SurfaceCard from '../ui/SurfaceCard';
+import Badge from '../ui/Badge';
+import Button from '../ui/Button';
+import TextInput from '../ui/TextInput';
+import Select from '../ui/Select';
 import EmptyState from '../ui/EmptyState';
 
 interface ActivityAuditTrailProps {
@@ -77,156 +77,157 @@ export default function ActivityAuditTrail({
   };
 
   return (
-    <div className="space-y-6 text-left">
-      {/* Page Header */}
-      <div className="bg-surface border border-border-subtle rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-brand-green-soft flex items-center justify-center text-brand-green">
-            <History className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-text-primary uppercase tracking-wider">Activity & Audit Logs</h2>
-            <p className="text-xs text-text-secondary mt-0.5 font-medium">Every recommendation, approval, update, and automation recorded with evidence.</p>
+    <div className="space-y-6 text-left font-sans text-slate-800">
+      {/* Page Header Card */}
+      <SurfaceCard className="p-6 space-y-5 bg-white border border-slate-200 shadow-sm rounded-3xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#E6F4F1] flex items-center justify-center text-[#00635C] shrink-0">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-[#01362D] tracking-tight">Brokerage Activity & Audit Log</h2>
+                <Badge variant="neutral">{sortedLogs.length} Events Recorded</Badge>
+              </div>
+              <p className="text-xs text-[#52605B] mt-0.5 font-medium">Immutable audit trail of recommendations, approvals, system events, and agent actions.</p>
+            </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-3 border-t border-border-subtle/50 items-center">
-          {/* Keyword Search */}
-          <div className="relative md:col-span-2">
-            <Search className="w-4 h-4 text-text-tertiary absolute left-3 top-2.5 pointer-events-none" />
-            <input
-              type="text"
+        {/* Filter Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-4 border-t border-slate-200/80 items-center">
+          {/* Search Bar */}
+          <div className="md:col-span-2">
+            <TextInput
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search audit actions, properties, or actors..."
-              className="w-full pl-9 pr-4 py-2 border border-border-subtle bg-secondary-surface rounded-lg text-xs focus:outline-none focus:bg-surface focus:border-brand-green transition-all"
+              icon={<Search className="w-4 h-4 text-slate-400" />}
+              fullWidth
             />
           </div>
 
-          {/* System Filter */}
-          <div className="relative">
-            <select
+          {/* System Dropdown */}
+          <div>
+            <Select
               value={selectedSystem}
               onChange={(e) => setSelectedSystem(e.target.value)}
-              className="w-full px-3 py-2 border border-border-subtle bg-secondary-surface rounded-lg text-xs focus:outline-none focus:border-brand-green appearance-none"
-            >
-              <option value="all">All Systems</option>
-              {uniqueSystems.map(sys => (
-                <option key={sys} value={sys}>{sys}</option>
-              ))}
-            </select>
-            <Filter className="w-3 h-3 text-text-tertiary absolute right-3 top-3 pointer-events-none" />
+              options={[
+                { value: 'all', label: 'All Systems' },
+                ...uniqueSystems.map(sys => ({ value: sys, label: sys }))
+              ]}
+              fullWidth
+            />
           </div>
 
-          {/* Actor Filter */}
-          <div className="relative">
-            <select
+          {/* Actor Dropdown */}
+          <div>
+            <Select
               value={selectedActor}
               onChange={(e) => setSelectedActor(e.target.value)}
-              className="w-full px-3 py-2 border border-border-subtle bg-secondary-surface rounded-lg text-xs focus:outline-none focus:border-brand-green appearance-none"
-            >
-              <option value="all">All Actors</option>
-              {uniqueActors.map(actor => (
-                <option key={actor} value={actor}>{actor}</option>
-              ))}
-            </select>
-            <Filter className="w-3 h-3 text-text-tertiary absolute right-3 top-3 pointer-events-none" />
+              options={[
+                { value: 'all', label: 'All Actors' },
+                ...uniqueActors.map(actor => ({ value: actor, label: actor }))
+              ]}
+              fullWidth
+            />
           </div>
         </div>
-      </div>
+      </SurfaceCard>
 
+      {/* Success Notification Banner */}
       {rollbackSuccessMsg && (
-        <div className="p-4 bg-status-healthy-soft text-status-healthy rounded-xl border border-status-healthy/10 flex items-center gap-2 text-xs font-semibold animate-pulse">
+        <div className="p-4 bg-[#E6F4F1] text-[#00635C] rounded-2xl border border-[#00635C]/20 flex items-center gap-2.5 text-xs font-semibold shadow-xs animate-fadeIn">
           <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span>{rollbackSuccessMsg}</span>
         </div>
       )}
 
-      {/* Audit Log Chronology list */}
-      <div className="space-y-4">
+      {/* Audit Events Chronology */}
+      <div className="space-y-3">
         {auditLogs.length === 0 ? (
-          <EmptyState
-            icon={History}
-            title="No audit events yet"
-            description="As shapework. creates work items, requests approvals, updates records, and generates briefs, the timeline will appear here."
-          />
+          <SurfaceCard className="p-8 bg-white border border-slate-200 rounded-3xl">
+            <EmptyState
+              icon={History}
+              title="No audit events recorded"
+              description="As Shapework processes work items, approvals, and system events, audit logs will be rendered here."
+            />
+          </SurfaceCard>
         ) : sortedLogs.length === 0 ? (
-          <EmptyState
-            icon={Search}
-            title="No matching audit trace records found"
-            description="Try adjusting your keyword filter or switching selected systems/actors."
-          />
+          <SurfaceCard className="p-8 bg-white border border-slate-200 rounded-3xl">
+            <EmptyState
+              icon={Search}
+              title="No matching audit records"
+              description="Try adjusting your search terms or filter selection."
+            />
+          </SurfaceCard>
         ) : (
           sortedLogs.map((log) => {
             const actorName = log.actor || log.user_name || 'System';
             const actionText = log.action || log.action_description || 'Operation Logged';
             const isAI = actorName === 'AI Operator' || actorName === 'shapework' || safeLower(actorName).includes('agent');
+
             return (
-              <div 
+              <SurfaceCard 
                 key={log.id} 
-                className="bg-surface border border-border-subtle rounded-2xl p-4 shadow-sm hover:border-strong-border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="p-5 bg-white border border-slate-200/90 hover:border-[#00635C]/30 transition-all rounded-3xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
-                {/* Details left pane */}
-                <div className="space-y-2 flex-1">
+                {/* Details Column */}
+                <div className="space-y-2 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                      isAI 
-                        ? 'bg-brand-green-soft text-brand-green border border-brand-green/10' 
-                        : 'bg-secondary-surface text-text-secondary border border-border-subtle'
-                    }`}>
-                      {actorName}
-                    </span>
-                    <span className="text-[10px] text-text-tertiary font-mono">
+                    <Badge variant={isAI ? "ai" : "neutral"}>
+                      {isAI ? 'AI Agent' : actorName}
+                    </Badge>
+                    <span className="text-[11px] text-[#52605B] font-mono font-medium">
                       {new Date(log.timestamp).toLocaleString()}
                     </span>
-                    <span className="text-text-tertiary font-medium font-mono">
-                      in {log.system || 'shapework'}
+                    <span className="text-[11px] text-[#8CA08E] font-mono">
+                      via {log.system || 'shapework'}
                     </span>
                   </div>
 
-                  <h3 className="font-semibold text-xs text-text-primary">
+                  <h3 className="font-bold text-xs text-[#17231F] leading-snug">
                     {actionText}
                   </h3>
 
-                  {/* Target record metadata if exists */}
+                  {/* Target Record Reference */}
                   {log.target_record && (
-                    <div className="flex items-center gap-1.5 text-[10px] text-text-secondary font-mono leading-none">
-                      <span className="font-bold text-text-tertiary">Target Record:</span>
-                      <span className="font-semibold">{log.target_record}</span>
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#52605B] font-mono">
+                      <span className="font-semibold text-[#8CA08E]">Target Record:</span>
+                      <span className="font-bold text-[#17231F] bg-slate-100 px-2 py-0.5 rounded-md">{log.target_record}</span>
                     </div>
                   )}
 
-                  {/* Before / After metadata details */}
+                  {/* State Diff Details */}
                   {(log.metadata?.before_value || log.metadata?.after_value) && (
-                    <div className="grid grid-cols-2 gap-4 max-w-lg p-2.5 rounded-lg border border-border-subtle/50 bg-secondary-surface/40 text-[10px] font-mono mt-2">
-                      <div>
-                        <span className="text-text-tertiary block font-bold uppercase tracking-wider text-[8px] mb-0.5">Previous state</span>
-                        <span className="text-status-danger font-medium line-through">{log.metadata.before_value}</span>
+                    <div className="grid grid-cols-2 gap-3 max-w-md p-3 rounded-2xl border border-slate-200 bg-[#F7F8F5] text-[11px] font-mono mt-2">
+                      <div className="p-2 bg-[#FDEDEC] rounded-xl border border-[#C0392B]/10">
+                        <span className="text-[#C0392B] block font-bold uppercase tracking-wider text-[9px] mb-0.5">Previous State</span>
+                        <span className="text-[#C0392B] font-medium line-through break-all">{log.metadata.before_value}</span>
                       </div>
-                      <div>
-                        <span className="text-brand-green block font-bold uppercase tracking-wider text-[8px] mb-0.5">Current state</span>
-                        <span className="text-brand-green font-bold">{log.metadata.after_value}</span>
+                      <div className="p-2 bg-[#E6F4F1] rounded-xl border border-[#00635C]/10">
+                        <span className="text-[#00635C] block font-bold uppercase tracking-wider text-[9px] mb-0.5">Current State</span>
+                        <span className="text-[#00635C] font-bold break-all">{log.metadata.after_value}</span>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Audit actions right pane */}
-                <div className="flex items-center gap-3 shrink-0">
-                  {/* Rollback capability button */}
-                  {isAI && (
-                    <button
+                {/* Right Action Column */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {isAI && onRollback && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<RotateCcw className="w-3.5 h-3.5" />}
                       onClick={() => handleExecuteRollback(log.id, actionText)}
-                      className="flex items-center gap-1 border border-border-subtle bg-surface hover:bg-secondary-surface text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                      title="Undo this action and restore previous status values"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Rollback</span>
-                    </button>
+                      Rollback
+                    </Button>
                   )}
                 </div>
-              </div>
+              </SurfaceCard>
             );
           })
         )}

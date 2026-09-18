@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import RoleProfilePdfDocument, { RoleProfilePdfData } from './RoleProfilePdfDocument';
 
 describe('RoleProfilePdfDocument', () => {
@@ -59,44 +59,44 @@ describe('RoleProfilePdfDocument', () => {
   };
 
   it('renders complete header and person information', () => {
-    render(<RoleProfilePdfDocument data={samplePdfData} />);
-    expect(screen.getByText('Ryan Crecelius')).toBeInTheDocument();
-    expect(screen.getByText(/Leadership · Principal Broker/)).toBeInTheDocument();
-    expect(screen.getByText(/July 28, 2026/)).toBeInTheDocument();
+    const html = renderToStaticMarkup(<RoleProfilePdfDocument data={samplePdfData} />);
+    expect(html).toContain('Ryan Crecelius');
+    expect(html).toContain('Leadership · Principal Broker');
+    expect(html).toContain('July 28, 2026');
   });
 
   it('renders all reporting and backup assignments without truncation', () => {
-    render(<RoleProfilePdfDocument data={samplePdfData} />);
-    expect(screen.getByText('Jessica Keenan — Broker-in-Charge')).toBeInTheDocument();
+    const html = renderToStaticMarkup(<RoleProfilePdfDocument data={samplePdfData} />);
+    expect(html).toContain('Jessica Keenan — Broker-in-Charge');
   });
 
   it('renders all roles and responsibilities', () => {
-    render(<RoleProfilePdfDocument data={samplePdfData} />);
-    expect(screen.getByText('Recruiting')).toBeInTheDocument();
-    expect(screen.getByText(/Recruiting new agents to the brokerage/)).toBeInTheDocument();
-    expect(screen.getByText('Coaching')).toBeInTheDocument();
-    expect(screen.getByText('Leadership Escalation')).toBeInTheDocument();
+    const html = renderToStaticMarkup(<RoleProfilePdfDocument data={samplePdfData} />);
+    expect(html).toContain('Recruiting');
+    expect(html).toContain('Recruiting new agents to the brokerage.');
+    expect(html).toContain('Coaching');
+    expect(html).toContain('Leadership Escalation');
   });
 
   it('renders all SOPs and Knowledge items', () => {
-    render(<RoleProfilePdfDocument data={samplePdfData} />);
-    expect(screen.getByText('A task is overdue, sensitive, cross-functional, financial, compliance-related, or unresolved.')).toBeInTheDocument();
+    const html = renderToStaticMarkup(<RoleProfilePdfDocument data={samplePdfData} />);
+    expect(html).toContain('A task is overdue, sensitive, cross-functional, financial, compliance-related, or unresolved.');
   });
 
   it('renders all 14 backup coverage items in a clean document list format', () => {
-    render(<RoleProfilePdfDocument data={samplePdfData} />);
-    expect(screen.getByText('Jessica Keenan (Broker-in-Charge)')).toBeInTheDocument();
-    expect(screen.getByText('Agent question')).toBeInTheDocument();
-    expect(screen.getByText('Compliance')).toBeInTheDocument();
-    expect(screen.getByText('Contract / transaction issue')).toBeInTheDocument();
-    expect(screen.getByText('Onboarding Assistance')).toBeInTheDocument();
+    const html = renderToStaticMarkup(<RoleProfilePdfDocument data={samplePdfData} />);
+    expect(html).toContain('Jessica Keenan (Broker-in-Charge)');
+    expect(html).toContain('Agent question');
+    expect(html).toContain('Compliance');
+    expect(html).toContain('Contract / transaction issue');
+    expect(html).toContain('Onboarding Assistance');
   });
 
   it('does NOT contain interactive application buttons or controls', () => {
-    const { container } = render(<RoleProfilePdfDocument data={samplePdfData} />);
-    expect(container.querySelector('button')).toBeNull();
-    expect(container.querySelector('input')).toBeNull();
-    expect(screen.queryByText('+ Add Role / Responsibility')).toBeNull();
-    expect(screen.queryByText('Download PDF')).toBeNull();
+    const html = renderToStaticMarkup(<RoleProfilePdfDocument data={samplePdfData} />);
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('<input');
+    expect(html).not.toContain('+ Add Role / Responsibility');
+    expect(html).not.toContain('Download PDF');
   });
 });

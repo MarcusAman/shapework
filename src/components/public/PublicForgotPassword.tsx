@@ -14,6 +14,8 @@ export default function PublicForgotPassword({ onNavigate }: PublicForgotPasswor
 
   const shouldReduceMotion = useReducedMotion();
 
+  const [resetLink, setResetLink] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -39,6 +41,9 @@ export default function PublicForgotPassword({ onNavigate }: PublicForgotPasswor
         throw new Error(data.message || 'Something went wrong. Please try again.');
       }
 
+      if (data.resetLink) {
+        setResetLink(data.resetLink);
+      }
       setSuccess(true);
     } catch (err: any) {
       console.error('[ForgotPwd] Error:', err);
@@ -73,16 +78,10 @@ export default function PublicForgotPassword({ onNavigate }: PublicForgotPasswor
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans bg-[#F7F3EA] text-[#1E2520] select-none">
       
-      {/* Left Panel: Cover Image */}
-      <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-[#18382B]">
-        <motion.div
-          initial={{ scale: shouldReduceMotion ? 1 : 1.03 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 1.5, ease: 'easeOut' }}
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('/nest_background_img.png')` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#18382B]/95 via-[#18382B]/75 to-[#2F5D46]/45" />
+      {/* Left Panel: Cover Background */}
+      <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-gradient-to-br from-[#01362D] via-[#00635C] to-[#01251F]">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#A4D4CB]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#000000]/25 rounded-full blur-2xl pointer-events-none" />
         
         <div className="absolute inset-0 p-12 flex flex-col justify-between z-10 text-[#FFFDF7]">
           <div 
@@ -131,20 +130,39 @@ export default function PublicForgotPassword({ onNavigate }: PublicForgotPasswor
           {success ? (
             <motion.div
               variants={itemVariants}
-              className="space-y-6 py-4 flex flex-col items-center text-center"
+              className="space-y-5 py-2 flex flex-col items-center text-center"
             >
               <div className="w-12 h-12 rounded-full bg-[#DDEBDD]/35 flex items-center justify-center text-[#2F5D46]">
                 <CheckCircle className="w-6 h-6" />
               </div>
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-[#1E2520]">Instructions Dispatched</p>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-[#1E2520]">Instructions Dispatched</p>
                 <p className="text-xs text-[#68736A] leading-relaxed">
-                  If an account exists for that email, reset instructions have been sent.
+                  If an account exists for that email, reset instructions have been prepared.
                 </p>
               </div>
+
+              {resetLink && (
+                <div className="w-full p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-2 text-left animate-fade-in">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-900">
+                    <span>⚡ Pilot Mode: Instant Reset Link</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 leading-tight">
+                    For zero-friction testing, click below to set your new password directly:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(resetLink)}
+                    className="w-full py-2 bg-[#00635C] hover:bg-[#004d48] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    Proceed to Set New Password →
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={() => onNavigate('/login')}
-                className="w-full py-3 bg-[#18382B] hover:bg-[#2F5D46] text-[#FFFDF7] text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                className="w-full py-2.5 bg-[#FBF8F0] hover:bg-[#EDE7DA] border border-[#E4DCCB] text-[#1E2520] text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
                 Return to Login
               </button>

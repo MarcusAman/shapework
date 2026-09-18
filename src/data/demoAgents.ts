@@ -48,7 +48,7 @@ export const demoAgents: AgentDefinition[] = [
       confidenceThreshold: 90,
       autoSafeActions: ['Dispatch event to specialized agent', 'Update system monitoring panel'],
       approvalRequiredActions: ['Escalate unhandled signal to managing broker'],
-      escalationPath: 'Sarah Jenkins (COO)',
+      escalationPath: 'Ann Gunn (Operations Lead)',
       auditRequirements: ['Log classification decision', 'Log specialist handoff details'],
       steps: [
         'Analyze raw event payload (e.g. email subject, body, or API payload).',
@@ -208,7 +208,7 @@ export const demoAgents: AgentDefinition[] = [
       confidenceThreshold: 80,
       autoSafeActions: ['Flag deal as "at_risk"', 'Calculate revenue impact at risk'],
       approvalRequiredActions: ['Trigger agent notification text'],
-      escalationPath: 'Sarah Jenkins (COO)',
+      escalationPath: 'Ann Gunn (Operations Lead)',
       auditRequirements: ['Log risk score calculations', 'Create audit alert item'],
       steps: [
         'Scan active transactions closing in the next 14 days.',
@@ -356,7 +356,7 @@ export const demoAgents: AgentDefinition[] = [
       confidenceThreshold: 85,
       autoSafeActions: ['Create internal support ticket', 'Match request to agent profile'],
       approvalRequiredActions: ['Send prepared email response draft'],
-      escalationPath: 'Sarah Jenkins (COO)',
+      escalationPath: 'Ann Gunn (Operations Lead)',
       auditRequirements: ['Log agent support queries', 'Track response speed metrics'],
       steps: [
         'Ingest incoming agent support inquiry.',
@@ -404,7 +404,7 @@ export const demoAgents: AgentDefinition[] = [
       confidenceThreshold: 90,
       autoSafeActions: ['Format draft template', 'Queue draft in Operations Inbox'],
       approvalRequiredActions: ['Dispatch message to external recipient'],
-      escalationPath: 'Sarah Jenkins (COO)',
+      escalationPath: 'Ann Gunn (Operations Lead)',
       auditRequirements: ['Log prepared draft copy', 'Log recipient fields'],
       steps: [
         'Identify target recipient (e.g. lender, listing agent, buyer agent).',
@@ -502,7 +502,7 @@ export const demoAgents: AgentDefinition[] = [
       confidenceThreshold: 99,
       autoSafeActions: ['Write immutable ledger entry', 'Verify rollback eligibility status'],
       approvalRequiredActions: ['Execute stage rollback on transaction'],
-      escalationPath: 'Sarah Jenkins (COO)',
+      escalationPath: 'Ann Gunn (Operations Lead)',
       auditRequirements: ['Continuous immutable recording'],
       steps: [
         'Trigger on state change event.',

@@ -15,9 +15,15 @@
     "test:brokerage-ops": "tsx scripts/test-brokerage-ops.ts",
     "test:tapo-camera": "tsx scripts/test-tapo-camera.ts",
     "test:ai-copilot": "tsx scripts/test-ai-copilot.ts",
+    "test:pressure-contracts": "tsx scripts/pressure-test-contract-copilot.ts",
+    "test:pressure-knowledge": "tsx scripts/pressure-test-nora-knowledge.ts",
+    "test:pressure-matchmaker": "tsx scripts/pressure-test-matchmaker.ts",
+    "test:pressure-commercial": "tsx scripts/pressure-test-commercial-lease.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
+    "tenant:restore": "tsx scripts/restoreTenantBackup.ts",
+    "test": "vitest run --fileParallelism=false",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -26,7 +32,10 @@
     "@capacitor-community/bluetooth-le": "^8.2.0",
     "@capacitor/core": "^8.5.0",
     "@dataconnect/generated": "file:src/dataconnect-generated",
+    "@elevenlabs/client": "^1.17.0",
     "@elevenlabs/elevenlabs-js": "^2.56.0",
+    "@elevenlabs/react": "^1.12.0",
+    "@google-cloud/storage": "^7.22.0",
     "@google/genai": "^2.4.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@supabase/supabase-js": "^2.108.2",
@@ -60,6 +69,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vitest": "^4.1.10"
   }
 }

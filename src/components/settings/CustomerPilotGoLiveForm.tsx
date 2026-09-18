@@ -301,7 +301,7 @@ export default function CustomerPilotGoLiveForm({ workspaceId, state = {}, onLau
               <label className="font-bold text-text-tertiary uppercase text-[9px] block">Customer Owner Signature</label>
               <input 
                 type="text" 
-                placeholder="Sarah Jenkins"
+                placeholder="Jessica Keenan"
                 value={customerOwnerAck}
                 onChange={(e) => setCustomerOwnerAck(e.target.value)}
                 className="w-full p-2.5 border border-border-medium rounded-lg bg-white font-serif italic text-xs text-text-primary" 

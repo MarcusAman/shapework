@@ -1,0 +1,3014 @@
+[
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtqbmhw8",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTQBMHW8",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTQBMKU4/edit",
+    "maxaRunId": "run_maxa_mtqbmhwa_5w22",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtqbmhwa_5w22",
+    "signPostTicketId": "SIGN-7645",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTQBMHW8\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTQBMKU4/edit\n🪧 Coastal Sign Post: Order SIGN-7645 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtqbmhw8",
+    "receivedAt": "2026-09-06T21:25:47.650Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtqbmhvn",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTQBMHVT",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTQBMKTL/edit",
+    "maxaRunId": "run_maxa_mtqbmhvt_e2tq",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtqbmhvt_e2tq",
+    "signPostTicketId": "SIGN-7627",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTQBMHVT\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTQBMKTL/edit\n🪧 Coastal Sign Post: Order SIGN-7627 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtqbmhvn",
+    "receivedAt": "2026-09-06T21:25:47.631Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtpwzbyr",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTPWZBYS",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTPWZEWN/edit",
+    "maxaRunId": "run_maxa_mtpwzbys_lz5v",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwzbys_lz5v",
+    "signPostTicketId": "SIGN-2248",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTPWZBYS\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTPWZEWN/edit\n🪧 Coastal Sign Post: Order SIGN-2248 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwzbyr",
+    "receivedAt": "2026-09-06T14:35:52.270Z"
+  },
+  {
+    "id": "mms_mtpwz5r3",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtpwz5r3",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTPWZ5R4",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTPWZ8P1/edit",
+    "maxaRunId": "run_maxa_mtpwz5r4_dejr",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwz5r4_dejr",
+    "signPostTicketId": "SIGN-4197",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTPWZ5R4\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTPWZ8P1/edit\n🪧 Coastal Sign Post: Order SIGN-4197 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwz5r3",
+    "receivedAt": "2026-09-06T14:35:44.218Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtpwz2mg",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTPWZ2MH",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTPWZ5KD/edit",
+    "maxaRunId": "run_maxa_mtpwz2mh_29nl",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwz2mh_29nl",
+    "signPostTicketId": "SIGN-0141",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTPWZ2MH\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTPWZ5KD/edit\n🪧 Coastal Sign Post: Order SIGN-0141 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwz2mg",
+    "receivedAt": "2026-09-06T14:35:40.168Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtpwux8j",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTPWUX8K",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTPWV06I/edit",
+    "maxaRunId": "run_maxa_mtpwux8k_5yqs",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwux8k_5yqs",
+    "signPostTicketId": "SIGN-6539",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTPWUX8K\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTPWV06I/edit\n🪧 Coastal Sign Post: Order SIGN-6539 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwux8j",
+    "receivedAt": "2026-09-06T14:32:26.543Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtpwuu53",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTPWUU53",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTPWUX2W/edit",
+    "maxaRunId": "run_maxa_mtpwuu54_4thu",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwuu54_4thu",
+    "signPostTicketId": "SIGN-2520",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTPWUU53\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTPWUX2W/edit\n🪧 Coastal Sign Post: Order SIGN-2520 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwuu53",
+    "receivedAt": "2026-09-06T14:32:22.522Z"
+  },
+  {
+    "id": "mms_mtpwur1b",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtpwur1b",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTPWUR1C",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTPWUTZ6/edit",
+    "maxaRunId": "run_maxa_mtpwur1c_tgki",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwur1c_tgki",
+    "signPostTicketId": "SIGN-8498",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTPWUR1C\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTPWUTZ6/edit\n🪧 Coastal Sign Post: Order SIGN-8498 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwur1b",
+    "receivedAt": "2026-09-06T14:32:18.501Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtpwp93k",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTPWP93L",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTPWPC1H/edit",
+    "maxaRunId": "run_maxa_mtpwp93l_01rc",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwp93l_01rc",
+    "signPostTicketId": "SIGN-1973",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTPWP93L\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTPWPC1H/edit\n🪧 Coastal Sign Post: Order SIGN-1973 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwp93k",
+    "receivedAt": "2026-09-06T14:28:01.977Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtpwp5ya",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTPWP5YB",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTPWP8W6/edit",
+    "maxaRunId": "run_maxa_mtpwp5yb_mrh0",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwp5yb_mrh0",
+    "signPostTicketId": "SIGN-7895",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTPWP5YB\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTPWP8W6/edit\n🪧 Coastal Sign Post: Order SIGN-7895 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwp5ya",
+    "receivedAt": "2026-09-06T14:27:57.903Z"
+  },
+  {
+    "id": "mms_mtpwp2sf",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtpwp2sf",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTPWP2SG",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTPWP5QB/edit",
+    "maxaRunId": "run_maxa_mtpwp2sg_wwoq",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtpwp2sg_wwoq",
+    "signPostTicketId": "SIGN-3796",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTPWP2SG\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTPWP5QB/edit\n🪧 Coastal Sign Post: Order SIGN-3796 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtpwp2sf",
+    "receivedAt": "2026-09-06T14:27:53.804Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtotyehl",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTYEHL",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTYHFF/edit",
+    "maxaRunId": "run_maxa_mtotyehm_v551",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotyehm_v551",
+    "signPostTicketId": "SIGN-3836",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTYEHL\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTYHFF/edit\n🪧 Coastal Sign Post: Order SIGN-3836 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotyehl",
+    "receivedAt": "2026-09-05T20:23:23.845Z"
+  },
+  {
+    "id": "mms_mtotybdb",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtotybdb",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTYBDB",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTYEB7/edit",
+    "maxaRunId": "run_maxa_mtotybdb_v3dw",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotybdb_v3dw",
+    "signPostTicketId": "SIGN-9796",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTYBDB\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTYEB7/edit\n🪧 Coastal Sign Post: Order SIGN-9796 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotybdb",
+    "receivedAt": "2026-09-05T20:23:19.806Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtoty88r",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTY88R",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTYB6P/edit",
+    "maxaRunId": "run_maxa_mtoty88s_ctzl",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtoty88s_ctzl",
+    "signPostTicketId": "SIGN-5745",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTY88R\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTYB6P/edit\n🪧 Coastal Sign Post: Order SIGN-5745 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtoty88r",
+    "receivedAt": "2026-09-05T20:23:15.755Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtotsoxa",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTSOXB",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTSRV8/edit",
+    "maxaRunId": "run_maxa_mtotsoxb_iehf",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotsoxb_iehf",
+    "signPostTicketId": "SIGN-7428",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTSOXB\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTSRV8/edit\n🪧 Coastal Sign Post: Order SIGN-7428 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotsoxa",
+    "receivedAt": "2026-09-05T20:18:57.431Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtotslt4",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTSLT5",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTSOR4/edit",
+    "maxaRunId": "run_maxa_mtotslt5_0mws",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotslt5_0mws",
+    "signPostTicketId": "SIGN-3393",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTSLT5\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTSOR4/edit\n🪧 Coastal Sign Post: Order SIGN-3393 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotslt4",
+    "receivedAt": "2026-09-05T20:18:53.402Z"
+  },
+  {
+    "id": "mms_mtotsios",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtotsios",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTSIOS",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTSLMP/edit",
+    "maxaRunId": "run_maxa_mtotsiot_hs1d",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotsiot_hs1d",
+    "signPostTicketId": "SIGN-9346",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTSIOS\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTSLMP/edit\n🪧 Coastal Sign Post: Order SIGN-9346 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotsios",
+    "receivedAt": "2026-09-05T20:18:49.355Z"
+  },
+  {
+    "id": "mms_mtotnh7i",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtotnh7i",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTNH7I",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTNK5H/edit",
+    "maxaRunId": "run_maxa_mtotnh7i_pamq",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotnh7i_pamq",
+    "signPostTicketId": "SIGN-4153",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTNH7I\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTNK5H/edit\n🪧 Coastal Sign Post: Order SIGN-4153 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotnh7i",
+    "receivedAt": "2026-09-05T20:14:54.163Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtotnazm",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTNAZM",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTNDXL/edit",
+    "maxaRunId": "run_maxa_mtotnazn_mfn0",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotnazn_mfn0",
+    "signPostTicketId": "SIGN-6094",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTNAZM\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTNDXL/edit\n🪧 Coastal Sign Post: Order SIGN-6094 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotnazm",
+    "receivedAt": "2026-09-05T20:14:46.103Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtotn7vb",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTN7VB",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTNAT6/edit",
+    "maxaRunId": "run_maxa_mtotn7vc_t1lx",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtotn7vc_t1lx",
+    "signPostTicketId": "SIGN-2043",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTN7VB\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTNAT6/edit\n🪧 Coastal Sign Post: Order SIGN-2043 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtotn7vb",
+    "receivedAt": "2026-09-05T20:14:42.051Z"
+  },
+  {
+    "id": "mms_mtothoad",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtothoad",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTHOAE",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTHR85/edit",
+    "maxaRunId": "run_maxa_mtothoae_yl9l",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtothoae_yl9l",
+    "signPostTicketId": "SIGN-3381",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOTHOAE\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOTHR85/edit\n🪧 Coastal Sign Post: Order SIGN-3381 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtothoad",
+    "receivedAt": "2026-09-05T20:10:23.385Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtothl54",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTHL55",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTHO2V/edit",
+    "maxaRunId": "run_maxa_mtothl56_wt0l",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtothl56_wt0l",
+    "signPostTicketId": "SIGN-9304",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOTHL55\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOTHO2V/edit\n🪧 Coastal Sign Post: Order SIGN-9304 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtothl54",
+    "receivedAt": "2026-09-05T20:10:19.311Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtothhzm",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTHHZM",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTHKXK/edit",
+    "maxaRunId": "run_maxa_mtothhzm_7nkp",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtothhzm_7nkp",
+    "signPostTicketId": "SIGN-5225",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOTHHZM\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOTHKXK/edit\n🪧 Coastal Sign Post: Order SIGN-5225 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtothhzm",
+    "receivedAt": "2026-09-05T20:10:15.234Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtot7nyl",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOT7NYL",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOT7QWE/edit",
+    "maxaRunId": "run_maxa_mtot7nym_t4bx",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtot7nym_t4bx",
+    "signPostTicketId": "SIGN-6399",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOT7NYL\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOT7QWE/edit\n🪧 Coastal Sign Post: Order SIGN-6399 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtot7nyl",
+    "receivedAt": "2026-09-05T20:02:36.416Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtot7hoq",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOT7HOR",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOT7KMJ/edit",
+    "maxaRunId": "run_maxa_mtot7hos_09mr",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtot7hos_09mr",
+    "signPostTicketId": "SIGN-8268",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOT7HOR\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOT7KMJ/edit\n🪧 Coastal Sign Post: Order SIGN-8268 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtot7hoq",
+    "receivedAt": "2026-09-05T20:02:28.282Z"
+  },
+  {
+    "id": "mms_mtot7eee",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtot7eee",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOT7EEE",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOT7HCE/edit",
+    "maxaRunId": "run_maxa_mtot7eee_alik",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtot7eee_alik",
+    "signPostTicketId": "SIGN-4014",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOT7EEE\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOT7HCE/edit\n🪧 Coastal Sign Post: Order SIGN-4014 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtot7eee",
+    "receivedAt": "2026-09-05T20:02:24.018Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtosqsgy",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOSQSGZ",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOSQVET/edit",
+    "maxaRunId": "run_maxa_mtosqsgz_dl0v",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtosqsgz_dl0v",
+    "signPostTicketId": "SIGN-9095",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOSQSGZ\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOSQVET/edit\n🪧 Coastal Sign Post: Order SIGN-9095 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtosqsgy",
+    "receivedAt": "2026-09-05T19:49:29.105Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtosqpbc",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOSQPBC",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOSQS93/edit",
+    "maxaRunId": "run_maxa_mtosqpbd_ogo2",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtosqpbd_ogo2",
+    "signPostTicketId": "SIGN-5000",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOSQPBC\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOSQS93/edit\n🪧 Coastal Sign Post: Order SIGN-5000 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtosqpbc",
+    "receivedAt": "2026-09-05T19:49:25.003Z"
+  },
+  {
+    "id": "mms_mtosqm7b",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtosqm7b",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOSQM7B",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOSQP5B/edit",
+    "maxaRunId": "run_maxa_mtosqm7b_q6mi",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtosqm7b_q6mi",
+    "signPostTicketId": "SIGN-0976",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOSQM7B\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOSQP5B/edit\n🪧 Coastal Sign Post: Order SIGN-0976 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtosqm7b",
+    "receivedAt": "2026-09-05T19:49:20.986Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtor4gnz",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOR4GNZ",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOR4JLS/edit",
+    "maxaRunId": "run_maxa_mtor4go0_zkdt",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtor4go0_zkdt",
+    "signPostTicketId": "SIGN-7745",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOR4GNZ\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOR4JLS/edit\n🪧 Coastal Sign Post: Order SIGN-7745 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtor4gnz",
+    "receivedAt": "2026-09-05T19:04:07.754Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtor4dkm",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOR4DKM",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOR4GIG/edit",
+    "maxaRunId": "run_maxa_mtor4dkm_omci",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtor4dkm_omci",
+    "signPostTicketId": "SIGN-3737",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOR4DKM\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOR4GIG/edit\n🪧 Coastal Sign Post: Order SIGN-3737 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtor4dkm",
+    "receivedAt": "2026-09-05T19:04:03.745Z"
+  },
+  {
+    "id": "mms_mtor4ahc",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtor4ahc",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOR4AHC",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOR4DF5/edit",
+    "maxaRunId": "run_maxa_mtor4ahc_f0ne",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtor4ahc_f0ne",
+    "signPostTicketId": "SIGN-9730",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOR4AHC\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOR4DF5/edit\n🪧 Coastal Sign Post: Order SIGN-9730 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtor4ahc",
+    "receivedAt": "2026-09-05T19:03:59.739Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtopkp1n",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOPKP1N",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOPKRZF/edit",
+    "maxaRunId": "run_maxa_mtopkp1n_z4f9",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtopkp1n_z4f9",
+    "signPostTicketId": "SIGN-5868",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOPKP1N\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOPKRZF/edit\n🪧 Coastal Sign Post: Order SIGN-5868 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtopkp1n",
+    "receivedAt": "2026-09-05T18:20:45.877Z"
+  },
+  {
+    "id": "mms_mtopkly5",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtopkly5",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOPKLY5",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOPKOVZ/edit",
+    "maxaRunId": "run_maxa_mtopkly6_xnc0",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtopkly6_xnc0",
+    "signPostTicketId": "SIGN-1856",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOPKLY5\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOPKOVZ/edit\n🪧 Coastal Sign Post: Order SIGN-1856 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtopkly5",
+    "receivedAt": "2026-09-05T18:20:41.865Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtopkiup",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOPKIUP",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOPKLSH/edit",
+    "maxaRunId": "run_maxa_mtopkiup_mbzd",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtopkiup_mbzd",
+    "signPostTicketId": "SIGN-7842",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOPKIUP\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOPKLSH/edit\n🪧 Coastal Sign Post: Order SIGN-7842 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtopkiup",
+    "receivedAt": "2026-09-05T18:20:37.850Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtope0x1",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOPE0X1",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOPE3US/edit",
+    "maxaRunId": "run_maxa_mtope0x2_ylop",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtope0x2_ylop",
+    "signPostTicketId": "SIGN-4660",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOPE0X1\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOPE3US/edit\n🪧 Coastal Sign Post: Order SIGN-4660 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtope0x1",
+    "receivedAt": "2026-09-05T18:15:34.662Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtopdxt3",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOPDXT3",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOPE0QU/edit",
+    "maxaRunId": "run_maxa_mtopdxt3_h435",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtopdxt3_h435",
+    "signPostTicketId": "SIGN-0631",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOPDXT3\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOPE0QU/edit\n🪧 Coastal Sign Post: Order SIGN-0631 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtopdxt3",
+    "receivedAt": "2026-09-05T18:15:30.634Z"
+  },
+  {
+    "id": "mms_mtopdrmz",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtopdrmz",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOPDRMZ",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOPDUKR/edit",
+    "maxaRunId": "run_maxa_mtopdrn0_ciyh",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtopdrn0_ciyh",
+    "signPostTicketId": "SIGN-2635",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOPDRMZ\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOPDUKR/edit\n🪧 Coastal Sign Post: Order SIGN-2635 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtopdrmz",
+    "receivedAt": "2026-09-05T18:15:22.638Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtoosgx3",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOOSGX4",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOOSJUV/edit",
+    "maxaRunId": "run_maxa_mtoosgx4_u3v6",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtoosgx4_u3v6",
+    "signPostTicketId": "SIGN-8968",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOOSGX4\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOOSJUV/edit\n🪧 Coastal Sign Post: Order SIGN-8968 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtoosgx3",
+    "receivedAt": "2026-09-05T17:58:48.970Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtoosasj",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOOSASJ",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOOSDQA/edit",
+    "maxaRunId": "run_maxa_mtoosasj_jjq0",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtoosasj_jjq0",
+    "signPostTicketId": "SIGN-1026",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOOSASJ\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOOSDQA/edit\n🪧 Coastal Sign Post: Order SIGN-1026 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtoosasj",
+    "receivedAt": "2026-09-05T17:58:41.028Z"
+  },
+  {
+    "id": "mms_mtoos7p2",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtoos7p2",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOOS7P2",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOOSAN5/edit",
+    "maxaRunId": "run_maxa_mtoos7p2_xtcq",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtoos7p2_xtcq",
+    "signPostTicketId": "SIGN-7027",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOOS7P2\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOOSAN5/edit\n🪧 Coastal Sign Post: Order SIGN-7027 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtoos7p2",
+    "receivedAt": "2026-09-05T17:58:37.035Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtookfgn",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOOKFGN",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOOKIEF/edit",
+    "maxaRunId": "run_maxa_mtookfgo_v332",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtookfgo_v332",
+    "signPostTicketId": "SIGN-3832",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOOKFGN\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOOKIEF/edit\n🪧 Coastal Sign Post: Order SIGN-3832 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtookfgn",
+    "receivedAt": "2026-09-05T17:52:33.836Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtook9bx",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOOK9BX",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOOKC9P/edit",
+    "maxaRunId": "run_maxa_mtook9by_ljxp",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtook9by_ljxp",
+    "signPostTicketId": "SIGN-5886",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOOK9BX\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOOKC9P/edit\n🪧 Coastal Sign Post: Order SIGN-5886 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtook9bx",
+    "receivedAt": "2026-09-05T17:52:25.894Z"
+  },
+  {
+    "id": "mms_mtook69k",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtook69k",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOOK69K",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOOK97B/edit",
+    "maxaRunId": "run_maxa_mtook69k_3h2h",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtook69k_3h2h",
+    "signPostTicketId": "SIGN-1912",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOOK69K\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOOK97B/edit\n🪧 Coastal Sign Post: Order SIGN-1912 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtook69k",
+    "receivedAt": "2026-09-05T17:52:21.914Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtonz1pk",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTONZ1PK",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTONZ4N9/edit",
+    "maxaRunId": "run_maxa_mtonz1pk_t6vc",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtonz1pk_t6vc",
+    "signPostTicketId": "SIGN-6229",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTONZ1PK\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTONZ4N9/edit\n🪧 Coastal Sign Post: Order SIGN-6229 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtonz1pk",
+    "receivedAt": "2026-09-05T17:35:56.231Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtonyyn1",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTONYYN2",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTONZ1KT/edit",
+    "maxaRunId": "run_maxa_mtonyyn2_bdgv",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtonyyn2_bdgv",
+    "signPostTicketId": "SIGN-2254",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTONYYN2\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTONZ1KT/edit\n🪧 Coastal Sign Post: Order SIGN-2254 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtonyyn1",
+    "receivedAt": "2026-09-05T17:35:52.258Z"
+  },
+  {
+    "id": "mms_mtonyvjo",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtonyvjo",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTONYVJP",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTONYYHG/edit",
+    "maxaRunId": "run_maxa_mtonyvjp_0sgk",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtonyvjp_0sgk",
+    "signPostTicketId": "SIGN-8244",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTONYVJP\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTONYYHG/edit\n🪧 Coastal Sign Post: Order SIGN-8244 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtonyvjo",
+    "receivedAt": "2026-09-05T17:35:48.248Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtohhi6p",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOHHI6R",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOHHL4Q/edit",
+    "maxaRunId": "run_maxa_mtohhi6s_3zwa",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtohhi6s_3zwa",
+    "signPostTicketId": "SIGN-0091",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTOHHI6R\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTOHHL4Q/edit\n🪧 Coastal Sign Post: Order SIGN-0091 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtohhi6p",
+    "receivedAt": "2026-09-05T14:34:20.101Z"
+  },
+  {
+    "id": "mms_mtohhi1g",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtohhi1g",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOHHI1G",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOHHKZC/edit",
+    "maxaRunId": "run_maxa_mtohhi1g_j6sa",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtohhi1g_j6sa",
+    "signPostTicketId": "SIGN-9917",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTOHHI1G\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTOHHKZC/edit\n🪧 Coastal Sign Post: Order SIGN-9917 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtohhi1g",
+    "receivedAt": "2026-09-05T14:34:19.929Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtohhhsv",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOHHHSW",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOHHKQO/edit",
+    "maxaRunId": "run_maxa_mtohhhsx_5ljs",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtohhhsx_5ljs",
+    "signPostTicketId": "SIGN-9584",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTOHHHSW\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTOHHKQO/edit\n🪧 Coastal Sign Post: Order SIGN-9584 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtohhhsv",
+    "receivedAt": "2026-09-05T14:34:19.591Z"
+  },
+  {
+    "id": "mms_mtnqtabu",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtnqtabu",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTNQTABU",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTNQTD9K/edit",
+    "maxaRunId": "run_maxa_mtnqtabv_rcfh",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtnqtabv_rcfh",
+    "signPostTicketId": "SIGN-0137",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTNQTABU\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTNQTD9K/edit\n🪧 Coastal Sign Post: Order SIGN-0137 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtnqtabu",
+    "receivedAt": "2026-09-05T02:07:40.143Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtnjxs5h",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTNJXS5I",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTNJXV3B/edit",
+    "maxaRunId": "run_maxa_mtnjxs5i_t2dp",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtnjxs5i_t2dp",
+    "signPostTicketId": "SIGN-2551",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTNJXS5I\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTNJXV3B/edit\n🪧 Coastal Sign Post: Order SIGN-2551 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtnjxs5h",
+    "receivedAt": "2026-09-04T22:55:12.555Z"
+  },
+  {
+    "id": "mms_mtnjxrqp",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtnjxrqp",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTNJXRQP",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTNJXUOH/edit",
+    "maxaRunId": "run_maxa_mtnjxrqq_ffor",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtnjxrqq_ffor",
+    "signPostTicketId": "SIGN-2018",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTNJXRQP\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTNJXUOH/edit\n🪧 Coastal Sign Post: Order SIGN-2018 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtnjxrqp",
+    "receivedAt": "2026-09-04T22:55:12.021Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtnjxrmx",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTNJXRMY",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTNJXUKP/edit",
+    "maxaRunId": "run_maxa_mtnjxrmz_xqtl",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtnjxrmz_xqtl",
+    "signPostTicketId": "SIGN-1881",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTNJXRMY\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTNJXUKP/edit\n🪧 Coastal Sign Post: Order SIGN-1881 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtnjxrmx",
+    "receivedAt": "2026-09-04T22:55:11.885Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtn3eb6y",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTN3EB6Y",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTN3EE4R/edit",
+    "maxaRunId": "run_maxa_mtn3eb6z_9762",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtn3eb6z_9762",
+    "signPostTicketId": "SIGN-0254",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTN3EB6Y\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTN3EE4R/edit\n🪧 Coastal Sign Post: Order SIGN-0254 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtn3eb6y",
+    "receivedAt": "2026-09-04T15:12:10.262Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtn3e827",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTN3E827",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTN3EB00/edit",
+    "maxaRunId": "run_maxa_mtn3e827_ulor",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtn3e827_ulor",
+    "signPostTicketId": "SIGN-6193",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTN3E827\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTN3EB00/edit\n🪧 Coastal Sign Post: Order SIGN-6193 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtn3e827",
+    "receivedAt": "2026-09-04T15:12:06.200Z"
+  },
+  {
+    "id": "mms_mtn3e4yc",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtn3e4yc",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTN3E4YC",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTN3E7W4/edit",
+    "maxaRunId": "run_maxa_mtn3e4yc_s027",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtn3e4yc_s027",
+    "signPostTicketId": "SIGN-2165",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTN3E4YC\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTN3E7W4/edit\n🪧 Coastal Sign Post: Order SIGN-2165 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtn3e4yc",
+    "receivedAt": "2026-09-04T15:12:02.172Z"
+  },
+  {
+    "id": "mms_mtlznpyi",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlznpyi",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLZNPYI",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLZNSW9/edit",
+    "maxaRunId": "run_maxa_mtlznpyj_c0x8",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlznpyj_c0x8",
+    "signPostTicketId": "SIGN-4649",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLZNPYI\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLZNSW9/edit\n🪧 Coastal Sign Post: Order SIGN-4649 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlznpyi",
+    "receivedAt": "2026-09-03T20:39:44.653Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtlznpyg",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTLZNPYH",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTLZNSW8/edit",
+    "maxaRunId": "run_maxa_mtlznpyh_icnm",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlznpyh_icnm",
+    "signPostTicketId": "SIGN-4648",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTLZNPYH\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTLZNSW8/edit\n🪧 Coastal Sign Post: Order SIGN-4648 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlznpyg",
+    "receivedAt": "2026-09-03T20:39:44.651Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlznpyf",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTLZNPYG",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTLZNSW7/edit",
+    "maxaRunId": "run_maxa_mtlznpyg_nydf",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlznpyg_nydf",
+    "signPostTicketId": "SIGN-4647",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTLZNPYG\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTLZNSW7/edit\n🪧 Coastal Sign Post: Order SIGN-4647 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlznpyf",
+    "receivedAt": "2026-09-03T20:39:44.649Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtlzmfia",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTLZMFIA",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTLZMIG1/edit",
+    "maxaRunId": "run_maxa_mtlzmfib_g6mz",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlzmfib_g6mz",
+    "signPostTicketId": "SIGN-4449",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTLZMFIA\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTLZMIG1/edit\n🪧 Coastal Sign Post: Order SIGN-4449 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlzmfia",
+    "receivedAt": "2026-09-03T20:38:44.455Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlzmfhh",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTLZMFHI",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTLZMIF9/edit",
+    "maxaRunId": "run_maxa_mtlzmfhi_v3io",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlzmfhi_v3io",
+    "signPostTicketId": "SIGN-4422",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTLZMFHI\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTLZMIF9/edit\n🪧 Coastal Sign Post: Order SIGN-4422 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlzmfhh",
+    "receivedAt": "2026-09-03T20:38:44.424Z"
+  },
+  {
+    "id": "mms_mtlzmfhj",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlzmfhj",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLZMFHJ",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLZMIF8/edit",
+    "maxaRunId": "run_maxa_mtlzmfhk_05te",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlzmfhk_05te",
+    "signPostTicketId": "SIGN-4420",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLZMFHJ\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLZMIF8/edit\n🪧 Coastal Sign Post: Order SIGN-4420 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlzmfhj",
+    "receivedAt": "2026-09-03T20:38:44.423Z"
+  },
+  {
+    "id": "mms_mtlyessh",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlyessh",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLYESSH",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLYEVQ9/edit",
+    "maxaRunId": "run_maxa_mtlyessi_axyv",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlyessi_axyv",
+    "signPostTicketId": "SIGN-8801",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLYESSH\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLYEVQ9/edit\n🪧 Coastal Sign Post: Order SIGN-8801 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlyessh",
+    "receivedAt": "2026-09-03T20:04:48.803Z"
+  },
+  {
+    "id": "mms_test_lumina_beach_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "420 South Lumina Ave, Wrightsville Beach NC — $2,195,000 (5 Beds / 4.5 Baths). Just texted over the photos! Need print flyers, yard sign post, 3-slide story, and Google Slides presentation deck.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      },
+      {
+        "id": "photo_mms_3",
+        "url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=90",
+        "type": "living_room",
+        "name": "Open Living Space"
+      }
+    ],
+    "extractedPropertyAddress": "420 South Lumina Ave, Wilmington, NC",
+    "extractedPrice": "$2,195,000",
+    "extractedBedsBaths": "5 Beds / 4.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlyessg",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTLYESSH",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTLYEVQ8/edit",
+    "maxaRunId": "run_maxa_mtlyessh_of0h",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlyessh_of0h",
+    "signPostTicketId": "SIGN-8800",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 420 South Lumina Ave, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_420_SOUTH_LUMINA_AVE_MTLYESSH\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_420_SOUTH_LUMINA_AVE_MTLYEVQ8/edit\n🪧 Coastal Sign Post: Order SIGN-8800 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlyessg",
+    "receivedAt": "2026-09-03T20:04:48.803Z"
+  },
+  {
+    "id": "mms_test_wrightsville_01",
+    "fromPhone": "+19105550188",
+    "agentName": "Sarah Jenkins",
+    "agentRole": "Listing Specialist",
+    "agentEmail": "sarah.jenkins@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
+    "body": "304 Ocean Blvd launch package! Photos attached. Need flyer, yard sign post with Coastal Sign Post, and social story ready for this weekend.",
+    "voiceMemoTranscript": "Voice Memo: \"Hey Nora, just took a new listing. Attaching photos. Need double-sided print flyer, 3-slide social story, and yard sign post with Coastal Sign Post.\"",
+    "audioUrl": "https://actions.google.com/sounds/v1/speech/hello.ogg",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "304 Ocean Blvd, Wilmington, NC",
+    "extractedPrice": "$1,895,000",
+    "extractedBedsBaths": "4 Beds / 3.5 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation"
+    ],
+    "createdRequestId": "req_mms_mtlyessh",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTLYESSI",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTLYEVQ8/edit",
+    "maxaRunId": "run_maxa_mtlyessi_oer3",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlyessi_oer3",
+    "signPostTicketId": "SIGN-8800",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Sarah! Nora here. ✓ Processed your new listing for 304 Ocean Blvd, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_304_OCEAN_BLVD_MTLYESSI\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_304_OCEAN_BLVD_MTLYEVQ8/edit\n🪧 Coastal Sign Post: Order SIGN-8800 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlyessh",
+    "receivedAt": "2026-09-03T20:04:48.802Z"
+  },
+  {
+    "id": "mms_mtlycghj",
+    "fromPhone": "+19106128283",
+    "agentName": "Matt Orr (BIC)",
+    "agentRole": "Senior Associate Broker (BIC)",
+    "agentEmail": "matt.orr@nestrealty.com",
+    "agentHeadshotUrl": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
+    "body": "210 Causeway Dr, Wrightsville Beach NC — $1,475,000 (3 bed / 2 bath). Double-sided flyer, sign post, and Google Slides presentation deck please.",
+    "photos": [
+      {
+        "id": "photo_mms_1",
+        "url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=90",
+        "type": "front_exterior",
+        "name": "Front Elevation"
+      },
+      {
+        "id": "photo_mms_2",
+        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=90",
+        "type": "kitchen",
+        "name": "Gourmet Kitchen"
+      }
+    ],
+    "extractedPropertyAddress": "210 Causeway Dr, Wilmington, NC",
+    "extractedPrice": "$1,475,000",
+    "extractedBedsBaths": "3 Beds / 2 Baths",
+    "extractedDeliverables": [
+      "Double-Sided 8.5x11 Property Flyer (300 DPI Vector)",
+      "3-Slide Instagram & Facebook Story Carousel (9:16 HD)",
+      "Yard Sign Post & Custom Rider Installation",
+      "8-Slide Luxury Google Slides CMA Presentation Deck"
+    ],
+    "createdRequestId": "req_mms_mtlycghj",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLYCGHJ",
+    "googleSlidesUrl": "https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLYCJFB/edit",
+    "maxaRunId": "run_maxa_mtlycghk_ip1r",
+    "maxaProofUrl": "https://drive.google.com/drive/folders/proofs_run_maxa_mtlycghk_ip1r",
+    "signPostTicketId": "SIGN-9543",
+    "status": "processed",
+    "smsReceiptSent": true,
+    "smsReceiptBody": "Hi Matt! Nora here. ✓ Processed your new listing for 210 Causeway Dr, Wilmington, NC.\n\n📁 Google Drive Asset Pack: https://drive.google.com/drive/folders/1DRV_210_CAUSEWAY_DR_MTLYCGHJ\n📊 8-Slide Google Slides Deck: https://docs.google.com/presentation/d/1SLD_210_CAUSEWAY_DR_MTLYCJFB/edit\n🪧 Coastal Sign Post: Order SIGN-9543 Staged ($65)\n🎨 Maxa 300 DPI Flyer & Story: Generating in Eduardo's queue.\n📍 Track Live: https://shapework.co/marketing/trk_req_mms_mtlycghj",
+    "receivedAt": "2026-09-03T20:02:59.548Z"
+  }
+]

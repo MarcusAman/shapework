@@ -343,7 +343,7 @@ export default function TransactionsView({
               <div className="bg-secondary-surface border border-border-subtle rounded-xl p-3.5 space-y-3 text-xs max-h-48 overflow-y-auto">
                 <div className="flex justify-between py-1 border-b border-border-subtle/30 last:border-none">
                   <div>
-                    <span className="font-semibold text-text-primary">Sarah Jenkins (COO)</span>
+                    <span className="font-semibold text-text-primary">Ann Gunn (Operations Lead)</span>
                     <span className="text-text-secondary"> reassigned coordination file from Diane to Emma.</span>
                   </div>
                   <span className="font-mono text-text-tertiary shrink-0 ml-4">Today 11:45 AM</span>

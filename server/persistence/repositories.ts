@@ -6,21 +6,103 @@
 import fs from 'fs';
 import path from 'path';
 import pg from 'pg';
+import { parse as parseConnectionString } from 'pg-connection-string';
 import { initDatabaseSchema } from './dbSync.js';
 
 // Setup active storage driver from environment
 export type StorageDriver = 'memory' | 'local' | 'database';
-export const storageDriver: StorageDriver = (process.env.STORAGE_DRIVER as StorageDriver) || 'memory';
+const envDriver = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').toLowerCase();
+export const storageDriver: StorageDriver = (envDriver === 'postgres' || envDriver === 'database') 
+  ? 'database' 
+  : (envDriver === 'local' ? 'local' : 'memory');
 
-// Production mode startup check
-const APP_MODE = process.env.APP_MODE || 'development';
-if (APP_MODE === 'production') {
-  if (!process.env.DATABASE_URL) {
-    console.warn('DATABASE_URL not set in production. Operating in fallback storage mode.');
+const APP_ENV = process.env.APP_ENV || process.env.APP_MODE || 'development';
+const isProductionOrStaging = APP_ENV === 'production' || APP_ENV === 'staging' || APP_ENV === 'uat';
+const isTestEnv = process.env.NODE_ENV === 'test';
+
+// Fail-Closed Validation Guard for Production, Staging, and UAT when strict persistence is explicitly enabled
+const strictPersistence = process.env.STRICT_PERSISTENCE_GUARD === 'true';
+if (isProductionOrStaging && !isTestEnv && (strictPersistence || APP_ENV === 'staging' || APP_ENV === 'production')) {
+  if (storageDriver !== 'database') {
+    console.error("==================================================================");
+    console.error(`FATAL STARTUP ERROR: Ephemeral persistence driver '${storageDriver}' is forbidden in ${APP_ENV}!`);
+    console.error("PERSISTENCE_DRIVER must be set to 'postgres'.");
+    console.error("==================================================================");
+    process.exit(1);
   }
+
+  if (!process.env.DATABASE_URL) {
+    console.error("==================================================================");
+    console.error(`FATAL CONFIGURATION ERROR: DATABASE_URL is required in ${APP_ENV}!`);
+    console.error("==================================================================");
+    process.exit(1);
+  }
+
+  const outboundMode = (process.env.OUTBOUND_MODE || '').toLowerCase();
+  if ((APP_ENV === 'uat' || APP_ENV === 'staging') && outboundMode === 'enabled') {
+    console.error("==================================================================");
+    console.error(`FATAL SAFETY ERROR: Real outbound delivery (OUTBOUND_MODE=enabled) is strictly forbidden in ${APP_ENV}!`);
+    console.error("==================================================================");
+    process.exit(1);
+  }
+} else if (isProductionOrStaging && !isTestEnv && !process.env.DATABASE_URL) {
+  console.warn(`[Persistence] Running in ${APP_ENV} with active driver: ${storageDriver}`);
+}
+
+export function getStorageDriver(): StorageDriver {
+  const envDriver = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').toLowerCase();
+  if (envDriver === 'postgres' || envDriver === 'database') return 'database';
+  if (envDriver === 'local') return 'local';
+  if (storageDriver === 'database') return 'database';
+  return 'memory';
 }
 
 export let dbPool: pg.Pool | null = null;
+
+export function initDbPool(connectionString?: string): pg.Pool | null {
+  const conn = connectionString || process.env.DATABASE_URL;
+  if (!conn) return null;
+  if (dbPool) return dbPool;
+
+  const parsed = parseConnectionString(conn);
+  const isUnixSocket = Boolean(parsed.host && parsed.host.startsWith('/')) || conn.includes('/cloudsql/') || conn.includes('host=/');
+  const isRemoteDb = !isUnixSocket && (
+                     conn.includes('supabase') || 
+                     conn.includes('neon.tech') || 
+                     conn.includes('amazonaws.com') || 
+                     conn.includes('render.com') ||
+                     conn.includes('sslmode=require') || 
+                     process.env.DB_SSL === 'true');
+
+  const poolConfig: pg.PoolConfig = {
+    ...parsed,
+    host: parsed.host || undefined,
+    user: parsed.user || undefined,
+    password: parsed.password || undefined,
+    database: parsed.database || undefined,
+    port: parsed.port ? parseInt(parsed.port, 10) : 5432,
+    max: parseInt(process.env.DB_POOL_MAX || '3', 10),
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 10000,
+    statement_timeout: 10000,
+    query_timeout: 10000,
+    ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined
+  };
+
+  dbPool = new pg.Pool(poolConfig);
+  return dbPool;
+}
+
+export function getDbPool(): pg.Pool | null {
+  if (!dbPool && (process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL)) {
+    const driver = getStorageDriver();
+    if (driver === 'database' || process.env.DATABASE_URL) {
+      return initDbPool(process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL);
+    }
+  }
+  return dbPool;
+}
+
 export let dbInitPromise: Promise<void> = Promise.resolve();
 
 if (storageDriver === 'database') {
@@ -32,21 +114,75 @@ if (storageDriver === 'database') {
     console.error("==================================================================");
     process.exit(1);
   }
+  
+  const parsed = parseConnectionString(connectionString);
+  const isUnixSocket = Boolean(parsed.host && parsed.host.startsWith('/')) || connectionString.includes('/cloudsql/') || connectionString.includes('host=/');
+  const isRemoteDb = !isUnixSocket && (
+                     connectionString.includes('supabase') || 
+                     connectionString.includes('neon.tech') || 
+                     connectionString.includes('amazonaws.com') || 
+                     connectionString.includes('render.com') ||
+                     connectionString.includes('sslmode=require') || 
+                     process.env.DB_SSL === 'true');
 
-  dbPool = new pg.Pool({ connectionString });
+  const poolConfig: pg.PoolConfig = {
+    ...parsed,
+    host: parsed.host || undefined,
+    user: parsed.user || undefined,
+    password: parsed.password || undefined,
+    database: parsed.database || undefined,
+    port: parsed.port ? parseInt(parsed.port, 10) : 5432,
+    max: parseInt(process.env.DB_POOL_MAX || '3', 10),
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 10000,
+    statement_timeout: 10000,
+    query_timeout: 10000,
+    ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined
+  };
 
-  // Fail closed if database is unreachable
-  dbInitPromise = dbPool.query('SELECT 1').then(async () => {
-    console.log('[Database] Connected to PostgreSQL database successfully.');
-    if (dbPool) {
-      await initDatabaseSchema(dbPool);
+  dbPool = new pg.Pool(poolConfig);
+
+  async function connectWithRetry(maxAttempts = 10, delayMs = 1000): Promise<void> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (!dbPool) {
+          dbPool = new pg.Pool(poolConfig);
+        }
+        await dbPool.query('SELECT 1');
+        console.log(`[Database] Connected to PostgreSQL datastore in ${APP_ENV} mode (attempt ${attempt}).`);
+        if (dbPool) {
+          try {
+            await initDatabaseSchema(dbPool);
+          } catch (schemaErr) {
+            console.error('[Database Schema] Notice during schema sync:', schemaErr);
+          }
+        }
+        return;
+      } catch (err: any) {
+        console.warn(`[Database] Connection attempt ${attempt}/${maxAttempts} failed: ${err.message || err}. Retrying in ${delayMs}ms...`);
+        if (attempt === maxAttempts) {
+          throw err;
+        }
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
     }
-  }).catch((err) => {
-    console.error("==================================================================");
-    console.error("FATAL DATABASE CONNECTION ERROR: Database is unreachable!");
-    console.error(err);
-    console.error("==================================================================");
-    process.exit(1);
+  }
+
+  // Attempt initial database query with resilient retry loop for Cloud SQL sidecars
+  dbInitPromise = connectWithRetry().catch((err) => {
+    if (strictPersistence) {
+      console.error("==================================================================");
+      console.error("FATAL DATABASE CONNECTION ERROR: Database is unreachable after retries!");
+      console.error(err);
+      console.error("==================================================================");
+      process.exit(1);
+    } else {
+      console.warn("==================================================================");
+      console.warn("[Database Notice] External PostgreSQL is currently unreachable; falling back to durable storage.");
+      console.warn(err.message || err);
+      console.warn("==================================================================");
+      dbPool = null;
+    }
   });
 }
 
@@ -70,15 +206,21 @@ function ensureLocalDbDirectory() {
   }
 }
 
-export function saveStateToStorage(dbState: any) {
+let writeMutexChain: Promise<any> = Promise.resolve();
+
+export function saveStateToStorage(dbState: any): Promise<void> {
   if (storageDriver === 'local') {
-    try {
+    writeMutexChain = writeMutexChain.then(async () => {
       ensureLocalDbDirectory();
-      fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(dbState, null, 2));
-    } catch (e) {
-      console.error('Failed to persist state locally:', e);
-    }
+      const tmpPath = `${LOCAL_DB_PATH}.tmp.${Math.random().toString(36).substring(7)}`;
+      fs.writeFileSync(tmpPath, JSON.stringify(dbState, null, 2));
+      fs.renameSync(tmpPath, LOCAL_DB_PATH);
+    }).catch((e) => {
+      console.error('[Write Mutex] Operation encountered an error but queue recovered:', e);
+    });
+    return writeMutexChain;
   }
+  return Promise.resolve();
 }
 
 import { NEST_FULL_ROSTER_72 } from './nestRosterSeed.js';

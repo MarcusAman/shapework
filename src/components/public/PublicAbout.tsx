@@ -42,45 +42,45 @@ export default function PublicAbout({ onNavigate }: PublicAboutProps) {
             {/* Adam LeMire */}
             <div className="p-6 bg-surface border border-border-soft rounded-[24px] space-y-4 shadow-soft">
               <div>
-                <span className="text-[10px] font-mono text-brand-primary uppercase block tracking-wider">
-                  Co-Founder & Operator
+                <span className="text-[10px] font-mono text-brand-primary uppercase block tracking-wider font-bold">
+                  Co-Founder
                 </span>
                 <h4 className="text-base font-serif font-bold text-text-primary">
                   Adam LeMire
                 </h4>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed font-light">
-                Adam specializes in brand, strategy, and workflow design. He leverages years of experience deploying practical AI models inside business pipelines to remove manual data rekeying and coordinate files.
+                Fractional CMO and strategic advisor with fifteen years of growth and brand strategy work for real estate brokerages and scaling businesses. Former strategic growth and brand lead at Bentley's Real Estate and Head of Audio Technology and Operations at Thomson Reuters.
               </p>
             </div>
 
             {/* Matt Orr */}
             <div className="p-6 bg-surface border border-border-soft rounded-[24px] space-y-4 shadow-soft">
               <div>
-                <span className="text-[10px] font-mono text-brand-primary uppercase block tracking-wider">
-                  Co-Founder & Operator
+                <span className="text-[10px] font-mono text-brand-primary uppercase block tracking-wider font-bold">
+                  Co-Founder
                 </span>
                 <h4 className="text-base font-serif font-bold text-text-primary">
                   Matt Orr
                 </h4>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed font-light">
-                Matt coordinates real estate operations, sales, and client discovery. He sat with coordinators and agents across dozens of brokerages, tracking how emails move, documenting friction leakage, and designing rules that human teams actually follow.
+                Co-founder and former Executive Vice President of Modoc Research Services, a contract research organization he scaled and exited via management buyout in 2018. Operator background spanning research operations, finance, organizational restructuring, and fractional C-suite leadership.
               </p>
             </div>
 
             {/* Marcus Aman */}
             <div className="p-6 bg-surface border border-border-soft rounded-[24px] space-y-4 shadow-soft">
               <div>
-                <span className="text-[10px] font-mono text-brand-primary uppercase block tracking-wider">
-                  Co-Founder & Operator
+                <span className="text-[10px] font-mono text-brand-primary uppercase block tracking-wider font-bold">
+                  Co-Founder
                 </span>
                 <h4 className="text-base font-serif font-bold text-text-primary">
                   Marcus Aman
                 </h4>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed font-light">
-                Marcus oversees AI systems, product architecture, and operations automation. He builds the coordinate platform layers, data models, and secure API sync engines that keep backend transactions clean and synchronized.
+                Fixed-operations leader who led service and repair operations at Hendrick Automotive Group, then founded operationally focused ventures including ShyftAuto and Bayley SmartLot built to remove the inefficiencies he watched cost businesses daily. Entrepreneurship studies at Wharton Online. Based in Wilmington, NC.
               </p>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Marketing Real Campaign Lifecycle (990 Inspiration Drive)', () => {
   test('Complete persistent campaign lifecycle from Intake to Delivery', async ({ page }) => {
     // 1. Open persistent campaign
-    await page.goto('http://localhost:3000/app/marketing');
+    await page.goto('http://localhost:3049/app/marketing');
     await expect(page.locator('text=990 Inspiration Drive').first()).toBeVisible();
 
     // 2. Ready to Review & Review Package

@@ -49,6 +49,8 @@ export type OrgPosition = {
   hiringNotes?: string;
   coverageGap?: string;
   connectedTools?: string[];
+  sopIds?: string[];
+  isVacant?: boolean;
 };
 
 export type OrgRole = {
@@ -241,6 +243,7 @@ export type OrgModel = {
 };
 
 export type RoutingMatrixItem = {
+  id?: string;
   category: string;
   displayName?: string;
   description?: string;
@@ -347,13 +350,34 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     updatedAt: new Date().toISOString()
   },
   {
+    id: 'pos_tech',
+    workspaceId: 'nest-realty-demo',
+    name: 'Marcus Aman',
+    title: 'Broker / Tech Lead',
+    department: 'Operations',
+    office: 'Wilmington',
+    email: 'marcus.aman@gmail.com',
+    phone: '(252) 717-0595',
+    reportsToPositionId: 'pos_ryan',
+    backupPositionId: 'pos_ann',
+    visibilityLevel: 'internal',
+    roleIds: ['role_tech_lead'],
+    x: 400,
+    y: 400,
+    avatarUrl: '',
+    status: 'active',
+    connectedTools: ['GitHub', 'Slack', 'Gmail'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
     id: 'pos_bic',
     workspaceId: 'nest-realty-demo',
     name: 'Jessica Keenan',
     title: 'Broker-in-Charge',
     department: 'Brokers-in-Charge',
     office: 'Wilmington',
-    email: 'jessica@nestrealty.com',
+    email: 'jessica.keenan@nestrealty.com',
     phone: '910-555-0104',
     reportsToPositionId: 'pos_ryan',
     backupPositionId: 'pos_eric',
@@ -382,7 +406,7 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     roleIds: ['role_agent_support', 'role_compliance', 'role_contract_questions', 'role_risk_sensitive'],
     x: 1450,
     y: 220,
-    avatarUrl: '/org-avatars/eric2.png',
+    avatarUrl: '/org-avatars/eric.png',
     avatarCrop: { x: 0, y: 35, scale: 0.8, rotation: 0, cropShape: 'circle' },
     status: 'active',
     connectedTools: ['Dotloop', 'Slack', 'Gmail'],
@@ -430,16 +454,21 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
   {
     id: 'pos_va',
     workspaceId: 'nest-realty-demo',
-    name: 'Virtual Assistant(s)',
-    title: 'Virtual Assistant',
+    name: 'Eduardo Lovo',
+    title: 'Virtual Assistant & Marketing Production',
     department: 'Marketing',
     office: 'Remote',
+    email: 'eduardo.lovo@nestrealty.com',
+    phone: '(910) 507-2047',
     reportsToPositionId: 'pos_melissa',
+    backupPositionId: 'pos_melissa',
     visibilityLevel: 'internal',
     roleIds: ['role_va'],
     x: 600,
     y: 580,
-    status: 'planned',
+    status: 'active',
+    avatarUrl: 'https://bc3-production-assets-cdn.basecamp-static.com/4351808/people/BAhpBEi%2FJQM=--56e9a4f0579d2ebea9c9537c5c84e336d8c2108e/avatar',
+    connectedTools: ['Maxa', 'Canva', 'Gmail'],
     priority: 'normal',
     coverageGap: 'Marketing execution bandwidth support',
     businessCase: 'Provide posting, graphic formatting, and listing launch administrative support to Melissa.',
@@ -465,34 +494,40 @@ const DEFAULT_POSITIONS: OrgPosition[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
-  ...NEST_FULL_ROSTER_72.map((person, idx) => {
-    const col = idx % 8;
-    const row = Math.floor(idx / 8);
-    return {
-      id: person.id.startsWith('pos_') ? person.id : `pos_${person.id}`,
-      workspaceId: person.workspaceId || 'nest-realty-demo',
-      name: person.displayName,
-      title: person.title || (person.personType === 'agent' ? 'Broker / REALTOR®' : 'Team Member'),
-      department: person.personType === 'leadership' ? 'Leadership' : person.personType === 'staff' ? 'Operations' : 'Brokerage Agents',
-      office: person.primaryOfficeName || 'Wilmington',
-      email: person.email,
-      phone: person.phone,
-      reportsToPositionId: person.isBrokerInCharge
-        ? 'pos_ryan'
-        : person.personType === 'agent'
-        ? ((person.primaryOfficeName || '').toLowerCase().includes('carolina') ? 'pos_bic' : 'pos_eric')
-        : 'pos_coo',
-      visibilityLevel: (person.personType === 'leadership' ? 'leadership' : 'internal') as any,
-      roleIds: person.isBrokerInCharge ? ['role_agent_support', 'role_compliance'] : ['role_agent'],
-      x: 100 + col * 220,
-      y: 700 + row * 180,
-      avatarUrl: `/org-avatars/agent_${(idx % 12) + 1}.png`,
-      status: (person.status === 'active' ? 'active' : 'open') as any,
-      connectedTools: ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
-      createdAt: person.createdAt || new Date().toISOString(),
-      updatedAt: person.updatedAt || new Date().toISOString()
-    };
-  })
+  ...NEST_FULL_ROSTER_72
+    .filter(person => {
+      const name = (person.displayName || '').trim().toLowerCase();
+      const isDuplicateLeadership = ['ryan crecelius', 'ann gunn', 'james fort', 'melissa gagliardi', 'jessica keenen', 'jessica keenan', 'eric knight'].includes(name);
+      return !isDuplicateLeadership;
+    })
+    .map((person, idx) => {
+      const col = idx % 8;
+      const row = Math.floor(idx / 8);
+      return {
+        id: person.id.startsWith('pos_') ? person.id : `pos_${person.id}`,
+        workspaceId: person.workspaceId || 'nest-realty-demo',
+        name: person.displayName,
+        title: person.title || (person.personType === 'agent' ? 'Broker / REALTOR®' : 'Team Member'),
+        department: person.personType === 'leadership' ? 'Leadership' : person.personType === 'staff' ? 'Operations' : 'Brokerage Agents',
+        office: person.primaryOfficeName || 'Wilmington',
+        email: person.email,
+        phone: person.phone,
+        reportsToPositionId: person.isBrokerInCharge
+          ? 'pos_ryan'
+          : person.personType === 'agent'
+          ? ((person.primaryOfficeName || '').toLowerCase().includes('carolina') ? 'pos_bic' : 'pos_eric')
+          : 'pos_coo',
+        visibilityLevel: (person.personType === 'leadership' ? 'leadership' : 'internal') as any,
+        roleIds: person.isBrokerInCharge ? ['role_agent_support', 'role_compliance'] : ['role_agent'],
+        x: 100 + col * 220,
+        y: 700 + row * 180,
+        avatarUrl: undefined,
+        status: (person.status === 'active' ? 'active' : 'open') as any,
+        connectedTools: ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
+        createdAt: person.createdAt || new Date().toISOString(),
+        updatedAt: person.updatedAt || new Date().toISOString()
+      };
+    })
 ];
 
 const DEFAULT_ROLES: OrgRole[] = [
@@ -744,6 +779,18 @@ const DEFAULT_ROLES: OrgRole[] = [
     description: 'Reception, hospitality, signs and lockboxes, office stocking, upkeep, facilities maintenance.',
     categories: ['Office supplies', 'Room reservation'],
     sopIds: [],
+    escalationPolicyIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'role_tech_lead',
+    workspaceId: 'nest-realty-demo',
+    positionId: 'pos_tech',
+    name: 'Technology & Systems Support',
+    description: 'Internal platform systems, hardware, networks, and brokerage tech infrastructure.',
+    categories: ['IT / systems', 'Technology'],
+    sopIds: ['sop_listing_launch_001'],
     escalationPolicyIds: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -1095,24 +1142,24 @@ const DEFAULT_ESCALATIONS: EscalationPolicy[] = [
 ];
 
 const DEFAULT_ROUTING_MATRIX: RoutingMatrixItem[] = [
-  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Carolina Beach', officeCondition: { office: 'Carolina Beach', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_compliance_file', escalationPolicyId: 'esc_compliance_risk' },
-  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Mayfaire', officeCondition: { office: 'Mayfaire', operator: 'is' }, primaryOwnerPositionId: 'pos_eric', backupOwnerPositionId: 'pos_bic', sla: '4 hours', status: 'active', sopId: 'sop_compliance_file', escalationPolicyId: 'esc_compliance_risk' },
+  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Carolina Beach', officeCondition: { office: 'Carolina Beach', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_form_2t_review_012', escalationPolicyId: 'esc_compliance_risk' },
+  { category: 'Broker-in-Charge Question', displayName: 'Broker-in-Charge Question — Mayfaire', officeCondition: { office: 'Mayfaire', operator: 'is' }, primaryOwnerPositionId: 'pos_eric', backupOwnerPositionId: 'pos_bic', sla: '4 hours', status: 'active', sopId: 'sop_form_2t_review_012', escalationPolicyId: 'esc_compliance_risk' },
   { category: 'Agent question', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours', status: 'active' },
   { category: 'Compliance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_compliance_risk', status: 'active' },
-  { category: 'Contract / transaction issue', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_ryan', sla: '4 hours', status: 'active' },
-  { category: 'Accounting / commissions', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_deal_at_risk', status: 'active' },
+  { category: 'Contract / transaction issue', displayName: 'Form 2-T Contract Review & EMD', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_bic', backupOwnerPositionId: 'pos_eric', sla: '4 hours', status: 'active', sopId: 'sop_form_2t_review_012' },
+  { category: 'Accounting / commissions', displayName: 'Commission Disbursement Authorization (CDA)', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', escalationPolicyId: 'esc_deal_at_risk', status: 'active', sopId: 'sop_commission_disbursement_015' },
   { category: 'Payables / bills / receipts', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_james', backupOwnerPositionId: 'pos_ryan', sla: '48 hours', status: 'active' },
-  { category: 'Marketing request', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', status: 'active' },
-  { category: 'Listing marketing', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', status: 'active' },
+  { category: 'Marketing request', displayName: 'Marketing Collateral & Flyer Production', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_va', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active', sopId: 'sop_marketing_intake_003' },
+  { category: 'Listing marketing', displayName: 'Listing Marketing Launch', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_va', backupOwnerPositionId: 'pos_melissa', sla: '12 hours', status: 'active', sopId: 'sop_marketing_intake_003' },
   { category: 'Agent branding', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ryan', sla: '72 hours', status: 'active' },
   { category: 'Business cards / print materials', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_melissa', backupOwnerPositionId: 'pos_ann', sla: '48 hours', status: 'active' },
-  { category: 'Signs / riders', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active' },
+  { category: 'Signs / riders', displayName: 'Yard Sign Post Installation', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '24 hours', status: 'active', sopId: 'sop_sign_vendor_004' },
   { category: 'Lockboxes / keys', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', escalationPolicyId: 'esc_showing_blocked', status: 'active' },
   { category: 'Office supplies', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '48 hours', status: 'active' },
   { category: 'Room reservation', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '2 hours', status: 'active' },
   { category: 'Vendor / maintenance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '24 hours', status: 'active' },
   { category: 'Event support', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_melissa', sla: '72 hours', status: 'active' },
-  { category: 'IT / systems', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ann', backupOwnerPositionId: 'pos_ryan', sla: '12 hours', status: 'active' },
+  { category: 'IT / systems', displayName: 'Technology / Systems Assistance', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_tech', backupOwnerPositionId: 'pos_ann', sla: '12 hours', status: 'active' },
   { category: 'Leadership decision', officeCondition: { office: 'All Offices', operator: 'is' }, primaryOwnerPositionId: 'pos_ryan', backupOwnerPositionId: 'pos_bic', sla: '24 hours', status: 'active' }
 ];
 
@@ -1271,7 +1318,9 @@ const DEFAULT_LOGIC_NODES: OrgLogicNode[] = [
 export const orgChartService = {
   getOrgChart(workspaceId: string): OrgModel {
     const key = `org_chart_${workspaceId}`;
-    const cached = localStorage.getItem(key);
+    const cached = (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') 
+      ? localStorage.getItem(key) 
+      : null;
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
@@ -1335,6 +1384,22 @@ export const orgChartService = {
             return updated;
           });
           
+          // Deduplicate positions by normalized name so duplicate leadership/staff nodes cached in localStorage are cleaned up
+          const primaryLeadershipIds = ['pos_ryan', 'pos_ann', 'pos_james', 'pos_melissa', 'pos_bic', 'pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
+          const seenNames = new Set<string>();
+          parsed.positions = parsed.positions.filter((p: any) => {
+            const normName = (p.name || '').trim().toLowerCase();
+            if (primaryLeadershipIds.includes(p.id)) {
+              seenNames.add(normName);
+              return true;
+            }
+            if (seenNames.has(normName)) {
+              return false; // Remove duplicate position seat
+            }
+            seenNames.add(normName);
+            return true;
+          });
+
           const requiredPosIds = ['pos_bic', 'pos_eric', 'pos_coo', 'pos_front_desk', 'pos_va', 'pos_ai_ops'];
           requiredPosIds.forEach(id => {
             if (!parsed.positions.some((p: any) => p.id === id)) {
@@ -1402,14 +1467,115 @@ export const orgChartService = {
     };
   },
 
+  validateReportingHierarchy(
+    positions: OrgPosition[], 
+    positionId: string, 
+    newReportsToPositionId?: string
+  ): { valid: boolean; error?: string } {
+    if (!newReportsToPositionId) {
+      return { valid: true };
+    }
+
+    if (newReportsToPositionId === positionId) {
+      return { valid: false, error: 'A position cannot report to itself.' };
+    }
+
+    const targetPos = positions.find(p => p.id === newReportsToPositionId);
+    if (!targetPos) {
+      return { valid: false, error: `Target reporting position does not exist.` };
+    }
+
+    let current: OrgPosition | undefined = targetPos;
+    const visited = new Set<string>();
+
+    while (current) {
+      if (current.id === positionId) {
+        return { 
+          valid: false, 
+          error: `Circular reporting hierarchy: "${targetPos.name || targetPos.title}" directly or indirectly reports to this position.` 
+        };
+      }
+      if (visited.has(current.id)) break;
+      visited.add(current.id);
+      current = current.reportsToPositionId ? positions.find(p => p.id === current?.reportsToPositionId) : undefined;
+    }
+
+    return { valid: true };
+  },
+
   saveOrgChart(workspaceId: string, model: OrgModel): void {
     const key = `org_chart_${workspaceId}`;
-    localStorage.setItem(key, JSON.stringify(model));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
+      localStorage.setItem(key, JSON.stringify(model));
+    }
+
+    // Sync to backend asynchronously
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/org-chart', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, model })
+      }).catch(err => console.warn('Background org chart sync notice:', err));
+    }
+
+    // Dispatch notification
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('shapework_orgchart_mutated', { detail: { workspaceId } }));
+    }
+  },
+
+  async fetchFromServer(workspaceId: string): Promise<OrgModel | null> {
+    if (typeof fetch === 'undefined') return null;
+    try {
+      const res = await fetch(`/api/org-chart?workspaceId=${encodeURIComponent(workspaceId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.model && data.model.positions && data.model.positions.length > 0) {
+          const key = `org_chart_${workspaceId}`;
+          if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
+            localStorage.setItem(key, JSON.stringify(data.model));
+          }
+          return data.model;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch org chart from server, using local storage cache:', e);
+    }
+    return null;
   },
 
   updatePosition(workspaceId: string, id: string, updates: Partial<OrgPosition>): OrgModel {
     const model = this.getOrgChart(workspaceId);
+    const existingPos = model.positions.find(p => p.id === id);
+
+    if (updates.reportsToPositionId !== undefined && updates.reportsToPositionId !== existingPos?.reportsToPositionId) {
+      const validation = this.validateReportingHierarchy(model.positions, id, updates.reportsToPositionId);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid reporting hierarchy.');
+      }
+    }
+
     model.positions = model.positions.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p);
+
+    // Update connection lines for visual rendering
+    if (updates.reportsToPositionId !== undefined) {
+      model.connections = (model.connections || []).filter(
+        c => !(c.type === 'reporting' && c.fromPositionId === id)
+      );
+      if (updates.reportsToPositionId) {
+        model.connections.push({
+          id: `conn_rep_${id}_${updates.reportsToPositionId}`,
+          workspaceId,
+          type: 'reporting',
+          fromPositionId: id,
+          toPositionId: updates.reportsToPositionId,
+          label: 'Reports To',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+
     this.saveOrgChart(workspaceId, model);
     return model;
   },
@@ -1429,6 +1595,9 @@ export const orgChartService = {
         if (s.ownerPositionId === id) s.ownerPositionId = reassignToPositionId;
       });
     }
+    model.connections = (model.connections || []).filter(
+      c => c.fromPositionId !== id && c.toPositionId !== id
+    );
     this.saveOrgChart(workspaceId, model);
     return model;
   },
@@ -1775,7 +1944,7 @@ export const orgChartService = {
 
     // 3. Routing Matrix
     md += `## Routing Matrix\n\n`;
-    md += `| Request Category | Primary Owner | Backup Owner | Target SLA | Escalation Link |\n`;
+    md += `| Request Category | Primary Owner | Backup Owner | Due Time | Escalation Link |\n`;
     md += `| :--- | :--- | :--- | :--- | :--- |\n`;
     if (model.routingMatrix) {
       model.routingMatrix.forEach(row => {
@@ -2037,5 +2206,56 @@ export const orgChartService = {
     }
 
     return md;
+  },
+
+  async fetchPublishedPolicy(workspaceId: string): Promise<{ policy: any; rules: any[] } | null> {
+    if (typeof fetch === 'undefined') return null;
+    try {
+      const res = await fetch(`/api/org-chart/published?workspaceId=${encodeURIComponent(workspaceId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data?.published || null;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch published routing policy:', err);
+    }
+    return null;
+  },
+
+  async publishRoutingPolicy(workspaceId: string, authorUser = 'Authorized Lead'): Promise<{ success: boolean; published?: any; error?: string }> {
+    if (typeof fetch === 'undefined') return { success: false, error: 'Network unavailable' };
+    try {
+      const res = await fetch('/api/org-chart/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, authorUser })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || data.message || 'Failed to publish policy' };
+      }
+      return { success: true, published: data.published };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during publication' };
+    }
+  },
+
+  async previewRouting(workspaceId: string, input: any): Promise<{ success: boolean; preview?: any; error?: string }> {
+    if (typeof fetch === 'undefined') return { success: false, error: 'Network unavailable' };
+    try {
+      const res = await fetch('/api/org-chart/routing-rules/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...input, workspaceId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || data.message || 'Preview failed' };
+      }
+      return { success: true, preview: data.preview };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during routing preview' };
+    }
   }
 };
+

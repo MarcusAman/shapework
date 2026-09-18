@@ -3,7 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { describe, it } from 'vitest';
 import { calculateCoverPlacement } from './imageLayoutHelper.js';
+
+describe('imageLayoutHelper unit tests', () => {
+  it('runs all placement calculation checks', () => {
+    runImageLayoutHelperTests();
+  });
+});
 
 export function runImageLayoutHelperTests() {
   console.log('Running imageLayoutHelper unit tests...');

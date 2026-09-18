@@ -22,7 +22,7 @@ export default function DataMappingCenter() {
   // Simulated mapping states
   const [users, setUsers] = useState([
     { id: 'u1', externalName: 'Diane Ross (Rechat)', externalEmail: 'diane@nestrealty.com', internalName: 'Diane Ross', internalRole: 'Transaction Coordinator', confidence: 'high', status: 'possible_match' },
-    { id: 'u2', externalName: 'Sarah Jenkins (Rechat)', externalEmail: 'sarah@nestrealty.com', internalName: 'Sarah Jenkins', internalRole: 'Operations Lead', confidence: 'high', status: 'matched' },
+    { id: 'u2', externalName: 'Jessica Keenan (Rechat)', externalEmail: 'jessica.keenan@nestrealty.com', internalName: 'Jessica Keenan', internalRole: 'Broker-in-Charge', confidence: 'high', status: 'matched' },
     { id: 'u4', externalName: 'Ann (Rechat)', externalEmail: 'ann@nestrealty.com', internalName: 'Ann', internalRole: 'Admin', confidence: 'high', status: 'matched' },
     { id: 'u5', externalName: 'Melissa Gagliardi (Rechat)', externalEmail: 'melissa.gagliardi@nestrealty.com', internalName: 'Melissa Gagliardi', internalRole: 'Admin', confidence: 'high', status: 'matched' },
     { id: 'u6', externalName: 'James Fort (Rechat)', externalEmail: 'james.fort@nestrealty.com', internalName: 'James Fort', internalRole: 'Admin', confidence: 'high', status: 'matched' },

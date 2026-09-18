@@ -32,11 +32,21 @@ import {
 
 export function useDemoConsoleState() {
   const getTabFromPath = (path: string): string => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryTab = params.get('tab') || params.get('subtab') || params.get('page');
+      if (queryTab) {
+        const qLower = queryTab.toLowerCase();
+        if (qLower.includes('intelligence') || qLower.includes('comps') || qLower.includes('roi') || qLower.includes('recruiting') || qLower.includes('bic')) {
+          return 'Market Intelligence';
+        }
+      }
+    }
     const clean = path.replace(/^\/app/, '/demo');
     if (clean.startsWith('/demo/pitch')) return "Pitch & 'Aha!' Demo";
     if (clean.startsWith('/demo/pre-mls')) return 'Pre-MLS Board';
-    if (clean.startsWith('/demo/vendor-dispatch')) return 'Vendor Dispatch';
-    if (clean.startsWith('/demo/nest-ops-hub') || clean.startsWith('/demo/ask-nest-ops')) return 'Ask Nest Ops';
+    if (clean.startsWith('/demo/vendor-dispatch')) return 'Tasks';
+    if (clean.startsWith('/demo/nest-ops-hub') || clean.startsWith('/demo/ask-nest-ops') || clean.startsWith('/demo/ask-nora')) return 'Ask Nora';
     if (clean.startsWith('/demo/my-connections')) return 'My Connections';
     if (clean.startsWith('/demo/workboard') || clean.startsWith('/demo/command-center')) return 'Workboard';
     if (clean.startsWith('/demo/work')) return 'Work Queue';
@@ -45,7 +55,8 @@ export function useDemoConsoleState() {
     if (clean.startsWith('/demo/workflows')) return 'Workflows';
     if (clean.startsWith('/demo/transactions') || clean.startsWith('/demo/deals') || clean.startsWith('/demo/listings')) return 'Transactions';
     if (clean.startsWith('/demo/compliance')) return 'Compliance';
-    if (clean.startsWith('/demo/marketing') || clean.includes('/marketing')) return 'Marketing Intake';
+    if (clean.startsWith('/demo/market-intelligence') || clean.startsWith('/demo/marketing-intelligence') || clean.includes('/market-intelligence') || clean.includes('/marketing-intelligence') || clean.includes('/spatial-comps') || clean.includes('/comps')) return 'Market Intelligence';
+    if (clean.startsWith('/demo/tasks') || clean.startsWith('/demo/marketing') || clean.includes('/tasks') || clean.includes('/marketing')) return 'Tasks';
     if (clean.startsWith('/demo/people')) return 'People';
     if (clean.startsWith('/demo/growth')) return 'Growth Engine';
     if (clean.startsWith('/demo/office')) return 'Office';
@@ -53,11 +64,13 @@ export function useDemoConsoleState() {
     if (clean.includes('/approval')) return 'Agent Approval Portal';
     if (clean.startsWith('/demo/assets')) return 'Physical Assets';
     if (clean.startsWith('/demo/camera-signals')) return 'Camera Signals';
-    if (clean.startsWith('/demo/knowledge')) return 'Knowledge Base';
-    if (clean.startsWith('/demo/sops')) return 'Staff SOP Templates';
+    if (clean.includes('/knowledge-library') || clean.includes('/knowledge') || clean.includes('/sop-library') || clean.includes('/sops')) return 'Knowledge Library';
     if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
-    if (clean.startsWith('/demo/role-map')) return 'Role Map';
-    if (clean.startsWith('/demo/directory')) return 'Directory';
+    if (clean.includes('/role-map') || clean.includes('/role-escalation-map') || clean.includes('/roles')) return 'Role & Escalation Map';
+    if (clean.startsWith('/demo/directory') || clean.includes('/directory')) return 'Directory';
+    if (clean.startsWith('/demo/retention') || clean.startsWith('/demo/happiness') || clean.startsWith('/demo/life-events') || clean.startsWith('/demo/videos')) return 'Retention';
+    if (clean.startsWith('/demo/friends-of-nest') || clean.startsWith('/demo/events') || clean.startsWith('/demo/vip')) return 'Events & VIP';
+    if (clean.startsWith('/demo/cost-leakage') || clean.startsWith('/demo/cost-leads') || clean.startsWith('/demo/lead-routing')) return 'Cost & Leads';
     if (clean.startsWith('/demo/owner-brief')) return 'Owner Brief';
     if (clean.startsWith('/demo/integrations')) return 'Integrations';
     if (clean.startsWith('/demo/audit')) return 'Audit';
@@ -99,6 +112,18 @@ export function useDemoConsoleState() {
       case 'Listings':
         return `${prefix}/transactions`;
       case 'Compliance': return `${prefix}/compliance`;
+      case 'Market Intelligence':
+      case 'Marketing Intelligence':
+      case 'Market Intelligence & Comps':
+      case 'Marketing Intelligence & Comps':
+      case 'Intelligence':
+      case 'Spatial Comps':
+      case 'Executive ROI':
+      case 'Recruiting & MLS':
+      case 'BIC Sentinel':
+      case 'Nora Employee':
+        return `${prefix}/market-intelligence`;
+      case 'Tasks':
       case 'Marketing':
       case 'Marketing Requests':
       case 'Marketing Intake':
@@ -109,7 +134,7 @@ export function useDemoConsoleState() {
       case 'Automated Collateral Studio (Templates)':
       case 'Collateral Studio':
       case 'Sandbox':
-        return `${prefix}/marketing`;
+        return `${prefix}/tasks`;
       case 'People & Ownership':
       case 'People':
         return `${prefix}/people`;
@@ -123,15 +148,15 @@ export function useDemoConsoleState() {
         return `${prefix}/approvals`;
       case 'Physical Assets': return `${prefix}/assets`;
       case 'Camera Signals': return `${prefix}/camera-signals`;
+      case 'Knowledge Library':
       case 'Knowledge Base':
       case 'Knowledge / SOPs':
       case 'Knowledge':
-        return `${prefix}/knowledge-base`;
       case 'SOP Studio':
       case 'SOP Library':
       case 'Staff SOP Templates':
       case 'SOPs':
-        return `${prefix}/sops`;
+        return `${prefix}/knowledge-library`;
       case 'SOP Runs': return `${prefix}/sops/runs`;
       case 'Ryan Shield': return `${prefix}/ryan-shield`;
       case 'Role Map':
@@ -562,7 +587,7 @@ export function useDemoConsoleState() {
               confidence: 0.95,
               created_at: new Date().toISOString(),
               target_recipient: 'brooke.s@nest-demo.local',
-              draft_content: 'Hi Brooke,\n\nPlease upload the remaining signed disclosures for 221 B Baker Street contract compliance review.\n\nThanks,\nSarah'
+              draft_content: 'Hi Brooke,\n\nPlease upload the remaining signed disclosures for 221 B Baker Street contract compliance review.\n\nThanks,\nAnn'
             },
             {
               id: `p_new_2`,
@@ -573,7 +598,7 @@ export function useDemoConsoleState() {
               confidence: 0.92,
               created_at: new Date().toISOString(),
               target_recipient: 'diana.p@nest-demo.local',
-              draft_content: 'Hi Diana,\n\nI noticed the buyer credit review is still pending. Can we get an update from the lender prior to contingency deadlines?\n\nBest,\nSarah'
+              draft_content: 'Hi Diana,\n\nI noticed the buyer credit review is still pending. Can we get an update from the lender prior to contingency deadlines?\n\nBest,\nAnn'
             }
           ];
           setActionProposals(prop => [...newProposals, ...prop]);
@@ -842,7 +867,7 @@ export function useDemoConsoleState() {
         id: `comm_dyn_${Date.now()}`,
         sender: `${name} Webhook Router`,
         sender_email: `webhooks@${connectorId.replace('i_', '')}.service.local`,
-        recipient: 'sarah.j@nest-demo.local',
+        recipient: 'ann.g@nest-demo.local',
         subject: `Contact Update Sync from ${name}`,
         body: `Integrated webhook lead data: buyer Arthur Pendragon has updated his preference profile for 109 Woodlawn in ${name}. Contact synced.`,
         timestamp,
@@ -867,7 +892,7 @@ export function useDemoConsoleState() {
         id: `comm_dyn_${Date.now()}`,
         sender: `${name} Operations Agent`,
         sender_email: `analytics@${connectorId.replace('i_', '')}.service.local`,
-        recipient: 'sarah.j@nest-demo.local',
+        recipient: 'ann.g@nest-demo.local',
         subject: `${name} Analytics Ingest Report`,
         body: `Daily operation metrics and intelligence vectors parsed successfully via ${name}. Operational score: 98.4%.`,
         timestamp,
@@ -875,7 +900,7 @@ export function useDemoConsoleState() {
         urgency: 'low' as const,
         status: 'unread' as const,
         related_property: 'All Active files',
-        related_agent: 'Sarah Jenkins',
+        related_agent: 'Jessica Keenan',
         extracted_intent: 'analytics_report'
       };
       setCommunications(prev => [newComm, ...prev]);
@@ -885,7 +910,7 @@ export function useDemoConsoleState() {
         title: `Integrations Sync Notice: ${name}`,
         description: `Telemetry matching completed via ${name}. Ingested capabilities grid verification matches secure parameters.`,
         financial_impact: 0,
-        owner: 'Sarah Jenkins (COO)',
+        owner: 'Ann Gunn (Operations Lead)',
         time_remaining: '48 hours',
         why_it_matters: `Keeps shapework. operations aligned with the latest ${name} data exports.`,
         evidence: `Connection parameters: ${connector.authMethod.toUpperCase()} credentials validated.`,
@@ -1075,7 +1100,7 @@ export function useDemoConsoleState() {
           confidence: 0.78,
           state: 'awaiting_approval',
           draft_content: 'Audit Attachment ID: doc_randy_addendum.pdf. Extracted signature: Randy Smith.',
-          target_recipient: 'Sarah Jenkins',
+          target_recipient: 'Ann Gunn',
           created_at: timestamp
         };
         setActionProposals(prev => [newProposal, ...prev]);
@@ -1089,7 +1114,7 @@ export function useDemoConsoleState() {
           completedAt: timestamp,
           recordsScanned: 1,
           findings: ['Found signature match rating of 78% which is below the 85% threshold.'],
-          recommendations: ['Generate decision queue item for Sarah Jenkins.'],
+          recommendations: ['Generate decision queue item for Ann Gunn.'],
           actionsPrepared: 1,
           actionsExecuted: 0,
           approvalsRequired: 1,
@@ -1105,7 +1130,7 @@ export function useDemoConsoleState() {
           agentId: 'agent_support',
           recordsInspected: ['Randy Agent profile', 'Randy signature file'],
           findings: ['Signature match rating 78% (Threshold: 85%)'],
-          recommendedAction: 'Queue manual decision review for Sarah Jenkins.',
+          recommendedAction: 'Queue manual decision review for Ann Gunn.',
           approvalStatus: 'approval required',
           rollbackAvailable: false
         };
@@ -1285,7 +1310,7 @@ export function useDemoConsoleState() {
           completedAt: timestamp,
           recordsScanned: 1,
           findings: ['Escrow rescheduling event detected. Escrow timeline shifted out by 10 days.'],
-          recommendations: ['Recalculate risk rating to at_risk.', 'Alert Sarah COO.'],
+          recommendations: ['Recalculate risk rating to at_risk.', 'Alert Operations Lead.'],
           actionsPrepared: 1,
           actionsExecuted: 1,
           approvalsRequired: 0,
@@ -1301,7 +1326,7 @@ export function useDemoConsoleState() {
           agentId: 'agent_closing',
           recordsInspected: ['908 Colonial Ave files'],
           findings: ['Closing session rescheduled to July 15 (shifted by 10 days)'],
-          recommendedAction: 'Flag transaction at risk. Notify Sarah Jenkins.',
+          recommendedAction: 'Flag transaction at risk. Notify Ann Gunn.',
           approvalStatus: 'auto-safe',
           auditEventId: newAudit.id,
           rollbackAvailable: true
@@ -1331,7 +1356,7 @@ export function useDemoConsoleState() {
           confidence: 0.94,
           state: 'suggested',
           draft_content: 'Link Diane Ross (TC) to Randy Agent active escrow loops.',
-          target_recipient: 'Sarah Jenkins',
+          target_recipient: 'Ann Gunn',
           created_at: timestamp
         };
         setActionProposals(prev => [newProposal, ...prev]);
@@ -1343,35 +1368,22 @@ export function useDemoConsoleState() {
           trigger: 'Randy Agent support query: SkySlope upload help',
           startedAt: timestamp,
           completedAt: timestamp,
-          recordsScanned: 2,
-          findings: ['Randy Agent active transaction count is 9 (threshold 7). Support load is critical.'],
-          recommendations: ['Propose linking auxiliary TC to help Randy Agent.'],
+          recordsScanned: 1,
+          findings: ['Overloaded agent support query processed.'],
+          recommendations: ['Link TC Diane Ross.'],
           actionsPrepared: 1,
           actionsExecuted: 0,
           approvalsRequired: 1,
-          evidence: 'Randy Agent email: "Need help setting up disclosures folders on Westlake listing. Super behind."',
+          evidence: 'Agent email: SkySlope help requested',
           auditEventsCreated: []
         };
         setAgentRuns(prev => [newRun, ...prev]);
-
-        const newEvent: AgentEvent = {
-          id: `evt_sim_${Date.now()}`,
-          timestamp,
-          trigger: 'Agent support request email',
-          agentId: 'agent_support',
-          recordsInspected: ['Randy Agent volume metrics', 'Roster capacity'],
-          findings: ['Randy Agent volume critical (9 active deals). Support load exceeds limits.'],
-          recommendedAction: 'Delegate auxiliary TC workload support to Randy.',
-          approvalStatus: 'approval required',
-          rollbackAvailable: false
-        };
-        setAgentEvents(prev => [newEvent, ...prev]);
 
         setAiAgents(prev => prev.map(a => {
           if (a.id === 'agent_support') {
             return {
               ...a,
-              status: 'needs_approval',
+              status: 'monitoring',
               actions_prepared_today: a.actions_prepared_today + 1,
               last_run: 'Just now'
             };
@@ -1461,7 +1473,7 @@ AI COO Orchestrator monitored overnight changes:
 * Closing Risk Agent updated risk ratings for 908 Colonial Ave after escrow shifted by attorney email.
 * Integration Health Agent flagged a transient webhook failure. Sync connections are stable.
 
-Sarah Jenkins (COO) recommended tasks:
+Ann Gunn (Operations Lead) recommended tasks:
 1. Verify signature match threshold (78%) for Randy Agent document addendum.
 2. Coordinate photography delivery check for 104 Maple Ave launch.`
           );
@@ -1493,7 +1505,7 @@ Sarah Jenkins (COO) recommended tasks:
           agentId: 'agent_coo',
           recordsInspected: ['Global database logs'],
           findings: ['Morning brief refreshed.'],
-          recommendedAction: 'Present daily briefing feed to Sarah COO.',
+          recommendedAction: 'Present daily briefing feed to Operations Lead.',
           approvalStatus: 'auto-safe',
           rollbackAvailable: false
         };

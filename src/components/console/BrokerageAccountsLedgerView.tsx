@@ -103,8 +103,8 @@ export default function BrokerageAccountsLedgerView({ state }: BrokerageAccounts
       billingDate: 'Unsigned',
       agentsCount: 18,
       offices: ['Lumina Ave', 'Porters Neck'],
-      principalBroker: 'Sarah Jenkins (Owner/Broker)',
-      contactEmail: 'sarah@capefearluxury.com',
+      principalBroker: 'Jessica Keenan (Owner/Broker)',
+      contactEmail: 'jessica@capefearluxury.com',
       monthlyVolume: '$6.4M Vol / Mo (Est)',
       signedDate: 'Draft Created Jul 25, 2026'
     },

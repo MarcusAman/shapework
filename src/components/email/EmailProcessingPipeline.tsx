@@ -296,7 +296,7 @@ function EmailDecisionExplainer({ message }: { message: EmailMessage }) {
           reason: 'Matched due to sender authority domain verification (coastallending.com) and clear text matching "clear to close" and "102 Pine Street".',
           safeguards: 'Auto-update allowed: NLP confidence score (94%) exceeds the system minimum threshold (90%) for internal stage changes.',
           outcome: 'Deal stage updates to "Clear to Close" in Rechat CRM database.',
-          audit: 'Logged: "Lender clear-to-close verified via Sarah from Coastal Lending"'
+          audit: 'Logged: "Lender clear-to-close verified via Alice from Coastal Lending"'
         };
       case 'em_2':
         return {

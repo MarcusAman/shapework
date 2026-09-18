@@ -11,6 +11,11 @@ import SOPVersionComparison from './SOPVersionComparison';
 import AIFieldAssistant from './AIFieldAssistant';
 import SOPQualityReview from './SOPQualityReview';
 import StaffSOPTemplateModal from './StaffSOPTemplateModal';
+import { AskToDocumentModal } from './AskToDocumentModal';
+import { SOPDocumentUploadModal } from './SOPDocumentUploadModal';
+import { SOPCreationChoiceModal } from './SOPCreationChoiceModal';
+import { Download, FileText } from 'lucide-react';
+import { useToast } from '../ui';
 
 interface SOPStudioProps {
   state: any;
@@ -19,65 +24,53 @@ interface SOPStudioProps {
 }
 
 export default function SOPStudio({ state, embedded = false, readOnly = false }: SOPStudioProps) {
-  const { activeProfile, directoryPeople = [] } = state;
-  const wsId = state.workspaceId || 'nest-realty-demo';
+  const { activeProfile, directoryPeople = [] } = state || {};
+  const wsId = state?.workspaceId || 'nest-realty-demo';
 
   // View state: 'library' | 'create_options' | 'wizard' | 'details'
   const [currentView, setCurrentView] = useState<'library' | 'create_options' | 'wizard' | 'details'>('library');
   const [showStaffTemplateModal, setShowStaffTemplateModal] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
+    const handleOpenAskModal = () => setShowAskModal(true);
     const handleOpenStaffTemplate = () => setShowStaffTemplateModal(true);
     const handleOpenNewSop = () => {
-      setSopForm({
-        id: '',
-        sopId: '',
-        title: '',
-        department: 'Operations',
-        ownerRole: 'operations_lead',
-        ownerUserId: '',
-        backupRole: 'owner',
-        backupUserId: '',
-        finalApproverUserId: '',
-        escalationRecipientRole: 'owner',
-        purpose: '',
-        expectedOutcome: '',
-        scope: '',
-        exclusions: '',
-        tags: [],
-        triggerType: 'manual_start',
-        trigger: '',
-        triggerConditions: '',
-        requiredInfo: [],
-        steps: [],
-        decisions: [],
-        escalationBehavior: {
-          expectedResponse: 'Expected Response: 1 hour',
-          escalationPolicy: 'If unacknowledged within 1 hour, auto-escalate to Owner.'
-        }
-      });
-      setCurrentView('wizard');
-      setWizardStep(1);
+      setIsUploadModalOpen(false);
+      setShowStaffTemplateModal(false);
+      setShowAskModal(false);
+      setIsChoiceModalOpen(true);
     };
 
+    const handleOpenUploadModal = () => setIsUploadModalOpen(true);
+
+    window.addEventListener('open-ask-sop-modal', handleOpenAskModal);
+    window.addEventListener('open-invite-sop-modal', handleOpenAskModal);
     window.addEventListener('open-staff-sop-template', handleOpenStaffTemplate);
     window.addEventListener('open-new-sop-modal', handleOpenNewSop);
+    window.addEventListener('open-upload-sop-modal', handleOpenUploadModal);
 
     return () => {
+      window.removeEventListener('open-ask-sop-modal', handleOpenAskModal);
+      window.removeEventListener('open-invite-sop-modal', handleOpenAskModal);
       window.removeEventListener('open-staff-sop-template', handleOpenStaffTemplate);
       window.removeEventListener('open-new-sop-modal', handleOpenNewSop);
+      window.removeEventListener('open-upload-sop-modal', handleOpenUploadModal);
     };
   }, []);
   
   // Data lists
-  const [sops, setSops] = useState<any[]>([]);
-  const [runs, setRuns] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sops, setSops] = useState<any[]>(() => (state?.opsSops && state.opsSops.length > 0) ? state.opsSops : SOP_TEMPLATES);
+  const [runs, setRuns] = useState<any[]>(() => state?.opsRuns || []);
+  const [loading, setLoading] = useState(false);
 
   // Selected details state
   const [selectedSop, setSelectedSop] = useState<any | null>(null);
   const [selectedRun, setSelectedRun] = useState<any | null>(null);
   const [selectedViewTab, setSelectedViewTab] = useState<'document' | 'process' | 'run' | 'review'>('document');
+  const [showAskModal, setShowAskModal] = useState(false);
 
   // Version Comparison
   const [compareVersions, setCompareVersions] = useState<{ verA: any; verB: any } | null>(null);
@@ -185,6 +178,23 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
     }
   }, [sopForm, wsId]);
 
+  // Window event listeners for TopBar actions
+  useEffect(() => {
+    const handleOpenUpload = () => setIsUploadModalOpen(true);
+    const handleOpenAsk = () => setShowAskModal(true);
+    const handleOpenStaffTemplate = () => setShowStaffTemplateModal(true);
+
+    window.addEventListener('open-upload-sop-modal', handleOpenUpload);
+    window.addEventListener('open-ask-to-document-modal', handleOpenAsk);
+    window.addEventListener('open-staff-sop-template-modal', handleOpenStaffTemplate);
+
+    return () => {
+      window.removeEventListener('open-upload-sop-modal', handleOpenUpload);
+      window.removeEventListener('open-ask-to-document-modal', handleOpenAsk);
+      window.removeEventListener('open-staff-sop-template-modal', handleOpenStaffTemplate);
+    };
+  }, []);
+
   // Fetch roles and positions from local operating model
   const { positions = [] } = useMemo(() => {
     return orgChartService.getOrgChart(wsId);
@@ -195,12 +205,71 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
     setLoading(true);
     try {
       let loadedSops: any[] = [];
-      const sopsRes = await fetch(`/api/ops/sops?workspaceId=${wsId}`);
-      if (sopsRes.ok) {
-        const sopsData = await sopsRes.json();
-        loadedSops = sopsData.sops || [];
-        setSops(loadedSops);
+      try {
+        const altRes = await fetch(`/api/sops?workspaceId=${wsId}`);
+        if (altRes.ok) {
+          const altData = await altRes.json();
+          const combined = [
+            ...(altData.sops || []),
+            ...(altData.drafts || []).filter((d: any) => !(altData.sops || []).some((s: any) => s.id === d.id))
+          ];
+          loadedSops = combined.map((d: any) => ({
+            id: d.id,
+            sopId: d.id,
+            title: d.title,
+            department: d.department || 'Operations',
+            ownerRole: d.processOwner || d.ownerRole || 'operations_lead',
+            processOwner: d.processOwner || d.ownerRole || 'Admin Coordinator',
+            author: d.author || d.createdBy || d.processOwner || 'Nest Team',
+            createdBy: d.createdBy || d.author || d.processOwner || 'Nest Team',
+            publisher: d.publisher || d.reviewer || '',
+            purpose: d.purpose || '',
+            scope: d.scope || '',
+            trigger: d.trigger || '',
+            status: d.status || 'published',
+            version: typeof d.version === 'number' ? `${d.version}.0` : (d.version || '1.0'),
+            steps: (d.orderedSteps || []).map((st: any) => ({
+              id: st.id || `st_${st.stepNumber}`,
+              stepNumber: st.stepNumber,
+              instruction: st.action,
+              role: st.role,
+              systemUsed: st.systemUsed
+            })),
+            decisions: d.decisions || [],
+            exceptions: d.exceptions || [],
+            escalationPaths: d.escalationPaths || [],
+            completionEvidence: {
+              type: 'manual',
+              description: d.completionEvidence || ''
+            },
+            sourceDocument: d.sourceDocument,
+            workspaceId: wsId
+          }));
+        }
+      } catch (err) {
+        console.warn('Failed to load from /api/sops:', err);
       }
+
+      if (loadedSops.length === 0) {
+        const sopsRes = await fetch(`/api/ops/sops?workspaceId=${wsId}`);
+        if (sopsRes.ok) {
+          const sopsData = await sopsRes.json();
+          loadedSops = sopsData.sops || [];
+        }
+      }
+
+      // Deduplicate loaded SOPs by ID and normalized title
+      const uniqueMap = new Map<string, any>();
+      for (const s of loadedSops) {
+        if (!s) continue;
+        const titleKey = (s.title || s.name || '').trim().toLowerCase();
+        const key = titleKey || s.sopId || s.id;
+        if (key && !uniqueMap.has(key)) {
+          uniqueMap.set(key, s);
+        }
+      }
+      const deduplicatedSops = Array.from(uniqueMap.values());
+      setSops(deduplicatedSops);
 
       const runsRes = await fetch(`/api/ops/sops/runs?workspaceId=${wsId}`);
       if (runsRes.ok) {
@@ -324,7 +393,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
       steps: template.steps.map((s, i) => ({ id: `step_${freshSopId}_${i}`, ...s })),
       decisions: template.decisions.map((d, i) => ({ id: `dec_${freshSopId}_${i}`, ...d })),
       escalationBehavior: { ...template.escalationBehavior },
-      completionEvidence: { ...template.completionEvidence },
+      completionEvidence: template.completionEvidence ? JSON.parse(JSON.stringify(template.completionEvidence)) : ({ requiredProof: 'notes', signoffRequired: false } as any),
       governance: {
         ...template.governance,
         effectiveDate: new Date().toISOString().split('T')[0]
@@ -341,7 +410,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
   };
 
   const handleStartCreateOptions = () => {
-    setCurrentView('create_options');
+    setIsChoiceModalOpen(true);
   };
 
   const handleSelectBlank = () => {
@@ -688,8 +757,116 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
     }
   };
 
+  const handleLoadExtractedSop = (extractedSop: any) => {
+    setSopForm(extractedSop);
+    setWizardStep(1);
+    setCurrentView('wizard');
+  };
+
+  const handleSaveExtractedDraft = async (extractedSop: any) => {
+    try {
+      const creatorName = activeProfile?.name || 'Ryan Crecelius (Principal Broker)';
+      const draftPayload = {
+        ...extractedSop,
+        author: extractedSop.author || creatorName,
+        createdBy: extractedSop.createdBy || creatorName
+      };
+      const res = await fetch('/api/sops/drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('shapework_session_token') || 'usr_ryan'}`
+        },
+        body: JSON.stringify(draftPayload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const saved = data.sop || draftPayload;
+        setSops(prev => [saved, ...prev.filter(s => s.id !== saved.id && s.sopId !== saved.sopId)]);
+        await loadData();
+      }
+    } catch (err) {
+      console.error('Failed to save extracted SOP draft:', err);
+    }
+  };
+
+  const handleCreateAndPublishSop = async (extractedSop: any) => {
+    try {
+      const creatorName = activeProfile?.name || 'Ryan Crecelius (Principal Broker)';
+      const sopPayload = {
+        id: extractedSop.id || `sop_${Date.now()}`,
+        sopId: extractedSop.sopId || extractedSop.id || `sop_${Date.now()}`,
+        title: extractedSop.title,
+        department: extractedSop.department || 'Operations',
+        ownerRole: extractedSop.processOwner || 'operations_lead',
+        processOwner: extractedSop.processOwner || 'Admin Coordinator',
+        author: extractedSop.author || creatorName,
+        createdBy: extractedSop.createdBy || creatorName,
+        publisher: creatorName,
+        purpose: extractedSop.purpose || 'Standard operating procedure for operational execution and compliance.',
+        expectedOutcome: extractedSop.expectedOutcome || 'Flawless operational execution and compliance signoff.',
+        scope: extractedSop.scope || 'Brokerage-wide standard operating policy.',
+        trigger: extractedSop.trigger || 'Documented trigger event',
+        status: 'published',
+        version: typeof extractedSop.version === 'number' ? `${extractedSop.version}.0` : (extractedSop.version || '1.0'),
+        steps: (extractedSop.orderedSteps || extractedSop.steps || []).map((st: any, idx: number) => ({
+          id: st.id || `st_${st.stepNumber || idx + 1}`,
+          stepNumber: st.stepNumber || idx + 1,
+          instruction: st.action || st.instruction,
+          role: st.role || extractedSop.processOwner || 'Marketing Coordinator',
+          systemUsed: st.systemUsed || 'Rechat'
+        })),
+        decisions: extractedSop.decisions || [],
+        exceptions: extractedSop.exceptions || [],
+        escalationPaths: extractedSop.escalationPaths || [],
+        completionEvidence: {
+          type: 'manual',
+          description: extractedSop.completionEvidence || 'Record executed checklist milestone in brokerage audit record.'
+        },
+        sourceDocument: extractedSop.sourceDocument,
+        workspaceId: wsId
+      };
+
+      // 1. Post to /api/ops/sops with auth
+      await fetch('/api/ops/sops', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('shapework_session_token') || 'usr_ryan'}`
+        },
+        body: JSON.stringify({ sop: sopPayload })
+      });
+
+      // 2. Also persist to /api/sops/drafts as published for durable repository persistence
+      await fetch('/api/sops/drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('shapework_session_token') || 'usr_ryan'}`
+        },
+        body: JSON.stringify({
+          ...sopPayload,
+          orderedSteps: (sopPayload.steps || []).map((st: any) => ({
+            id: st.id,
+            stepNumber: st.stepNumber,
+            action: st.instruction,
+            role: st.role,
+            systemUsed: st.systemUsed
+          }))
+        })
+      });
+
+      await loadData();
+      setSelectedSop(sopPayload);
+      setSelectedViewTab('overview');
+      setCurrentView('details');
+    } catch (err) {
+      console.error('Failed to create and publish SOP directly:', err);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[#013028] text-white">
+    <div className="flex flex-col h-full bg-[var(--sw-canvas)] text-[var(--sw-text-primary)]">
       {/* View Controller */}
       {currentView === 'library' && (
         <SOPLibrary
@@ -698,6 +875,8 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
           readOnly={readOnly}
           onStartCreate={handleStartCreateOptions}
           onOpenStaffTemplate={() => setShowStaffTemplateModal(true)}
+          onOpenAskModal={() => setShowAskModal(true)}
+          onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onSelectSop={(sop, tab) => {
             setSelectedSop(sop);
             setSelectedViewTab(tab);
@@ -728,6 +907,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
           onSelectAI={handleSelectAI}
           sops={sops}
           onSelectDuplicate={handleSelectDuplicate}
+          onSelectUpload={() => setIsUploadModalOpen(true)}
         />
       )}
 
@@ -761,58 +941,68 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
       )}
 
       {currentView === 'details' && selectedSop && (
-        <div className="flex-grow flex flex-col md:flex-row min-h-0 bg-[#013028] text-left select-text">
+        <div className="flex-grow flex flex-col md:flex-row min-h-0 bg-[#FAF9F6] text-left select-text">
           {/* Left panel options */}
-          <div className="w-full md:w-64 shrink-0 bg-[#012a23] border-r border-white/10 p-5 flex flex-col justify-between overflow-y-auto select-none">
+          <div className="w-full md:w-64 shrink-0 bg-white border-r border-stone-200/80 p-5 flex flex-col justify-between overflow-y-auto select-none shadow-sm">
             <div className="space-y-5">
-              <div className="border-b border-white/5 pb-3">
-                <span className="text-[8px] font-mono font-bold text-[#D0D6BB]/50 uppercase tracking-widest block">OPERATING STANDARD</span>
-                <h3 className="font-serif font-black text-sm text-white leading-snug mt-1">{selectedSop.title}</h3>
-                <div className="flex gap-2 items-center mt-2">
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 text-[8px] font-mono uppercase">Version {selectedSop.version}</span>
-                  {selectedSop.status === 'published' && <span className="text-[9px] text-[#D0D6BB]/50">Active Version</span>}
+              <div className="border-b border-stone-200/80 pb-4">
+                <span className="text-[10px] font-bold text-[#00635C] uppercase tracking-wider block">OPERATING STANDARD</span>
+                <h3 className="font-serif font-bold text-base text-stone-900 leading-snug mt-1">{selectedSop.title}</h3>
+                <div className="flex gap-2 items-center mt-2.5">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#00635C] border border-emerald-200 text-[10px] font-bold uppercase">Version {selectedSop.version}</span>
+                  {selectedSop.status === 'published' && <span className="text-[10px] text-stone-500 font-medium">Active Version</span>}
                 </div>
               </div>
 
               {/* View Tabs */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <button
                   onClick={() => setSelectedViewTab('overview')}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    selectedViewTab === 'overview' || selectedViewTab === 'document' ? 'bg-[#00635C] text-white shadow-sm border border-white/5' : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedViewTab === 'overview' || selectedViewTab === 'document' || selectedViewTab === 'sop' ? 'bg-[#00635C] text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                   }`}
                 >
                   📖 Overview
                 </button>
                 <button
                   onClick={() => setSelectedViewTab('procedure')}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    selectedViewTab === 'procedure' || selectedViewTab === 'process' ? 'bg-[#00635C] text-white shadow-sm border border-white/5' : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedViewTab === 'procedure' || selectedViewTab === 'process' ? 'bg-[#00635C] text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                   }`}
                 >
                   🌿 Procedure Steps
                 </button>
                 <button
                   onClick={() => setSelectedViewTab('versions')}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    selectedViewTab === 'versions' ? 'bg-[#00635C] text-white shadow-sm border border-white/5' : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedViewTab === 'versions' ? 'bg-[#00635C] text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                   }`}
                 >
                   📁 Versions
                 </button>
                 <button
                   onClick={() => setSelectedViewTab('performance')}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    selectedViewTab === 'performance' ? 'bg-[#00635C] text-white shadow-sm border border-white/5' : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    selectedViewTab === 'performance' ? 'bg-[#00635C] text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                   }`}
                 >
                   📈 Performance
                 </button>
+                {selectedSop.sourceDocument && (
+                  <button
+                    onClick={() => setSelectedViewTab('source_document')}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      selectedViewTab === 'source_document' ? 'bg-[#00635C] text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
+                    }`}
+                  >
+                    📄 Source Document
+                  </button>
+                )}
                 {selectedRun && (
                   <button
                     onClick={() => setSelectedViewTab('run')}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                      selectedViewTab === 'run' ? 'bg-[#00635C] text-white shadow-sm border border-white/5' : 'text-[#D0D6BB]/60 hover:text-white hover:bg-white/5'
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      selectedViewTab === 'run' ? 'bg-[#00635C] text-white shadow-sm' : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                     }`}
                   >
                     🏃 Run Checklist
@@ -822,20 +1012,20 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
 
               {/* Expected Timing Display */}
               {selectedViewTab === 'run' && selectedRun && selectedRun.status === 'active' && (
-                <div className="p-3 bg-red-950/20 border border-red-500/25 rounded-2xl text-[10px] space-y-1 select-none animate-pulse">
-                  <span className="font-bold text-red-400 block uppercase tracking-wider font-mono">Expected Response Time Exceeded</span>
-                  <p className="text-[#D0D6BB]/80">Trigger: {selectedSop.escalationBehavior?.escalateAfter || '24 hours'}</p>
-                  <p className="text-red-300">Escalating to: Jessica Keenan</p>
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs space-y-1 select-none animate-pulse">
+                  <span className="font-bold text-rose-800 block uppercase tracking-wider text-[10px]">Expected Response Time Exceeded</span>
+                  <p className="text-stone-600 text-xs">Trigger: {selectedSop.escalationBehavior?.escalateAfter || '24 hours'}</p>
+                  <p className="text-rose-700 font-semibold">Escalating to: Jessica Keenan</p>
                 </div>
               )}
             </div>
 
             {/* Actions panel */}
-            <div className="pt-4 border-t border-white/5 space-y-2 select-none">
+            <div className="pt-4 border-t border-stone-200/80 space-y-2 select-none">
               {selectedSop.status === 'published' && !selectedRun && (
                 <button
                   onClick={() => handleStartRun(selectedSop)}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-mono font-bold uppercase rounded-xl transition-all cursor-pointer text-center"
+                  className="w-full py-2.5 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center shadow-sm"
                 >
                   Start Checklist Run
                 </button>
@@ -864,7 +1054,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                     setWizardStep(1);
                     setCurrentView('wizard');
                   }}
-                  className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[9px] font-mono font-bold uppercase rounded-xl transition-all cursor-pointer text-center"
+                  className="w-full py-2 bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-800 text-xs font-bold uppercase rounded-xl transition-all cursor-pointer text-center"
                 >
                   Branch Draft v{(parseFloat(selectedSop.version) + 0.1).toFixed(1)}
                 </button>
@@ -877,7 +1067,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                     setWizardStep(1);
                     setCurrentView('wizard');
                   }}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-mono font-bold uppercase rounded-xl transition-all cursor-pointer text-center"
+                  className="w-full py-2.5 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center shadow-sm"
                 >
                   Edit Draft
                 </button>
@@ -890,109 +1080,206 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                   setSelectedRun(null);
                   setCurrentView('library');
                 }}
-                className="w-full py-2 bg-stone-900/40 hover:bg-stone-900/60 border border-white/5 text-[#D0D6BB] text-[9px] font-mono font-bold uppercase rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1.5"
               >
-                <span>← Back to SOP Library</span>
+                <span>← Back to Knowledge Library</span>
               </button>
             </div>
           </div>
 
           {/* Details Main panel */}
           <div className="flex-grow p-8 overflow-y-auto">
-            <div className="max-w-3xl mx-auto">
-              {(selectedViewTab === 'overview' || selectedViewTab === 'document') && (
+            <div className="max-w-4xl mx-auto">
+              {(selectedViewTab === 'overview' || selectedViewTab === 'document' || selectedViewTab === 'sop') && (
                 <SOPDocumentView 
                   selectedSop={selectedSop} 
                   setSelectedViewTab={setSelectedViewTab}
                   selectedRun={selectedRun}
                   state={state}
+                  onDeleteDraft={async (sop) => {
+                    try {
+                      const token = localStorage.getItem('shapework_session_token') || 'usr_ryan';
+                      const res = await fetch(`/api/sops/drafts/${sop.id}`, { 
+                        method: 'DELETE',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-workspace-id': 'nest-realty-wilmington',
+                          'Authorization': `Bearer ${token}`
+                        }
+                      });
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || err.message || 'Failed to delete draft');
+                      }
+                      setSops(prev => prev.filter(s => s.id !== sop.id && s.sopId !== sop.sopId));
+                      setSelectedSop(null);
+                      setCurrentView('library');
+                      toast.success({
+                        title: 'Draft Deleted',
+                        description: `Draft "${sop.title}" removed.`
+                      });
+                    } catch (err: any) {
+                      console.error('Failed to delete draft SOP:', err);
+                      toast.error({
+                        title: 'Delete Failed',
+                        description: err.message || 'Failed to delete draft SOP'
+                      });
+                    }
+                  }}
+                  onDeleteSop={async (sop) => {
+                    try {
+                      const token = localStorage.getItem('shapework_session_token') || 'usr_ryan';
+                      const res = await fetch(`/api/sops/${sop.id}`, { 
+                        method: 'DELETE',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-workspace-id': 'nest-realty-wilmington',
+                          'Authorization': `Bearer ${token}`
+                        }
+                      });
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || err.message || 'Failed to delete SOP');
+                      }
+                      setSops(prev => prev.filter(s => s.id !== sop.id && s.sopId !== sop.sopId));
+                      setSelectedSop(null);
+                      setCurrentView('library');
+                      toast.success({
+                        title: 'SOP Permanently Deleted',
+                        description: `SOP "${sop.title}" permanently removed.`
+                      });
+                    } catch (err: any) {
+                      console.error('Failed to delete SOP:', err);
+                      toast.error({
+                        title: 'Delete Failed',
+                        description: err.message || 'Failed to delete SOP'
+                      });
+                      throw err;
+                    }
+                  }}
                 />
               )}
               {(selectedViewTab === 'procedure' || selectedViewTab === 'process') && (
                 <SOPProcessView selectedSop={selectedSop} />
               )}
               {selectedViewTab === 'versions' && (
-                <div className="space-y-4 bg-[#012a23] border border-white/10 rounded-3xl p-6 text-left">
+                <div className="space-y-4 bg-white border border-stone-200/80 rounded-2xl p-6 text-left shadow-sm">
                   <div>
-                    <h3 className="font-serif font-black text-sm uppercase text-white tracking-wide">Version Control History</h3>
-                    <p className="text-[10px] text-[#D0D6BB]/60 font-mono mt-0.5 font-sans">Track revisions, authoring sign-offs, and comparative histories of this SOP.</p>
+                    <h3 className="font-serif font-bold text-base uppercase text-stone-900 tracking-wide">Version Control History</h3>
+                    <p className="text-xs text-stone-500 mt-1 font-medium">Track revisions, authoring sign-offs, and comparative histories of this SOP.</p>
                   </div>
-                  <div className="space-y-2 pt-3 border-t border-white/5 font-mono text-[10px]">
-                    <div className="p-3 bg-black/15 border border-white/5 rounded-2xl flex justify-between items-center">
+                  <div className="space-y-2.5 pt-4 border-t border-stone-200/80 text-xs">
+                    <div className="p-4 bg-stone-50 border border-stone-200/80 rounded-xl flex justify-between items-center shadow-sm">
                       <div>
-                        <span className="font-bold text-white block">Version {selectedSop.version} (Active)</span>
-                        <span className="text-[#D0D6BB]/40 block text-[9px] mt-0.5 font-sans">Author: Jessica Keenan | Changed: {selectedSop.changeSummary || 'Initial release'}</span>
+                        <span className="font-bold text-stone-900 block">Version {selectedSop.version} (Active)</span>
+                        <span className="text-stone-500 block text-xs mt-0.5 font-medium">Author: Jessica Keenan | Changed: {selectedSop.changeSummary || 'Initial release'}</span>
                       </div>
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 text-[8px] font-bold">PUBLISHED</span>
+                      <span className="px-3 py-1 rounded-full bg-emerald-50 text-[#00635C] border border-emerald-200 text-xs font-bold">PUBLISHED</span>
                     </div>
                     {parseFloat(selectedSop.version) > 1.0 && (
-                      <div className="p-3 bg-black/15 border border-white/5 rounded-2xl flex justify-between items-center opacity-60">
+                      <div className="p-4 bg-stone-50 border border-stone-200/80 rounded-xl flex justify-between items-center opacity-60">
                         <div>
-                          <span className="font-bold text-white block">Version 1.0</span>
-                          <span className="text-[#D0D6BB]/40 block text-[9px] mt-0.5 font-sans">Author: Ann Gunn | Changed: Standardized intake procedures</span>
+                          <span className="font-bold text-stone-700 block">Version 1.0</span>
+                          <span className="text-stone-500 block text-xs mt-0.5 font-medium">Author: Ann Gunn | Changed: Standardized intake procedures</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded bg-stone-500/10 text-stone-300 text-[8px] font-bold">ARCHIVED</span>
+                        <span className="px-3 py-1 rounded-full bg-stone-200 text-stone-700 text-xs font-bold">ARCHIVED</span>
                       </div>
                     )}
                   </div>
                 </div>
               )}
               {selectedViewTab === 'performance' && (
-                <div className="space-y-6 bg-[#012a23] border border-white/10 rounded-3xl p-6 text-left select-none">
+                <div className="space-y-6 bg-white border border-stone-200/80 rounded-2xl p-6 text-left select-none shadow-sm">
                   <div>
-                    <h3 className="font-serif font-black text-sm uppercase text-white tracking-wide">Procedure Speed & Efficiency</h3>
-                    <p className="text-[10px] text-[#D0D6BB]/60 font-mono mt-0.5 font-sans">Real-time turnaround times and bottleneck benchmarks for this procedure.</p>
+                    <h3 className="font-serif font-bold text-base uppercase text-stone-900 tracking-wide">Procedure Speed & Efficiency</h3>
+                    <p className="text-xs text-stone-500 mt-1 font-medium">Real-time turnaround times and bottleneck benchmarks for this procedure.</p>
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-white/5 text-center font-mono">
-                    <div className="bg-black/20 p-4 rounded-2xl border border-white/10">
-                      <span className="text-[9px] text-[#D0D6BB]/60 block uppercase font-sans">On-Time Completion Rate</span>
-                      <strong className="text-xl text-emerald-400 block mt-1">94.2%</strong>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-stone-200/80 text-center">
+                    <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200/80 shadow-sm">
+                      <span className="text-xs text-stone-500 block font-medium">On-Time Completion Rate</span>
+                      <strong className="text-2xl text-[#00635C] block mt-1 font-bold">94.2%</strong>
                     </div>
-                    <div className="bg-black/20 p-4 rounded-2xl border border-white/10">
-                      <span className="text-[9px] text-[#D0D6BB]/60 block uppercase font-sans">Target Step Turnaround</span>
-                      <strong className="text-xl text-white block mt-1">2.0 hrs</strong>
+                    <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200/80 shadow-sm">
+                      <span className="text-xs text-stone-500 block font-medium">Target Step Turnaround</span>
+                      <strong className="text-2xl text-stone-900 block mt-1 font-bold">2.0 hrs</strong>
                     </div>
-                    <div className="bg-black/20 p-4 rounded-2xl border border-white/10">
-                      <span className="text-[9px] text-[#D0D6BB]/60 block uppercase font-sans">Avg Step Duration</span>
-                      <strong className="text-xl text-emerald-300 block mt-1">1.6 hrs</strong>
+                    <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200/80 shadow-sm">
+                      <span className="text-xs text-stone-500 block font-medium">Avg Step Duration</span>
+                      <strong className="text-2xl text-[#00635C] block mt-1 font-bold">1.6 hrs</strong>
                     </div>
-                    <div className="bg-black/20 p-4 rounded-2xl border border-white/10">
-                      <span className="text-[9px] text-[#D0D6BB]/60 block uppercase font-sans">Total Checklist Runs</span>
-                      <strong className="text-xl text-white block mt-1">{runs.filter(r => r.sopId === selectedSop.sopId).length || 1}</strong>
+                    <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200/80 shadow-sm">
+                      <span className="text-xs text-stone-500 block font-medium">Total Checklist Runs</span>
+                      <strong className="text-2xl text-stone-900 block mt-1 font-bold">{runs.filter(r => r.sopId === selectedSop.sopId).length || 1}</strong>
                     </div>
                   </div>
 
                   {/* Bottleneck Step Analysis Card */}
-                  <div className="p-4 bg-amber-950/20 border border-amber-500/30 rounded-2xl space-y-2 font-mono text-xs text-amber-300">
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-xs text-amber-900">
                     <div className="flex items-center gap-2">
-                      <span className="text-amber-400 font-bold uppercase text-[10px] tracking-wider">⚡ Step Bottleneck Analysis</span>
+                      <span className="text-amber-900 font-bold uppercase text-xs tracking-wider">⚡ Step Bottleneck Analysis</span>
                     </div>
-                    <p className="text-[#D0D6BB]/80 text-[11px] font-sans leading-relaxed">
-                      Step 2 (<strong className="text-white">Upload Documentation & Signatures</strong>) accounts for 75% of step turnaround delays (avg 2.4 hrs vs 2.0 hrs target). Consider refining prerequisite field requirements in Phase 1.
+                    <p className="text-amber-800 text-xs leading-relaxed font-medium">
+                      Step 2 (<strong className="text-stone-900 font-bold">Upload Documentation & Signatures</strong>) accounts for 75% of step turnaround delays (avg 2.4 hrs vs 2.0 hrs target). Consider refining prerequisite field requirements in Phase 1.
                     </p>
                   </div>
 
-                  <div className="space-y-3 pt-3 border-t border-white/5">
-                    <h4 className="text-xs font-serif font-black uppercase text-white tracking-wider">Execution History & Activity Logs</h4>
-                    <div className="space-y-2 font-mono text-[9px]">
+                  <div className="space-y-3 pt-4 border-t border-stone-200/80">
+                    <h4 className="text-xs font-serif font-bold uppercase text-stone-900 tracking-wider">Execution History & Activity Logs</h4>
+                    <div className="space-y-2 text-xs">
                       {runs.filter(r => r.sopId === selectedSop.sopId).map((r: any) => (
-                        <div key={r.id} className="p-3 bg-black/15 border border-white/5 rounded-xl flex justify-between items-center">
+                        <div key={r.id} className="p-3.5 bg-stone-50 border border-stone-200/80 rounded-xl flex justify-between items-center shadow-sm">
                           <div>
-                            <span className="font-bold text-white block">{r.title}</span>
-                            <span className="text-[#D0D6BB]/50 block mt-0.5 font-sans">Assignee: {r.assigneeName || 'Unassigned'} | Started: {new Date(r.startedAt).toLocaleDateString()}</span>
+                            <span className="font-bold text-stone-900 block">{r.title}</span>
+                            <span className="text-stone-500 block mt-0.5 text-xs font-medium">Assignee: {r.assigneeName || 'Unassigned'} | Started: {new Date(r.startedAt).toLocaleDateString()}</span>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${
-                            r.status === 'completed' ? 'bg-emerald-500/10 text-emerald-300' :
-                            r.status === 'blocked' ? 'bg-red-500/10 text-red-300' : 'bg-blue-500/10 text-blue-300'
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            r.status === 'completed' ? 'bg-emerald-50 text-[#00635C] border border-emerald-200' :
+                            r.status === 'blocked' ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-blue-50 text-blue-800 border border-blue-200'
                           }`}>{r.status}</span>
                         </div>
                       ))}
                       {runs.filter(r => r.sopId === selectedSop.sopId).length === 0 && (
-                        <p className="text-[#D0D6BB]/30 py-4 text-center font-sans">No executions recorded for this SOP.</p>
+                        <p className="text-stone-400 py-4 text-center font-medium">No executions recorded for this SOP.</p>
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+              {selectedViewTab === 'source_document' && selectedSop.sourceDocument && (
+                <div className="space-y-4 bg-white border border-stone-200/80 rounded-2xl p-6 text-left shadow-sm animate-fadeIn">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-200/80 pb-4 gap-3">
+                    <div>
+                      <h3 className="font-serif font-bold text-base text-stone-900">
+                        {selectedSop.sourceDocument.fileName || 'Original Uploaded Document'}
+                      </h3>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        Uploaded on {new Date(selectedSop.sourceDocument.uploadedAt || Date.now()).toLocaleString()} · Format: {selectedSop.sourceDocument.fileType?.toUpperCase() || 'DOCUMENT'}
+                      </p>
+                    </div>
+                    {selectedSop.sourceDocument.filePayload && (
+                      <a
+                        href={selectedSop.sourceDocument.filePayload}
+                        download={selectedSop.sourceDocument.fileName || 'source-document.pdf'}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download File</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {selectedSop.sourceDocument.filePayload && selectedSop.sourceDocument.filePayload.startsWith('data:') ? (
+                    <iframe
+                      src={selectedSop.sourceDocument.filePayload}
+                      title="Source Document Preview"
+                      className="w-full h-[750px] rounded-xl border border-stone-200 bg-stone-50"
+                    />
+                  ) : (
+                    <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 text-xs font-mono text-stone-800 whitespace-pre-wrap leading-relaxed max-h-[700px] overflow-y-auto">
+                      {selectedSop.sourceDocument.filePayload || 'No binary document data available.'}
+                    </div>
+                  )}
                 </div>
               )}
               {selectedViewTab === 'run' && selectedRun && (
@@ -1018,30 +1305,30 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
 
       {/* Wizard Modals */}
       {isFieldModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none">
-          <div className="bg-[#012a23] border border-white/15 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="font-serif font-black text-sm uppercase text-white tracking-wide">
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none animate-fadeIn">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-stone-900">
+            <h3 className="font-serif font-bold text-base text-stone-900">
               {editingFieldIdx !== null ? 'Edit Field' : 'Add Required Field'}
             </h3>
             
             <div className="space-y-3 text-xs text-left">
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Field Name</label>
+                <label className="text-[11px] font-semibold text-stone-700">Field Name</label>
                 <input
                   type="text"
                   value={fieldForm.name}
                   onChange={(e) => setFieldForm({ ...fieldForm, name: e.target.value })}
                   placeholder="MLS Number"
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Data Type</label>
+                <label className="text-[11px] font-semibold text-stone-700">Data Type</label>
                 <select
                   value={fieldForm.dataType}
                   onChange={(e) => setFieldForm({ ...fieldForm, dataType: e.target.value })}
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white focus:outline-none"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 >
                   <option value="text">Short Text</option>
                   <option value="long_text">Detailed Note</option>
@@ -1053,11 +1340,11 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Required</label>
+                <label className="text-[11px] font-semibold text-stone-700">Required</label>
                 <select
                   value={fieldForm.required}
                   onChange={(e) => setFieldForm({ ...fieldForm, required: e.target.value })}
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white focus:outline-none"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 >
                   <option value="yes">Always Required</option>
                   <option value="no">Optional</option>
@@ -1066,11 +1353,11 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
               <button
                 type="button"
                 onClick={() => setIsFieldModalOpen(false)}
-                className="px-3 py-1.5 border border-white/10 text-white rounded-lg hover:bg-white/5 cursor-pointer uppercase text-[9px] font-mono"
+                className="px-3.5 py-2 border border-stone-200 text-stone-600 hover:bg-stone-50 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1086,7 +1373,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                   setSopForm({ ...sopForm, requiredInfo: fields });
                   setIsFieldModalOpen(false);
                 }}
-                className="px-3 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg cursor-pointer uppercase text-[9px] font-mono font-bold"
+                className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl cursor-pointer text-xs font-semibold shadow-xs"
               >
                 Save
               </button>
@@ -1096,31 +1383,31 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
       )}
 
       {isStepModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none">
-          <div className="bg-[#012a23] border border-white/15 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="font-serif font-black text-sm uppercase text-white tracking-wide">
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none animate-fadeIn">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-stone-900">
+            <h3 className="font-serif font-bold text-base text-stone-900">
               {editingStepIdx !== null ? 'Edit Process Step' : 'Add Process Step'}
             </h3>
             
             <div className="space-y-3 text-xs text-left">
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Step Title</label>
+                <label className="text-[11px] font-semibold text-stone-700">Step Title</label>
                 <input
                   type="text"
                   value={stepForm.title}
                   onChange={(e) => setStepForm({ ...stepForm, title: e.target.value })}
                   placeholder="Upload Listing Agreement"
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Instructions</label>
+                <label className="text-[11px] font-semibold text-stone-700">Instructions</label>
                 <textarea
                   value={stepForm.instruction}
                   onChange={(e) => setStepForm({ ...stepForm, instruction: e.target.value })}
                   placeholder="Detailed guidelines on how to execute this step..."
-                  className="w-full bg-[#01241f] border border-white/10 rounded-xl p-2 text-white min-h-[60px]"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] min-h-[60px]"
                 />
                 <AIFieldAssistant
                   fieldType="step_instruction"
@@ -1131,11 +1418,11 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Assigned Role</label>
+                <label className="text-[11px] font-semibold text-stone-700">Assigned Role</label>
                 <select
                   value={stepForm.assignedRole}
                   onChange={(e) => setStepForm({ ...stepForm, assignedRole: e.target.value })}
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white focus:outline-none"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 >
                   {positions.map(p => (
                     <option key={p.id} value={p.id}>{p.title}</option>
@@ -1145,11 +1432,11 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Step Type</label>
+                  <label className="text-[11px] font-semibold text-stone-700">Step Type</label>
                   <select
                     value={stepForm.type}
                     onChange={(e) => setStepForm({ ...stepForm, type: e.target.value })}
-                    className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white focus:outline-none"
+                    className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                   >
                     <option value="manual">Manual</option>
                     <option value="review">Review Gate</option>
@@ -1158,34 +1445,34 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Expected duration</label>
+                  <label className="text-[11px] font-semibold text-stone-700">Expected Duration</label>
                   <input
                     type="text"
                     value={stepForm.expectedDuration}
                     onChange={(e) => setStepForm({ ...stepForm, expectedDuration: e.target.value })}
                     placeholder="1h or 15m"
-                    className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white"
+                    className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">evidence requirement label</label>
+                <label className="text-[11px] font-semibold text-stone-700">Evidence Requirement</label>
                 <input
                   type="text"
                   value={stepForm.evidenceRequired}
                   onChange={(e) => setStepForm({ ...stepForm, evidenceRequired: e.target.value })}
                   placeholder="e.g. Upload signed listing agreement PDF"
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
               <button
                 type="button"
                 onClick={() => setIsStepModalOpen(false)}
-                className="px-3 py-1.5 border border-white/10 text-white rounded-lg hover:bg-white/5 cursor-pointer uppercase text-[9px] font-mono"
+                className="px-3.5 py-2 border border-stone-200 text-stone-600 hover:bg-stone-50 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1201,7 +1488,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                   setSopForm({ ...sopForm, steps });
                   setIsStepModalOpen(false);
                 }}
-                className="px-3 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg cursor-pointer uppercase text-[9px] font-mono font-bold"
+                className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl cursor-pointer text-xs font-semibold shadow-xs"
               >
                 Save Step
               </button>
@@ -1211,33 +1498,32 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
       )}
 
       {isDecisionModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none">
-          <div className="bg-[#012a23] border border-white/15 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <h3 className="font-serif font-black text-sm uppercase text-white tracking-wide">
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 select-none animate-fadeIn">
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-stone-900">
+            <h3 className="font-serif font-bold text-base text-stone-900">
               {editingDecisionIdx !== null ? 'Edit Exception Rule' : 'Add Exception Rule'}
             </h3>
             
             <div className="space-y-3 text-xs text-left">
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">Rule Title</label>
+                <label className="text-[11px] font-semibold text-stone-700">Rule Title</label>
                 <input
                   type="text"
                   value={decisionForm.title}
                   onChange={(e) => setDecisionForm({ ...decisionForm, title: e.target.value })}
                   placeholder="MLS Failure Redirection"
-                  className="w-full bg-black/25 border border-white/10 rounded-xl p-2 text-white"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 />
               </div>
 
               <div className="space-y-1">
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">IF Condition statement</label>
+                <label className="text-[11px] font-semibold text-stone-700">IF Condition statement</label>
                 <input
                   type="text"
                   value={decisionForm.condition}
                   onChange={(e) => setDecisionForm({ ...decisionForm, condition: e.target.value })}
                   placeholder="MLS sync is delayed or credentials fail"
-                  className="w-full bg-[#01241f] border border-white/10 rounded-xl p-2 text-white"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
                 />
                 <AIFieldAssistant
                   fieldType="decision_condition"
@@ -1248,12 +1534,12 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-mono text-[#D0D6BB] uppercase">THEN Action behavior / Route</label>
+                <label className="text-[11px] font-semibold text-stone-700">THEN Action behavior / Route</label>
                 <textarea
                   value={decisionForm.action}
                   onChange={(e) => setDecisionForm({ ...decisionForm, action: e.target.value })}
-                  placeholder="Route to manual verification step step_12345"
-                  className="w-full bg-[#01241f] border border-white/10 rounded-xl p-2 text-white min-h-[60px]"
+                  placeholder="Route to manual verification step"
+                  className="w-full bg-white border border-stone-200 rounded-xl p-2.5 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] min-h-[60px]"
                 />
                 <AIFieldAssistant
                   fieldType="decision_action"
@@ -1262,14 +1548,13 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                   onApply={(val) => setDecisionForm({ ...decisionForm, action: val })}
                 />
               </div>
-              </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
               <button
                 type="button"
                 onClick={() => setIsDecisionModalOpen(false)}
-                className="px-3 py-1.5 border border-white/10 text-white rounded-lg hover:bg-white/5 cursor-pointer uppercase text-[9px] font-mono"
+                className="px-3.5 py-2 border border-stone-200 text-stone-600 hover:bg-stone-50 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1285,7 +1570,7 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
                   setSopForm({ ...sopForm, decisions: decs });
                   setIsDecisionModalOpen(false);
                 }}
-                className="px-3 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg cursor-pointer uppercase text-[9px] font-mono font-bold"
+                className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl cursor-pointer text-xs font-semibold shadow-xs"
               >
                 Save Rule
               </button>
@@ -1302,6 +1587,39 @@ export default function SOPStudio({ state, embedded = false, readOnly = false }:
         onSopCreated={(newSop) => {
           setSops(prev => [newSop, ...prev]);
         }}
+      />
+
+      {/* Ryan's Ask Someone to Document a Process Modal */}
+      <AskToDocumentModal
+        isOpen={showAskModal}
+        onClose={() => setShowAskModal(false)}
+        workspaceId={wsId}
+        onRequestCreated={() => loadData()}
+      />
+
+      {/* SOP Creation Hub Choice Modal (Upload, Create New, Edit Existing) */}
+      <SOPCreationChoiceModal
+        isOpen={isChoiceModalOpen}
+        onClose={() => setIsChoiceModalOpen(false)}
+        sops={sops}
+        onSelectUpload={() => setIsUploadModalOpen(true)}
+        onSelectCreateNew={() => handleSelectBlank()}
+        onSelectEditExisting={(existingSop) => {
+          setSopForm(existingSop);
+          setWizardStep(1);
+          setCurrentView('wizard');
+        }}
+      />
+
+      {/* SOP Document Upload and AI Extractor Modal */}
+      <SOPDocumentUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        sops={sops}
+        onLoadIntoWizard={handleLoadExtractedSop}
+        onSaveDraft={handleSaveExtractedDraft}
+        onPublishDirect={handleCreateAndPublishSop}
+        wsId={wsId}
       />
     </div>
   );

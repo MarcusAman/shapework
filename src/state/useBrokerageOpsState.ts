@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { OpsRequest, AssetInventoryItem, SOP, IntegrationConnection, AuditLog } from '../../server/headless/opsBlueprintTypes';
+import type { OpsRequest, AssetInventoryItem, SOP, IntegrationConnection, AuditLog } from '../../server/headless/opsBlueprintTypes';
 
 export function useBrokerageOpsState() {
   const [requests, setRequests] = useState<OpsRequest[]>([]);

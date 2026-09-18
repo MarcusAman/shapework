@@ -28,10 +28,10 @@ export default function EvidenceDrawer({
   return (
     <>
       {/* Backdrop overlay */}
-      <div className="fixed inset-0 bg-stone-900/10 backdrop-blur-[1px] z-50 transition-opacity" onClick={onClose} />
+      <div className="fixed inset-0 bg-stone-900/10 backdrop-blur-[1px] z-[100] transition-opacity" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 max-w-lg w-full bg-surface shadow-2xl z-50 flex flex-col border-l border-border-subtle animate-fade-in">
+      <div className="fixed inset-y-0 right-0 max-w-lg w-full bg-surface shadow-2xl z-[100] flex flex-col border-l border-border-subtle animate-fade-in">
         {/* Header */}
         <div className="p-4 border-b border-border-subtle flex justify-between items-center bg-secondary-surface">
           <div className="flex items-center gap-2">

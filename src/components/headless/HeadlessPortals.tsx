@@ -21,7 +21,7 @@ export function ClientDealPortal({ token }: { token: string }) {
   const [deal, setDeal] = useState<any>({
     address: '109 Woodlawn Avenue, Wilmington, NC 28403',
     status: 'Compliance Audit',
-    clientName: 'Sarah Jenkins',
+    clientName: 'Jessica Keenan',
     documents: [
       { id: 'd1', name: 'Escrow Wire Receipt', status: 'Approved' },
       { id: 'd2', name: 'Seller Disclosures Addendum', status: 'Pending Upload' }

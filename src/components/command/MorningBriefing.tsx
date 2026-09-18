@@ -33,21 +33,16 @@ interface OperatingBriefCardProps {
 function OperatingBriefCard({ type, label, value, description, action, onActionClick }: OperatingBriefCardProps) {
   return (
     <div 
-      className="rounded-[28px] p-6 flex flex-col justify-between space-y-4 text-left transition-all hover:border-white/30 shadow-xl"
-      style={{
-        background: 'rgba(246, 247, 241, 0.10)',
-        border: '1px solid rgba(246, 247, 241, 0.18)',
-        backdropFilter: 'blur(18px)'
-      }}
+      className="rounded-[24px] p-5 flex flex-col justify-between space-y-4 text-left transition-all hover:border-stone-300 bg-white border border-stone-200/80 shadow-sm hover:shadow-md"
     >
       <div className="space-y-2">
-        <div className="text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider">{label}</div>
-        <div className="font-serif text-lg font-black text-white tracking-tight">{value}</div>
-        <p className="text-xs text-[#D0D6BB] leading-relaxed">{description}</p>
+        <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">{label}</div>
+        <div className="font-serif text-lg font-black text-stone-900 tracking-tight">{value}</div>
+        <p className="text-xs text-stone-600 leading-relaxed font-sans">{description}</p>
       </div>
       <button 
         onClick={onActionClick}
-        className="mt-2 px-3 py-1.5 bg-[#00635C] hover:bg-[#007c73] text-white text-[11px] font-bold rounded-lg cursor-pointer w-fit flex items-center gap-1.5 transition-colors shadow-sm"
+        className="mt-2 px-3.5 py-2 bg-[#00635C] hover:bg-[#007c73] text-white text-[11px] font-bold rounded-xl cursor-pointer w-fit flex items-center gap-1.5 transition-colors shadow-sm"
       >
         <span>{action}</span>
         <ArrowRight className="w-3.5 h-3.5 text-white/90" />
@@ -151,21 +146,16 @@ export default function MorningBriefing({
       
       {/* 1. Today's Summary & Status */}
       <div 
-        className="rounded-[28px] p-6 space-y-6 text-left shadow-xl"
-        style={{
-          background: 'rgba(246, 247, 241, 0.10)',
-          border: '1px solid rgba(246, 247, 241, 0.18)',
-          backdropFilter: 'blur(18px)'
-        }}
+        className="rounded-[28px] p-6 space-y-6 text-left shadow-sm bg-white border border-stone-200/80"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[rgba(246,247,241,0.12)] pb-4 select-none">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4 select-none">
           <div>
-            <h2 className="font-serif text-base font-black text-white">Situation Report</h2>
+            <h2 className="font-serif text-base font-black text-stone-900">Situation Report</h2>
           </div>
           <button 
             onClick={onGenerate}
             disabled={isGenerating}
-            className="px-3 py-1.5 bg-[#00635C] hover:bg-[#007c73] text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            className="px-3.5 py-1.5 bg-[#00635C] hover:bg-[#007c73] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-sm"
           >
             <Zap className={`w-3.5 h-3.5 text-emerald-300 ${isGenerating ? 'animate-spin' : ''}`} />
             <span>{isGenerating ? 'Refreshing...' : 'Refresh Logs'}</span>
@@ -177,51 +167,51 @@ export default function MorningBriefing({
           <div 
             onClick={() => onNavigateTab && onNavigateTab('Transactions')}
             data-testid="telemetry-revenue-at-risk"
-            className="p-4 rounded-2xl bg-black/30 border border-white/10 hover:border-emerald-500/40 transition-colors cursor-pointer"
+            className="p-4 rounded-2xl bg-stone-50 border border-stone-200/70 hover:border-emerald-500/40 transition-colors cursor-pointer"
           >
-            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Revenue at Risk</span>
-            <strong className="text-xl font-extrabold text-white block mt-1 font-sans">
+            <span className="text-[10px] uppercase font-bold text-stone-500 block font-sans tracking-wider">Revenue at Risk</span>
+            <strong className="text-xl font-black text-stone-900 block mt-1 font-sans">
               {formatCurrency(revenueAtRisk)}
             </strong>
           </div>
           <div 
             onClick={() => onNavigateTab && onNavigateTab('Work Queue')}
             data-testid="telemetry-needs-attention"
-            className="p-4 rounded-2xl bg-black/30 border border-white/10 hover:border-emerald-500/40 transition-colors cursor-pointer"
+            className="p-4 rounded-2xl bg-stone-50 border border-stone-200/70 hover:border-emerald-500/40 transition-colors cursor-pointer"
           >
-            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Needs Attention</span>
-            <strong className="text-xl font-extrabold text-white block mt-1 font-sans">
+            <span className="text-[10px] uppercase font-bold text-stone-500 block font-sans tracking-wider">Needs Attention</span>
+            <strong className="text-xl font-black text-stone-900 block mt-1 font-sans">
               {itemsNeedingAttentionCount} Files
             </strong>
           </div>
           <div 
             onClick={() => onNavigateTab && onNavigateTab('Approvals')}
             data-testid="telemetry-pending-decisions"
-            className="p-4 rounded-2xl bg-black/30 border border-white/10 hover:border-emerald-500/40 transition-colors cursor-pointer"
+            className="p-4 rounded-2xl bg-stone-50 border border-stone-200/70 hover:border-emerald-500/40 transition-colors cursor-pointer"
           >
-            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Pending Decisions</span>
-            <strong className="text-xl font-extrabold text-white block mt-1 font-sans">
+            <span className="text-[10px] uppercase font-bold text-stone-500 block font-sans tracking-wider">Pending Decisions</span>
+            <strong className="text-xl font-black text-stone-900 block mt-1 font-sans">
               {decisionsCount} Items
             </strong>
           </div>
-          <div className="p-4 rounded-2xl bg-black/30 border border-white/10">
-            <span className="text-[10px] uppercase font-bold text-[#D0D6BB] block font-sans">Interruptions Avoided</span>
-            <strong className="text-xl font-extrabold text-white block mt-1 font-sans flex items-center gap-1">
-              184 <TrendingDown className="w-4 h-4 text-emerald-400" />
+          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/70">
+            <span className="text-[10px] uppercase font-bold text-stone-500 block font-sans tracking-wider">Interruptions Avoided</span>
+            <strong className="text-xl font-black text-stone-900 block mt-1 font-sans flex items-center gap-1">
+              184 <TrendingDown className="w-4 h-4 text-emerald-600" />
             </strong>
           </div>
         </div>
 
         {/* Primary recommendation alert line */}
-        <div className="flex items-center gap-2.5 text-xs py-3 px-4 rounded-2xl bg-black/30 border border-[rgba(246,247,241,0.12)] text-[#F6F7F1] select-none font-medium">
-          <span className="animate-pulse text-xs text-emerald-400 shrink-0">▲</span>
-          <span><strong className="text-white font-bold">Recommended:</strong> {primaryActionText.replace(/\*\*/g, '')}</span>
+        <div className="flex items-center gap-2.5 text-xs py-3 px-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-950 select-none font-medium">
+          <span className="animate-pulse text-xs text-emerald-700 shrink-0">▲</span>
+          <span><strong className="text-emerald-900 font-bold">Recommended:</strong> {primaryActionText.replace(/\*\*/g, '')}</span>
         </div>
       </div>
 
       {/* 2. Structured Operating Brief section */}
       <div className="space-y-3">
-        <h3 className="font-serif text-base font-black text-white px-1">
+        <h3 className="font-serif text-base font-black text-stone-900 px-1">
           Operating Brief
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

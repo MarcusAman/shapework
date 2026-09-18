@@ -228,7 +228,7 @@ export async function cancelGenerationJob(jobId: string): Promise<MarketingGener
 
 async function updateStage(
   job: MarketingGenerationJob,
-  stage: MarketingBuildEvent extends { type: 'stage_started' } ? MarketingBuildEvent['stage'] : never,
+  stage: any,
   message: string
 ) {
   job.currentStage = stage;
@@ -264,7 +264,7 @@ async function processAsset(job: MarketingGenerationJob, assetType: MarketingAss
 
   // REAL RENDER & FILE PERSISTENCE CHECK
   const previewUrl = `/api/marketing/campaigns/${job.campaignId}/assets/${assetType}/raw`;
-  job.assetStatuses[assetType].status = 'ready_for_preview';
+  job.assetStatuses[assetType].status = 'ready_for_review';
   job.assetStatuses[assetType].previewAssetId = `preview_${assetType}`;
   job.assetStatuses[assetType].previewUrl = previewUrl;
 

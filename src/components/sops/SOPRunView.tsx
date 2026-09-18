@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, AlertTriangle, Upload } from 'lucide-react';
+import { Check, AlertTriangle, Upload, Clock, FileText, CheckCircle2, XCircle } from 'lucide-react';
 import HelpfulnessFeedback from '../shared/HelpfulnessFeedback';
 
 interface SOPRunViewProps {
@@ -15,23 +15,26 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
   if (!selectedRun || !selectedSop) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Run Header status */}
-      <div className="bg-[#012a23] border border-white/10 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex justify-between items-center border-b border-white/10 pb-3 select-none">
+    <div className="space-y-6 animate-fadeIn">
+      {/* Run Header Status Card */}
+      <div className="bg-white border border-stone-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex justify-between items-center border-b border-stone-200/80 pb-4 select-none">
           <div>
-            <span className="text-[8px] font-mono text-[#D0D6BB]/50 uppercase tracking-widest block">RUN CHECKLIST</span>
-            <h3 className="font-serif font-black text-sm text-white">{selectedRun.title}</h3>
+            <span className="text-[10px] font-bold text-[#00635C] uppercase tracking-wider block">RUN CHECKLIST</span>
+            <h3 className="font-serif font-bold text-lg text-stone-900 mt-0.5">{selectedRun.title}</h3>
           </div>
-          <span className={`px-2 py-0.5 rounded text-[8px] font-mono uppercase font-black ${
-            selectedRun.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'
+          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 shadow-sm ${
+            selectedRun.status === 'completed'
+              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+              : 'bg-emerald-50 text-[#00635C] border border-emerald-200'
           }`}>
+            <span className="w-2 h-2 rounded-full bg-[#00635C] animate-pulse" />
             {selectedRun.status}
           </span>
         </div>
 
-        {/* Interactive checklist steps */}
-        <div className="space-y-4">
+        {/* Interactive Checklist Steps */}
+        <div className="space-y-4 pt-2">
           {selectedSop.steps.map((step: any, idx: number) => {
             const isCompleted = selectedRun.completedSteps?.includes(step.id);
             const isBlocked = selectedRun.blockedSteps?.includes(step.id);
@@ -41,25 +44,33 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
             return (
               <div 
                 key={step.id} 
-                className={`p-5 rounded-3xl border transition-all flex flex-col md:flex-row justify-between gap-4 ${
+                className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row justify-between gap-4 ${
                   isCompleted 
-                    ? 'bg-emerald-950/15 border-emerald-500/15 opacity-70' 
-                    : (isBlocked ? 'bg-red-950/20 border-red-500/20' : 'bg-black/25 border-white/10')
+                    ? 'bg-emerald-50/80 border-emerald-200/90 shadow-sm' 
+                    : isBlocked 
+                      ? 'bg-rose-50/80 border-rose-200 shadow-sm' 
+                      : 'bg-stone-50/70 border-stone-200/80 hover:bg-white shadow-sm'
                 }`}
               >
-                <div className="space-y-2 text-left flex-grow">
-                  <div className="flex items-center gap-2 select-none">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[9px] font-bold shrink-0 ${
-                      isCompleted ? 'bg-emerald-500 text-white' : 'bg-black/45 text-[#D0D6BB]/50'
+                <div className="space-y-2.5 text-left flex-grow">
+                  <div className="flex items-center gap-2.5 select-none">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                      isCompleted 
+                        ? 'bg-[#00635C] text-white shadow-sm' 
+                        : isBlocked
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-stone-200 text-stone-700 font-mono'
                     }`}>
-                      {idx + 1}
+                      {isCompleted ? <Check className="w-3.5 h-3.5" /> : idx + 1}
                     </span>
-                    <h4 className={`font-serif font-bold text-xs ${isCompleted ? 'text-emerald-300 line-through' : 'text-white'}`}>{step.title}</h4>
+                    <h4 className={`font-serif font-bold text-sm ${isCompleted ? 'text-emerald-900 line-through' : 'text-stone-900'}`}>
+                      {step.title}
+                    </h4>
                   </div>
-                  <p className="text-[11px] text-[#D0D6BB]/70 leading-relaxed pl-7">{step.instruction}</p>
+                  <p className="text-xs text-stone-600 leading-relaxed pl-8 font-medium">{step.instruction}</p>
 
-                  {/* Inline step notes */}
-                  <div className="pl-7 pt-2 select-text space-y-2">
+                  {/* Inline Step Notes & Evidence */}
+                  <div className="pl-8 pt-2 select-text space-y-2.5">
                     <input
                       type="text"
                       defaultValue={noteText}
@@ -69,13 +80,13 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
                         handleUpdateRun({ ...selectedRun, stepNotes: notes });
                       }}
                       placeholder="Add logging notes or links for this step..."
-                      className="w-full bg-black/20 border border-white/5 rounded-lg px-2.5 py-1 text-[10px] text-white focus:outline-none placeholder-stone-600 font-sans"
+                      className="w-full bg-white border border-stone-200/80 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#00635C] placeholder-stone-400 font-medium shadow-sm"
                     />
 
                     {/* Evidence Attachment Requirement */}
                     {step.evidenceRequired && (
-                      <div className="space-y-1.5 pt-1.5 border-t border-white/5">
-                        <span className="text-[8px] font-mono uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/10 block w-max select-none">
+                      <div className="space-y-2 pt-2 border-t border-stone-200/80">
+                        <span className="text-[10px] font-bold uppercase text-[#00635C] bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 inline-block">
                           Evidence Required: {step.evidenceRequired}
                         </span>
                         
@@ -90,7 +101,7 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
                               evidence[step.id] = e.target.value;
                               handleUpdateRun({ ...selectedRun, stepEvidence: evidence });
                             }}
-                            className="flex-grow bg-black/20 border border-white/5 rounded-lg px-2.5 py-1 text-[10px] text-white focus:outline-none placeholder-stone-600 font-sans"
+                            className="flex-grow bg-white border border-stone-200/80 rounded-xl px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[#00635C] placeholder-stone-400 font-medium shadow-sm"
                           />
                           <button
                             onClick={() => {
@@ -98,7 +109,7 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
                               evidence[step.id] = evidenceInputs[step.id] || '';
                               handleUpdateRun({ ...selectedRun, stepEvidence: evidence });
                             }}
-                            className="px-3 py-1 bg-[#10b981]/25 hover:bg-[#10b981]/40 border border-[#10b981]/30 rounded-lg text-[9px] text-[#34d399] font-mono transition-all cursor-pointer whitespace-nowrap"
+                            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs text-[#00635C] font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm"
                           >
                             Add Evidence Link
                           </button>
@@ -108,19 +119,19 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
                   </div>
                 </div>
 
-                {/* Action buttons */}
+                {/* Action Buttons */}
                 <div className="shrink-0 flex flex-col justify-center items-end gap-2 select-none">
                   {!isCompleted ? (
-                    <div className="flex flex-col gap-1.5 w-full md:w-auto">
+                    <div className="flex flex-col gap-2 w-full md:w-auto">
                       <button
                         onClick={() => handleStepAction(idx, 'complete', step.evidenceRequired ? (evidenceInputs[step.id] || 'evidence_link_complete') : undefined)}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-mono font-bold uppercase rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1"
+                        className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                       >
-                        <Check className="w-3 h-3" /> Complete
+                        <Check className="w-4 h-4" /> Complete
                       </button>
                       <button
                         onClick={() => handleStepAction(idx, 'block')}
-                        className="px-3 py-1 bg-red-650 hover:bg-red-750 text-white text-[9px] font-mono font-bold uppercase rounded-lg transition-colors cursor-pointer text-center"
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer text-center shadow-sm"
                       >
                         Block
                       </button>
@@ -128,38 +139,37 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
                   ) : (
                     <button
                       onClick={() => handleStepAction(idx, 'reset')}
-                      className="text-[9px] text-[#D0D6BB]/40 hover:text-white font-mono uppercase tracking-wider font-bold underline cursor-pointer"
+                      className="text-xs text-stone-500 hover:text-stone-900 font-semibold underline cursor-pointer transition-colors"
                     >
                       Reset Step
                     </button>
                   )}
                 </div>
-
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Timeline History */}
-      <div className="bg-[#012a23] border border-white/10 rounded-3xl p-6 shadow-xl space-y-3">
-        <span className="text-[9px] font-mono font-bold text-[#D0D6BB]/50 uppercase tracking-widest block text-left font-mono">Run Timeline History Log</span>
-        <div className="space-y-2 select-text text-left text-[10px] font-mono">
+      {/* Timeline History Card */}
+      <div className="bg-white border border-stone-200/80 rounded-2xl p-6 shadow-sm space-y-3">
+        <span className="text-[10px] font-bold text-[#00635C] uppercase tracking-wider block text-left">Run Timeline History Log</span>
+        <div className="space-y-2 select-text text-left text-xs font-medium">
           {(selectedRun.timeline || []).map((t: any, i: number) => (
-            <div key={i} className="flex justify-between border-b border-white/5 py-1">
-              <span className="text-[#D0D6BB]/60">{new Date(t.timestamp).toLocaleTimeString()}</span>
-              <span className="font-bold text-white">{t.actor}</span>
-              <span className="text-emerald-400">{t.action}</span>
+            <div key={i} className="flex justify-between border-b border-stone-100 py-2">
+              <span className="text-stone-500">{new Date(t.timestamp).toLocaleTimeString()}</span>
+              <span className="font-bold text-stone-900">{t.actor}</span>
+              <span className="text-[#00635C] font-semibold">{t.action}</span>
               <span className="text-stone-500 shrink-0 max-w-[200px] truncate">{t.details}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Step level negative feedback */}
+      {/* Step Level Feedback */}
       {selectedRun.status === 'completed' && (
-        <div className="bg-[#012a23] border border-white/10 rounded-3xl p-6 shadow-xl space-y-4">
-          <span className="text-[9px] font-mono font-bold text-[#D0D6BB]/50 uppercase tracking-widest block text-left">Helpfulness Rating System</span>
+        <div className="bg-white border border-stone-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+          <span className="text-[10px] font-bold text-[#00635C] uppercase tracking-wider block text-left">Helpfulness Rating System</span>
           <HelpfulnessFeedback
             objectType="sop_run"
             objectId={selectedRun.id}
@@ -170,3 +180,4 @@ export default function SOPRunView({ selectedRun, selectedSop, handleStepAction,
     </div>
   );
 }
+

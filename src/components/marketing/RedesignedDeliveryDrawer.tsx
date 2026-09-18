@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Download, Share2, FileText, CheckCircle2, ExternalLink, HardDrive } from 'lucide-react';
 
 export interface RedesignedDeliveryDrawerProps {
@@ -21,6 +21,16 @@ export const RedesignedDeliveryDrawer: React.FC<RedesignedDeliveryDrawerProps> =
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeExporting, setActiveExporting] = useState<string | null>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleFullDownload = async () => {
@@ -42,7 +52,14 @@ export const RedesignedDeliveryDrawer: React.FC<RedesignedDeliveryDrawerProps> =
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex justify-end animate-fade-in font-sans">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex justify-end animate-fade-in font-sans"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="w-full max-w-lg bg-[#0B4A3F] border-l border-[rgba(208,214,187,0.24)] h-full p-6 shadow-2xl overflow-y-auto space-y-6 text-[#FFFDF8] text-left">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-4">
@@ -116,7 +133,7 @@ export const RedesignedDeliveryDrawer: React.FC<RedesignedDeliveryDrawerProps> =
             <div className="p-3 bg-[#073F35]/70 border border-[rgba(208,214,187,0.12)] rounded-xl flex items-center justify-between">
               <div>
                 <h4 className="font-bold text-xs text-white">Rechat export package</h4>
-                <span className="text-[10px] text-[rgba(246,247,241,0.55)]">Pre-formatted marketing import payload</span>
+                <span className="text-[10px] text-[rgba(246,247,241,0.7)]">Marketing package files ready for Rechat</span>
               </div>
               <button
                 type="button"

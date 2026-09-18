@@ -12,10 +12,13 @@ export async function encryptToken(token: string): Promise<string> {
 
 export async function decryptToken(encryptedRef: string): Promise<string> {
   if (!encryptedRef) return '';
-  try {
-    return await credentialVault.decrypt<string>(encryptedRef);
-  } catch (e: any) {
-    console.error('[Vault Helper] Decryption failed:', e.message);
-    throw new Error('Credential decryption failed: ' + e.message);
+  if (encryptedRef.startsWith('ref_v1:') || encryptedRef.startsWith('dev_plain:')) {
+    try {
+      return await credentialVault.decrypt<string>(encryptedRef);
+    } catch (e: any) {
+      console.error('[Vault Helper] Decryption failed:', e.message);
+      throw new Error('Credential decryption failed: ' + e.message);
+    }
   }
+  return encryptedRef;
 }

@@ -85,7 +85,7 @@ export default function AIOperatorWorkspace({
                     <div className="max-w-[85%] space-y-2">
                       <div className="flex items-center gap-2 mb-1 px-1">
                         <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
-                          {isUser ? 'Sarah Jenkins (COO)' : 'shapework AI'}
+                          {isUser ? 'Ann Gunn (Operations Lead)' : 'shapework AI'}
                         </span>
                         <span className="text-[9px] text-text-tertiary font-mono">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -38,7 +38,7 @@ Brokerage Name: ${activeWorkspace.name || 'First Brokerage Pilot'}
 - Pilot Start Date: ${pilotConfig.pilotStartDate || 'Not Started'}
 - Expected Length: ${pilotConfig.pilotLengthDays || 14} Days
 - Internal Launch Owner: ${pilotConfig.launchOwnerApproval || 'Marcus Aman'}
-- Customer Owner Signature: ${pilotConfig.customerOwnerAck || 'Sarah Jenkins'}
+- Customer Owner Signature: ${pilotConfig.customerOwnerAck || 'Jessica Keenan'}
 - Included Workflows: ${(pilotConfig.includedWorkflows || []).join(', ') || 'marketing_desk, closing_tracker'}
 - Excluded Workflows: ${(pilotConfig.excludedWorkflows || []).join(', ') || 'None'}
 - Next Review Date: ${nextReviewDate}
@@ -49,7 +49,7 @@ Brokerage Name: ${activeWorkspace.name || 'First Brokerage Pilot'}
 - Enabled Third-Party Integrations: ${connectedList}
 
 ## 3. Team Role Configuration
-${workspaceUsers.map((u: any) => `- **${u.role.replace('_', ' ').toUpperCase()}**: ${u.name} (${u.email})`).join('\n') || '- Principal Owner: Sarah Jenkins\n- Lead Operator: Alex Carter\n- Transaction Coordinator: Emma Watson\n- Marketing Coordinator: Robert Vance'}
+${workspaceUsers.map((u: any) => `- **${u.role.replace('_', ' ').toUpperCase()}**: ${u.name} (${u.email})`).join('\n') || '- Principal Owner: Jessica Keenan\n- Lead Operator: Alex Carter\n- Transaction Coordinator: Emma Watson\n- Marketing Coordinator: Robert Vance'}
 
 ## 4. Approval Policy Safeguards
 - All outbound communications requesting files or details from external parties are quarantined.
@@ -134,7 +134,7 @@ ${workspaceUsers.map((u: any) => `- **${u.role.replace('_', ' ').toUpperCase()}*
         <p>- Pilot Phase: {activeWorkspace.phase || 'setup'}</p>
         <p>- Pilot Start Date: {pilotConfig.pilotStartDate || 'Not Started'}</p>
         <p>- Expected Length: {pilotConfig.pilotLengthDays || 14} Days</p>
-        <p>- Customer Owner: {pilotConfig.customerOwnerAck || 'Sarah Jenkins'}</p>
+        <p>- Customer Owner: {pilotConfig.customerOwnerAck || 'Jessica Keenan'}</p>
       </div>
     </div>
   );

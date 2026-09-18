@@ -101,7 +101,7 @@ test.describe('Real Media Quality & Private Storage Verification (Release Gate)'
   });
 
   test('Public static route for moved source photo returns HTTP 404 (Private Storage Enforced)', async ({ request }) => {
-    const response = await request.get('http://localhost:3000/luxury_home_990_inspiration_1785434122508.jpg');
+    const response = await request.get('http://localhost:3049/luxury_home_990_inspiration_1785434122508.jpg');
     expect(response.status()).toBe(404);
   });
 });

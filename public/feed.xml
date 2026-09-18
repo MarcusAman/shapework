@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Operational Intelligence — shapework.</title>
+    <link>https://shapework.co/operational-intelligence</link>
+    <description>Field notes on how growing businesses actually operate. Experience-led writing on operational design, workflow, automation, and the patterns we keep finding.</description>
+    <language>en-us</language>
+    <atom:link href="https://shapework.co/feed.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 07 Aug 2026 00:00:00 GMT</lastBuildDate>
+    <item>
+      <title>What Is AI Agent Orchestration?</title>
+      <link>https://shapework.co/operational-intelligence/what-is-ai-agent-orchestration</link>
+      <guid>https://shapework.co/operational-intelligence/what-is-ai-agent-orchestration</guid>
+      <pubDate>Wed, 27 May 2026 00:00:00 GMT</pubDate>
+      <description>AI agent orchestration is how multiple AI tools get coordinated to complete a multi-step task without a person managing every handoff. What it is, and where it earns its place.</description>
+    </item>
+    <item>
+      <title>What We Keep Finding Inside Growing Businesses</title>
+      <link>https://shapework.co/operational-intelligence/what-we-keep-finding</link>
+      <guid>https://shapework.co/operational-intelligence/what-we-keep-finding</guid>
+      <pubDate>Thu, 22 May 2026 00:00:00 GMT</pubDate>
+      <description>After enough operational reviews, the same problems show up again and again. The patterns we keep finding inside growing businesses.</description>
+    </item>
+  </channel>
+</rss>

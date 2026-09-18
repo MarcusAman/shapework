@@ -1,0 +1,247 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "Shapework Release A Clean Production Acceptance Baseline",
+  "authorizedBy": [
+    "Marcus Aman (Broker / Tech Lead)",
+    "Ryan Crecelius (Broker-in-Charge / Owner)",
+    "Melissa Gagliardi (Marketing Director)"
+  ],
+  "createdAt": "2026-09-05T19:51:57.086Z",
+  "candidateSourceChecksum": "93450a6741be5f8f86fb290cfd0b142671dded03e3cf95cf22dcf8e4d6d90b61",
+  "acceptanceWarning": "LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH",
+  "metrics": {
+    "totalRequests": 3,
+    "totalTasks": 4,
+    "needsInfoRequests": 1,
+    "inProgressRequests": 1,
+    "readyForReviewRequests": 1
+  },
+  "requests": [
+    {
+      "id": "req_email_1788463431715_uypg7",
+      "title": "Marketing Collateral for 310 Chestnut St Suite 1690",
+      "channel": "email",
+      "receivedAt": "Just now · Verified Inbound",
+      "status": "needs_info",
+      "agentName": "Matt Orr (Broker)",
+      "agentEmail": "matt.orr@nestrealty.com",
+      "agentPhone": "(910) 612-8283",
+      "agentRole": "Broker",
+      "propertyAddress": "310 Chestnut St, Wilmington, NC",
+      "requestExcerpt": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nInbound Email Intake (matt.orr@nestrealty.com): [Needs Info] Marketing Collateral for 310 Chestnut St Suite 1690 — 0 photo(s).",
+      "rawExcerpt": "From: Matt Orr <matt.orr@nestrealty.com>\nTo: AskNora@nestrealty.com\nSubject: Marketing Collateral for 310 Chestnut St Suite 1690\n\nNeed flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.",
+      "taskIds": [
+        "tsk_email_1788463431715_0_a2up2",
+        "tsk_email_1788463431716_1_tl2ti"
+      ],
+      "assignedTo": "Melissa Gagliardi",
+      "photos": [],
+      "attachments": [],
+      "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_310_CHESTNUT_ST",
+      "isArchived": false,
+      "createdAt": "2026-09-03T19:23:51.715Z",
+      "updatedAt": "2026-09-04T16:14:56.763Z",
+      "normalizedPropertyKey": "310 chestnut st wilmington nc",
+      "workspaceId": "ws_wilmington_staging",
+      "policyVersion": "nora_marketing_intake_v2.1",
+      "knowledgeVersion": "nest_handbook_2026.1",
+      "readinessStatus": "needs_info",
+      "missingFields": [
+        "photoReferences"
+      ],
+      "fieldConflicts": [],
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]"
+    },
+    {
+      "id": "req_active_survivor_1788463390481",
+      "workspaceId": "ws_wilmington_staging",
+      "title": "5077 Soundview Dr, Wilmington, NC 28409 Marketing Request",
+      "propertyAddress": "5077 Soundview Dr, Wilmington, NC 28409",
+      "normalizedPropertyKey": "5077 soundview dr wilmington nc 28409",
+      "agentName": "Matt Orr",
+      "agentEmail": "matt.orr@nestrealty.com",
+      "channel": "web",
+      "status": "in_progress",
+      "taskIds": [
+        "tsk_active_survivor_1788463390481"
+      ],
+      "isArchived": false,
+      "createdAt": "2026-09-03T19:23:10.641Z",
+      "updatedAt": "2026-09-04T16:14:56.774Z",
+      "agentPhone": null,
+      "category": null,
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nExisting active container",
+      "photos": [],
+      "attachments": [],
+      "requestExcerpt": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n5077 Soundview Dr, Wilmington, NC 28409 Marketing Request"
+    },
+    {
+      "id": "req_seed_recon_1788463348828",
+      "workspaceId": "ws_wilmington_staging",
+      "title": "2381 Pembroke Jones Dr, Wilmington, NC 28405 • Marketing Package",
+      "propertyAddress": "2381 Pembroke Jones Dr, Wilmington, NC 28405",
+      "normalizedPropertyKey": "2381 pembroke jones dr wilmington nc 28405",
+      "agentName": "Matt Orr",
+      "agentEmail": "matt.orr@nestrealty.com",
+      "agentPhone": "+19106128283",
+      "channel": "web",
+      "status": "ready_for_review",
+      "category": "marketing",
+      "taskIds": [
+        "tsk_seed_recon_1788463348828"
+      ],
+      "isArchived": false,
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Seed Request]: Awaiting specs and additional photos.\n\n[Reconciled Email Follow-up from Matt Orr (matt.orr@nestrealty.com)]: Here are the missing details for 2381 Pembroke Jones Dr, Wilmington, NC 28405: Price is $895,000, 3100 sq ft, 4 bedrooms, 3 bathrooms. Elegant coastal home with open floorplan. Two photos attached including rear patio.",
+      "photos": [],
+      "attachments": [],
+      "createdAt": "2026-09-03T19:22:28.981Z",
+      "updatedAt": "2026-09-04T16:14:56.779Z",
+      "requestExcerpt": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n2381 Pembroke Jones Dr, Wilmington, NC 28405 • Marketing Package"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "tsk_email_1788463431716_1_tl2ti",
+      "requestId": "req_email_1788463431715_uypg7",
+      "title": "3-Slide Social Story Carousel & Graphics",
+      "category": "social",
+      "status": "needs_info",
+      "assignedTo": "Eduardo Lovo",
+      "assignedToRole": "Virtual Assistant / Maxa Lead",
+      "agentName": "Matt Orr (Broker)",
+      "propertyAddress": "310 Chestnut St, Wilmington, NC",
+      "photos": [],
+      "attachments": [],
+      "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_310_CHESTNUT_ST",
+      "isArchived": false,
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Needs Info]: photoReferences. Nora dispatched clarification email.\n[Raw Email Excerpt]: Need flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.\n[2026-09-04T16:14:56.762Z] Melissa Gagliardi: Archived via bulk action",
+      "createdAt": "2026-09-03T19:23:51.715Z",
+      "updatedAt": "2026-09-04T16:14:56.762Z",
+      "dueAt": "2026-09-05T19:23:51.697Z",
+      "policyVersion": "nora_marketing_intake_v2.1",
+      "knowledgeVersion": "nest_handbook_2026.1",
+      "archivedAt": "2026-09-04T16:14:56.762Z",
+      "approvalHistory": [
+        {
+          "action": "Transition from needs_info to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.762Z",
+          "note": "Archived via bulk action"
+        }
+      ],
+      "workspaceId": "ws_wilmington"
+    },
+    {
+      "id": "tsk_email_1788463431715_0_a2up2",
+      "requestId": "req_email_1788463431715_uypg7",
+      "title": "1-Page Property Flyer (8.5x11)",
+      "category": "print",
+      "status": "needs_info",
+      "assignedTo": "Melissa Gagliardi",
+      "assignedToRole": "Marketing Director",
+      "agentName": "Matt Orr (Broker)",
+      "propertyAddress": "310 Chestnut St, Wilmington, NC",
+      "photos": [],
+      "attachments": [],
+      "driveFolderUrl": "https://drive.google.com/drive/folders/1DRV_310_CHESTNUT_ST",
+      "isArchived": false,
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\n[Needs Info]: photoReferences. Nora dispatched clarification email.\n[Raw Email Excerpt]: Need flyers and social graphics for 310 Chestnut St Suite 1690, Wilmington NC. Price is $750k, 3 bed, 2 bath, 2100 sq ft.\n[2026-09-04T16:14:56.763Z] Melissa Gagliardi: Archived via bulk action",
+      "createdAt": "2026-09-03T19:23:51.715Z",
+      "updatedAt": "2026-09-04T16:14:56.763Z",
+      "dueAt": "2026-09-05T19:23:51.697Z",
+      "policyVersion": "nora_marketing_intake_v2.1",
+      "knowledgeVersion": "nest_handbook_2026.1",
+      "archivedAt": "2026-09-04T16:14:56.763Z",
+      "approvalHistory": [
+        {
+          "action": "Transition from needs_info to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.763Z",
+          "note": "Archived via bulk action"
+        }
+      ],
+      "workspaceId": "ws_wilmington"
+    },
+    {
+      "id": "tsk_active_survivor_1788463390481",
+      "requestId": "req_active_survivor_1788463390481",
+      "workspaceId": "ws_wilmington_staging",
+      "requestTitle": "5077 Soundview Dr, Wilmington, NC 28409 Marketing Request",
+      "propertyAddress": "5077 Soundview Dr, Wilmington, NC 28409",
+      "agentName": "Matt Orr",
+      "title": "Luxury Property Brochure",
+      "category": "print",
+      "assignedTo": "Melissa Gagliardi",
+      "status": "in_progress",
+      "isArchived": false,
+      "createdAt": "2026-09-03T19:23:10.712Z",
+      "updatedAt": "2026-09-04T16:14:56.774Z",
+      "assignedToRole": "Marketing Director",
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nActive brochure task\n\n[Reconciled Email Follow-up from Matt Orr (matt.orr@nestrealty.com)]: The address is 5077 Soundview Dr, Wilmington, NC 28409. Please merge into my active brochure and see the updated notes.\n[2026-09-04T16:14:56.774Z] Melissa Gagliardi: Archived via bulk action",
+      "photos": [
+        {
+          "id": "legacy_aerial_survey.jpg_1024",
+          "name": "aerial_survey.jpg",
+          "url": "/uploads/aerial_survey.jpg",
+          "type": "image/jpeg",
+          "sizeBytes": 1024,
+          "driveUrl": "https://drive.google.com/file/d/1-Vph9XRJ6LCjllp9A0g5Y0M227lWack/view",
+          "hash": "legacy_hash_7b614909e9917ff3419ee4aabbb37bd53e95850f8d9c11aa03e1f0c25d1d8cd5"
+        }
+      ],
+      "attachments": [
+        {
+          "id": "legacy_aerial_survey.jpg_1024",
+          "filename": "aerial_survey.jpg",
+          "contentType": "image/jpeg",
+          "sizeBytes": 1024,
+          "url": "/uploads/aerial_survey.jpg",
+          "driveUrl": "https://drive.google.com/file/d/1-Vph9XRJ6LCjllp9A0g5Y0M227lWack/view",
+          "hash": "legacy_hash_7b614909e9917ff3419ee4aabbb37bd53e95850f8d9c11aa03e1f0c25d1d8cd5"
+        }
+      ],
+      "approvalHistory": [
+        {
+          "action": "Transition from in_progress to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.774Z",
+          "note": "Archived via bulk action"
+        }
+      ],
+      "archivedAt": "2026-09-04T16:14:56.774Z"
+    },
+    {
+      "id": "tsk_seed_recon_1788463348828",
+      "requestId": "req_seed_recon_1788463348828",
+      "workspaceId": "ws_wilmington_staging",
+      "requestTitle": "2381 Pembroke Jones Dr, Wilmington, NC 28405 • Marketing Package",
+      "propertyAddress": "2381 Pembroke Jones Dr, Wilmington, NC 28405",
+      "agentName": "Matt Orr",
+      "title": "1-Page Property Flyer (8.5x11)",
+      "category": "marketing",
+      "assignedTo": "Melissa Gagliardi",
+      "assignedToRole": "Marketing Director",
+      "status": "ready_for_review",
+      "notes": "[LIVE ACCEPTANCE TEST — MARCUS AMAN / MATT ORR — NO EXTERNAL DISPATCH]\nSeeded task awaiting photos and price.\n\n[Reconciled Email Update]: Added new information and attachments.\n[2026-09-04T16:14:56.778Z] Melissa Gagliardi: Archived via bulk action",
+      "photos": [],
+      "attachments": [],
+      "isArchived": false,
+      "approvalHistory": [
+        {
+          "user": "Matt Orr",
+          "action": "intake_seeded",
+          "timestamp": "2026-09-03T19:22:28.965Z"
+        },
+        {
+          "action": "Transition from ready_for_review to archived",
+          "performedBy": "Melissa Gagliardi",
+          "timestamp": "2026-09-04T16:14:56.778Z",
+          "note": "Archived via bulk action"
+        }
+      ],
+      "createdAt": "2026-09-03T19:22:29.051Z",
+      "updatedAt": "2026-09-04T16:14:56.778Z",
+      "archivedAt": "2026-09-04T16:14:56.778Z"
+    }
+  ]
+}

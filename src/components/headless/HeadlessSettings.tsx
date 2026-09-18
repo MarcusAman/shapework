@@ -651,6 +651,7 @@ export function ExtendedNotificationPanel({ state }: { state: any }) {
   const [quietHoursEnd, setQuietHoursEnd] = useState('07:00');
   const [timezone, setTimezone] = useState('America/New_York');
   const [savingPrefs, setSavingPrefs] = useState(false);
+  const [prefsSavedToast, setPrefsSavedToast] = useState(false);
 
   const fetchSettings = () => {
     fetch('/api/notifications/settings')
@@ -722,7 +723,8 @@ export function ExtendedNotificationPanel({ state }: { state: any }) {
           timezone
         })
       });
-      alert('Notification preferences updated!');
+      setPrefsSavedToast(true);
+      setTimeout(() => setPrefsSavedToast(false), 3000);
     } catch {}
     setSavingPrefs(false);
   };
@@ -852,6 +854,11 @@ export function ExtendedNotificationPanel({ state }: { state: any }) {
               >
                 {savingPrefs ? 'Updating...' : 'Save Preferences'}
               </button>
+              {prefsSavedToast && (
+                <span className="ml-3 text-xs text-emerald-400 font-bold inline-block animate-in fade-in">
+                  ✓ Preferences Saved
+                </span>
+              )}
             </div>
           </div>
         </div>

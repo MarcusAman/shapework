@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, AlertCircle } from 'lucide-react';
 
 export interface MissingInformationModalProps {
@@ -21,6 +21,16 @@ export const MissingInformationModal: React.FC<MissingInformationModalProps> = (
   const [endTime, setEndTime] = useState('4:00 PM');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,6 +48,11 @@ export const MissingInformationModal: React.FC<MissingInformationModalProps> = (
     <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in font-sans"
       data-testid="missing-information-modal"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div className="bg-[#0B4A3F] border border-[rgba(208,214,187,0.24)] rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl text-[#FFFDF8] text-left">
         <div className="flex items-center justify-between border-b border-[rgba(208,214,187,0.14)] pb-3">

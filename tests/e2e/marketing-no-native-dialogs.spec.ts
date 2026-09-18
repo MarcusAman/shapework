@@ -12,7 +12,7 @@ test.describe('Marketing No Native Dialogs Enforcement', () => {
     });
 
     // 1. Visit Marketing Home Inbox
-    await page.goto('http://localhost:3000/app/marketing');
+    await page.goto('http://localhost:3049/app/marketing');
     await expect(page.locator('text=Campaigns and listing requests prepared by Shapework')).toBeVisible({ timeout: 10000 });
 
     // 2. Click Provide Information button
@@ -22,7 +22,7 @@ test.describe('Marketing No Native Dialogs Enforcement', () => {
     await page.waitForTimeout(400);
 
     // 3. Open workspace view
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_990_inspiration&mode=review');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_990_inspiration&mode=review');
     await expect(page.locator('h2:has-text("990 Inspiration")').first()).toBeVisible();
 
     // Assert zero native browser dialogs occurred throughout the flow

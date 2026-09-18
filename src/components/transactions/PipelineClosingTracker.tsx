@@ -35,7 +35,7 @@ export default function PipelineClosingTracker({ state = {}, onInspectRecord }: 
   const [newDeal, setNewDeal] = useState({
     clientName: '',
     propertyAddress: '',
-    agentName: activeProfile?.name || 'Sarah Jenkins',
+    agentName: activeProfile?.name || 'Jessica Keenan',
     closingDate: '',
     salesPrice: 0,
     expectedCommission: 0,
@@ -49,7 +49,7 @@ export default function PipelineClosingTracker({ state = {}, onInspectRecord }: 
     id: t.id,
     clientName: t.client_name,
     propertyAddress: t.property_address,
-    agentName: t.responsible_agent_id === 'ag_1' ? 'Alex Carter' : 'Sarah Jenkins',
+    agentName: t.responsible_agent_id === 'ag_1' ? 'Alex Carter' : 'Jessica Keenan',
     closingDate: t.expected_closing_date || '',
     stage: t.current_stage || 'under_contract',
     salesPrice: t.sales_price || (t.revenue ? Math.round(t.revenue / 0.03) : 0),
@@ -125,7 +125,7 @@ export default function PipelineClosingTracker({ state = {}, onInspectRecord }: 
         setNewDeal({
           clientName: '',
           propertyAddress: '',
-          agentName: activeProfile?.name || 'Sarah Jenkins',
+          agentName: activeProfile?.name || 'Jessica Keenan',
           closingDate: '',
           salesPrice: 0,
           expectedCommission: 0,
@@ -145,7 +145,7 @@ export default function PipelineClosingTracker({ state = {}, onInspectRecord }: 
       {
         clientName: 'Gordon Vance',
         propertyAddress: '150 Wall Street #42B',
-        agentName: 'Sarah Jenkins',
+        agentName: 'Jessica Keenan',
         closingDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         salesPrice: 850000,
         expectedCommission: 25500,

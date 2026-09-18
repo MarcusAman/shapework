@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Clock, ShieldCheck, UserCheck, FileCheck, ArrowRightCheck } from 'lucide-react';
+import { CheckCircle2, Clock, ShieldCheck, UserCheck, FileCheck, ArrowRight } from 'lucide-react';
 
 export interface TimelineLogItem {
   time: string;

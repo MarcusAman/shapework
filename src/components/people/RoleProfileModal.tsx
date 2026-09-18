@@ -32,6 +32,9 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
   const [isAddingRole, setIsAddingRole] = useState(false);
   const [roleTitle, setRoleTitle] = useState('');
   const [roleDesc, setRoleDesc] = useState('');
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editRoleTitle, setEditRoleTitle] = useState('');
+  const [editRoleDesc, setEditRoleDesc] = useState('');
   const [localRoles, setLocalRoles] = useState<OrgRole[]>([]);
   const [deletingRole, setDeletingRole] = useState<OrgRole | null>(null);
 
@@ -63,12 +66,10 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
       setLocalRoles([]);
     }
     setIsAddingRole(false);
+    setEditingRoleId(null);
     setRoleTitle('');
     setRoleDesc('');
   }, [person, workspaceId, isOpen]);
-
-  if (!isOpen) return null;
-  if (typeof window === 'undefined') return null;
 
   // Retrieve org chart model to get position, roles, sops, etc.
   const orgModel = orgChartService.getOrgChart(workspaceId);
@@ -140,10 +141,11 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
         department: person.personType === 'agent' ? 'Sales' : 'Operations',
         office: person.primaryOfficeName || 'Wilmington',
         status: 'active',
-        isVacant: false,
         connectedTools: [],
         sopIds: [],
-        roleIds: []
+        roleIds: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
       model.positions.push(pos);
     }
@@ -249,14 +251,14 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
           id: s.id,
           title: s.name,
           type: 'sop' as const,
-          summary: s.summary,
+          summary: (s as any).summary || s.aiSummary || '',
           trigger: s.trigger
         })),
         ...docs.map(d => ({
           id: d.id,
           title: d.title,
           type: 'knowledge' as const,
-          summary: d.summary
+          summary: (d as any).summary || d.aiSummary || ''
         }))
       ],
       backupCoverage: rawCoverage
@@ -271,15 +273,15 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
     const filename = `${cleanName || 'Role'}_Role_Profile.pdf`;
 
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: 0,
       filename,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
         scale: 2, 
-        useCORS: true,
+        useCORS: true, 
         backgroundColor: '#ffffff'
       },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' as const }
     };
 
     try {
@@ -297,6 +299,8 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
       return () => clearTimeout(timer);
     }
   }, [isOpen, autoDownloadPDF]);
+
+  if (!isOpen || typeof window === 'undefined') return null;
 
   const hasSops = sops.length > 0 || docs.length > 0;
   const hasBackups = backupCoverageItems.length > 0;
@@ -551,31 +555,93 @@ export default function RoleProfileModal({ isOpen, onClose, person, workspaceId,
                 <p className="text-[11px] text-[#D0D6BB]/50 italic">No roles or responsibilities assigned yet.</p>
               ) : (
                 <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
-                  {roles.map(role => (
-                    <div key={role.id} className="text-xs space-y-1 p-2 bg-[#00382f]/40 border border-white/5 rounded-xl">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                          <h4 className="font-bold text-white leading-none">{role.name}</h4>
+                  {roles.map(role => {
+                    const isEditingThis = editingRoleId === role.id;
+                    if (isEditingThis) {
+                      return (
+                        <div key={role.id} className="p-3 bg-[#00382f]/80 border border-emerald-500/40 rounded-xl space-y-2 text-left">
+                          <input
+                            type="text"
+                            value={editRoleTitle}
+                            onChange={(e) => setEditRoleTitle(e.target.value)}
+                            placeholder="Responsibility title"
+                            className="w-full px-2 py-1 bg-[#01241E] border border-white/20 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-400 font-bold"
+                          />
+                          <textarea
+                            value={editRoleDesc}
+                            onChange={(e) => setEditRoleDesc(e.target.value)}
+                            placeholder="Description..."
+                            rows={2}
+                            className="w-full px-2 py-1 bg-[#01241E] border border-white/20 rounded-lg text-[11px] text-white focus:outline-none focus:border-emerald-400"
+                          />
+                          <div className="flex justify-end gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingRoleId(null)}
+                              className="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white rounded text-[10px]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!editRoleTitle.trim()) return;
+                                orgChartService.updateRole(workspaceId, role.id, {
+                                  name: editRoleTitle.trim(),
+                                  description: editRoleDesc.trim()
+                                });
+                                setLocalRoles(prev => prev.map(r => r.id === role.id ? { ...r, name: editRoleTitle.trim(), description: editRoleDesc.trim() } : r));
+                                setEditingRoleId(null);
+                              }}
+                              className="px-2.5 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold"
+                            >
+                              Save
+                            </button>
+                          </div>
                         </div>
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => setDeletingRole(role)}
-                            className="p-1 text-slate-400 hover:text-rose-400 rounded transition-colors cursor-pointer"
-                            title="Remove Role"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                      );
+                    }
+
+                    return (
+                      <div key={role.id} className="text-xs space-y-1 p-2 bg-[#00382f]/40 border border-white/5 rounded-xl">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <h4 className="font-bold text-white leading-none">{role.name}</h4>
+                          </div>
+                          {isAdmin && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRoleId(role.id);
+                                  setEditRoleTitle(role.name);
+                                  setEditRoleDesc(role.description || '');
+                                }}
+                                className="p-1 text-slate-400 hover:text-emerald-300 rounded transition-colors cursor-pointer"
+                                title="Edit Responsibility"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingRole(role)}
+                                className="p-1 text-slate-400 hover:text-rose-400 rounded transition-colors cursor-pointer"
+                                title="Remove Responsibility"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {role.description && (
+                          <p className="text-[11px] text-[#D0D6BB]/70 leading-relaxed pl-3">
+                            {role.description}
+                          </p>
                         )}
                       </div>
-                      {role.description && (
-                        <p className="text-[11px] text-[#D0D6BB]/70 leading-relaxed pl-3">
-                          {role.description}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

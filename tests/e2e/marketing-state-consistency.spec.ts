@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing State Consistency', () => {
   test('derived campaign state prevents contradictory status text combinations', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_990_inspiration&mode=review');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_990_inspiration&mode=review');
 
     // Header displays authoritative status badge
     const badge = page.locator('header span:has-text("Ready to Prepare"), header span:has-text("Ready for Review"), header span:has-text("Package Approved")').first();

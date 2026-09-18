@@ -86,7 +86,7 @@ export default function AgentWorkforceWidgets({ agents = [] }: AgentWorkforceWid
           </div>
         </div>
         <p className="text-[9px] text-text-tertiary leading-normal">
-          Calculated load reallocation metrics for Sarah Jenkins (COO).
+          Calculated load reallocation metrics for Ann Gunn (Operations Lead).
         </p>
       </div>
 

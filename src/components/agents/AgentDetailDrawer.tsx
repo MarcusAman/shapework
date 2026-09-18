@@ -27,7 +27,7 @@ export default function AgentDetailDrawer({
   const agentRuns = (runs || []).filter((r) => r.agentId === agent.id);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden text-left" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[100] overflow-hidden text-left" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
       <div className="absolute inset-0 overflow-hidden">
         {/* Backdrop overlay */}
         <div

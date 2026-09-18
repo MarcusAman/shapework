@@ -21,15 +21,15 @@ export default function RecordRelationships({
     switch (recordType) {
       case 'transaction':
         return [
-          { label: 'Listing Coordinator', value: 'Sarah Jenkins', type: 'person' },
+          { label: 'Listing Coordinator', value: 'Ann Gunn', type: 'person' },
           { label: 'Listing Agent', value: record.listing_agent || 'Randy Smith', type: 'person' },
           { label: 'Escrow Title Provider', value: 'Land Title Escrow Corp', type: 'integration' },
           { label: 'Connected Disclosures', value: 'Docusign Envelope #2981a', type: 'document' }
         ];
       case 'listing':
         return [
-          { label: 'Managing Broker', value: 'Sarah Jenkins', type: 'person' },
-          { label: 'Listing Agent', value: 'Randy Smith', type: 'person' },
+          { label: 'Managing Broker', value: 'Eric Knight', type: 'person' },
+          { label: 'Listing Agent', value: record.listing_agent || 'Randy Smith', type: 'person' },
           { label: 'Marketing Channel', value: 'Rechat Platform Sync', type: 'integration' }
         ];
       case 'communication':
@@ -39,7 +39,7 @@ export default function RecordRelationships({
         ];
       default:
         return [
-          { label: 'Workspace Administrator', value: 'Sarah Jenkins (COO)', type: 'person' }
+          { label: 'Workspace Administrator', value: 'Ann Gunn (Operations Lead)', type: 'person' }
         ];
     }
   };

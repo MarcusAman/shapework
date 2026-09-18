@@ -14,7 +14,7 @@ test.describe('Real Browser Download & Legacy Regression Verification (Release G
 
   test('Export & Download APIs stream authoritative PKZIP archive and pass visual rasterization gate', async ({ request }) => {
     // 1. Issue HTTP request to authoritative export route (mimicking browser fetch)
-    const res = await request.post('http://localhost:3000/api/marketing/campaigns/campaign_990_inspiration/deliver/export?format=binary', {
+    const res = await request.post('http://localhost:3049/api/marketing/campaigns/campaign_990_inspiration/deliver/export?format=binary', {
       headers: {
         'Authorization': 'Bearer token_usr_admin',
         'x-workspace-id': 'nest-realty-demo',

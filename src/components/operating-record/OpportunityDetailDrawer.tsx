@@ -51,7 +51,7 @@ export default function OpportunityDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-surface border-l border-border-soft shadow-2xl z-50 flex flex-col font-sans text-xs text-text-secondary select-none">
+    <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-surface border-l border-border-soft shadow-2xl z-[100] flex flex-col font-sans text-xs text-text-secondary select-none">
       <div className="p-5 border-b border-border-soft flex items-center justify-between bg-stone-50 select-none">
         <div>
           <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider font-mono">Opportunity Diagnostics</span>

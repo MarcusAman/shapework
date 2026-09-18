@@ -16,7 +16,8 @@ import {
   Smartphone, 
   Monitor, 
   X, 
-  ExternalLink 
+  ExternalLink,
+  RotateCw
 } from 'lucide-react';
 
 // ==========================================

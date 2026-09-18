@@ -647,7 +647,7 @@ export const demoAIActionProposals: AIActionProposal[] = [
 
 export const demoAuditEvents: AuditEvent[] = [
   { id: 'au_1', timestamp: '2026-06-27T14:30:00Z', user_name: 'Marcus Aman', user_role: 'Owner', action_description: 'Approved and dispatched draft follow-up to lender Alice Walker', impact_area: '102 Pine Street (Financing)' },
-  { id: 'au_2', timestamp: '2026-06-27T11:45:00Z', user_name: 'Sarah Jenkins', user_role: 'COO', action_description: 'Reassigned 742 Evergreen Terrace coordinator from Diane Ross to Emma Watson', impact_area: 'Workload Capacity Balancing' },
+  { id: 'au_2', timestamp: '2026-06-27T11:45:00Z', user_name: 'Ann Gunn', user_role: 'Operations Lead', action_description: 'Reassigned 742 Evergreen Terrace coordinator from Diane Ross to Emma Watson', impact_area: 'Workload Capacity Balancing' },
   { id: 'au_3', timestamp: '2026-06-26T15:20:00Z', user_name: 'Laura Croft', user_role: 'Compliance Admin', action_description: 'Rejected 3206 Highland Avenue listing compliance package', impact_area: '3206 Highland Avenue (Listing Agreement)' },
   { id: 'au_4', timestamp: '2026-06-26T10:00:00Z', user_name: 'System Operator', user_role: 'AI Agent', action_description: 'Auto-flagged 109 Woodlawn Boulevard launch photography task as overdue', impact_area: 'Listing Launch Checklist' }
 ];
@@ -700,7 +700,7 @@ export const demoDecisions = [
     title: 'Reassign Escrow Workload',
     description: 'Transaction coordinator Diane Ross is assigned 7 active escrow files and is currently at 95% workload capacity. Emma Watson is at 40% capacity.',
     financial_impact: 0,
-    owner: 'Sarah Jenkins (COO)',
+    owner: 'Ann Gunn (Operations Lead)',
     time_remaining: '48 hours',
     why_it_matters: 'Diane has 3 transactions closing within 4 days. High workload increases error risk and delays document review timelines.',
     evidence: 'Team Capacity Log: Diane Ross: 7 transactions, 5 overdue tasks. Emma Watson: 3 transactions, 0 overdue.',

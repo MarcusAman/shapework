@@ -41,7 +41,7 @@ export default function InternalResponseDetailView({
     productOpportunityScore: 50,
     notes: '',
     status: 'new',
-    assignedOwner: 'usr_sarah'
+    assignedOwner: 'dir_ann_gunn_28'
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -329,7 +329,14 @@ export default function InternalResponseDetailView({
                   onChange={(e) => handleClassifyChange('assignedOwner', e.target.value)}
                   className="w-full p-2 bg-[#01362D] border border-[var(--sw-border)] rounded-xl text-xs text-[var(--sw-text)] focus:outline-none focus:border-emerald-500/50"
                 >
-                  <option value="usr_sarah">Sarah Jenkins</option>
+                  <option value="dir_ann_gunn_28">Ann Gunn</option>
+                  <option value="dir_melissa_gagliardi_33">Melissa Gagliardi</option>
+                  <option value="dir_ryan_crecelius_6">Ryan Crecelius</option>
+                  <option value="dir_marcus_aman">Marcus Aman</option>
+                  <option value="dir_james_fort_11">James Fort</option>
+                  <option value="dir_jessica_keenan_8">Jessica Keenan</option>
+                  <option value="dir_eric_knight_5">Eric Knight</option>
+                  <option value="dir_eduardo_lovo_73">Eduardo Lovo</option>
                   <option value="usr_developer">Developer Account</option>
                 </select>
               </div>

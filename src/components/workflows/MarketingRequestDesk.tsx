@@ -19,8 +19,8 @@ export default function MarketingRequestDesk({ state = {} }: MarketingRequestDes
     dueDate: '',
     photoLink: '',
     description: '',
-    agentName: activeProfile?.name || 'Sarah Jenkins',
-    agentEmail: activeProfile?.email || 'sarah.j@nest-demo.local',
+    agentName: activeProfile?.name || 'Jessica Keenan',
+    agentEmail: activeProfile?.email || 'jessica.keenan@nestrealty.com',
     clientName: 'Arthur Pendragon',
     goLiveDate: '',
     photoDate: '',
@@ -93,7 +93,7 @@ export default function MarketingRequestDesk({ state = {} }: MarketingRequestDes
     const isMissingInfo = !isReviewRequest && (!request.photoLink || request.description.length < 10);
     
     let itemType = 'marketing_request';
-    let status = 'ready_for_production';
+    let status = 'ready_for_review';
     let priority = 'medium';
 
     if (isMissingInfo) {
@@ -123,7 +123,7 @@ export default function MarketingRequestDesk({ state = {} }: MarketingRequestDes
         .filter(([_, checked]) => !checked)
         .map(([key]) => key.replace(/([A-Z])/g, ' $1').toLowerCase())
         .join(', ');
-      recommendedNextAction = `Complete remaining launch tasks: ${pendingTasks || 'none (ready for production)'}`;
+      recommendedNextAction = `Complete remaining launch tasks: ${pendingTasks || 'none (ready for review)'}`;
     }
 
     try {
@@ -157,8 +157,8 @@ export default function MarketingRequestDesk({ state = {} }: MarketingRequestDes
             dueDate: '',
             photoLink: '',
             description: '',
-            agentName: activeProfile?.name || 'Sarah Jenkins',
-            agentEmail: activeProfile?.email || 'sarah.j@nest-demo.local',
+            agentName: activeProfile?.name || 'Jessica Keenan',
+            agentEmail: activeProfile?.email || 'jessica.keenan@nestrealty.com',
             clientName: 'Arthur Pendragon',
             goLiveDate: '',
             photoDate: '',
@@ -564,7 +564,7 @@ Google Review Link: https://g.page/nest-realty/review`;
                       <div className="flex gap-2 items-center">
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
                           item.status === 'completed' ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40' :
-                          item.status === 'ready_for_production' ? 'bg-blue-950/40 text-blue-300 border-blue-800/40' :
+                          item.status === 'ready_for_review' ? 'bg-blue-950/40 text-blue-300 border-blue-800/40' :
                           'bg-amber-955/40 text-amber-350 border-amber-800/40'
                         }`}>
                           {item.status.replace(/_/g, ' ')}

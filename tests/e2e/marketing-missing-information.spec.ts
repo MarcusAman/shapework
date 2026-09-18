@@ -8,7 +8,7 @@ test.describe('Marketing Missing Information Flow', () => {
       dialog.dismiss();
     });
 
-    await page.goto('http://localhost:3000/app/marketing');
+    await page.goto('http://localhost:3049/app/marketing');
     const provideBtn = page.locator('button:has-text("Provide Information")').first();
     await expect(provideBtn).toBeVisible({ timeout: 10000 });
     await provideBtn.click();

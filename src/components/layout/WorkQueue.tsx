@@ -424,13 +424,13 @@ export default function WorkQueue({ state }: WorkQueueProps) {
     switch (priority) {
       case 'critical':
       case 'owner_worthy':
-        return 'bg-rose-950/40 text-rose-300 border border-rose-800/40';
+        return 'bg-rose-50 text-rose-800 border border-rose-200';
       case 'high':
-        return 'bg-amber-950/40 text-amber-300 border border-amber-800/40';
+        return 'bg-amber-50 text-amber-800 border border-amber-200';
       case 'medium':
-        return 'bg-blue-950/40 text-blue-300 border border-blue-800/40';
+        return 'bg-blue-50 text-blue-800 border border-blue-200';
       default:
-        return 'bg-[rgba(246,247,241,0.06)] text-[#D0D6BB] border border-[rgba(246,247,241,0.12)]';
+        return 'bg-stone-100 text-stone-700 border border-stone-200';
     }
   };
 
@@ -457,26 +457,26 @@ export default function WorkQueue({ state }: WorkQueueProps) {
   ) : [];
 
   return (
-    <div className="space-y-6 font-sans text-xs text-[#F6F7F1] select-text text-left relative">
+    <div className="space-y-6 font-sans text-xs text-[var(--sw-text-primary)] select-text text-left relative">
       
       {/* Title */}
-      <div className="border-b border-[rgba(246,247,241,0.12)] pb-4 flex justify-between items-center select-none">
+      <div className="border-b border-[var(--sw-border)] pb-4 flex justify-between items-center select-none">
         <div>
-          <h1 className="text-xl font-serif font-black text-white">Work Queue</h1>
-          <p className="mt-1 text-[#D0D6BB] font-medium font-sans">Everything shapework is routing, tracking, or waiting on for active tenant workspaces.</p>
+          <h1 className="text-xl font-bold text-[var(--sw-text-primary)] tracking-tight">Work Queue</h1>
+          <p className="mt-1 text-[var(--sw-text-secondary)] font-medium font-sans">Everything shapework is routing, tracking, or waiting on for active tenant workspaces.</p>
         </div>
       </div>
 
       {/* Unified Filters Toolbar */}
-      <div className="flex flex-wrap gap-1.5 border-b border-[rgba(246,247,241,0.12)] pb-4 select-none">
+      <div className="flex flex-wrap gap-1.5 border-b border-[var(--sw-border)] pb-4 select-none">
         {filters.map((filter) => (
           <button
             key={filter.id}
             onClick={() => setActiveFilter(filter.id)}
             className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
               activeFilter === filter.id
-                ? 'bg-[#00635C] border-[rgba(246,247,241,0.22)] text-white font-bold shadow-[0_2px_8px_rgba(0,99,92,0.3)]'
-                : 'bg-[rgba(246,247,241,0.06)] border-[rgba(246,247,241,0.12)] text-[#D0D6BB] hover:text-white hover:bg-[rgba(246,247,241,0.12)]'
+                ? 'bg-[#00635C] border-[#00635C] text-white font-bold shadow-xs'
+                : 'bg-[var(--sw-surface)] border-[var(--sw-border)] text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)] hover:bg-[var(--sw-canvas)]'
             }`}
           >
             {filter.label}
@@ -549,16 +549,9 @@ export default function WorkQueue({ state }: WorkQueueProps) {
       )}
 
       {/* Main Grid: List of triage cards */}
-      <div 
-        className="rounded-[28px] overflow-hidden shadow-xl"
-        style={{
-          background: 'rgba(246, 247, 241, 0.10)',
-          border: '1px solid rgba(246, 247, 241, 0.18)',
-          backdropFilter: 'blur(18px)'
-        }}
-      >
+      <div className="rounded-[20px] overflow-hidden shadow-xs bg-[var(--sw-surface)] border border-[var(--sw-border)]">
         <table className="w-full text-left table-fixed">
-          <thead className="bg-[rgba(246,247,241,0.06)] border-b border-[rgba(246,247,241,0.12)] text-[10px] font-bold text-[#D0D6BB] uppercase tracking-wider select-none">
+          <thead className="bg-[var(--sw-canvas)] border-b border-[var(--sw-border)] text-[10px] font-bold text-[var(--sw-text-secondary)] uppercase tracking-wider select-none">
             <tr>
               <th className="p-3 w-10 text-center">
                 <input
@@ -578,11 +571,11 @@ export default function WorkQueue({ state }: WorkQueueProps) {
               <th className="p-3 text-right pr-6">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[rgba(246,247,241,0.12)]">
+          <tbody className="divide-y divide-[var(--sw-border)]">
             {filteredList.map((item) => (
               <tr 
                 key={item.id} 
-                className={`hover:bg-[rgba(246,247,241,0.04)] cursor-pointer transition-all duration-150 ${selectedItemId === item.id ? 'bg-[rgba(0,99,92,0.18)]' : ''}`}
+                className={`hover:bg-[var(--sw-canvas)] cursor-pointer transition-all duration-150 ${selectedItemId === item.id ? 'bg-emerald-50/60' : ''}`}
                 onClick={() => {
                   setSelectedItemId(item.id);
                   setIsDrawerOpen(true);
@@ -596,13 +589,13 @@ export default function WorkQueue({ state }: WorkQueueProps) {
                     className="cursor-pointer"
                   />
                 </td>
-                <td className="py-3 px-3 font-semibold text-white">
+                <td className="py-3 px-3 font-semibold text-[var(--sw-text-primary)]">
                   <div className="space-y-0.5">
-                    <span className="block truncate">{item.title}</span>
-                    <span className="text-[10px] text-[#D0D6BB] block font-normal truncate">{item.relatedLabel || 'Workspace Global'}</span>
+                    <span className="block truncate font-bold text-[var(--sw-text-primary)]">{item.title}</span>
+                    <span className="text-[10px] text-[var(--sw-text-secondary)] block font-normal truncate">{item.relatedLabel || 'Workspace Global'}</span>
                   </div>
                 </td>
-                <td className="py-3 px-3 capitalize font-medium text-[10px] text-[#D0D6BB]">
+                <td className="py-3 px-3 capitalize font-medium text-[10px] text-[var(--sw-text-secondary)]">
                   {getItemCategory(item).replace('_', ' ')}
                 </td>
                 <td className="py-3 px-3">
@@ -611,24 +604,24 @@ export default function WorkQueue({ state }: WorkQueueProps) {
                     if (owner.isUnassigned) {
                       return (
                         <div className="space-y-1">
-                          <span className="font-bold text-rose-400">Unassigned</span>
-                          <span className="block text-[8px] px-1.5 py-0.5 bg-rose-950/40 text-rose-200 rounded border border-rose-800/40 font-mono uppercase font-bold w-max">
+                          <span className="font-bold text-rose-700">Unassigned</span>
+                          <span className="block text-[8px] px-1.5 py-0.5 bg-rose-50 text-rose-800 rounded border border-rose-200 font-mono uppercase font-bold w-max">
                             {owner.role.replace(/_/g, ' ')} needed
                           </span>
                         </div>
                       );
                     }
                     return (
-                      <div className="space-y-0.5 text-[#F6F7F1]">
-                        <span className="font-bold text-white">{owner.name}</span>
-                        <span className="block text-[9px] text-[#D0D6BB] font-mono capitalize">
+                      <div className="space-y-0.5 text-[var(--sw-text-primary)]">
+                        <span className="font-bold text-[var(--sw-text-primary)]">{owner.name}</span>
+                        <span className="block text-[9px] text-[var(--sw-text-secondary)] font-mono capitalize">
                           {owner.role.replace(/_/g, ' ')}
                         </span>
                       </div>
                     );
                   })()}
                 </td>
-                <td className="py-3 px-3 font-mono font-medium text-[10px] text-[#D0D6BB]">
+                <td className="py-3 px-3 font-mono font-medium text-[10px] text-[var(--sw-text-secondary)]">
                   {item.dueDate || '12 Hrs standard'}
                 </td>
                 <td className="py-3 px-3">
@@ -636,15 +629,15 @@ export default function WorkQueue({ state }: WorkQueueProps) {
                     {item.priority}
                   </span>
                 </td>
-                <td className="py-3 px-3 text-[#D0D6BB] truncate capitalize font-mono text-[10px]">{item.sourceSystem || item.source || 'System'}</td>
-                <td className="py-3 px-3 text-emerald-400 font-mono text-[10px] font-bold tracking-wider">{formatTimeSitting(item.createdAt, timeTick)}</td>
+                <td className="py-3 px-3 text-[var(--sw-text-secondary)] truncate capitalize font-mono text-[10px]">{item.sourceSystem || item.source || 'System'}</td>
+                <td className="py-3 px-3 text-[#00635C] font-mono text-[10px] font-bold tracking-wider">{formatTimeSitting(item.createdAt, timeTick)}</td>
                 <td className="py-3 px-3 text-right pr-6" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => {
                       setSelectedItemId(item.id);
                       setIsDrawerOpen(true);
                     }}
-                    className="px-3 py-1 bg-[rgba(246,247,241,0.05)] border border-[rgba(246,247,241,0.15)] hover:bg-[rgba(246,247,241,0.12)] text-[#F6F7F1] rounded-lg text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                    className="px-3 py-1 bg-[var(--sw-canvas)] border border-[var(--sw-border)] hover:bg-stone-100 text-[var(--sw-text-primary)] rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer"
                   >
                     Details
                   </button>
@@ -669,66 +662,66 @@ export default function WorkQueue({ state }: WorkQueueProps) {
       {/* DETAIL DRAWER OVERLAY */}
       {isDrawerOpen && selectedItem && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex justify-end animate-fade-in select-none">
-          <div className="w-full max-w-xl bg-[#01362D] h-full shadow-2xl flex flex-col p-6 space-y-6 overflow-y-auto animate-slide-left text-left select-text relative border-l border-[rgba(246,247,241,0.18)]">
+          <div className="w-full max-w-xl bg-[var(--sw-surface)] h-full shadow-2xl flex flex-col p-6 space-y-6 overflow-y-auto animate-slide-left text-left select-text relative border-l border-[var(--sw-border)] text-[var(--sw-text-primary)]">
             
             {/* Drawer Header */}
-            <div className="flex justify-between items-start border-b border-[rgba(246,247,241,0.12)] pb-4">
+            <div className="flex justify-between items-start border-b border-[var(--sw-border)] pb-4">
               <div className="space-y-1">
-                <span className="font-mono font-bold text-[9px] text-[#D0D6BB] uppercase tracking-wider block">Work Item Operations Panel</span>
-                <h3 className="font-serif font-black text-white text-sm leading-snug">{selectedItem.title}</h3>
-                <p className="text-[10px] text-[#D0D6BB]">
+                <span className="font-mono font-bold text-[9px] text-[var(--sw-text-secondary)] uppercase tracking-wider block">Work Item Operations Panel</span>
+                <h3 className="font-serif font-black text-[var(--sw-text-primary)] text-sm leading-snug">{selectedItem.title}</h3>
+                <p className="text-[10px] text-[var(--sw-text-secondary)]">
                   ID: <span className="font-mono">{selectedItem.id}</span> · Created: {new Date(selectedItem.createdAt).toLocaleString()}
                 </p>
               </div>
               <button 
                 onClick={() => setIsDrawerOpen(false)}
-                className="p-1 hover:bg-[rgba(246,247,241,0.08)] rounded-lg transition-all cursor-pointer border border-transparent hover:border-[rgba(246,247,241,0.18)]"
+                className="p-1 hover:bg-[var(--sw-canvas)] rounded-lg transition-all cursor-pointer border border-transparent hover:border-[var(--sw-border)] text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)]"
               >
-                <X className="w-5 h-5 text-[#D0D6BB]" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Basic details */}
-            <div className="grid grid-cols-2 gap-4 text-[11px] bg-[rgba(246,247,241,0.06)] p-4 rounded-[20px] border border-[rgba(246,247,241,0.12)] text-[#F6F7F1]">
+            <div className="grid grid-cols-2 gap-4 text-[11px] bg-[var(--sw-canvas)] p-4 rounded-[20px] border border-[var(--sw-border)] text-[var(--sw-text-primary)]">
               <div>
-                <span className="text-[9px] text-[#D0D6BB] font-bold uppercase block">Assigned Owner</span>
+                <span className="text-[9px] text-[var(--sw-text-secondary)] font-bold uppercase block">Assigned Owner</span>
                 {(() => {
                   const owner = getOwnerDisplay(selectedItem);
                   return (
                     <div className="space-y-0.5 mt-0.5">
-                      <span className={`font-bold ${owner.isUnassigned ? 'text-rose-400' : 'text-white'}`}>{owner.name}</span>
-                      <span className="block text-[9px] text-[#D0D6BB] font-mono capitalize">{owner.role.replace(/_/g, ' ')}</span>
+                      <span className={`font-bold ${owner.isUnassigned ? 'text-rose-700' : 'text-[var(--sw-text-primary)]'}`}>{owner.name}</span>
+                      <span className="block text-[9px] text-[var(--sw-text-secondary)] font-mono capitalize">{owner.role.replace(/_/g, ' ')}</span>
                     </div>
                   );
                 })()}
               </div>
               <div>
-                <span className="text-[9px] text-[#D0D6BB] font-bold uppercase block">Backup Owner</span>
+                <span className="text-[9px] text-[var(--sw-text-secondary)] font-bold uppercase block">Backup Owner</span>
                 {(() => {
                   const backup = getBackupDisplay(selectedItem);
                   return (
                     <div className="space-y-0.5 mt-0.5">
-                      <span className="font-bold text-white">{backup.name}</span>
-                      {backup.role && <span className="block text-[9px] text-[#D0D6BB] font-mono capitalize">{backup.role.replace(/_/g, ' ')}</span>}
+                      <span className="font-bold text-[var(--sw-text-primary)]">{backup.name}</span>
+                      {backup.role && <span className="block text-[9px] text-[var(--sw-text-secondary)] font-mono capitalize">{backup.role.replace(/_/g, ' ')}</span>}
                     </div>
                   );
                 })()}
               </div>
-              <div className="border-t border-[rgba(246,247,241,0.12)] pt-2.5">
-                <span className="text-[9px] text-[#D0D6BB] font-bold uppercase block">Source System</span>
-                <span className="font-mono text-white capitalize">{selectedItem.sourceSystem || selectedItem.source || 'System'}</span>
+              <div className="border-t border-[var(--sw-border)] pt-2.5">
+                <span className="text-[9px] text-[var(--sw-text-secondary)] font-bold uppercase block">Source System</span>
+                <span className="font-mono text-[var(--sw-text-primary)] capitalize">{selectedItem.sourceSystem || selectedItem.source || 'System'}</span>
               </div>
-              <div className="border-t border-[rgba(246,247,241,0.12)] pt-2.5">
-                <span className="text-[9px] text-[#D0D6BB] font-bold uppercase block">Target Due Date</span>
-                <span className="font-mono text-[#F6F7F1]">{selectedItem.dueDate || '12 Hrs standard'}</span>
+              <div className="border-t border-[var(--sw-border)] pt-2.5">
+                <span className="text-[9px] text-[var(--sw-text-secondary)] font-bold uppercase block">Target Due Date</span>
+                <span className="font-mono text-[var(--sw-text-primary)]">{selectedItem.dueDate || '12 Hrs standard'}</span>
               </div>
-              <div className="border-t border-[rgba(246,247,241,0.12)] pt-2.5 col-span-2 flex justify-between">
+              <div className="border-t border-[var(--sw-border)] pt-2.5 col-span-2 flex justify-between">
                 <div>
-                  <span className="text-[9px] text-[#D0D6BB] font-bold uppercase block">Related Record</span>
-                  <span className="font-bold text-white">{selectedItem.relatedLabel || 'Workspace Global'}</span>
+                  <span className="text-[9px] text-[var(--sw-text-secondary)] font-bold uppercase block">Related Record</span>
+                  <span className="font-bold text-[var(--sw-text-primary)]">{selectedItem.relatedLabel || 'Workspace Global'}</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-[#D0D6BB] font-bold uppercase block text-right">Priority Level</span>
+                  <span className="text-[9px] text-[var(--sw-text-secondary)] font-bold uppercase block text-right">Priority Level</span>
                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase block mt-1 text-center ${getPriorityColor(selectedItem.priority)}`}>
                     {selectedItem.priority}
                   </span>

@@ -3,18 +3,18 @@ import { AgentRequest } from '../types/shapework';
 
 export const STAFF_DIRECTORY = {
   brokerage_owner: { name: 'Alex Carter', team: 'Brokerage Ops' },
-  operations_lead: { name: 'Sarah Jenkins', team: 'Operations' },
+  operations_lead: { name: 'Ann Gunn', team: 'Operations' },
   transaction_coordinator: { name: 'Diane Ross', team: 'Transaction Coordination' },
   listing_coordinator: { name: 'Diane Ross', team: 'Listing Coordination' },
   marketing_coordinator: { name: 'Diane Ross', team: 'Marketing' },
-  compliance_partner: { name: 'Sarah Jenkins', team: 'Compliance' },
-  agent_onboarding_owner: { name: 'Sarah Jenkins', team: 'Operations' },
+  compliance_partner: { name: 'Jessica Keenan', team: 'Compliance' },
+  agent_onboarding_owner: { name: 'Ann Gunn', team: 'Operations' },
   sign_inventory_owner: { name: 'Emma Watson', team: 'Listing Coordination' },
-  review_request_owner: { name: 'Sarah Jenkins', team: 'Operations' }
+  review_request_owner: { name: 'Ann Gunn', team: 'Operations' }
 };
 
 export function getStaffForRole(role: string) {
-  return STAFF_DIRECTORY[role as keyof typeof STAFF_DIRECTORY] || { name: 'Sarah Jenkins', team: 'Operations' };
+  return STAFF_DIRECTORY[role as keyof typeof STAFF_DIRECTORY] || { name: 'Ann Gunn', team: 'Operations' };
 }
 
 export function routeRequest(request: AgentRequest, rules: RoutingRule[]): AgentRequest {
@@ -23,7 +23,7 @@ export function routeRequest(request: AgentRequest, rules: RoutingRule[]): Agent
     return {
       ...request,
       assignedTeam: 'Operations',
-      assignedOwner: 'Sarah Jenkins',
+      assignedOwner: 'Ann Gunn',
       status: 'routed'
     };
   }

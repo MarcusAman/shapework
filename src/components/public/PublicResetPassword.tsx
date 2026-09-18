@@ -19,6 +19,8 @@ export default function PublicResetPassword({ onNavigate }: PublicResetPasswordP
   // Extract token from query-string
   const queryParams = new URLSearchParams(window.location.search);
   const token = queryParams.get('token') || '';
+  const isSetupMode = queryParams.get('setup') === 'true';
+  const targetEmail = queryParams.get('email') || '';
 
   // Simple password strength calculation
   const getPasswordStrength = () => {
@@ -110,16 +112,10 @@ export default function PublicResetPassword({ onNavigate }: PublicResetPasswordP
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 font-sans bg-[#F7F3EA] text-[#1E2520] select-none">
       
-      {/* Left Panel: Cover Image */}
-      <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-[#18382B]">
-        <motion.div
-          initial={{ scale: shouldReduceMotion ? 1 : 1.03 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 1.5, ease: 'easeOut' }}
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('/nest_background_img.png')` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#18382B]/95 via-[#18382B]/75 to-[#2F5D46]/45" />
+      {/* Left Panel: Cover Background */}
+      <div className="hidden lg:block lg:col-span-5 relative overflow-hidden bg-gradient-to-br from-[#01362D] via-[#00635C] to-[#01251F]">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#A4D4CB]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-80 h-80 bg-[#000000]/25 rounded-full blur-2xl pointer-events-none" />
         
         <div className="absolute inset-0 p-12 flex flex-col justify-between z-10 text-[#FFFDF7]">
           <div 
@@ -158,10 +154,12 @@ export default function PublicResetPassword({ onNavigate }: PublicResetPasswordP
               shapework<span className="text-[#2F5D46]">.</span>
             </div>
             <h1 className="text-xl font-bold text-[#1E2520] tracking-tight">
-              Create a new password.
+              {isSetupMode ? 'Set up your password.' : 'Create a new password.'}
             </h1>
             <p className="text-xs text-[#68736A] font-light">
-              Choose a secure password for your shapework account.
+              {isSetupMode 
+                ? (targetEmail ? `Welcome! Choose your personal password for ${targetEmail}.` : 'Welcome to Nest Ops! Choose your personal password.') 
+                : 'Choose a secure password for your Shapework account.'}
             </p>
           </motion.div>
 

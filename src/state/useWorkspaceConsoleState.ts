@@ -17,12 +17,19 @@ import { getCommandResponse } from '../data/demoCommands';
 import { runDemoEventInSandbox } from '../integrations/demoConnectorRunner';
 import { initialCatalogConnectors } from '../data/integrationCatalog';
 import { apiClient } from '../utils/apiClient';
+import { getWorkspaceDirectory, clearAllDirectoryCaches } from '../utils/directoryCache';
+import { getProductProfile, PILOT_TEAM_EMAILS } from '../config/productProfiles';
+
+let cachedModePromise: Promise<any> | null = null;
+let cachedDbStatePromise: Map<string, Promise<any>> = new Map();
+let cachedAuthSessionPromise: Promise<any> | null = null;
 
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
     if (path.startsWith('/internal')) {
       const sub = path.replace('/internal', '').replace(/^\//, '');
       if (!sub || sub === 'overview' || sub === 'feature-flags' || sub === 'pilot-readiness') return 'Control Center';
+      if (sub === 'testing' || sub === 'qa-tracker' || sub === 'qa' || sub === 'platform-tracker') return 'QA & Testing Tracker';
       if (sub === 'blog-generator' || sub === 'content' || sub === 'market-intelligence' || sub.startsWith('market-intelligence/surveys') || sub.startsWith('assessments')) return 'Content & Intelligence';
       if (sub === 'workspaces' || sub === 'workspace-detail' || sub === 'support-console') return 'Workspace Management';
       if (sub === 'integration-health' || sub === 'diagnostics' || sub === 'webhook-delivery' || sub === 'notification-diagnostics' || sub === 'voice-diagnostics' || sub === 'token-registry') return 'System Diagnostics';
@@ -32,8 +39,8 @@ export function useWorkspaceConsoleState() {
     const clean = path.replace(/^\/app/, '/demo');
     if (clean.startsWith('/demo/pitch')) return "Pitch & 'Aha!' Demo";
     if (clean.startsWith('/demo/pre-mls')) return 'Pre-MLS Board';
-    if (clean.startsWith('/demo/vendor-dispatch')) return 'Vendor Dispatch';
-    if (clean.startsWith('/demo/nest-ops-hub') || clean.startsWith('/demo/ask-nest-ops')) return 'Ask Nest Ops';
+    if (clean.startsWith('/demo/vendor-dispatch')) return 'Tasks';
+    if (clean.startsWith('/demo/nest-ops-hub') || clean.startsWith('/demo/ask-nest-ops') || clean.startsWith('/demo/ask-nora')) return 'Ask Nora';
     if (clean.startsWith('/demo/my-connections')) return 'My Connections';
     if (clean.startsWith('/demo/command-center')) return 'Workboard';
     if (clean.startsWith('/demo/workboard')) return 'Workboard';
@@ -43,16 +50,20 @@ export function useWorkspaceConsoleState() {
     if (clean.startsWith('/demo/approvals')) return 'Approvals';
     if (clean.includes('/approval')) return 'Agent Approval Portal';
     if (clean.startsWith('/demo/assets')) return 'Physical Assets';
-    if (clean.startsWith('/demo/camera-signals')) return 'Camera Signals';
-    if (clean.startsWith('/demo/knowledge-base')) return 'Knowledge Base';
-    if (clean.startsWith('/demo/knowledge')) return 'Knowledge Base';
-    if (clean.startsWith('/demo/marketing') || clean.includes('/marketing')) return 'Marketing Intake';
+    if (clean.includes('/knowledge-library') || clean.includes('/knowledge') || clean.includes('/sop-library') || clean.includes('/sops')) return 'Knowledge Library';
+    if (clean.startsWith('/demo/market-intelligence') || clean.startsWith('/demo/marketing-intelligence') || clean.includes('/market-intelligence') || clean.includes('/marketing-intelligence') || clean.includes('/spatial-comps') || clean.includes('/comps')) return 'Market Intelligence';
+    if (clean.startsWith('/demo/news') || clean.includes('/news')) return 'News';
+    if (clean.startsWith('/demo/tasks') || clean.startsWith('/demo/marketing') || clean.includes('/tasks') || clean.includes('/marketing')) return 'Tasks';
     if (clean.startsWith('/demo/integrations')) return 'Integrations';
     if (clean.startsWith('/demo/settings')) return 'Settings';
     if (clean.startsWith('/demo/ryan-shield')) return 'Ryan Shield';
-    if (clean.startsWith('/demo/role-map')) return 'Role Map';
-    if (clean.startsWith('/demo/directory')) return 'Directory';
+    if (clean.includes('/role-map') || clean.includes('/role-escalation-map') || clean.includes('/roles')) return 'Role & Escalation Map';
+    if (clean.startsWith('/demo/directory') || clean.includes('/directory')) return 'Directory';
     
+    if (clean.startsWith('/demo/retention') || clean.startsWith('/demo/happiness') || clean.startsWith('/demo/life-events') || clean.startsWith('/demo/videos')) return 'Retention';
+    if (clean.startsWith('/demo/friends-of-nest') || clean.startsWith('/demo/events') || clean.startsWith('/demo/vip')) return 'Events & VIP';
+    if (clean.startsWith('/demo/cost-leakage') || clean.startsWith('/demo/cost-leads') || clean.startsWith('/demo/lead-routing')) return 'Cost & Leads';
+
     // Support legacy sub-page routes for E2E tests
     if (clean.startsWith('/demo/transactions')) return 'Transactions';
     if (clean.startsWith('/demo/compliance')) return 'Compliance';
@@ -63,6 +74,12 @@ export function useWorkspaceConsoleState() {
     if (clean.startsWith('/demo/audit')) return 'Audit';
     if (clean.startsWith('/demo/operating-record')) return 'Operating Record';
     
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const scopeParam = searchParams?.get('scope') || (typeof window !== 'undefined' ? localStorage.getItem('customer_app_scope') : null);
+    if (scopeParam === 'ryans-dashboard') {
+      return 'Workboard';
+    }
+
     return 'Workboard';
   }, []);
 
@@ -87,13 +104,13 @@ export function useWorkspaceConsoleState() {
       case 'Approvals': return `${prefix}/approvals`;
       case 'Physical Assets': return `${prefix}/assets`;
       case 'Camera Signals': return `${prefix}/camera-signals`;
+      case 'Knowledge Library':
       case 'Knowledge Base':
       case 'Knowledge / SOPs':
-        return `${prefix}/knowledge-base`;
       case 'SOP Studio':
       case 'SOP Library':
       case 'Staff SOP Templates':
-        return `${prefix}/sops`;
+        return `${prefix}/knowledge-library`;
       case 'SOP Runs': return `${prefix}/sops/runs`;
       case 'Integrations': return `${prefix}/integrations`;
       case 'Settings': return `${prefix}/settings`;
@@ -104,6 +121,7 @@ export function useWorkspaceConsoleState() {
       case 'Directory': return `${prefix}/directory`;
       case 'Transactions': return `${prefix}/transactions`;
       case 'Compliance': return `${prefix}/compliance`;
+      case 'Tasks':
       case 'Marketing':
       case 'Marketing Requests':
       case 'Marketing Intake':
@@ -114,11 +132,27 @@ export function useWorkspaceConsoleState() {
       case 'Automated Collateral Studio (Templates)':
       case 'Collateral Studio':
       case 'Sandbox':
-        return `${prefix}/marketing`;
+        return `${prefix}/tasks`;
+      case 'Market Intelligence':
+      case 'Marketing Intelligence':
+      case 'Market Intelligence & Comps':
+      case 'Marketing Intelligence & Comps':
+      case 'Intelligence':
+      case 'Spatial Comps':
+      case 'Executive ROI':
+      case 'Recruiting & MLS':
+      case 'BIC Sentinel':
+      case 'Nora Employee':
+        return `${prefix}/market-intelligence`;
+      case 'News':
+      case 'Real Estate News':
+      case 'Industry News':
+        return `${prefix}/news`;
       case 'People': return `${prefix}/people`;
       case 'Office': return `${prefix}/office`;
       case 'Owner Brief': return `${prefix}/owner-brief`;
       case 'Control Center': return '/internal/overview';
+      case 'QA & Testing Tracker': return '/internal/testing';
       case 'Content & Intelligence': return '/internal/content';
       case 'Workspace Management': return '/internal/workspaces';
       case 'System Diagnostics': return '/internal/diagnostics';
@@ -154,21 +188,15 @@ export function useWorkspaceConsoleState() {
 
     const handleLocationChanged = (e: any) => {
       const detail = e.detail;
-      const targetTab = detail?.targetTab;
+      const targetTab = detail?.targetTab || 'Workboard';
       const isExplicitUserClick = detail?.isUserClick === true;
 
-      // ONLY redirect tab if user explicitly clicked Wilmington in the location dropdown!
-      if (isExplicitUserClick && targetTab === 'Ryan Shield') {
-        setCurrentTabState('Ryan Shield');
+      if (isExplicitUserClick) {
+        setCurrentTabState(targetTab);
         if (window.location.pathname.startsWith('/app') || window.location.pathname.startsWith('/demo')) {
           const prefix = window.location.pathname.startsWith('/app') ? '/app' : '/demo';
-          window.history.pushState({}, '', `${prefix}/ryan-shield`);
-        }
-      } else if (isExplicitUserClick && targetTab === 'Workboard') {
-        setCurrentTabState('Workboard');
-        if (window.location.pathname.startsWith('/app') || window.location.pathname.startsWith('/demo')) {
-          const prefix = window.location.pathname.startsWith('/app') ? '/app' : '/demo';
-          window.history.pushState({}, '', `${prefix}/workboard`);
+          const nextPath = getPathFromTab(targetTab);
+          window.history.pushState({}, '', nextPath);
         }
       }
     };
@@ -191,7 +219,9 @@ export function useWorkspaceConsoleState() {
 
     const nextPath = getPathFromTab(tab);
     if (window.location.pathname !== nextPath) {
-      const search = window.location.search || '';
+      const currentParams = new URLSearchParams(window.location.search);
+      const wsParam = currentParams.get('workspace');
+      const search = wsParam ? `?workspace=${encodeURIComponent(wsParam)}` : '';
       window.history.pushState({}, '', `${nextPath}${search}`);
     }
   }, [getPathFromTab]);
@@ -327,29 +357,38 @@ export function useWorkspaceConsoleState() {
   const fetchState = async () => {
     setIsSyncing(true);
     try {
-      // Fetch app mode
+      // Fetch app mode with deduplication
       let activeAppMode = 'development';
       try {
-        const modeRes = await fetch('/api/mode');
-        if (modeRes.ok) {
-          const modeData = await modeRes.json();
-          activeAppMode = modeData.mode || 'development';
-          setAppMode(activeAppMode);
+        if (!cachedModePromise) {
+          cachedModePromise = fetch('/api/mode').then(r => r.ok ? r.json() : { mode: 'development' }).catch(() => ({ mode: 'development' }));
         }
+        const modeData = await cachedModePromise;
+        activeAppMode = modeData.mode || 'development';
+        setAppMode(activeAppMode);
       } catch (e) {
         console.error('Failed to load mode:', e);
       }
 
-      // Fetch active workspace state
-      const response = await apiClient.get(`/api/db-state?workspaceId=${workspaceId}`, { workspaceId });
+      // Fetch active workspace state with deduplication
+      let response: Response | null = null;
+      try {
+        const fetchPromise = apiClient.get(`/api/db-state?workspaceId=${workspaceId}`, { workspaceId });
+        response = await Promise.race([
+          fetchPromise,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('db-state timeout')), 2000))
+        ]);
+      } catch (timeoutErr) {
+        console.warn('db-state fetch timed out or failed, using client static state');
+      }
 
-      if (response.status === 401) {
+      if (response && response.status === 401) {
         const fallbackOperator: Profile = {
           id: 'usr_marcus',
           name: 'Marcus Aman',
           email: 'marcus@shapework.co',
           role: 'owner',
-          permissions: ['all'],
+          organization_id: 'org_nest',
           status: 'active'
         };
         setActiveProfile(fallbackOperator);
@@ -358,29 +397,55 @@ export function useWorkspaceConsoleState() {
         return;
       }
 
-      if (response.ok) {
+      if (response && response.ok) {
         const data = await response.json();
         if (data.profiles) {
           setProfiles(data.profiles);
           
           let loggedInUser = null;
           try {
-            const sessRes = await apiClient.get('/api/auth/session', { workspaceId });
+            if (!cachedAuthSessionPromise) {
+              cachedAuthSessionPromise = apiClient.get('/api/auth/session', { workspaceId }).catch(err => {
+                cachedAuthSessionPromise = null;
+                throw err;
+              });
+            }
+            const sessRes = await cachedAuthSessionPromise;
             if (sessRes.ok) {
               const sessData = await sessRes.json();
               if (sessData && sessData.user) {
                 loggedInUser = sessData.user;
               }
             }
-          } catch {}
+          } catch {
+            cachedAuthSessionPromise = null;
+          }
 
           if (loggedInUser) {
             setActiveProfile(loggedInUser);
-          } else if (data.profiles.length > 0) {
+          } else if (data.profiles && data.profiles.length > 0) {
             const currentToken = localStorage.getItem('shapework_session_token') || '';
             const userProfile = data.profiles.find((p: any) => p.email === currentToken || p.id === currentToken) || data.profiles[0];
             setActiveProfile(userProfile);
+          } else {
+            setActiveProfile({
+              id: 'usr_marcus',
+              name: 'Marcus Aman',
+              email: 'marcus@shapework.co',
+              role: 'owner',
+              permissions: ['all'],
+              status: 'active'
+            });
           }
+        } else {
+          setActiveProfile({
+            id: 'usr_marcus',
+            name: 'Marcus Aman',
+            email: 'marcus@shapework.co',
+            role: 'owner',
+            permissions: ['all'],
+            status: 'active'
+          });
         }
         if (data.agents) setAgents(data.agents);
         if (data.transactions) {
@@ -437,12 +502,9 @@ export function useWorkspaceConsoleState() {
         if (data.ownerBriefItems) setOwnerBriefItems(data.ownerBriefItems);
 
         try {
-          const dirRes = await apiClient.get(`/api/directory?workspaceId=${workspaceId}`, { workspaceId });
-          if (dirRes.ok) {
-            const dirData = await dirRes.json();
-            if (dirData && dirData.directoryPeople) {
-              setDirectoryPeople(dirData.directoryPeople);
-            }
+          const dirData = await getWorkspaceDirectory(workspaceId);
+          if (dirData && Array.isArray(dirData.directoryPeople)) {
+            setDirectoryPeople(dirData.directoryPeople);
           }
         } catch (dirErr) {
           console.warn('Failed to load directory inside sync:', dirErr);
@@ -458,25 +520,14 @@ export function useWorkspaceConsoleState() {
 
   // Generate briefing
   const loadBriefing = async () => {
-    setIsGeneratingBriefing(true);
-    try {
-      const response = await fetch('/api/health');
-      if (response.ok) {
-        // Just checking basic health endpoint; load static briefing as fallback
-      }
-      throw new Error('Briefing failed');
-    } catch (err) {
-      // Fallback
-      setDailyBriefing(`**Active Operations Summary**  
-      Operational monitoring is steady. There are currently **5 active transaction files** being observed. **2 transactions** have elevated risk factors (notably **102 Pine Street** facing a financing milestone expiry and outstanding utility disclosures). 
-    
-      **Priority Action Points**
-      * **Critical Review Required:** **742 Evergreen Terrace** has been flagged by the coordinator due to structural foundation cracking. Immediate client exception review advised.
-      * **Lender Outreach Pending:** **102 Pine Street** financing contingency expires in five days; the AI Operator has prepared a follow-up letter to lender Alice Walker awaiting your approval.
-      * **Launch Preparation:** Photography launch coordinate checklist is overdue for **109 Woodlawn**. Todd Howard has been notified.`);
-    } finally {
-      setIsGeneratingBriefing(false);
-    }
+    setIsGeneratingBriefing(false);
+    setDailyBriefing(`**Active Operations Summary**  
+    Operational monitoring is steady. There are currently **5 active transaction files** being observed. **2 transactions** have elevated risk factors (notably **102 Pine Street** facing a financing milestone expiry and outstanding utility disclosures). 
+  
+    **Priority Action Points**
+    * **Critical Review Required:** **742 Evergreen Terrace** has been flagged by the coordinator due to structural foundation cracking. Immediate client exception review advised.
+    * **Lender Outreach Pending:** **102 Pine Street** financing contingency expires in five days; the AI Operator has prepared a follow-up letter to lender Alice Walker awaiting your approval.
+    * **Launch Preparation:** Photography launch coordinate checklist is overdue for **109 Woodlawn**. Todd Howard has been notified.`);
   };
 
   useEffect(() => {
@@ -607,7 +658,7 @@ export function useWorkspaceConsoleState() {
               confidence: 0.95,
               created_at: new Date().toISOString(),
               target_recipient: 'brooke.s@nest-demo.local',
-              draft_content: 'Hi Brooke,\n\nPlease upload the remaining signed disclosures for 221 B Baker Street contract compliance review.\n\nThanks,\nSarah'
+              draft_content: 'Hi Brooke,\n\nPlease upload the remaining signed disclosures for 221 B Baker Street contract compliance review.\n\nThanks,\nAnn'
             },
             {
               id: `p_new_2`,
@@ -618,7 +669,7 @@ export function useWorkspaceConsoleState() {
               confidence: 0.92,
               created_at: new Date().toISOString(),
               target_recipient: 'diana.p@nest-demo.local',
-              draft_content: 'Hi Diana,\n\nI noticed the buyer credit review is still pending. Can we get an update from the lender prior to contingency deadlines?\n\nBest,\nSarah'
+              draft_content: 'Hi Diana,\n\nI noticed the buyer credit review is still pending. Can we get an update from the lender prior to contingency deadlines?\n\nBest,\nAnn'
             }
           ];
           setActionProposals(prop => [...newProposals, ...prop]);
@@ -888,7 +939,7 @@ export function useWorkspaceConsoleState() {
         id: `comm_dyn_${Date.now()}`,
         sender: `${name} Webhook Router`,
         sender_email: `webhooks@${connectorId.replace('i_', '')}.service.local`,
-        recipient: 'sarah.j@nest-demo.local',
+        recipient: 'ann.g@nest-demo.local',
         subject: `Contact Update Sync from ${name}`,
         body: `Integrated webhook lead data: buyer Arthur Pendragon has updated his preference profile for 109 Woodlawn in ${name}. Contact synced.`,
         timestamp,
@@ -913,7 +964,7 @@ export function useWorkspaceConsoleState() {
         id: `comm_dyn_${Date.now()}`,
         sender: `${name} Operations Agent`,
         sender_email: `analytics@${connectorId.replace('i_', '')}.service.local`,
-        recipient: 'sarah.j@nest-demo.local',
+        recipient: 'ann.g@nest-demo.local',
         subject: `${name} Analytics Ingest Report`,
         body: `Daily operation metrics and intelligence vectors parsed successfully via ${name}. Operational score: 98.4%.`,
         timestamp,
@@ -921,7 +972,7 @@ export function useWorkspaceConsoleState() {
         urgency: 'low' as const,
         status: 'unread' as const,
         related_property: 'All Active files',
-        related_agent: 'Sarah Jenkins',
+        related_agent: 'Jessica Keenan',
         extracted_intent: 'analytics_report'
       };
       setCommunications(prev => [newComm, ...prev]);
@@ -931,7 +982,7 @@ export function useWorkspaceConsoleState() {
         title: `Integrations Sync Notice: ${name}`,
         description: `Telemetry matching completed via ${name}. Ingested capabilities grid verification matches secure parameters.`,
         financial_impact: 0,
-        owner: 'Sarah Jenkins (COO)',
+        owner: 'Ann Gunn (Operations Lead)',
         time_remaining: '48 hours',
         why_it_matters: `Keeps shapework. operations aligned with the latest ${name} data exports.`,
         evidence: `Connection parameters: ${connector.authMethod.toUpperCase()} credentials validated.`,
@@ -1120,7 +1171,7 @@ export function useWorkspaceConsoleState() {
           confidence: 0.78,
           state: 'awaiting_approval',
           draft_content: 'Audit Attachment ID: doc_randy_addendum.pdf. Extracted signature: Randy Smith.',
-          target_recipient: 'Sarah Jenkins',
+          target_recipient: 'Ann Gunn',
           created_at: timestamp
         };
         setActionProposals(prev => [newProposal, ...prev]);
@@ -1134,7 +1185,7 @@ export function useWorkspaceConsoleState() {
           completedAt: timestamp,
           recordsScanned: 1,
           findings: ['Found signature match rating of 78% which is below the 85% threshold.'],
-          recommendations: ['Generate decision queue item for Sarah Jenkins.'],
+          recommendations: ['Generate decision queue item for Ann Gunn.'],
           actionsPrepared: 1,
           actionsExecuted: 0,
           approvalsRequired: 1,
@@ -1150,7 +1201,7 @@ export function useWorkspaceConsoleState() {
           agentId: 'agent_support',
           recordsInspected: ['Randy Agent profile', 'Randy signature file'],
           findings: ['Signature match rating 78% (Threshold: 85%)'],
-          recommendedAction: 'Queue manual decision review for Sarah Jenkins.',
+          recommendedAction: 'Queue manual decision review for Ann Gunn.',
           approvalStatus: 'approval required',
           rollbackAvailable: false
         };
@@ -1330,7 +1381,7 @@ export function useWorkspaceConsoleState() {
           completedAt: timestamp,
           recordsScanned: 1,
           findings: ['Escrow rescheduling event detected. Escrow timeline shifted out by 10 days.'],
-          recommendations: ['Recalculate risk rating to at_risk.', 'Alert Sarah COO.'],
+          recommendations: ['Recalculate risk rating to at_risk.', 'Alert Operations Lead.'],
           actionsPrepared: 1,
           actionsExecuted: 1,
           approvalsRequired: 0,
@@ -1346,7 +1397,7 @@ export function useWorkspaceConsoleState() {
           agentId: 'agent_closing',
           recordsInspected: ['908 Colonial Ave files'],
           findings: ['Closing session rescheduled to July 15 (shifted by 10 days)'],
-          recommendedAction: 'Flag transaction at risk. Notify Sarah Jenkins.',
+          recommendedAction: 'Flag transaction at risk. Notify Ann Gunn.',
           approvalStatus: 'auto-safe',
           auditEventId: newAudit.id,
           rollbackAvailable: true
@@ -1376,7 +1427,7 @@ export function useWorkspaceConsoleState() {
           confidence: 0.94,
           state: 'suggested',
           draft_content: 'Link Diane Ross (TC) to Randy Agent active escrow loops.',
-          target_recipient: 'Sarah Jenkins',
+          target_recipient: 'Ann Gunn',
           created_at: timestamp
         };
         setActionProposals(prev => [newProposal, ...prev]);
@@ -1506,7 +1557,7 @@ AI COO Orchestrator monitored overnight changes:
 * Closing Risk Agent updated risk ratings for 908 Colonial Ave after escrow shifted by attorney email.
 * Integration Health Agent flagged a transient webhook failure. Sync connections are stable.
 
-Sarah Jenkins (COO) recommended tasks:
+Ann Gunn (Operations Lead) recommended tasks:
 1. Verify signature match threshold (78%) for Randy Agent document addendum.
 2. Coordinate photography delivery check for 104 Maple Ave launch.`
           );
@@ -1538,7 +1589,7 @@ Sarah Jenkins (COO) recommended tasks:
           agentId: 'agent_coo',
           recordsInspected: ['Global database logs'],
           findings: ['Morning brief refreshed.'],
-          recommendedAction: 'Present daily briefing feed to Sarah COO.',
+          recommendedAction: 'Present daily briefing feed to Operations Lead.',
           approvalStatus: 'auto-safe',
           rollbackAvailable: false
         };
@@ -1588,9 +1639,13 @@ Sarah Jenkins (COO) recommended tasks:
   };
 
   useEffect(() => {
-    const isRestricted = activeProfile?.email === 'ryan@nestrealty.com';
+    const cleanEmail = (activeProfile?.email || '').toLowerCase().trim();
+    const isRestricted = PILOT_TEAM_EMAILS.includes(cleanEmail) || (!activeProfile?.role?.includes('admin') && cleanEmail.endsWith('@nestrealty.com'));
     if (isRestricted) {
-      const allowedTabs = [
+      const profile = getProductProfile(activeProfile?.email, activeProfile?.role, workspaceId || 'nest-realty-demo');
+      const profileTabs = (profile?.modules || []).filter(m => m.enabled).map(m => m.tab);
+
+      const aliasesAndSubtabs = [
         "Pitch & 'Aha!' Demo", 'Pitch Demo',
         'Pre-MLS Board', 'Pocket Matches',
         'Vendor Dispatch', 'Repair Board',
@@ -1600,8 +1655,9 @@ Sarah Jenkins (COO) recommended tasks:
         'Approvals', 'Agent Approval Portal', 'Approval Portal',
         'Physical Assets',
         'Camera Signals',
-        'Knowledge Base', 'Knowledge / SOPs', 'Knowledge', 'SOP Studio', 'SOP Library', 'Staff SOP Templates', 'SOPs', 'SOP Runs',
+        'Knowledge Base', 'Knowledge / SOPs', 'Knowledge', 'Knowledge Library', 'SOP Studio', 'SOP Library', 'Staff SOP Templates', 'SOPs', 'SOP Runs',
         'Marketing', 'Marketing Requests', 'Marketing Intake', 'Marketing Intake (Melissa)', 'Creative Asset Sandbox', 'Creative Asset Sandbox (Templates)', 'Automated Collateral Studio', 'Automated Collateral Studio (Templates)', 'Collateral Studio', 'Sandbox', 'Inbound Call Log',
+        'Market Intelligence', 'Marketing Intelligence', 'Market Intelligence & Comps', 'Marketing Intelligence & Comps', 'Spatial Comps', 'Executive ROI', 'Recruiting & MLS', 'BIC Sentinel', 'Nora Employee', 'Intelligence', 'market-intelligence', 'comps',
         'Integrations',
         'Settings', 'Workspace Settings',
         'Ryan Shield',
@@ -1619,11 +1675,16 @@ Sarah Jenkins (COO) recommended tasks:
         'Operating Record',
         'Control Center', 'Content & Intelligence', 'Workspace Management', 'System Diagnostics', 'Security, Audit & Logs'
       ];
-      if (currentTab && !allowedTabs.includes(currentTab)) {
+
+      const allowedTabs = Array.from(new Set([...profileTabs, ...aliasesAndSubtabs]));
+      const cLower = (currentTab || '').toLowerCase();
+      const isAllowed = allowedTabs.some(t => t.toLowerCase() === cLower || (cLower.includes('intelligence') && t.toLowerCase().includes('intelligence')));
+
+      if (currentTab && !isAllowed) {
         setCurrentTab('Workboard');
       }
     }
-  }, [activeProfile, currentTab, setCurrentTab]);
+  }, [activeProfile, currentTab, setCurrentTab, workspaceId]);
 
   return {
     appMode, setAppMode,

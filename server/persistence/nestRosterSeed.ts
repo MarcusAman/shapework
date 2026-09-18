@@ -4,7 +4,10 @@ export interface DirectorySeedPerson {
   firstName: string;
   lastName: string;
   displayName: string;
+  name?: string;
+  office?: string;
   email: string;
+  secondaryEmail?: string;
   phone: string;
   title: string;
   role: string;
@@ -17,14 +20,24 @@ export interface DirectorySeedPerson {
   status: 'active' | 'inactive' | 'needs_review';
   tags: string[];
   source: string;
+  headshotUrl?: string;
+  basecampPersonId?: string;
+  officeAddress?: string;
+  blackSignatureUrl?: string;
+  whiteSignatureUrl?: string;
+  licenseNumber?: string;
+  licenseState?: string;
+  team?: string;
+  isBIC?: boolean;
+  isTeamLeader?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
+export const NEST_FULL_ROSTER_77: DirectorySeedPerson[] = [
   {
     "id": "dir_chris_brown_0",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Chris",
     "lastName": "Brown",
     "displayName": "Chris Brown",
@@ -53,7 +66,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_jennifer_young_1",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Jennifer",
     "lastName": "Young",
     "displayName": "Jennifer Young",
@@ -82,7 +95,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_mary_kayehester_2",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Mary",
     "lastName": "Kaye Hester",
     "displayName": "Mary Kaye Hester",
@@ -111,7 +124,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_abby_harris_3",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Abby",
     "lastName": "Harris",
     "displayName": "Abby Harris",
@@ -140,7 +153,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_matt_costin_4",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Matt",
     "lastName": "Costin",
     "displayName": "Matt Costin",
@@ -169,7 +182,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_eric_knight_5",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Eric",
     "lastName": "Knight",
     "displayName": "Eric Knight",
@@ -199,14 +212,14 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_ryan_crecelius_6",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Ryan",
     "lastName": "Crecelius",
     "displayName": "Ryan Crecelius",
     "email": "ryan@nestrealty.com",
     "phone": "(910) 409-7120",
-    "title": "Principal Broker / Owner",
-    "role": "Owner / Regional Leader",
+    "title": "Owner",
+    "role": "Owner",
     "personType": "leadership",
     "officeIds": [
       "mayfaire"
@@ -228,7 +241,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_allison_donovan_7",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Allison",
     "lastName": "Donovan",
     "displayName": "Allison Donovan",
@@ -257,7 +270,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_jessica_keenan_8",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Jessica",
     "lastName": "Keenan",
     "displayName": "Jessica Keenan",
@@ -287,7 +300,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_merritt_andersoncrawley_9",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Merritt",
     "lastName": "Anderson Crawley",
     "displayName": "Merritt Anderson Crawley",
@@ -316,7 +329,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_matt_orr_10",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Matt",
     "lastName": "Orr",
     "displayName": "Matt Orr",
@@ -345,7 +358,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_james_fort_11",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "James",
     "lastName": "Fort",
     "displayName": "James Fort",
@@ -374,7 +387,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_tricia_keane_12",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Tricia",
     "lastName": "Keane",
     "displayName": "Tricia Keane",
@@ -403,7 +416,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_caroline_holman_13",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Caroline",
     "lastName": "Holman",
     "displayName": "Caroline Holman",
@@ -432,7 +445,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_andrew_kelly_14",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Andrew",
     "lastName": "Kelly",
     "displayName": "Andrew Kelly",
@@ -461,7 +474,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_michelle_taylor_15",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Michelle",
     "lastName": "Taylor",
     "displayName": "Michelle Taylor",
@@ -491,7 +504,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_ashley_whitley_16",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Ashley",
     "lastName": "Whitley",
     "displayName": "Ashley Whitley",
@@ -520,7 +533,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_lexi_barbee_17",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Lexi",
     "lastName": "Barbee",
     "displayName": "Lexi Barbee",
@@ -549,7 +562,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_nilesh_jethwa_18",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Nilesh",
     "lastName": "Jethwa",
     "displayName": "Nilesh Jethwa",
@@ -578,7 +591,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_kathy_greer_19",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Kathy",
     "lastName": "Greer",
     "displayName": "Kathy Greer",
@@ -607,7 +620,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_beth_starkey_20",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Beth",
     "lastName": "Starkey",
     "displayName": "Beth Starkey",
@@ -636,7 +649,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_debbie_lariviere_21",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Debbie",
     "lastName": "Lariviere",
     "displayName": "Debbie Lariviere",
@@ -665,7 +678,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_molly_tilyou_22",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Molly",
     "lastName": "Tilyou",
     "displayName": "Molly Tilyou",
@@ -694,7 +707,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_renata_kuperus_23",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Renata",
     "lastName": "Kuperus",
     "displayName": "Renata Kuperus",
@@ -723,7 +736,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_dan_barentine_24",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Dan",
     "lastName": "Barentine",
     "displayName": "Dan Barentine",
@@ -752,7 +765,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_mary_rayner_25",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Mary",
     "lastName": "Rayner",
     "displayName": "Mary Rayner",
@@ -781,7 +794,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_donald_wagner_26",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Donald",
     "lastName": "Wagner",
     "displayName": "Donald Wagner",
@@ -810,7 +823,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_pam_fox_27",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Pam",
     "lastName": "Fox",
     "displayName": "Pam Fox",
@@ -839,14 +852,14 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_ann_gunn_28",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Ann",
     "lastName": "Gunn",
     "displayName": "Ann Gunn",
     "email": "ann@nestrealty.com",
     "phone": "(910) 540-3965",
-    "title": "Admin",
-    "role": "Admin",
+    "title": "ATC (Air Traffic Controller) & Operations Lead",
+    "role": "Operations Lead",
     "personType": "staff",
     "officeIds": [
       "mayfaire"
@@ -855,20 +868,26 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
       "Mayfaire"
     ],
     "primaryOfficeId": "mayfaire",
-    "primaryOfficeName": "Mayfaire",
+    "primaryOfficeName": "Nest Realty Mayfaire",
+    "officeAddress": "990 Inspiration Drive, Wilmington, NC 28405",
+    "headshotUrl": "https://bc3-production-assets-cdn.basecamp-static.com/4351808/people/BAhpBB9etAE=--3d47704783baee4944e5a87fb441a6c5d0f450b1/avatar",
+    "basecampPersonId": "BAhpBB9etAE",
     "isBrokerInCharge": false,
     "status": "active",
     "tags": [
       "mayfaire",
-      "staff"
+      "staff",
+      "atc",
+      "operations_lead",
+      "vendor_lead"
     ],
-    "source": "nest_2026_agents_sheet",
+    "source": "nest_basecamp_sync",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-08-19T10:37:00.000Z"
   },
   {
     "id": "dir_julie_carpenter_29",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Julie",
     "lastName": "Carpenter",
     "displayName": "Julie Carpenter",
@@ -897,7 +916,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_michael_urti_30",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Michael",
     "lastName": "Urti",
     "displayName": "Michael Urti",
@@ -926,7 +945,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_alicia_devereaux_31",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Alicia",
     "lastName": "Devereaux",
     "displayName": "Alicia Devereaux",
@@ -955,7 +974,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_sarah_finnegan_32",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Sarah",
     "lastName": "Finnegan",
     "displayName": "Sarah Finnegan",
@@ -984,14 +1003,14 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_melissa_gagliardi_33",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Melissa",
     "lastName": "Gagliardi",
     "displayName": "Melissa Gagliardi",
     "email": "melissa.gagliardi@nestrealty.com",
     "phone": "(919) 219-2085",
-    "title": "Admin",
-    "role": "Admin",
+    "title": "Marketing Project Manager",
+    "role": "Marketing Lead",
     "personType": "staff",
     "officeIds": [
       "mayfaire"
@@ -1000,20 +1019,26 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
       "Mayfaire"
     ],
     "primaryOfficeId": "mayfaire",
-    "primaryOfficeName": "Mayfaire",
+    "primaryOfficeName": "Nest Realty Mayfaire",
+    "officeAddress": "990 Inspiration Drive, Wilmington, NC 28405",
+    "headshotUrl": "https://dnhf8bus4lv8r.cloudfront.net/system/nest.maxadesigns.com/profile_pictures/12880160/original/17960f93-1f62-4960-8df0-b779db38cc46.png?1775143923",
+    "blackSignatureUrl": "https://nest.maxadesigns.com/api/v1/blobs/proxy/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBbWdkIiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--ed2a6fd02db201ba17df0f5f0895a5a0988b6709/file.png",
+    "whiteSignatureUrl": "https://nest.maxadesigns.com/api/v1/blobs/proxy/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBbWtkIiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--5d1143e4c6afc26029e27fb834704f50265803e2/file.png",
     "isBrokerInCharge": false,
     "status": "active",
     "tags": [
       "mayfaire",
-      "staff"
+      "staff",
+      "marketing_lead",
+      "maxa_admin"
     ],
-    "source": "nest_2026_agents_sheet",
+    "source": "nest_maxa_design_center",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-08-19T10:05:00.000Z"
   },
   {
     "id": "dir_brian_donovan_34",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Brian",
     "lastName": "Donovan",
     "displayName": "Brian Donovan",
@@ -1043,7 +1068,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_lexi_pate_35",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Lexi",
     "lastName": "Pate",
     "displayName": "Lexi Pate",
@@ -1072,7 +1097,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_teri_byrnes_36",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Teri",
     "lastName": "Byrnes",
     "displayName": "Teri Byrnes",
@@ -1101,7 +1126,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_travis_hollomon_37",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Travis",
     "lastName": "Hollomon",
     "displayName": "Travis Hollomon",
@@ -1130,7 +1155,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_kristy_ward_38",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Kristy",
     "lastName": "Ward",
     "displayName": "Kristy Ward",
@@ -1159,7 +1184,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_thurston_dawson_39",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Thurston",
     "lastName": "Dawson",
     "displayName": "Thurston Dawson",
@@ -1188,7 +1213,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_katie_urti_40",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Katie",
     "lastName": "Urti",
     "displayName": "Katie Urti",
@@ -1217,7 +1242,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_clint_harris_41",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Clint",
     "lastName": "Harris",
     "displayName": "Clint Harris",
@@ -1246,11 +1271,11 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_desiree_whalen_42",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Desiree",
     "lastName": "Whalen",
     "displayName": "Desiree Whalen",
-    "email": "Desiree@whalenteamrealty.com",
+    "email": "desiree.whalen@nestrealty.com",
     "phone": "(910) 620-7594",
     "title": "The Whalen Team",
     "role": "The Whalen Team",
@@ -1271,11 +1296,12 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "Desiree@whalenteamrealty.com"
   },
   {
     "id": "dir_cindy_young_43",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Cindy",
     "lastName": "Young",
     "displayName": "Cindy Young",
@@ -1304,11 +1330,11 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_meghan_bowesalber_44",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Meghan",
     "lastName": "Bowes Alber",
     "displayName": "Meghan Bowes Alber",
-    "email": "closings@coasttoclose.com",
+    "email": "meghan.alber@nestrealty.com",
     "phone": "(843) 789-9579",
     "title": "Coast to Close",
     "role": "Coast to Close",
@@ -1329,15 +1355,16 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "closings@coasttoclose.com"
   },
   {
     "id": "dir_mcclain_harvey_45",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "McClain",
     "lastName": "Harvey",
     "displayName": "McClain Harvey",
-    "email": "mcclain.miles@gmail.com",
+    "email": "mcclain.harvey@nestrealty.com",
     "phone": "(980) 234-3515",
     "title": "Broker",
     "role": "Broker",
@@ -1358,11 +1385,12 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "mcclain.miles@gmail.com"
   },
   {
     "id": "dir_renee_reitzel_46",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Renee",
     "lastName": "Reitzel",
     "displayName": "Renee Reitzel",
@@ -1391,7 +1419,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_alexis_roy_47",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Alexis",
     "lastName": "Roy",
     "displayName": "Alexis Roy",
@@ -1420,7 +1448,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_dawn_lagomarsino_48",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Dawn",
     "lastName": "Lagomarsino",
     "displayName": "Dawn Lagomarsino",
@@ -1449,7 +1477,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_jessie_fairbairn_49",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Jessie",
     "lastName": "Fairbairn",
     "displayName": "Jessie Fairbairn",
@@ -1478,7 +1506,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_donna_neyland_50",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Donna",
     "lastName": "Neyland",
     "displayName": "Donna Neyland",
@@ -1507,7 +1535,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_sydney_tobler_51",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Sydney",
     "lastName": "Tobler",
     "displayName": "Sydney Tobler",
@@ -1536,7 +1564,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_james_rackley_52",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "James",
     "lastName": "Rackley",
     "displayName": "James Rackley",
@@ -1565,7 +1593,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_cassie_healy_53",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Cassie",
     "lastName": "Healy",
     "displayName": "Cassie Healy",
@@ -1594,11 +1622,11 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_laura_odorisio_54",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Laura",
     "lastName": "O'Dorisio",
     "displayName": "Laura O'Dorisio",
-    "email": "laura.odorisio@gmail.com",
+    "email": "laura.odorisio@nestrealty.com",
     "phone": "(910) 599-4114",
     "title": "Broker",
     "role": "Broker",
@@ -1619,15 +1647,16 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "laura.odorisio@gmail.com"
   },
   {
     "id": "dir_sean_martin_55",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Sean",
     "lastName": "Martin",
     "displayName": "Sean Martin",
-    "email": "sean@whalenteamrealty.com",
+    "email": "sean.martin@nestrealty.com",
     "phone": "(910) 833-1098",
     "title": "Broker",
     "role": "Broker",
@@ -1648,11 +1677,12 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "sean@whalenteamrealty.com"
   },
   {
     "id": "dir_hannah_delacourtsmith_56",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Hannah",
     "lastName": "Delacourt Smith",
     "displayName": "Hannah Delacourt Smith",
@@ -1681,7 +1711,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_mia_escalera_57",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Mia",
     "lastName": "Escalera",
     "displayName": "Mia Escalera",
@@ -1710,7 +1740,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_ed_wagenseller_58",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Ed",
     "lastName": "Wagenseller",
     "displayName": "Ed Wagenseller",
@@ -1739,7 +1769,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_jordan_warren_59",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Jordan",
     "lastName": "Warren",
     "displayName": "Jordan Warren",
@@ -1768,7 +1798,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_lindsay_crecelius_60",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Lindsay",
     "lastName": "Crecelius",
     "displayName": "Lindsay Crecelius",
@@ -1797,7 +1827,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_max_wagenseller_61",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Max",
     "lastName": "Wagenseller",
     "displayName": "Max Wagenseller",
@@ -1826,7 +1856,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_amanda_galante_62",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Amanda",
     "lastName": "Galante",
     "displayName": "Amanda Galante",
@@ -1855,7 +1885,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_zach_hanner_63",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Zach",
     "lastName": "Hanner",
     "displayName": "Zach Hanner",
@@ -1884,7 +1914,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_andra_browning_64",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Andra",
     "lastName": "Browning",
     "displayName": "Andra Browning",
@@ -1913,7 +1943,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_dessie_greene_65",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Dessie",
     "lastName": "Greene",
     "displayName": "Dessie Greene",
@@ -1942,11 +1972,11 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_maradith_brown_66",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Maradith",
     "lastName": "Brown",
     "displayName": "Maradith Brown",
-    "email": "maradithbrown@gmail.com",
+    "email": "maradith.brown@nestrealty.com",
     "phone": "(910) 777-8259",
     "title": "Broker",
     "role": "Broker",
@@ -1967,15 +1997,16 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "maradithbrown@gmail.com"
   },
   {
     "id": "dir_matt_archibald_67",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Matt",
     "lastName": "Archibald",
     "displayName": "Matt Archibald",
-    "email": "mjarchibald93@gmail.com",
+    "email": "matt.archibald@nestrealty.com",
     "phone": "(704) 437-3457",
     "title": "Broker",
     "role": "Broker",
@@ -1996,11 +2027,12 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "mjarchibald93@gmail.com"
   },
   {
     "id": "dir_bradley_farrell_68",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Bradley",
     "lastName": "Farrell",
     "displayName": "Bradley Farrell",
@@ -2029,7 +2061,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_lindsay_barbour_69",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Lindsay",
     "lastName": "Barbour",
     "displayName": "Lindsay Barbour",
@@ -2058,7 +2090,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_heather_ashworth_70",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Heather",
     "lastName": "Ashworth",
     "displayName": "Heather Ashworth",
@@ -2087,11 +2119,11 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_alec_hutchinson_71",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Alec",
     "lastName": "Hutchinson",
     "displayName": "Alec Hutchinson",
-    "email": "alhutchi@gmail.com",
+    "email": "alec.hutchinson@nestrealty.com",
     "phone": "(703) 935-9304",
     "title": "Referral Based agent",
     "role": "Referral Based agent",
@@ -2112,15 +2144,16 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "alhutchi@gmail.com"
   },
   {
     "id": "dir_heather_lane_72",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Heather",
     "lastName": "Lane",
     "displayName": "Heather Lane",
-    "email": "hklane@gmail.com",
+    "email": "heather.lane@nestrealty.com",
     "phone": "(910) 471-1917",
     "title": "Referral Based agent",
     "role": "Referral Based agent",
@@ -2142,11 +2175,12 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     ],
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
-    "updatedAt": "2026-07-29T21:44:07.600Z"
+    "updatedAt": "2026-07-29T21:44:07.600Z",
+    "secondaryEmail": "hklane@gmail.com"
   },
   {
     "id": "dir_kristin_sorokti_73",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Kristin",
     "lastName": "Sorokti",
     "displayName": "Kristin Sorokti",
@@ -2175,7 +2209,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_todd_whalen_74",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Todd",
     "lastName": "Whalen",
     "displayName": "Todd Whalen",
@@ -2205,7 +2239,7 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
   },
   {
     "id": "dir_ryan_rhodes_75",
-    "workspaceId": "nest-realty-demo",
+    "workspaceId": "ws_wilmington",
     "firstName": "Ryan",
     "lastName": "Rhodes",
     "displayName": "Ryan Rhodes",
@@ -2231,5 +2265,41 @@ export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = [
     "source": "nest_2026_agents_sheet",
     "createdAt": "2026-07-29T21:44:07.600Z",
     "updatedAt": "2026-07-29T21:44:07.600Z"
+  },
+  {
+    "id": "dir_eduardo_lovo_73",
+    "workspaceId": "ws_wilmington",
+    "firstName": "Eduardo",
+    "lastName": "Lovo",
+    "displayName": "Eduardo Lovo",
+    "email": "eduardo.lovo@nestrealty.com",
+    "phone": "(910) 507-2047",
+    "title": "Virtual Assistant & Marketing Production",
+    "role": "Virtual Assistant",
+    "personType": "staff",
+    "officeIds": [
+      "mayfaire"
+    ],
+    "officeNames": [
+      "Mayfaire"
+    ],
+    "primaryOfficeId": "mayfaire",
+    "primaryOfficeName": "Nest Realty Mayfaire",
+    "officeAddress": "990 Inspiration Drive, Wilmington, NC 28405",
+    "headshotUrl": "https://bc3-production-assets-cdn.basecamp-static.com/4351808/people/BAhpBEi%2FJQM=--56e9a4f0579d2ebea9c9537c5c84e336d8c2108e/avatar",
+    "basecampPersonId": "BAhpBEi%2FJQM",
+    "isBrokerInCharge": false,
+    "status": "active",
+    "tags": [
+      "mayfaire",
+      "staff",
+      "va",
+      "production"
+    ],
+    "source": "nest_basecamp_sync",
+    "createdAt": "2026-08-19T10:37:00.000Z",
+    "updatedAt": "2026-08-19T10:37:00.000Z"
   }
 ];
+
+export const NEST_FULL_ROSTER_72: DirectorySeedPerson[] = NEST_FULL_ROSTER_77;

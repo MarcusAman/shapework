@@ -15,4 +15,7 @@ scratch/
 *.png
 scratch_capture.mjs
 test-results/
+playwright-report/
+backups/
+data/operations_directory.json
 

@@ -60,58 +60,58 @@ export default function NeedsRyanActionDrawer({
   const isUrgent = item.urgency === 'urgent';
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 overflow-hidden flex justify-end backdrop-blur-sm animate-fade-in select-none">
-      <div className="w-full max-w-xl bg-[#01241e] border-l border-white/10 h-full flex flex-col justify-between shadow-2xl text-left font-sans">
+    <div className="fixed inset-0 bg-stone-900/60 z-50 overflow-hidden flex justify-end backdrop-blur-sm animate-fade-in select-none">
+      <div className="w-full max-w-xl bg-[var(--sw-surface)] border-l border-[var(--sw-border)] h-full flex flex-col justify-between shadow-2xl text-left font-sans text-[var(--sw-text-primary)]">
         
         {/* Header */}
-        <div className="p-6 border-b border-white/10 bg-[#01362D]/50 flex items-center justify-between">
+        <div className="p-6 border-b border-[var(--sw-border)] bg-[var(--sw-canvas)] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl ${isUrgent ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+            <div className={`p-2 rounded-xl ${isUrgent ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] font-mono font-bold text-[#D0D6BB]/60 uppercase tracking-widest block">Ryan Shield Decision Drawer</span>
-              <h2 className="text-base font-bold text-white tracking-tight">{item.type}</h2>
+              <span className="text-[10px] font-mono font-bold text-[var(--sw-text-secondary)] uppercase tracking-widest block">Ryan Shield Decision Drawer</span>
+              <h2 className="text-base font-bold text-[var(--sw-text-primary)] tracking-tight">{item.type}</h2>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-stone-400 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+            className="p-2 text-[var(--sw-text-secondary)] hover:text-[var(--sw-text-primary)] hover:bg-stone-100 rounded-xl transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs text-[#D0D6BB]">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs text-[var(--sw-text-secondary)]">
           
           {/* Summary Context Box */}
-          <div className="p-4 bg-black/30 border border-white/10 rounded-2xl space-y-3">
+          <div className="p-4 bg-[var(--sw-canvas)] border border-[var(--sw-border)] rounded-2xl space-y-3">
             <div className="flex justify-between items-center text-[10px] font-mono">
-              <span className="text-stone-400 uppercase">Current Handler: <strong className="text-white font-bold">{item.currentHandler}</strong></span>
-              <span className={`px-2 py-0.5 rounded font-bold uppercase ${isUrgent ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'}`}>
-                SLA: {item.responseWindow}
+              <span className="text-[var(--sw-text-secondary)] uppercase">Current Handler: <strong className="text-[var(--sw-text-primary)] font-bold">{item.currentHandler}</strong></span>
+              <span className={`px-2 py-0.5 rounded font-bold uppercase ${isUrgent ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                Due: {item.responseWindow}
               </span>
             </div>
-            <p className="text-sm font-medium text-white leading-relaxed">{item.reason}</p>
-            <div className="p-3 bg-[#01362D]/60 border border-[#00E5C9]/20 rounded-xl space-y-1">
-              <span className="text-[9px] font-mono text-[#00E5C9] font-bold uppercase tracking-wider block">Recommended Action</span>
-              <p className="text-white/90 text-xs leading-relaxed">{item.recommendedAction}</p>
+            <p className="text-sm font-medium text-[var(--sw-text-primary)] leading-relaxed">{item.reason}</p>
+            <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-1">
+              <span className="text-[9px] font-mono text-[#00635C] font-bold uppercase tracking-wider block">Recommended Action</span>
+              <p className="text-[var(--sw-text-primary)] text-xs leading-relaxed">{item.recommendedAction}</p>
             </div>
           </div>
 
           {/* Core Decision Mode Tabs */}
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-stone-400 font-bold block">Select Decision Action</label>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--sw-text-secondary)] font-bold block">Select Decision Action</label>
             <div className="grid grid-cols-2 gap-2 text-[10px] font-mono font-bold">
               <button
                 type="button"
                 onClick={() => setSelectedAction('delegate')}
                 className={`p-3 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
                   selectedAction === 'delegate'
-                    ? 'bg-[#00E5C9] text-[#01362D] border-[#00E5C9]'
-                    : 'bg-black/20 text-white/70 border-white/10 hover:bg-white/5'
+                    ? 'bg-[#00635C] text-white border-[#00635C]'
+                    : 'bg-[var(--sw-canvas)] text-[var(--sw-text-secondary)] border-[var(--sw-border)] hover:bg-stone-100'
                 }`}
               >
                 <UserCheck className="w-4 h-4 shrink-0" />
@@ -123,8 +123,8 @@ export default function NeedsRyanActionDrawer({
                 onClick={() => setSelectedAction('grant_waiver')}
                 className={`p-3 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
                   selectedAction === 'grant_waiver'
-                    ? 'bg-[#00E5C9] text-[#01362D] border-[#00E5C9]'
-                    : 'bg-black/20 text-white/70 border-white/10 hover:bg-white/5'
+                    ? 'bg-[#00635C] text-white border-[#00635C]'
+                    : 'bg-[var(--sw-canvas)] text-[var(--sw-text-secondary)] border-[var(--sw-border)] hover:bg-stone-100'
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -136,8 +136,8 @@ export default function NeedsRyanActionDrawer({
                 onClick={() => setSelectedAction('request_info')}
                 className={`p-3 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
                   selectedAction === 'request_info'
-                    ? 'bg-[#00E5C9] text-[#01362D] border-[#00E5C9]'
-                    : 'bg-black/20 text-white/70 border-white/10 hover:bg-white/5'
+                    ? 'bg-[#00635C] text-white border-[#00635C]'
+                    : 'bg-[var(--sw-canvas)] text-[var(--sw-text-secondary)] border-[var(--sw-border)] hover:bg-stone-100'
                 }`}
               >
                 <Send className="w-4 h-4 shrink-0" />
@@ -149,8 +149,8 @@ export default function NeedsRyanActionDrawer({
                 onClick={() => setSelectedAction('override_resolve')}
                 className={`p-3 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
                   selectedAction === 'override_resolve'
-                    ? 'bg-[#00E5C9] text-[#01362D] border-[#00E5C9]'
-                    : 'bg-black/20 text-white/70 border-white/10 hover:bg-white/5'
+                    ? 'bg-[#00635C] text-white border-[#00635C]'
+                    : 'bg-[var(--sw-canvas)] text-[var(--sw-text-secondary)] border-[var(--sw-border)] hover:bg-stone-100'
                 }`}
               >
                 <Zap className="w-4 h-4 shrink-0" />
@@ -160,20 +160,20 @@ export default function NeedsRyanActionDrawer({
           </div>
 
           {/* Action-Specific Form Controls */}
-          <div className="p-4 bg-black/20 border border-white/10 rounded-2xl space-y-4">
+          <div className="p-4 bg-[var(--sw-canvas)] border border-[var(--sw-border)] rounded-2xl space-y-4">
             {selectedAction === 'delegate' && (
               <div className="space-y-2">
-                <label className="block text-[10px] font-mono uppercase text-stone-400 font-bold">Select Position Seat to Reassign</label>
+                <label className="block text-[10px] font-mono uppercase text-[var(--sw-text-secondary)] font-bold">Select Position Seat to Reassign</label>
                 <select
                   value={targetPositionId}
                   onChange={(e) => setTargetPositionId(e.target.value)}
-                  className="w-full p-3 border border-white/15 rounded-xl bg-black/40 text-xs text-white focus:outline-none cursor-pointer"
+                  className="w-full p-3 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-xs text-[var(--sw-text-primary)] focus:outline-none cursor-pointer"
                 >
                   {positions.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.title} ({p.name})</option>
                   ))}
                 </select>
-                <p className="text-[10px] text-stone-400 leading-relaxed font-mono">
+                <p className="text-[10px] text-[var(--sw-text-secondary)] leading-relaxed font-mono">
                   Reassigns this task to the selected seat and updates the active SOP Run assignee.
                 </p>
               </div>
@@ -181,15 +181,15 @@ export default function NeedsRyanActionDrawer({
 
             {selectedAction === 'grant_waiver' && (
               <div className="space-y-2">
-                <label className="block text-[10px] font-mono uppercase text-stone-400 font-bold">Waiver Justification Notes</label>
+                <label className="block text-[10px] font-mono uppercase text-[var(--sw-text-secondary)] font-bold">Waiver Justification Notes</label>
                 <textarea
                   value={waiverNotes}
                   onChange={(e) => setWaiverNotes(e.target.value)}
                   rows={3}
-                  className="w-full p-3 border border-white/15 rounded-xl bg-black/40 text-xs text-white focus:outline-none"
+                  className="w-full p-3 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-xs text-[var(--sw-text-primary)] focus:outline-none"
                   placeholder="Explain reason for granting exception..."
                 />
-                <p className="text-[10px] text-amber-300 font-mono">
+                <p className="text-[10px] text-amber-700 font-mono font-bold">
                   Grants an official owner policy waiver and records an immutable governance exception audit log.
                 </p>
               </div>
@@ -197,15 +197,15 @@ export default function NeedsRyanActionDrawer({
 
             {selectedAction === 'request_info' && (
               <div className="space-y-2">
-                <label className="block text-[10px] font-mono uppercase text-stone-400 font-bold">Prerequisite Information Requested</label>
+                <label className="block text-[10px] font-mono uppercase text-[var(--sw-text-secondary)] font-bold">Prerequisite Information Requested</label>
                 <textarea
                   value={infoNotes}
                   onChange={(e) => setInfoNotes(e.target.value)}
                   rows={3}
-                  className="w-full p-3 border border-white/15 rounded-xl bg-black/40 text-xs text-white focus:outline-none"
+                  className="w-full p-3 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-xs text-[var(--sw-text-primary)] focus:outline-none"
                   placeholder="Detail missing information required from requester..."
                 />
-                <p className="text-[10px] text-stone-400 font-mono">
+                <p className="text-[10px] text-[var(--sw-text-secondary)] font-mono">
                   Tags request as missing_info and notifies requester to supply required fields.
                 </p>
               </div>
@@ -213,15 +213,15 @@ export default function NeedsRyanActionDrawer({
 
             {selectedAction === 'override_resolve' && (
               <div className="space-y-2">
-                <label className="block text-[10px] font-mono uppercase text-stone-400 font-bold">Resolution Notes</label>
+                <label className="block text-[10px] font-mono uppercase text-[var(--sw-text-secondary)] font-bold">Resolution Notes</label>
                 <textarea
                   value={overrideNotes}
                   onChange={(e) => setOverrideNotes(e.target.value)}
                   rows={3}
-                  className="w-full p-3 border border-white/15 rounded-xl bg-black/40 text-xs text-white focus:outline-none"
+                  className="w-full p-3 border border-[var(--sw-border)] rounded-xl bg-[var(--sw-surface)] text-xs text-[var(--sw-text-primary)] focus:outline-none"
                   placeholder="Notes explaining step override..."
                 />
-                <p className="text-[10px] text-emerald-300 font-mono">
+                <p className="text-[10px] text-[#00635C] font-mono font-bold">
                   Unblocks the SOP step, marks the work item resolved, and logs estimated Shield time saved.
                 </p>
               </div>
@@ -231,11 +231,11 @@ export default function NeedsRyanActionDrawer({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-6 border-t border-white/10 bg-[#01362D]/50 flex justify-end gap-3 font-mono text-xs font-bold uppercase select-none">
+        <div className="p-6 border-t border-[var(--sw-border)] bg-[var(--sw-canvas)] flex justify-end gap-3 font-mono text-xs font-bold uppercase select-none">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 border border-white/10 hover:bg-white/5 text-white/70 rounded-xl cursor-pointer transition-all"
+            className="px-4 py-2.5 border border-[var(--sw-border)] bg-[var(--sw-surface)] hover:bg-stone-100 text-[var(--sw-text-secondary)] rounded-xl cursor-pointer transition-all"
           >
             Cancel
           </button>
@@ -243,7 +243,7 @@ export default function NeedsRyanActionDrawer({
             type="button"
             disabled={isSubmitting}
             onClick={handleSubmit}
-            className="px-5 py-2.5 bg-[#00E5C9] hover:bg-[#00c2ab] text-[#01362D] rounded-xl cursor-pointer transition-all shadow-lg flex items-center gap-1 font-bold"
+            className="px-5 py-2.5 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl cursor-pointer transition-all shadow-xs flex items-center gap-1 font-bold"
           >
             {isSubmitting ? 'Executing...' : 'Confirm Decision'}
           </button>

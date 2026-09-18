@@ -16,7 +16,7 @@ export default function ConnectorLogo({
   connected = false,
   disabled = false
 }: ConnectorLogoProps) {
-  const normProvider = provider.toLowerCase().trim().replace(/[\s_-]+/g, '');
+  const normProvider = (provider || '').toLowerCase().trim().replace(/[\s_-]+/g, '');
 
   // Determine size classes
   const sizeMap = {

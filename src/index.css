@@ -364,6 +364,73 @@
 }
 
 /*
+ * LIVING & BREATHING NORA ORB ANIMATIONS
+ */
+@keyframes orbBreathe {
+  0%, 100% {
+    transform: scale(1) translateY(0px);
+    filter: brightness(1) saturate(1.05) drop-shadow(0 0 20px rgba(0, 99, 92, 0.25));
+  }
+  50% {
+    transform: scale(1.036) translateY(-2px);
+    filter: brightness(1.12) saturate(1.18) drop-shadow(0 0 35px rgba(0, 99, 92, 0.45));
+  }
+}
+
+@keyframes orbBreatheActive {
+  0%, 100% {
+    transform: scale(1.02) translateY(0px);
+    filter: brightness(1.08) saturate(1.12) drop-shadow(0 0 30px rgba(16, 185, 129, 0.35));
+  }
+  50% {
+    transform: scale(1.075) translateY(-3px);
+    filter: brightness(1.22) saturate(1.28) drop-shadow(0 0 50px rgba(16, 185, 129, 0.6));
+  }
+}
+
+@keyframes orbSheenSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.22;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.06);
+    opacity: 0.45;
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    opacity: 0.22;
+  }
+}
+
+@keyframes orbCorePulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+.animate-orb-breathe {
+  animation: orbBreathe 4.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-orb-breathe-active {
+  animation: orbBreatheActive 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-orb-sheen {
+  animation: orbSheenSpin 16s linear infinite;
+}
+
+.animate-orb-core-pulse {
+  animation: orbCorePulse 3.8s ease-in-out infinite;
+}
+
+/*
  * HIGH-RESOLUTION PRINT PDF STYLES
  * Formats listing collateral (flyers, postcards, brochures) cleanly for browser printing and PDF export.
  */

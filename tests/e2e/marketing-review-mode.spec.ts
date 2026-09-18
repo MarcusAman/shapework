@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Marketing Review Mode', () => {
   test('allows single asset approval without auto-approving full campaign', async ({ page }) => {
-    await page.goto('http://localhost:3000/app/marketing?campaign=campaign_990_inspiration&mode=review');
+    await page.goto('http://localhost:3049/app/marketing?campaign=campaign_990_inspiration&mode=review');
 
     // If Build View sidecar is visible during active prep, click Hide Build View or Review Package to switch to Review Panel
     const hideBuildViewBtn = page.locator('button:has-text("Hide Build View"), button:has-text("Review Package")').first();
-    if (await hideBuildViewBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await hideBuildViewBtn.isVisible({ timeout: 3049 }).catch(() => false)) {
       await hideBuildViewBtn.click();
     }
 

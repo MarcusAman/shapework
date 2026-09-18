@@ -52,18 +52,18 @@ export async function sendSmsNotification(
     return { success: true, messageId: `msg_dev_${Date.now()}` };
   }
 
-  if (provider === 'test_allowlist') {
-    if (!allowlist.includes(to)) {
-      logNotificationAudit(
-        dbState,
-        'System',
-        'system',
-        `SMS to ${maskedTo} suppressed: Number is not on SMS_TEST_ALLOWLIST.`,
-        'notifications'
-      );
-      return { success: false, error: 'Recipient not on test allowlist.' };
-    }
-    // Proceed to dispatching via Twilio if allowlisted
+  const { isAllowedSmsRecipient, recordSmsDispatch } = await import('../security/smsWhitelistGate.js');
+  const safetyCheck = isAllowedSmsRecipient(to, body);
+
+  if (!safetyCheck.allowed) {
+    logNotificationAudit(
+      dbState,
+      'System',
+      'system',
+      `SMS to ${safetyCheck.maskedPhone} suppressed: ${safetyCheck.reason}`,
+      'notifications'
+    );
+    return { success: false, error: safetyCheck.reason };
   }
 
   // Twilio HTTP request dispatch

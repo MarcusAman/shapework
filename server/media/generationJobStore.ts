@@ -58,8 +58,8 @@ export interface MarketingGenerationJob {
     affectedAssets: MarketingAssetType[];
   };
 
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type MarketingBuildEvent =
@@ -183,29 +183,29 @@ export function getGenerationJobFromStore(jobId: string): MarketingGenerationJob
   }
 
   if (jobId === 'job_demo_990') {
-    const now = new Date().toISOString();
     const demoJob: MarketingGenerationJob = {
       id: 'job_demo_990',
-      idempotencyKey: 'campaign_990_inspiration_rev1_1.0_nest_v1',
-      workspaceId: 'ws_nest_wilmington',
+      idempotencyKey: 'idem_demo_990',
+      workspaceId: 'nest-realty-demo',
       campaignId: 'campaign_990_inspiration',
       campaignRevision: 1,
       status: 'completed',
+      currentStage: 'Campaign rendering complete. All 5 collateral items ready for broker review.',
       completedMaterialsCount: 5,
       totalMaterialsCount: 5,
       requestedAssetTypes: ['flyer', 'carousel', 'postcard', 'sign_rider', 'email'],
       assetStatuses: {
-        flyer: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/flyer/raw', updatedAt: now },
-        carousel: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/carousel/raw', updatedAt: now },
-        postcard: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/postcard/raw', updatedAt: now },
-        sign_rider: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/sign_rider/raw', updatedAt: now },
-        email: { status: 'ready_for_preview', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/email/raw', updatedAt: now },
+        flyer: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() },
+        carousel: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_pool/raw', updatedAt: new Date().toISOString() },
+        postcard: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() },
+        sign_rider: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() },
+        email: { status: 'ready_for_review', version: 1, previewUrl: '/api/marketing/campaigns/campaign_990_inspiration/assets/photo_hero/raw', updatedAt: new Date().toISOString() }
       },
-      initiatedBy: 'Ryan Crecelius',
-      createdAt: now,
-      updatedAt: now,
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      initiatedBy: 'Matt Orr'
     };
-    saveGenerationJob(demoJob);
+    jobsMemoryStore.set('job_demo_990', demoJob);
     return demoJob;
   }
 

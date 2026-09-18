@@ -47,7 +47,16 @@ const PublicForgotPassword = lazyWithRetry(() => import('./components/public/Pub
 const PublicResetPassword = lazyWithRetry(() => import('./components/public/PublicResetPassword'));
 const PublicTerms = lazyWithRetry(() => import('./components/public/PublicTerms'));
 const PublicPrivacy = lazyWithRetry(() => import('./components/public/PublicPrivacy'));
-import { ClientDealPortal, AgentActionPortal, SmartIntakeLink } from './components/headless/HeadlessPortals';
+const PublicSmsConsent = lazyWithRetry(() => import('./components/public/PublicSmsConsent'));
+const PublicSmsTerms = lazyWithRetry(() => import('./components/public/PublicSmsTerms'));
+const TaskTrackerPage = lazyWithRetry(() => import('./components/tracker/TaskTrackerPage').then(m => ({ default: m.TaskTrackerPage })));
+const PublicClientCompPortal = lazyWithRetry(() => import('./components/comps/PublicClientCompPortal').then(m => ({ default: m.PublicClientCompPortal })));
+const ClientDealPortal = lazyWithRetry(() => import('./components/headless/HeadlessPortals').then(m => ({ default: m.ClientDealPortal })));
+const AgentActionPortal = lazyWithRetry(() => import('./components/headless/HeadlessPortals').then(m => ({ default: m.AgentActionPortal })));
+const SmartIntakeLink = lazyWithRetry(() => import('./components/headless/HeadlessPortals').then(m => ({ default: m.SmartIntakeLink })));
+import { ToastProvider, ToastContainer } from './components/ui';
+import NetworkStatusToast from './components/system/NetworkStatusToast';
+
 
 export default function App() {
   const [currentPath, setCurrentPath] = React.useState(window.location.pathname);
@@ -108,7 +117,13 @@ export default function App() {
       desc = "Terms of Service and End User License Agreement for shapework.";
     } else if (currentPath === '/privacy') {
       title = "Privacy Policy | shapework.";
-      desc = "Privacy Policy for shapework.";
+      desc = "Privacy Policy and data protection standards for shapework.";
+    } else if (currentPath === '/sms-consent') {
+      title = "SMS & Text Messaging Consent Policy | shapework.";
+      desc = "SMS & Text Messaging Consent Policy and 10DLC compliance disclosures for shapework.";
+    } else if (currentPath === '/sms-terms') {
+      title = "SMS Terms of Service | shapework.";
+      desc = "SMS and Text Messaging Terms of Service for shapework.";
     }
 
     document.title = title;
@@ -161,12 +176,30 @@ export default function App() {
     );
   }
 
+  const isTaskDetailPreview = currentPath === '/dev/task-detail-preview';
+  if (isTaskDetailPreview) {
+    const TaskDetailPreviewHarness = React.lazy(() => import('./components/headless/TaskDetailPreviewHarness'));
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center font-sans text-xs text-slate-300 animate-pulse">
+            Loading task detail preview...
+          </div>
+        }>
+          <TaskDetailPreviewHarness />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   const isClientPortal = currentPath.startsWith('/client/deal/');
   if (isClientPortal) {
     const token = currentPath.split('/').pop() || '';
     return (
       <ErrorBoundary>
-        <ClientDealPortal token={token} />
+        <React.Suspense fallback={<div className="min-h-screen bg-[#F7F8F5] flex items-center justify-center font-sans text-xs text-stone-500 animate-pulse">Loading portal...</div>}>
+          <ClientDealPortal token={token} />
+        </React.Suspense>
       </ErrorBoundary>
     );
   }
@@ -176,7 +209,34 @@ export default function App() {
     const token = currentPath.split('/').pop() || '';
     return (
       <ErrorBoundary>
-        <AgentActionPortal token={token} />
+        <React.Suspense fallback={<div className="min-h-screen bg-[#F7F8F5] flex items-center justify-center font-sans text-xs text-stone-500 animate-pulse">Loading portal...</div>}>
+          <AgentActionPortal token={token} />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  const isActivateRoute = currentPath.startsWith('/invite/') || currentPath.startsWith('/author/activate/') || currentPath === '/activate';
+  if (isActivateRoute) {
+    const PublicActivateAccount = React.lazy(() => import('./components/public/PublicActivateAccount'));
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={<div className="min-h-screen bg-[#F7F8F5] flex items-center justify-center font-sans text-xs text-stone-500 animate-pulse">Loading secure activation...</div>}>
+          <PublicActivateAccount onNavigate={navigate} />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  const isAuthorRoute = currentPath.startsWith('/author/sop/');
+  if (isAuthorRoute) {
+    const EmployeeAuthoringPortal = React.lazy(() => import('./routes/EmployeeAuthoringPortal').then(m => ({ default: m.EmployeeAuthoringPortal })));
+    const token = currentPath.replace('/author/sop/', '').replace(/\/$/, '');
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={<div className="min-h-screen bg-[#F7F8F5] flex items-center justify-center font-sans text-xs text-stone-500 animate-pulse">Loading SOP authoring portal...</div>}>
+          <EmployeeAuthoringPortal invitationToken={token} onClose={() => navigate('/')} />
+        </React.Suspense>
       </ErrorBoundary>
     );
   }
@@ -186,7 +246,9 @@ export default function App() {
     const type = currentPath.split('/')[2] || 'support';
     return (
       <ErrorBoundary>
-        <SmartIntakeLink type={type} />
+        <React.Suspense fallback={<div className="min-h-screen bg-[#F7F8F5] flex items-center justify-center font-sans text-xs text-stone-500 animate-pulse">Loading request...</div>}>
+          <SmartIntakeLink type={type} />
+        </React.Suspense>
       </ErrorBoundary>
     );
   }
@@ -217,7 +279,7 @@ export default function App() {
   }
 
   const isDemo = currentPath.startsWith('/demo');
-  const isApp = currentPath.startsWith('/app') || currentPath.startsWith('/brokerage-ops');
+  const isApp = currentPath.startsWith('/app') || currentPath.startsWith('/brokerage-ops') || currentPath.startsWith('/market-intelligence') || currentPath.startsWith('/marketing-intelligence') || currentPath.startsWith('/spatial-comps') || currentPath.startsWith('/news');
   const isInternal = currentPath.startsWith('/internal');
 
   React.useEffect(() => {
@@ -230,6 +292,17 @@ export default function App() {
     if (currentPath === '/app/command-center' || currentPath === '/app/command-center/') {
       navigate('/app/workboard');
     }
+    if (
+      currentPath === '/market-intelligence' || currentPath.startsWith('/market-intelligence/') ||
+      currentPath === '/marketing-intelligence' || currentPath.startsWith('/marketing-intelligence/') ||
+      currentPath === '/spatial-comps' || currentPath.startsWith('/spatial-comps/') ||
+      currentPath === '/comps' || currentPath.startsWith('/comps/')
+    ) {
+      navigate('/app/market-intelligence');
+    }
+    if (currentPath === '/news' || currentPath.startsWith('/news/')) {
+      navigate('/app/news');
+    }
     if (currentPath.startsWith('/brokerage-ops')) {
       navigate('/app/workboard?workspace=nest-realty-wilmington');
     }
@@ -237,84 +310,139 @@ export default function App() {
 
   if (isDemo || isApp || isInternal) {
     return (
-      <React.Suspense fallback={
-        <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
-          Loading shapework...
-        </div>
-      }>
-        {isInternal ? (
-          <ErrorBoundary>
-            <InternalConsole />
-          </ErrorBoundary>
-        ) : isDemo ? (
-          <ErrorBoundary>
-            <DemoConsole />
-          </ErrorBoundary>
-        ) : (
-          <ErrorBoundary>
-            <WorkspaceAccessGate>
-              <WorkspaceConsole />
-            </WorkspaceAccessGate>
-          </ErrorBoundary>
-        )}
-      </React.Suspense>
+      <ToastProvider>
+        <ToastContainer />
+        <NetworkStatusToast />
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-stone-50 flex items-center justify-center font-sans text-xs text-text-secondary animate-pulse">
+            Loading shapework...
+          </div>
+        }>
+          {isInternal ? (
+            <ErrorBoundary>
+              <InternalConsole />
+            </ErrorBoundary>
+          ) : isDemo ? (
+            <ErrorBoundary>
+              <DemoConsole />
+            </ErrorBoundary>
+          ) : (
+            <ErrorBoundary>
+              <WorkspaceAccessGate>
+                <WorkspaceConsole />
+              </WorkspaceAccessGate>
+            </ErrorBoundary>
+          )}
+        </React.Suspense>
+      </ToastProvider>
     );
   }
 
   // Render Public Website
   const renderPublicPage = () => {
-    if (currentPath === '/method') {
+    const cleanPath = currentPath.split('?')[0].replace(/\/$/, '') || '/';
+    if (cleanPath === '/method') {
       return <PublicMethod onNavigate={navigate} />;
     }
-    if (currentPath === '/brokerages') {
+    if (cleanPath === '/brokerages') {
       return <PublicBrokerages onNavigate={navigate} />;
     }
-    if (currentPath === '/operational-intelligence') {
+    if (cleanPath === '/operational-intelligence') {
       return <PublicIntelligence onNavigate={navigate} />;
     }
-    if (currentPath === '/login') {
+    if (cleanPath === '/login') {
       return <PublicLogin onNavigate={navigate} />;
     }
-    if (currentPath === '/forgot-password') {
+    if (cleanPath === '/forgot-password') {
       return <PublicForgotPassword onNavigate={navigate} />;
     }
-    if (currentPath.startsWith('/reset-password')) {
+    if (cleanPath.startsWith('/reset-password')) {
       return <PublicResetPassword onNavigate={navigate} />;
     }
-    if (currentPath === '/discovery' || currentPath === '/request-discovery') {
+    if (cleanPath === '/discovery' || cleanPath === '/request-discovery') {
       return <PublicDiscoveryRequest onNavigate={navigate} />;
     }
-    if (currentPath === '/about') {
+    if (cleanPath === '/about') {
       return <PublicAbout onNavigate={navigate} />;
     }
-    if (currentPath === '/terms') {
+    if (cleanPath === '/terms') {
       return <PublicTerms onNavigate={navigate} />;
     }
-    if (currentPath === '/privacy') {
+    if (cleanPath === '/privacy') {
       return <PublicPrivacy onNavigate={navigate} />;
     }
-    if (currentPath === '/field-notes' || currentPath.startsWith('/field-notes/')) {
+    if (cleanPath === '/sms-consent') {
+      return <PublicSmsConsent onNavigate={navigate} />;
+    }
+    if (cleanPath === '/sms-terms') {
+      return <PublicSmsTerms onNavigate={navigate} />;
+    }
+    if (cleanPath === '/field-notes' || cleanPath.startsWith('/field-notes/')) {
       return <PublicFieldNotes currentPath={currentPath} onNavigate={navigate} />;
     }
-    return <PublicLogin onNavigate={navigate} />;
+    if (cleanPath === '/' || cleanPath === '' || cleanPath === '/home' || cleanPath === '/practice') {
+      return <PublicHome onNavigate={navigate} />;
+    }
+    if (cleanPath === '/login') {
+      return <PublicLogin onNavigate={navigate} />;
+    }
+    return <PublicHome onNavigate={navigate} />;
   };
 
-  const isLegalPage = currentPath === '/terms' || currentPath === '/privacy';
+  const isLegalPage = currentPath === '/terms' || currentPath === '/privacy' || currentPath === '/sms-consent' || currentPath === '/sms-terms';
+  const isTrackerPage = currentPath.startsWith('/tracker/');
+  const isShareCompsPage = currentPath.startsWith('/share/comps');
+
+  if (isShareCompsPage) {
+    return (
+      <ToastProvider>
+        <ToastContainer />
+        <NetworkStatusToast />
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-[#F7F8F5] flex items-center justify-center font-sans text-xs text-[#00635C] font-bold uppercase tracking-wider animate-pulse">
+            Loading Nest Realty Luxury Market Dossier...
+          </div>
+        }>
+          <PublicClientCompPortal />
+        </React.Suspense>
+      </ToastProvider>
+    );
+  }
+
+  if (isTrackerPage) {
+    return (
+      <ToastProvider>
+        <ToastContainer />
+        <NetworkStatusToast />
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans text-xs text-slate-500 animate-pulse">
+            Connecting to live Nest Ops tracker...
+          </div>
+        }>
+          <TaskTrackerPage />
+        </React.Suspense>
+      </ToastProvider>
+    );
+  }
 
   if (isLegalPage) {
     return (
-      <React.Suspense fallback={
-        <div className="min-h-screen bg-[#FBF8F0] flex items-center justify-center font-sans text-xs text-[#1E2520] animate-pulse">
-          Loading...
-        </div>
-      }>
-        {renderPublicPage()}
-      </React.Suspense>
+      <>
+        <NetworkStatusToast />
+        <React.Suspense fallback={
+          <div className="min-h-screen bg-[#FBF8F0] flex items-center justify-center font-sans text-xs text-[#1E2520] animate-pulse">
+            Loading...
+          </div>
+        }>
+          {renderPublicPage()}
+        </React.Suspense>
+      </>
     );
   }
 
   return (
     <PublicLayout currentPath={currentPath} onNavigate={navigate}>
+      <NetworkStatusToast />
       <React.Suspense fallback={
         <div className="py-20 text-center text-xs text-text-secondary font-sans animate-pulse">
           Loading...

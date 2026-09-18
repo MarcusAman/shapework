@@ -62,6 +62,31 @@ export function getOAuthClient(req?: any) {
   );
 }
 
+export function getGoogleServiceAccountJWTClient(
+  subject?: string,
+  scopes: string[] = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/drive'
+  ]
+) {
+  const config = getGoogleConfig();
+  if (!config.serviceAccountEmail || !config.serviceAccountPrivateKey) {
+    return null;
+  }
+
+  const targetSubject = subject || config.workspaceSubject || 'AskNora@nestrealty.com';
+
+  return new google.auth.JWT({
+    email: config.serviceAccountEmail,
+    key: config.serviceAccountPrivateKey,
+    scopes,
+    subject: targetSubject
+  });
+}
+
 export async function exchangeGoogleCode(code: string, req?: any) {
   const config = getGoogleConfig();
   const hasRealCredentials = !!(config.clientId && config.clientSecret && !config.clientId.includes('placeholder') && !config.clientId.includes('mock'));
@@ -172,13 +197,29 @@ export async function getGoogleAccessToken(
   }
 }
 
+export const GOOGLE_CALENDAR_SCOPES = [
+  'openid',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+  'https://www.googleapis.com/auth/calendar.events.freebusy',
+  'https://www.googleapis.com/auth/calendar.events'
+];
+
 export const GOOGLE_WORKSPACE_SCOPES = [
   'openid',
   'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/calendar',
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/calendar.events.readonly',
-  'https://www.googleapis.com/auth/drive.readonly'
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.compose',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/documents',
+  'https://www.googleapis.com/auth/presentations',
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/chat.spaces',
+  'https://www.googleapis.com/auth/chat.messages'
 ];
 
 export async function verifyGoogleConnection(
@@ -203,7 +244,7 @@ export async function verifyGoogleConnection(
         verified: false, 
         error: 'Unconfigured OAuth credentials: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured in environment variables to authorize Google Workspace.',
         capabilities: defaultCaps,
-        missingPermissions: GOOGLE_WORKSPACE_SCOPES
+        missingPermissions: GOOGLE_CALENDAR_SCOPES
       };
     }
   }
@@ -223,7 +264,7 @@ export async function verifyGoogleConnection(
         verified: false, 
         error: 'Google API UserInfo call succeeded but did not return email.',
         capabilities: defaultCaps,
-        missingPermissions: GOOGLE_WORKSPACE_SCOPES
+        missingPermissions: GOOGLE_CALENDAR_SCOPES
       };
     }
 
@@ -231,7 +272,7 @@ export async function verifyGoogleConnection(
     const grantedScopes = connection.scopes || [];
 
     const hasGmail = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/gmail.send' || s === 'https://mail.google.com/');
-    const hasCalendar = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/calendar.events.readonly' || s === 'https://www.googleapis.com/auth/calendar.readonly' || s === 'https://www.googleapis.com/auth/calendar');
+    const hasCalendar = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/calendar.events' || s === 'https://www.googleapis.com/auth/calendar' || s === 'https://www.googleapis.com/auth/calendar.events.owned');
     const hasDrive = grantedScopes.some(s => s === 'https://www.googleapis.com/auth/drive.readonly' || s === 'https://www.googleapis.com/auth/drive.metadata.readonly' || s === 'https://www.googleapis.com/auth/drive');
 
     const capabilities = {

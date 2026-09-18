@@ -109,8 +109,8 @@ export default function LocationSelectorDropdown({
     localStorage.setItem('shapework_active_location', loc.id);
     setIsOpen(false);
     
-    // Determine targetTab if selecting Wilmington / Mayfaire vs other locations
-    const targetTab = loc.id === 'wilmington_nc' ? 'Ryan Shield' : 'Workboard';
+    // Determine targetTab
+    const targetTab = 'Workboard';
 
     // Notify all listeners with location, targetTab and isUserClick flag
     try {
@@ -127,83 +127,85 @@ export default function LocationSelectorDropdown({
 
   return (
     <div className="relative inline-block text-left select-none z-40">
-      {/* Selector Button */}
+      {/* White Glassmorphic HIG Styled Selector Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-sans text-xs transition-all cursor-pointer shadow-sm ${
+        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border font-sans text-xs transition-all cursor-pointer shadow-xs backdrop-blur-xl active:scale-98 ${
           variant === 'compact'
-            ? 'bg-black/40 border-white/15 text-[#F6F7F1] hover:border-emerald-400/50'
-            : 'bg-[#00635C]/40 border-[rgba(246,247,241,0.18)] text-[#F6F7F1] hover:bg-[#00635C]/60 hover:border-emerald-300/40 backdrop-blur-md'
+            ? 'bg-slate-900/80 border-slate-700 text-white hover:border-emerald-400/50'
+            : 'bg-white/90 hover:bg-white border-slate-200/90 text-slate-800 hover:text-slate-950 hover:border-emerald-500/50 shadow-sm'
         }`}
         title="Select Location to filter dashboard and available features"
       >
-        <MapPin className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+        <MapPin className="w-3.5 h-3.5 text-[#00635C] shrink-0" />
         <div className="flex items-center gap-1.5 text-left">
-          <span className="font-bold text-white tracking-tight">{selectedLocation.shortName}</span>
-          <span className="hidden sm:inline-block text-[10px] text-emerald-200/80 font-sans font-medium px-1.5 py-0.2 bg-emerald-950/60 border border-emerald-500/30 rounded-md">
+          <span className="font-semibold text-slate-900 tracking-tight">{selectedLocation.shortName}</span>
+          <span className="text-[10px] text-[#00635C] font-sans font-semibold px-2 py-0.5 bg-emerald-50 border border-emerald-200/80 rounded-full">
             {selectedLocation.agentCount} Agents
           </span>
         </div>
-        <ChevronDown className={`w-3.5 h-3.5 text-[#D0D6BB] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Location Dropdown Modal */}
+      {/* Location Dropdown Modal (White Glassmorphic) */}
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 sm:left-0 mt-2 w-80 sm:w-96 bg-[#012822] border border-[rgba(246,247,241,0.18)] rounded-2xl p-3 shadow-2xl z-50 animate-fade-in backdrop-blur-xl text-left">
-            <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between mb-2">
+          <div className="absolute right-0 sm:left-0 mt-2 w-80 sm:w-96 bg-white/95 border border-slate-200/80 rounded-2xl p-3.5 shadow-2xl shadow-emerald-950/10 z-50 animate-fade-in backdrop-blur-2xl text-left">
+            <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-emerald-300" />
-                <span className="text-xs font-sans font-bold text-white tracking-wide">Select Brokerage Location</span>
+                <Building2 className="w-4 h-4 text-[#00635C]" />
+                <span className="text-xs font-sans font-bold text-slate-900 tracking-wide">Select Brokerage Location</span>
               </div>
-              <span className="text-[10px] text-emerald-200 font-sans font-semibold">
+              <span className="text-[10px] text-[#00635C] font-sans font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
                 {BROKERAGE_LOCATIONS.length} Offices Available
               </span>
             </div>
 
-            <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
               {BROKERAGE_LOCATIONS.map(loc => {
                 const isSelected = loc.id === selectedLocation.id;
                 return (
                   <button
                     key={loc.id}
                     onClick={() => handleSelect(loc)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer group ${
+                    className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer group ${
                       isSelected
-                        ? 'bg-[#00635C] border-emerald-400 text-white shadow-md'
-                        : 'bg-white/5 border-white/5 text-[#D0D6BB] hover:bg-white/10 hover:text-white hover:border-white/15'
+                        ? 'bg-[#00635C] border-emerald-700 text-white shadow-md'
+                        : 'bg-slate-50/70 border-slate-200/70 text-slate-700 hover:bg-emerald-50/50 hover:text-slate-900 hover:border-emerald-300/80'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-white block truncate">{loc.name}</span>
+                          <span className={`font-bold text-xs block truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>{loc.name}</span>
                           {isSelected && (
-                            <span className="px-2 py-0.5 bg-emerald-400 text-black text-[9px] font-black uppercase rounded-full shrink-0 font-sans">
+                            <span className="px-2 py-0.5 bg-emerald-400 text-slate-950 text-[9px] font-black uppercase rounded-full shrink-0 font-sans">
                               Active
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-[#D0D6BB]/80 truncate font-sans">{loc.address}</p>
+                        <p className={`text-[10px] truncate font-sans ${isSelected ? 'text-emerald-100/90' : 'text-slate-500'}`}>{loc.address}</p>
                         
                         <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px] font-sans">
-                          <span className="text-emerald-300 font-medium">BIC: {loc.managingBroker.split(' ')[0]}</span>
-                          <span className="text-[#D0D6BB]/40">•</span>
-                          <span className="text-emerald-200 font-semibold">{loc.agentCount} Agents</span>
-                          <span className="text-[#D0D6BB]/40">•</span>
-                          <span className="text-amber-300 font-bold">{loc.activePipelineVolume} Pipeline</span>
+                          <span className={`font-medium ${isSelected ? 'text-emerald-200' : 'text-[#00635C]'}`}>BIC: {loc.managingBroker.split(' ')[0]}</span>
+                          <span className={isSelected ? 'text-emerald-300/40' : 'text-slate-300'}>•</span>
+                          <span className={`font-semibold ${isSelected ? 'text-white' : 'text-slate-700'}`}>{loc.agentCount} Agents</span>
                         </div>
 
-                        <div className="pt-1.5 flex flex-wrap gap-1">
+                        <div className="pt-2 flex flex-wrap gap-1">
                           {loc.activeFeatures.slice(0, 3).map((feat, i) => (
-                            <span key={i} className="px-1.5 py-0.5 bg-black/40 text-emerald-200/90 rounded text-[9px] font-sans border border-emerald-500/20">
+                            <span key={i} className={`px-2 py-0.5 rounded text-[9px] font-sans border ${
+                              isSelected
+                                ? 'bg-white/15 text-white border-white/20'
+                                : 'bg-white text-emerald-800 border-emerald-200/80 shadow-2xs'
+                            }`}>
                               {feat}
                             </span>
                           ))}
                           {loc.activeFeatures.length > 3 && (
-                            <span className="px-1 py-0.5 text-[9px] text-[#D0D6BB]/70 font-sans">
+                            <span className={`px-1 py-0.5 text-[9px] font-sans ${isSelected ? 'text-emerald-200' : 'text-slate-400'}`}>
                               +{loc.activeFeatures.length - 3} more
                             </span>
                           )}
@@ -211,7 +213,7 @@ export default function LocationSelectorDropdown({
                       </div>
 
                       {isSelected && (
-                        <div className="w-5 h-5 rounded-full bg-emerald-400 text-black flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-5 h-5 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center shrink-0 mt-0.5">
                           <Check className="w-3.5 h-3.5 stroke-[3]" />
                         </div>
                       )}
@@ -221,9 +223,9 @@ export default function LocationSelectorDropdown({
               })}
             </div>
 
-            <div className="mt-3 pt-2.5 border-t border-white/10 px-2 flex items-center justify-between text-[10px] text-[#D0D6BB]/70 font-sans">
+            <div className="mt-3 pt-2.5 border-t border-slate-100 px-2 flex items-center justify-between text-[10px] text-slate-500 font-sans">
               <span>Selected view updates metrics & active features</span>
-              <span className="text-emerald-300 font-bold">100% Synced</span>
+              <span className="text-[#00635C] font-bold">100% Synced</span>
             </div>
           </div>
         </>

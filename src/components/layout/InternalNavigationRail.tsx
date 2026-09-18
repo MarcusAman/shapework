@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Zap,
   Phone,
-  FileText
+  FileText,
+  CheckSquare
 } from 'lucide-react';
 import { Profile } from '../../types/shapework';
 
@@ -58,6 +59,8 @@ export default function InternalNavigationRail({
 
   const navItems = [
     { name: 'Control Center', icon: Sliders, desc: 'Overview, feature flags & pilot readiness' },
+    { name: "Pitch & 'Aha!' Demo", icon: Zap, desc: "Sales pitch deck & interactive 'Aha!' demo" },
+    { name: 'QA & Testing Tracker', icon: CheckSquare, desc: 'Pilot QA triage, bug reports & feature backlog' },
     { name: 'Content & Intelligence', icon: FileText, desc: 'Auto blog generator & survey studio' },
     { name: 'Workspace Management', icon: Layers, desc: 'Tenant workspaces, detail & support impersonator' },
     { name: 'Security, Audit & Logs', icon: Shield, desc: 'Security audit, system logs & feedback intelligence' },

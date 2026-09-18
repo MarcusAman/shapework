@@ -1,6 +1,9 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ * 
+ * Pre-MLS & Off-Market Board — Phase C Light-Mode Redesign
+ * Refactored to canonical Shapework B1/B2/B3 design primitives.
  */
 
 import React, { useState } from 'react';
@@ -8,6 +11,17 @@ import {
   Building2, MessageSquare, Clock, CheckCircle, AlertTriangle,
   ArrowRight, Search, Plus, Filter, Users, Send, FileText, Check, Shield
 } from 'lucide-react';
+import {
+  Card,
+  Button,
+  IconButton,
+  Badge,
+  StatusBadge,
+  MetricTile,
+  MetricGroup,
+  TextInput,
+  Modal
+} from '../ui';
 
 interface PocketListing {
   id: string;
@@ -36,7 +50,7 @@ const INITIAL_POCKET_LISTINGS: PocketListing[] = [
     ncrecDayCount: 6,
     matchedBuyersCount: 3,
     status: 'active_pocket',
-    matchedAgents: ['Sarah Jenkins', 'Jessica Miller', 'Matt Orr'],
+    matchedAgents: ['Jessica Keenan', 'Jessica Miller', 'Matt Orr'],
     createdAt: '2 hours ago'
   },
   {
@@ -45,7 +59,7 @@ const INITIAL_POCKET_LISTINGS: PocketListing[] = [
     price: 620000,
     specs: '3 Bed • 2 Bath • 2,100 sqft',
     office: 'Wilmington',
-    listingAgent: 'Sarah Jenkins',
+    listingAgent: 'Jessica Keenan',
     agentPhone: '(910) 555-0188',
     ncrecDayCount: 11,
     matchedBuyersCount: 2,
@@ -64,7 +78,7 @@ const INITIAL_POCKET_LISTINGS: PocketListing[] = [
     ncrecDayCount: 3,
     matchedBuyersCount: 4,
     status: 'active_pocket',
-    matchedAgents: ['Matt Orr', 'Sarah Jenkins', 'Jessica Keenan', 'Marcus Vance'],
+    matchedAgents: ['Matt Orr', 'James Fort', 'Jessica Keenan', 'Marcus Vance'],
     createdAt: '3 hours ago'
   }
 ];
@@ -94,7 +108,7 @@ export default function PreMLSBoard() {
         ncrecDayCount: 1,
         matchedBuyersCount: 3,
         status: 'active_pocket',
-        matchedAgents: ['Sarah Jenkins', 'Marcus Vance', 'Eric Knight'],
+        matchedAgents: ['James Fort', 'Marcus Vance', 'Eric Knight'],
         createdAt: 'Just now'
       };
 
@@ -125,249 +139,161 @@ export default function PreMLSBoard() {
   };
 
   return (
-    <div className="space-y-6 font-sans text-[#F6F7F1]">
+    <div className="space-y-6 text-left select-none">
       
       {/* Header & Overview */}
-      <div 
-        className="rounded-[28px] p-7 space-y-3 text-left shadow-xl"
-        style={{
-          background: 'rgba(246, 247, 241, 0.10)',
-          border: '1px solid rgba(246, 247, 241, 0.18)',
-          backdropFilter: 'blur(18px)'
-        }}
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="px-3.5 py-1 bg-[#004d40] text-emerald-300 text-xs font-semibold rounded-full border border-emerald-500/30">
-                Pre-MLS & Pocket Matching Engine
-              </span>
-              <span className="text-xs text-[#D0D6BB]">NCREC 21-Day Clock Enabled</span>
-            </div>
-            <h2 className="font-serif text-2xl font-black text-white tracking-tight mt-2">
-              Internal Off-Market & Pre-MLS Match Board
-            </h2>
-            <p className="text-xs text-[#D0D6BB] max-w-3xl leading-relaxed mt-1">
-              Agents text coming-soon properties to shapework via SMS. shapework instantly matches active buyer criteria across all 74 Nest agents, sends 1-click SMS broadcasts, and creates 3-way intro threads with single-use flyers.
-            </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--sw-border)] pb-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="brand" icon={<Building2 className="w-3.5 h-3.5" />}>
+              Pre-MLS & Pocket Matching Engine
+            </Badge>
+            <span className="text-xs text-[var(--sw-text-secondary)] font-medium">NCREC 21-Day Clock Enabled</span>
           </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="p-3 bg-black/40 border border-white/10 rounded-2xl text-center">
-              <span className="text-[10px] text-[#D0D6BB] block uppercase font-sans">Active Pockets</span>
-              <strong className="text-xl text-white font-black">{pocketListings.length} Listings</strong>
-            </div>
-            <div className="p-3 bg-black/40 border border-white/10 rounded-2xl text-center">
-              <span className="text-[10px] text-[#D0D6BB] block uppercase font-sans">Avg Buyer Match</span>
-              <strong className="text-xl text-white font-black">3.2 / Listing</strong>
-            </div>
-          </div>
+          <h1 className="text-xl font-bold tracking-tight text-[var(--sw-text-primary)] mt-1.5">
+            Internal Off-Market & Pre-MLS Match Board
+          </h1>
+          <p className="text-xs text-[var(--sw-text-secondary)] mt-0.5 max-w-3xl leading-relaxed">
+            Agents text coming-soon properties to Shapework via SMS. Shapework instantly matches active buyer criteria across all 74 Nest agents and triggers 3-way intro threads.
+          </p>
         </div>
       </div>
 
+      {/* Metrics Row */}
+      <MetricGroup columns={3}>
+        <MetricTile
+          label="Active Pockets"
+          value={`${pocketListings.length} Listings`}
+          sublabel="Internal off-market properties"
+          variant="brand"
+        />
+        <MetricTile
+          label="Avg Buyer Match"
+          value="3.2 / Listing"
+          sublabel="Matched agent buyer profiles"
+          variant="success"
+        />
+        <MetricTile
+          label="NCREC Clock Guard"
+          value="21 Days Limit"
+          sublabel="0 Rule A.0108 compliance violations"
+          variant="success"
+          icon={<Shield className="w-4 h-4" />}
+        />
+      </MetricGroup>
+
       {/* NCREC Rule A.0108 21-Day Compliance Banner */}
-      <div 
-        className="p-5 rounded-[24px] shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 font-sans text-xs text-left"
-        style={{
-          background: 'rgba(0, 43, 36, 0.85)',
-          border: '1px solid rgba(0, 229, 201, 0.3)',
-          backdropFilter: 'blur(16px)'
-        }}
-      >
+      <Card className="border-l-4 border-l-[var(--brand-secondary)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#00E5C9]" />
-            <span className="font-mono font-bold text-[#00E5C9] uppercase text-[10px] tracking-wider">
-              NCREC Rule A.0108 Compliance Engine • 21-Day Coming Soon Limits
+            <Shield className="w-4 h-4 text-[var(--brand-secondary)]" />
+            <span className="font-mono font-bold text-[var(--brand-secondary)] uppercase text-[10px] tracking-wider">
+              NCREC Rule A.0108 Compliance Engine • 21-Day Limits
             </span>
           </div>
-          <p className="text-white font-medium">
-            All 3 active pocket listings are compliant. Automatic SMS warnings trigger at <strong>Day 14</strong> (7 days remaining) and <strong>Day 19</strong> (48 hours to mandatory FlexMLS launch).
+          <p className="text-xs text-[var(--sw-text-primary)] font-medium">
+            All active pocket listings are compliant. Automatic SMS warnings trigger at <strong>Day 14</strong> (7 days remaining) and <strong>Day 19</strong> (48 hours to mandatory FlexMLS launch).
           </p>
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => alert('📱 Simulating NCREC Day 14 Warning SMS to Marcus Vance: "7 days remaining for 312 Mayfaire Town Center Way before mandatory FlexMLS launch under NCREC Rule A.0108."')}
-          className="px-3.5 py-2 bg-[#00635C] hover:bg-[#007c73] text-white rounded-xl text-[10px] font-mono font-bold uppercase transition-all shrink-0 cursor-pointer border border-[#00E5C9]/40"
         >
-          Simulate Day 14 NCREC SMS Warning 📱
-        </button>
-      </div>
+          Simulate Day 14 Warning SMS 📱
+        </Button>
+      </Card>
 
       {/* SMS Intake Bar */}
-      <div 
-        className="rounded-[28px] p-6 text-left shadow-xl"
-        style={{
-          background: 'rgba(246, 247, 241, 0.10)',
-          border: '1px solid rgba(246, 247, 241, 0.18)',
-          backdropFilter: 'blur(18px)'
-        }}
-      >
-        <form onSubmit={handleSimulateNewPocket} className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
-          <div className="flex-1 space-y-1">
-            <label className="text-xs font-bold text-white block">
-              Simulate Inbound Agent SMS Listing Broadcast
-            </label>
-            <input
-              type="text"
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-[var(--brand-secondary)]" />
+          <h3 className="text-sm font-bold text-[var(--sw-text-primary)]">Simulate Agent SMS Property Intake</h3>
+        </div>
+
+        <form onSubmit={handleSimulateNewPocket} className="flex items-center gap-3">
+          <div className="flex-1">
+            <TextInput
+              placeholder="e.g. Texting 'New pocket listing: 504 Lumina Ave, 4 bed $1.1M'..."
               value={newPropertyText}
               onChange={(e) => setNewPropertyText(e.target.value)}
-              placeholder="e.g. Just took a pocket at 508 Landfall Dr, 4 bed, $1.1M, coming next month"
-              className="w-full px-4 py-2.5 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder:text-[#D0D6BB]/50 focus:outline-none focus:border-emerald-500/50"
             />
           </div>
-          <button
-            type="submit"
-            disabled={simulatingText}
-            className="px-6 py-3 bg-[#00635C] hover:bg-[#007c73] disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shrink-0 md:mt-5"
-          >
-            {simulatingText ? (
-              <>
-                <Clock className="w-4 h-4 animate-spin" />
-                <span>Matching Roster Buyers...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                <span>Simulate Agent SMS Broadcast</span>
-              </>
-            )}
-          </button>
+          <Button variant="primary" size="md" loading={simulatingText} type="submit" icon={<Send className="w-3.5 h-3.5" />}>
+            Simulate SMS
+          </Button>
         </form>
-      </div>
+      </Card>
 
-      {/* Grid of Pocket Listings */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {pocketListings.map((listing) => (
-          <div
-            key={listing.id}
-            className="rounded-[28px] p-6 space-y-4 text-left shadow-xl hover:border-white/30 transition-all group"
-            style={{
-              background: 'rgba(246, 247, 241, 0.10)',
-              border: '1px solid rgba(246, 247, 241, 0.18)',
-              backdropFilter: 'blur(18px)'
-            }}
-          >
-            {/* Top Bar */}
-            <div className="space-y-2 border-b border-white/10 pb-4">
-              <div className="flex justify-between items-start">
-                <span className="px-3 py-1 bg-emerald-950/60 text-emerald-300 text-xs font-bold rounded-full border border-emerald-500/30">
-                  {listing.status === 'active_pocket' ? 'Active Pocket' : 'Intro Active'}
-                </span>
-                <span className="text-[10px] text-[#D0D6BB]">{listing.createdAt}</span>
-              </div>
+      {/* Pocket Listings Grid */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--sw-text-secondary)]">Active Pocket Listings ({pocketListings.length})</h3>
 
-              <h3 className="font-serif text-base font-black text-white group-hover:text-emerald-300 transition-colors leading-tight">
-                {listing.address}
-              </h3>
-              <p className="text-xs text-[#D0D6BB]">{listing.specs}</p>
-              
-              <div className="text-xl font-extrabold text-emerald-400">
-                ${listing.price.toLocaleString()}
-              </div>
-            </div>
-
-            {/* Listing Details & Agent */}
-            <div className="p-3.5 bg-black/30 border border-white/10 rounded-2xl space-y-2 text-xs">
-              <div className="flex justify-between items-center text-[#D0D6BB]">
-                <span>Listing Agent:</span>
-                <strong className="text-white font-semibold">{listing.listingAgent}</strong>
-              </div>
-
-              <div className="flex justify-between items-center text-[#D0D6BB]">
-                <span>NCREC 21-Day Clock:</span>
-                <span className="text-white font-bold">Day {listing.ncrecDayCount} of 21</span>
-              </div>
-
-              <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${(listing.ncrecDayCount / 21) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Matched Roster Agents */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#D0D6BB]/70">Matched Roster Agents ({listing.matchedBuyersCount}):</span>
-                <span className="text-emerald-400 font-bold">100% Criteria Match</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {listing.matchedAgents.map((agent, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2.5 py-0.5 bg-black/30 border border-white/10 rounded-full text-[10px] text-white font-medium"
-                  >
-                    {agent}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Button */}
-            <button
-              onClick={() => handleTrigger3WayIntro(listing)}
-              className="w-full py-3 bg-[#004d40] hover:bg-[#00635c] border border-emerald-400/40 text-white font-bold rounded-full text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md hover:scale-[1.01] active:scale-[0.99]"
-            >
-              <Users className="w-4 h-4 text-emerald-400" />
-              <span>Generate 3-Way SMS Agent Intro</span>
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* 3-Way SMS Intro Modal */}
-      {activeIntroModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#002b23] border border-white/20 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-emerald-400" />
-                <span>3-Way SMS Intro Thread Generator</span>
-              </h3>
-              <button
-                onClick={() => setActiveIntroModal(null)}
-                className="text-white/60 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 bg-black/40 rounded-xl border border-white/10 font-mono space-y-1">
-                <div className="text-[#D0D6BB]">Property: <strong className="text-white font-sans">{activeIntroModal.address}</strong></div>
-                <div className="text-[#D0D6BB]">Listing Agent: <strong className="text-white font-sans">{activeIntroModal.listingAgent}</strong></div>
-                <div className="text-[#D0D6BB]">Buyer Agents to Intro: <strong className="text-emerald-300 font-sans">{activeIntroModal.matchedAgents.join(', ')}</strong></div>
-              </div>
-
-              {introSent ? (
-                <div className="p-4 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl text-center space-y-1 animate-fadeIn">
-                  <CheckCircle className="w-6 h-6 text-emerald-400 mx-auto" />
-                  <p className="text-emerald-300 font-bold">3-Way SMS Intro Thread Created!</p>
-                  <p className="text-[11px] text-[#D0D6BB]/70 font-mono">Single-use property flyer link sent to buyer agents via Twilio Gateway.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {pocketListings.map((listing) => (
+            <Card key={listing.id} className="space-y-3 p-5 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-sm text-[var(--sw-text-primary)]">{listing.address}</h4>
+                    <span className="text-xs text-[var(--sw-text-secondary)]">{listing.specs}</span>
+                  </div>
+                  <StatusBadge status={listing.status === 'active_pocket' ? 'active' : 'approved'} size="sm" />
                 </div>
-              ) : (
-                <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-[#D0D6BB] leading-relaxed">
-                  "Hey {activeIntroModal.matchedAgents[0]} & {activeIntroModal.listingAgent}! Connecting you regarding the pre-MLS listing at {activeIntroModal.address}. View single-use flyer: <strong>https://shapework.app/flyer/pocket-{activeIntroModal.id}.pdf</strong>"
-                </div>
-              )}
-            </div>
 
-            {!introSent && (
-              <button
-                onClick={handleConfirmSendIntro}
-                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
-              >
-                <Send className="w-4 h-4" />
-                <span>Confirm & Send 3-Way SMS Intro</span>
-              </button>
-            )}
-          </div>
+                <div className="flex items-center justify-between text-xs font-mono pt-1">
+                  <span className="font-bold text-[var(--brand-primary)] text-sm">${listing.price.toLocaleString()}</span>
+                  <span className="text-[var(--sw-text-secondary)]">Agent: {listing.listingAgent}</span>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[var(--sw-border)] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 text-xs text-[var(--sw-text-secondary)]">
+                  <Users className="w-3.5 h-3.5 text-[var(--brand-secondary)]" />
+                  <span>{listing.matchedBuyersCount} buyer matches</span>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleTrigger3WayIntro(listing)}
+                >
+                  Create 3-Way Intro
+                </Button>
+              </div>
+            </Card>
+          ))}
         </div>
-      )}
+      </div>
 
+      {/* Intro Modal */}
+      {activeIntroModal && (
+        <Modal
+          isOpen={!!activeIntroModal}
+          onClose={() => setActiveIntroModal(null)}
+          title="Create 3-Way SMS Intro Thread"
+          subtitle={`Connecting listing agent ${activeIntroModal.listingAgent} with matched agent buyers.`}
+          footer={
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setActiveIntroModal(null)}>Cancel</Button>
+              <Button variant="primary" size="sm" loading={introSent} onClick={handleConfirmSendIntro}>
+                {introSent ? 'Intro Sent!' : 'Send SMS Intro'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-xs text-[var(--sw-text-secondary)]">
+              This will automatically dispatch single-use property flyers and start a 3-way text thread with <strong>{activeIntroModal.listingAgent}</strong>.
+            </p>
+            <Card className="p-3 bg-[var(--sw-canvas)] text-xs">
+              <span className="font-bold text-[var(--sw-text-primary)]">{activeIntroModal.address}</span>
+              <p className="text-[var(--sw-text-secondary)] mt-0.5">${activeIntroModal.price.toLocaleString()} • {activeIntroModal.specs}</p>
+            </Card>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

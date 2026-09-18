@@ -77,6 +77,7 @@ export type RoleMapCard = {
   escalatesToRyanWhen: string;
   tools: string[];
   status: 'active' | 'open' | 'planned' | 'ai';
+  avatarUrl?: string;
 };
 
 export type RoleEscalationData = {
@@ -392,7 +393,8 @@ export function buildRoleEscalationMap(model: OrgModel): RoleEscalationData {
     backupFor: p.reportsToPositionId ? [posName(positions, p.reportsToPositionId)] : [],
     escalatesToRyanWhen: p.status === 'open' || p.status === 'planned' ? 'Seat vacant — Ryan backing up' : (p.visibilityLevel === 'leadership' ? 'Always — Leadership' : 'Contract dispute or high SLA risk'),
     tools: p.connectedTools || ['Rechat', 'Dotloop', 'Slack', 'Gmail'],
-    status: (p.status === 'virtual_ai' ? 'ai' : (p.status || 'active')) as any
+    status: (p.status === 'virtual_ai' ? 'ai' : (p.status || 'active')) as any,
+    avatarUrl: p.avatarUrl
   }));
 
   return { routingTable, roleMap };
@@ -402,7 +404,7 @@ export function buildRoleEscalationMap(model: OrgModel): RoleEscalationData {
 // ADAPTER 3 — Owner Weekly Brief
 // ─────────────────────────────────────────────
 
-export function buildOwnerWeeklyBrief(): OwnerWeeklyBriefData {
+export function buildOwnerWeeklyBrief(liveMetrics?: Partial<WeeklyActivity> & { handledBreakdown?: HandledRow[] }): OwnerWeeklyBriefData {
   const now = new Date();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay());
@@ -413,24 +415,24 @@ export function buildOwnerWeeklyBrief(): OwnerWeeklyBriefData {
   const weekLabel = `Week of ${fmt(startOfWeek)} – ${fmt(endOfWeek)}`;
 
   const activity: WeeklyActivity = {
-    requestsHandled: 31,
-    routedWithoutRyan: 24,
-    neededRyan: 5,
-    stillOpen: 4,
-    overdue: 1,
-    missingInformation: 2,
+    requestsHandled: liveMetrics?.requestsHandled !== undefined ? liveMetrics.requestsHandled : 31,
+    routedWithoutRyan: liveMetrics?.routedWithoutRyan !== undefined ? liveMetrics.routedWithoutRyan : 24,
+    neededRyan: liveMetrics?.neededRyan !== undefined ? liveMetrics.neededRyan : 5,
+    stillOpen: liveMetrics?.stillOpen !== undefined ? liveMetrics.stillOpen : 4,
+    overdue: liveMetrics?.overdue !== undefined ? liveMetrics.overdue : 1,
+    missingInformation: liveMetrics?.missingInformation !== undefined ? liveMetrics.missingInformation : 2,
   };
 
-  const handled: HandledRow[] = [
-    { category: 'Agent questions', count: 12, handler: 'Jessica (BIC)' },
-    { category: 'Marketing requests', count: 5, handler: 'Melissa Gagliardi' },
-    { category: 'Finance questions', count: 4, handler: 'James Fort' },
-    { category: 'Operations requests', count: 3, handler: 'Ann Gunn' },
-    { category: 'Intake triage', count: 7, handler: 'AI Ops Assistant' },
+  const handled: HandledRow[] = liveMetrics?.handledBreakdown || [
+    { category: 'Agent questions & compliance', count: 12, handler: 'Eric Knight & Jessica Keenan (BICs)' },
+    { category: 'Marketing requests & flyers', count: 5, handler: 'Melissa Gagliardi' },
+    { category: 'Finance questions & closings', count: 4, handler: 'James Fort' },
+    { category: 'Operations & vendor dispatch', count: 3, handler: 'Ann Gunn' },
+    { category: 'Intake triage & phone recording', count: 7, handler: 'Nora / AI Phone Agent' },
   ];
 
   const neededRyan: NeededRyanRow[] = [
-    { type: 'Compliance / legal review', count: 2, resolution: 'Reviewed and cleared with BIC' },
+    { type: 'Compliance / legal review', count: 2, resolution: 'Reviewed and cleared with BICs (Eric Knight & Jessica Keenan)' },
     { type: 'Repeated agent complaint', count: 1, resolution: 'Direct call scheduled' },
     { type: 'Ownerless request', count: 1, resolution: 'Routing updated for future' },
     { type: 'Deal-at-risk item', count: 1, resolution: 'Closing attorney contacted — resolved' },
@@ -453,9 +455,8 @@ export function buildOwnerWeeklyBrief(): OwnerWeeklyBriefData {
 
   const teamLoad: TeamLoadEntry[] = [
     { name: 'Ann Gunn', title: 'Operations Director', load: 'moderate', note: 'Front desk gap adds walk-in requests' },
-    { name: 'Melissa Gagliardi', title: 'Marketing', load: 'high', note: 'Two listing launches + agent branding backlog' },
-    { name: 'James Fort', title: 'Firm Finance', load: 'normal', note: 'Closings on track this week' },
-    { name: 'Jessica (BIC)', title: 'Broker-in-Charge', load: 'moderate', note: 'Standard compliance review volume' },
+    { name: 'Melissa Gagliardi', title: 'Marketing Lead', load: 'high', note: 'Two listing launches + agent branding backlog' },
+    { name: 'James Fort', title: 'Transaction Coordinator', load: 'normal', note: 'Closings on track this week' },
     { name: 'Ryan Crecelius', title: 'Principal Broker', load: 'high', note: 'COO seat open — operational backup overloads schedule' },
   ];
 
