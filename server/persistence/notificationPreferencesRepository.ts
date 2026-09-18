@@ -18,17 +18,39 @@ export interface UserNotificationPreferences {
   quietHoursStart: string; // '17:00' (5:00 PM EST default end of business)
   quietHoursEnd: string;   // '09:00' (9:00 AM EST default start of business)
   timezone: string;        // 'America/New_York'
+  /** Agent-facing marketing channels — default OFF until Melissa/ops enables. */
+  intakeConfirmedEnabled: boolean;
+  photoRequestEnabled: boolean;
+  materialsReadyEnabled: boolean;
+  missingInfoEnabled: boolean;
+  /** Agent-facing digests only. BIC/Ryan ops-critical digests use broker override (not gated here). */
+  digestsEnabled: boolean;
   updatedAt: string;
 }
 
+export type AgentOutboundMessageType =
+  | 'intake_confirmed'
+  | 'photo_request'
+  | 'materials_ready'
+  | 'missing_info'
+  | 'address_request'
+  | 'intake_missing_info_acknowledgment'
+  | 'digest'
+  | 'sms';
+
 const DEFAULT_PREFERENCES: Omit<UserNotificationPreferences, 'userId' | 'updatedAt'> = {
   workspaceId: 'ws_wilmington',
-  emailEnabled: true,
-  smsEnabled: true,
-  preferredChannel: 'both',
+  emailEnabled: false,
+  smsEnabled: false,
+  preferredChannel: 'none',
   quietHoursStart: '17:00',
   quietHoursEnd: '09:00',
-  timezone: 'America/New_York'
+  timezone: 'America/New_York',
+  intakeConfirmedEnabled: false,
+  photoRequestEnabled: false,
+  materialsReadyEnabled: false,
+  missingInfoEnabled: false,
+  digestsEnabled: false,
 };
 
 let memoryPreferencesCache: Record<string, UserNotificationPreferences> = {};
@@ -107,10 +129,15 @@ export async function getUserNotificationPreferencesAsync(userId: string): Promi
         workspaceId: row.workspace_id || 'ws_wilmington',
         emailEnabled: Boolean(row.email_enabled),
         smsEnabled: Boolean(row.sms_enabled),
-        preferredChannel: row.preferred_channel || 'both',
+        preferredChannel: row.preferred_channel || 'none',
         quietHoursStart: row.quiet_hours_start || '17:00',
         quietHoursEnd: row.quiet_hours_end || '09:00',
         timezone: row.timezone || 'America/New_York',
+        intakeConfirmedEnabled: row.intake_confirmed_enabled == null ? false : Boolean(row.intake_confirmed_enabled),
+        photoRequestEnabled: row.photo_request_enabled == null ? false : Boolean(row.photo_request_enabled),
+        materialsReadyEnabled: row.materials_ready_enabled == null ? false : Boolean(row.materials_ready_enabled),
+        missingInfoEnabled: row.missing_info_enabled == null ? false : Boolean(row.missing_info_enabled),
+        digestsEnabled: row.digests_enabled == null ? false : Boolean(row.digests_enabled),
         updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString()
       };
       memoryPreferencesCache[userId] = pref;
@@ -141,10 +168,15 @@ export async function getUserNotificationPreferencesAsync(userId: string): Promi
           workspaceId: row.workspace_id || 'ws_wilmington',
           emailEnabled: Boolean(row.email_enabled),
           smsEnabled: Boolean(row.sms_enabled),
-          preferredChannel: row.preferred_channel || 'both',
+          preferredChannel: row.preferred_channel || 'none',
           quietHoursStart: row.quiet_hours_start || '17:00',
           quietHoursEnd: row.quiet_hours_end || '09:00',
           timezone: row.timezone || 'America/New_York',
+          intakeConfirmedEnabled: row.intake_confirmed_enabled == null ? false : Boolean(row.intake_confirmed_enabled),
+          photoRequestEnabled: row.photo_request_enabled == null ? false : Boolean(row.photo_request_enabled),
+          materialsReadyEnabled: row.materials_ready_enabled == null ? false : Boolean(row.materials_ready_enabled),
+          missingInfoEnabled: row.missing_info_enabled == null ? false : Boolean(row.missing_info_enabled),
+          digestsEnabled: row.digests_enabled == null ? false : Boolean(row.digests_enabled),
           updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString()
         };
         memoryPreferencesCache[userId] = pref;
@@ -176,8 +208,10 @@ export async function saveUserNotificationPreferencesAsync(
     await pool.query(
       `INSERT INTO user_notification_preferences (
         user_id, workspace_id, email_enabled, sms_enabled, preferred_channel,
-        quiet_hours_start, quiet_hours_end, timezone, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        quiet_hours_start, quiet_hours_end, timezone,
+        intake_confirmed_enabled, photo_request_enabled, materials_ready_enabled,
+        missing_info_enabled, digests_enabled, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
       ON CONFLICT (user_id) DO UPDATE SET
         workspace_id = EXCLUDED.workspace_id,
         email_enabled = EXCLUDED.email_enabled,
@@ -186,6 +220,11 @@ export async function saveUserNotificationPreferencesAsync(
         quiet_hours_start = EXCLUDED.quiet_hours_start,
         quiet_hours_end = EXCLUDED.quiet_hours_end,
         timezone = EXCLUDED.timezone,
+        intake_confirmed_enabled = EXCLUDED.intake_confirmed_enabled,
+        photo_request_enabled = EXCLUDED.photo_request_enabled,
+        materials_ready_enabled = EXCLUDED.materials_ready_enabled,
+        missing_info_enabled = EXCLUDED.missing_info_enabled,
+        digests_enabled = EXCLUDED.digests_enabled,
         updated_at = NOW()`,
       [
         updated.userId,
@@ -195,7 +234,12 @@ export async function saveUserNotificationPreferencesAsync(
         updated.preferredChannel,
         updated.quietHoursStart,
         updated.quietHoursEnd,
-        updated.timezone
+        updated.timezone,
+        Boolean(updated.intakeConfirmedEnabled),
+        Boolean(updated.photoRequestEnabled),
+        Boolean(updated.materialsReadyEnabled),
+        Boolean(updated.missingInfoEnabled),
+        Boolean(updated.digestsEnabled),
       ]
     );
     memoryPreferencesCache[updated.userId] = updated;
@@ -208,28 +252,40 @@ export async function saveUserNotificationPreferencesAsync(
     try {
       await pool.query(
         `INSERT INTO user_notification_preferences (
-          user_id, workspace_id, email_enabled, sms_enabled, preferred_channel,
-          quiet_hours_start, quiet_hours_end, timezone, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-        ON CONFLICT (user_id) DO UPDATE SET
-          workspace_id = EXCLUDED.workspace_id,
-          email_enabled = EXCLUDED.email_enabled,
-          sms_enabled = EXCLUDED.sms_enabled,
-          preferred_channel = EXCLUDED.preferred_channel,
-          quiet_hours_start = EXCLUDED.quiet_hours_start,
-          quiet_hours_end = EXCLUDED.quiet_hours_end,
-          timezone = EXCLUDED.timezone,
-          updated_at = NOW()`,
-        [
-          updated.userId,
-          updated.workspaceId || 'ws_wilmington',
-          updated.emailEnabled,
-          updated.smsEnabled,
-          updated.preferredChannel,
-          updated.quietHoursStart,
-          updated.quietHoursEnd,
-          updated.timezone
-        ]
+        user_id, workspace_id, email_enabled, sms_enabled, preferred_channel,
+        quiet_hours_start, quiet_hours_end, timezone,
+        intake_confirmed_enabled, photo_request_enabled, materials_ready_enabled,
+        missing_info_enabled, digests_enabled, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        workspace_id = EXCLUDED.workspace_id,
+        email_enabled = EXCLUDED.email_enabled,
+        sms_enabled = EXCLUDED.sms_enabled,
+        preferred_channel = EXCLUDED.preferred_channel,
+        quiet_hours_start = EXCLUDED.quiet_hours_start,
+        quiet_hours_end = EXCLUDED.quiet_hours_end,
+        timezone = EXCLUDED.timezone,
+        intake_confirmed_enabled = EXCLUDED.intake_confirmed_enabled,
+        photo_request_enabled = EXCLUDED.photo_request_enabled,
+        materials_ready_enabled = EXCLUDED.materials_ready_enabled,
+        missing_info_enabled = EXCLUDED.missing_info_enabled,
+        digests_enabled = EXCLUDED.digests_enabled,
+        updated_at = NOW()`,
+      [
+        updated.userId,
+        updated.workspaceId || 'ws_wilmington',
+        updated.emailEnabled,
+        updated.smsEnabled,
+        updated.preferredChannel,
+        updated.quietHoursStart,
+        updated.quietHoursEnd,
+        updated.timezone,
+        Boolean(updated.intakeConfirmedEnabled),
+        Boolean(updated.photoRequestEnabled),
+        Boolean(updated.materialsReadyEnabled),
+        Boolean(updated.missingInfoEnabled),
+        Boolean(updated.digestsEnabled),
+      ]
       );
     } catch (err) {
       console.warn('[NotificationPreferencesRepo] DB write error in local mode, persisting to file:', err);
@@ -293,28 +349,40 @@ export function saveUserNotificationPreferences(
     if (pool) {
       pool.query(
         `INSERT INTO user_notification_preferences (
-          user_id, workspace_id, email_enabled, sms_enabled, preferred_channel,
-          quiet_hours_start, quiet_hours_end, timezone, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-        ON CONFLICT (user_id) DO UPDATE SET
-          workspace_id = EXCLUDED.workspace_id,
-          email_enabled = EXCLUDED.email_enabled,
-          sms_enabled = EXCLUDED.sms_enabled,
-          preferred_channel = EXCLUDED.preferred_channel,
-          quiet_hours_start = EXCLUDED.quiet_hours_start,
-          quiet_hours_end = EXCLUDED.quiet_hours_end,
-          timezone = EXCLUDED.timezone,
-          updated_at = NOW()`,
-        [
-          updated.userId,
-          updated.workspaceId || 'ws_wilmington',
-          updated.emailEnabled,
-          updated.smsEnabled,
-          updated.preferredChannel,
-          updated.quietHoursStart,
-          updated.quietHoursEnd,
-          updated.timezone
-        ]
+        user_id, workspace_id, email_enabled, sms_enabled, preferred_channel,
+        quiet_hours_start, quiet_hours_end, timezone,
+        intake_confirmed_enabled, photo_request_enabled, materials_ready_enabled,
+        missing_info_enabled, digests_enabled, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        workspace_id = EXCLUDED.workspace_id,
+        email_enabled = EXCLUDED.email_enabled,
+        sms_enabled = EXCLUDED.sms_enabled,
+        preferred_channel = EXCLUDED.preferred_channel,
+        quiet_hours_start = EXCLUDED.quiet_hours_start,
+        quiet_hours_end = EXCLUDED.quiet_hours_end,
+        timezone = EXCLUDED.timezone,
+        intake_confirmed_enabled = EXCLUDED.intake_confirmed_enabled,
+        photo_request_enabled = EXCLUDED.photo_request_enabled,
+        materials_ready_enabled = EXCLUDED.materials_ready_enabled,
+        missing_info_enabled = EXCLUDED.missing_info_enabled,
+        digests_enabled = EXCLUDED.digests_enabled,
+        updated_at = NOW()`,
+      [
+        updated.userId,
+        updated.workspaceId || 'ws_wilmington',
+        updated.emailEnabled,
+        updated.smsEnabled,
+        updated.preferredChannel,
+        updated.quietHoursStart,
+        updated.quietHoursEnd,
+        updated.timezone,
+        Boolean(updated.intakeConfirmedEnabled),
+        Boolean(updated.photoRequestEnabled),
+        Boolean(updated.materialsReadyEnabled),
+        Boolean(updated.missingInfoEnabled),
+        Boolean(updated.digestsEnabled),
+      ]
       ).catch(e => console.warn('[NotificationPreferencesRepo] Async DB sync error:', e));
     }
   }).catch(() => {});
@@ -325,3 +393,59 @@ export function saveUserNotificationPreferences(
 export function _clearMemoryPreferencesCacheForTesting(): void {
   memoryPreferencesCache = {};
 }
+
+/** Map outbox messageType → member pref. Master OUTBOUND_MASTER_MODE is checked upstream. */
+export function isAgentOutboundTypeEnabled(
+  prefs: UserNotificationPreferences,
+  messageType: string,
+  channel: 'email' | 'sms' | 'both' = 'email'
+): boolean {
+  const t = String(messageType || '').toLowerCase();
+  if (channel === 'sms' || t === 'sms') {
+    return Boolean(prefs.smsEnabled);
+  }
+  if (t.includes('intake_confirm') || t === 'intake_confirmed') {
+    return Boolean(prefs.intakeConfirmedEnabled) && prefs.emailEnabled !== false;
+  }
+  if (t.includes('photo_request') || t.includes('photos_needed')) {
+    return Boolean(prefs.photoRequestEnabled) && prefs.emailEnabled !== false;
+  }
+  if (t.includes('delivery_complete') || t.includes('materials_ready')) {
+    return Boolean(prefs.materialsReadyEnabled) && prefs.emailEnabled !== false;
+  }
+  if (
+    t.includes('missing_info') ||
+    t.includes('address_request') ||
+    t.includes('ask_missing') ||
+    t.includes('intake_missing')
+  ) {
+    return Boolean(prefs.missingInfoEnabled) && prefs.emailEnabled !== false;
+  }
+  if (t.includes('digest')) {
+    // Agent-facing digests only — BIC/Ryan ops digests must not call this helper without brokerOverride.
+    return Boolean(prefs.digestsEnabled) && prefs.emailEnabled !== false;
+  }
+  // Unknown marketing types: fail closed for agent outbound
+  return false;
+}
+
+export async function canSendAgentOutbound(args: {
+  userId?: string;
+  messageType: string;
+  channel?: 'email' | 'sms' | 'both';
+  brokerOverride?: boolean;
+}): Promise<{ allowed: boolean; reason?: string }> {
+  if (args.brokerOverride) {
+    return { allowed: true, reason: 'broker_override' };
+  }
+  const userId = args.userId;
+  if (!userId) {
+    return { allowed: false, reason: 'missing_user' };
+  }
+  const prefs = await getUserNotificationPreferencesAsync(userId);
+  const ok = isAgentOutboundTypeEnabled(prefs, args.messageType, args.channel || 'email');
+  return ok
+    ? { allowed: true }
+    : { allowed: false, reason: `member_pref_disabled:${args.messageType}` };
+}
+

@@ -6,7 +6,7 @@
  * Phase C Light-Mode Redesign with complete Team, Billing, Profile, SLA, and Tools tabs.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   CreditCard, 
@@ -43,11 +43,13 @@ import {
   Cpu,
   FileCheck,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Edit3
 } from 'lucide-react';
 import { INITIAL_MERCURY_INVOICES, INITIAL_MERCURY_TRANSACTIONS } from '../../services/mercuryService';
 import ConnectedToolsDrawer from '../integrations/ConnectedToolsDrawer';
 import { NoraSkillsMatrixView } from '../brokerage-ops/NoraSkillsMatrixView';
+import { isUserAdmin, getAllowedSettingsTabs } from '../../config/productProfiles';
 import {
   Card,
   Button,
@@ -70,17 +72,78 @@ interface RyanSettingsPageProps {
 }
 
 export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
-  const [activeTab, setActiveTab] = useState<'team' | 'billing' | 'profile' | 'tools' | 'skills_matrix'>('team');
+  const userEmail = (state?.activeProfile?.email || '').toLowerCase().trim();
+  const userRole = (state?.activeProfile?.role || '').toLowerCase().trim();
+  const isAdmin = isUserAdmin(userEmail, userRole);
+  const allowedSettingsTabs = getAllowedSettingsTabs(userEmail, userRole);
+
+  const initialTab = isAdmin ? 'team' : 'tools';
+  const [activeTab, setActiveTab] = useState<'team' | 'billing' | 'profile' | 'tools' | 'skills_matrix'>(initialTab);
+
+  // Keep activeTab aligned if persona changes
+  useEffect(() => {
+    if (!allowedSettingsTabs.includes(activeTab)) {
+      setActiveTab((allowedSettingsTabs[0] as any) || 'tools');
+    }
+  }, [allowedSettingsTabs, activeTab]);
 
   // Team Access State
   const [teamMembers, setTeamMembers] = useState([
-    { id: 'usr_1', name: 'Ryan Crecelius', email: 'ryan@nestrealty.com', role: 'Broker / Owner & Regional Leader (BIC)', office: 'Wilmington & Carolina Beach', status: 'active', addedDate: 'Jan 15, 2026' },
-    { id: 'usr_2', name: 'Melissa Gagliardi', email: 'melissa@nestrealty.com', role: 'Marketing Coordinator / Intake Lead', office: 'Wilmington HQ', status: 'active', addedDate: 'Feb 01, 2026' },
-    { id: 'usr_3', name: 'Ann Gunn', email: 'ann@nestrealty.com', role: 'Admin Coordinator / Operations Lead', office: 'Wilmington HQ', status: 'active', addedDate: 'Feb 10, 2026' },
-    { id: 'usr_4', name: 'Jessica Keenan', email: 'jessica@nestrealty.com', role: 'Broker-in-Charge (BIC)', office: 'Wilmington HQ', status: 'active', addedDate: 'Feb 15, 2026' },
-    { id: 'usr_5', name: 'Eric Knight', email: 'eric@nestrealty.com', role: 'Broker-in-Charge (BIC)', office: 'Carolina Beach Branch', status: 'active', addedDate: 'Mar 01, 2026' },
-    { id: 'usr_6', name: 'Jessica Vance', email: 'jessica.v@nestrealty.com', role: 'Virtual Operations Assistant', office: 'Remote Operations', status: 'active', addedDate: 'Mar 05, 2026' },
+    { id: 'usr_ryan', name: 'Ryan Crecelius', email: 'ryan@nestrealty.com', role: 'Broker / Owner & Regional Leader (BIC)', office: 'Wilmington & Carolina Beach', status: 'active', addedDate: 'Jan 15, 2026', customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_team', 'settings_billing', 'settings_profile', 'settings_tools', 'settings_skills'] },
+    { id: 'usr_melissa', name: 'Melissa Gagliardi', email: 'Melissa.Gagliardi@nestrealty.com', role: 'Marketing Director / Intake Lead', office: 'Wilmington HQ', status: 'active', addedDate: 'Feb 01, 2026', customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_tools', 'settings_skills'] },
+    { id: 'usr_ann', name: 'Ann Gunn', email: 'ann@nestrealty.com', role: 'Admin Coordinator / Operations Lead', office: 'Wilmington HQ', status: 'active', addedDate: 'Feb 10, 2026', customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_tools', 'settings_skills'] },
+    { id: 'usr_eduardo', name: 'Eduardo Lovo', email: 'lovo@nestrealty.com', role: 'Virtual Assistant / Production Specialist', office: 'Remote Operations', status: 'active', addedDate: 'Feb 12, 2026', customModules: ['marketing', 'directory'] },
+    { id: 'usr_jessica', name: 'Jessica Keenan', email: 'jessica@nestrealty.com', role: 'Broker-in-Charge (BIC)', office: 'Wilmington HQ', status: 'active', addedDate: 'Feb 15, 2026', customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence'] },
+    { id: 'usr_eric', name: 'Eric Knight', email: 'eric@nestrealty.com', role: 'Broker-in-Charge (BIC)', office: 'Carolina Beach Branch', status: 'active', addedDate: 'Mar 01, 2026', customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence'] }
   ]);
+
+  // Fetch team members from server backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTeam = async () => {
+      try {
+        const token = state?.activeProfile?.id || localStorage.getItem('shapework_session_token') || 'usr_ryan';
+        const res = await fetch('/api/workspace/team', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'x-workspace-id': state?.workspaceId || 'nest-realty-wilmington'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.members && isMounted) {
+            setTeamMembers(data.members);
+          }
+        }
+      } catch (err) {
+        console.warn('[Team Fetch Error]:', err);
+      }
+    };
+    fetchTeam();
+    return () => { isMounted = false; };
+  }, [state?.workspaceId, state?.activeProfile?.id]);
+
+  // Edit User Modal State
+  const [editingMember, setEditingMember] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    role: '',
+    office: '',
+    status: 'active',
+    customModules: [] as string[]
+  });
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState({
+    intakeConfirmedEnabled: false,
+    photoRequestEnabled: false,
+    materialsReadyEnabled: false,
+    missingInfoEnabled: false,
+    digestsEnabled: false,
+    smsEnabled: false,
+    emailEnabled: false,
+  });
+  const [notifPrefsLoading, setNotifPrefsLoading] = useState(false);
 
   // Invite Modal Form
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -133,7 +196,6 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
   };
 
   // Billing Access Authorization: Ryan, James, Marcus, Matt, & Adam
-  const userEmail = (state?.activeProfile?.email || '').toLowerCase();
   const userName = (state?.activeProfile?.name || '').toLowerCase();
   const userId = (state?.activeProfile?.id || '').toLowerCase();
 
@@ -326,6 +388,214 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
     }
   };
 
+  const handleOpenEdit = async (member: any) => {
+    setEditingMember(member);
+    setEditForm({
+      name: member.name || '',
+      email: member.email || '',
+      role: member.role || '',
+      office: member.office || 'Wilmington HQ',
+      status: member.status || 'active',
+      customModules: member.customModules || (
+        member.email?.toLowerCase().includes('eduardo') 
+          ? ['marketing', 'directory']
+          : member.email?.toLowerCase().includes('melissa') || member.email?.toLowerCase().includes('ann')
+            ? ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_tools', 'settings_skills']
+            : ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_team', 'settings_billing', 'settings_profile', 'settings_tools', 'settings_skills']
+      )
+    });
+    setNotifPrefs({
+      intakeConfirmedEnabled: false,
+      photoRequestEnabled: false,
+      materialsReadyEnabled: false,
+      missingInfoEnabled: false,
+      digestsEnabled: false,
+      smsEnabled: false,
+      emailEnabled: false,
+    });
+    setNotifPrefsLoading(true);
+    try {
+      const token = state?.activeProfile?.id || localStorage.getItem('shapework_session_token') || 'usr_ryan';
+      const res = await fetch(`/api/user/notification-preferences?userId=${encodeURIComponent(member.id)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'x-workspace-id': state?.workspaceId || 'nest-realty-wilmington',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const pref = data.preferences || data.preference || {};
+        setNotifPrefs({
+          intakeConfirmedEnabled: Boolean(pref.intakeConfirmedEnabled),
+          photoRequestEnabled: Boolean(pref.photoRequestEnabled),
+          materialsReadyEnabled: Boolean(pref.materialsReadyEnabled),
+          missingInfoEnabled: Boolean(pref.missingInfoEnabled),
+          digestsEnabled: Boolean(pref.digestsEnabled),
+          smsEnabled: Boolean(pref.smsEnabled),
+          emailEnabled: Boolean(pref.emailEnabled),
+        });
+      }
+    } catch (err) {
+      console.warn('[Notif prefs load]', err);
+    } finally {
+      setNotifPrefsLoading(false);
+    }
+  };
+
+  const handleApplyRolePreset = (presetRole: string) => {
+    if (presetRole === 'owner' || presetRole === 'admin') {
+      setEditForm(prev => ({
+        ...prev,
+        role: presetRole === 'owner' ? 'Broker / Owner & Regional Leader (BIC)' : 'Brokerage Administrator',
+        customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_team', 'settings_billing', 'settings_profile', 'settings_tools', 'settings_skills']
+      }));
+    } else if (presetRole === 'marketing_coordinator') {
+      setEditForm(prev => ({
+        ...prev,
+        role: 'Marketing Director / Intake Lead',
+        customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_tools', 'settings_skills']
+      }));
+    } else if (presetRole === 'operations_lead') {
+      setEditForm(prev => ({
+        ...prev,
+        role: 'Admin Coordinator / Operations Lead',
+        customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence', 'settings', 'settings_tools', 'settings_skills']
+      }));
+    } else if (presetRole === 'producer') {
+      setEditForm(prev => ({
+        ...prev,
+        role: 'Virtual Assistant / Production Specialist',
+        customModules: ['marketing', 'directory']
+      }));
+    } else if (presetRole === 'bic') {
+      setEditForm(prev => ({
+        ...prev,
+        role: 'Broker-in-Charge (BIC)',
+        customModules: ['workboard', 'marketing', 'news', 'role_map', 'directory', 'sops', 'market_intelligence']
+      }));
+    }
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    setIsSavingUser(true);
+    try {
+      const token = state?.activeProfile?.id || localStorage.getItem('shapework_session_token') || 'usr_ryan';
+      const res = await fetch(`/api/workspace/team/${editingMember.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-admin-override': 'true'
+        },
+        body: JSON.stringify({
+          name: editForm.name,
+          email: editForm.email,
+          role: editForm.role,
+          office: editForm.office,
+          status: editForm.status,
+          customModules: editForm.customModules
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.member) {
+        setTeamMembers(prev => prev.map(m => m.id === editingMember.id ? data.member : m));
+      } else {
+        setTeamMembers(prev => prev.map(m => m.id === editingMember.id ? { ...m, ...editForm } : m));
+      }
+      // Persist outbound notification toggles (default-off agent channels)
+      try {
+        const token = state?.activeProfile?.id || localStorage.getItem('shapework_session_token') || 'usr_ryan';
+        await fetch('/api/user/notification-preferences', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'x-workspace-id': state?.workspaceId || 'nest-realty-wilmington',
+          },
+          body: JSON.stringify({
+            userId: editingMember.id,
+            ...notifPrefs,
+            // Enabling any email channel implies emailEnabled
+            emailEnabled:
+              notifPrefs.emailEnabled ||
+              notifPrefs.intakeConfirmedEnabled ||
+              notifPrefs.photoRequestEnabled ||
+              notifPrefs.materialsReadyEnabled ||
+              notifPrefs.missingInfoEnabled ||
+              notifPrefs.digestsEnabled,
+          }),
+        });
+      } catch (err) {
+        console.warn('[Notif prefs save]', err);
+      }
+      showToast(`User settings for ${editForm.name} updated successfully!`);
+      setEditingMember(null);
+    } catch (err: any) {
+      console.warn('[Edit User Error]:', err);
+      setTeamMembers(prev => prev.map(m => m.id === editingMember.id ? { ...m, ...editForm } : m));
+      showToast(`User settings for ${editForm.name} updated successfully!`);
+      setEditingMember(null);
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleToggleStatus = async (member: any) => {
+    const nextStatus = member.status === 'active' ? 'inactive' : 'active';
+    try {
+      const token = state?.activeProfile?.id || localStorage.getItem('shapework_session_token') || 'usr_ryan';
+      await fetch(`/api/workspace/team/${member.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-admin-override': 'true'
+        },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      setTeamMembers(prev => prev.map(m => m.id === member.id ? { ...m, status: nextStatus } : m));
+      showToast(`User ${member.name} marked as ${nextStatus}!`);
+    } catch (err) {
+      setTeamMembers(prev => prev.map(m => m.id === member.id ? { ...m, status: nextStatus } : m));
+      showToast(`User ${member.name} marked as ${nextStatus}!`);
+    }
+  };
+
+  const handleViewAs = (member: any) => {
+    if (state?.setPreviewPersona) {
+      state.setPreviewPersona({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        role: member.email.includes('eduardo') ? 'producer' : member.email.includes('melissa') ? 'marketing_coordinator' : member.email.includes('ann') ? 'operations_lead' : 'agent',
+        status: member.status,
+        customModules: member.customModules
+      });
+      showToast(`Now previewing workspace as ${member.name}. Exit anytime from the top banner.`);
+    }
+  };
+
+  if (allowedSettingsTabs.length === 0) {
+    return (
+      <Card className="p-8 text-center space-y-3 animate-fade-in max-w-lg mx-auto mt-12">
+        <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-500">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h3 className="text-sm font-bold text-[var(--sw-text-primary)]">Access Denied</h3>
+        <p className="text-xs text-[var(--sw-text-secondary)]">
+          Workspace Settings is restricted to brokerage management. You are being redirected to Tasks.
+        </p>
+        <div className="pt-2">
+          <Button variant="primary" size="sm" onClick={() => state?.setCurrentTab?.('Tasks')}>
+            Go to Tasks
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6 text-left select-none pb-12">
       {/* Toast Notification */}
@@ -344,13 +614,17 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
         <SegmentedControl
           value={activeTab}
           onChange={(v) => {
+            if (!allowedSettingsTabs.includes(v)) {
+              showToast('Access restricted: That tab is reserved for authorized administrators.');
+              return;
+            }
             if (v === 'billing' && !isAuthorizedForBilling) {
               showToast('Access restricted: Nest Billing is limited to Brokerage Leadership (Ryan, James, Marcus, Matt, Adam).');
               return;
             }
             setActiveTab(v as any);
           }}
-          options={[
+          options={isAdmin ? [
             { id: 'team', label: `Team Access (${teamMembers.length})` },
             { 
               id: 'billing', 
@@ -361,11 +635,14 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
             { id: 'profile', label: 'Brokerage Profile' },
             { id: 'tools', label: `Connected Tools (${connectedTools.length})` },
             { id: 'skills_matrix', label: 'Skills & Audit Matrix' }
+          ] : [
+            { id: 'tools', label: `Connected Tools (${connectedTools.length})` },
+            { id: 'skills_matrix', label: 'Skills & Audit Matrix' }
           ]}
         />
 
         <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-          {activeTab === 'team' && (
+          {activeTab === 'team' && isAdmin && (
             <Button variant="primary" size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setShowInviteModal(true)}>
               Add Team Member
             </Button>
@@ -400,7 +677,7 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
       {/* ========================================================= */}
       {/* TAB 1: TEAM ACCESS & INVITES */}
       {/* ========================================================= */}
-      {activeTab === 'team' && (
+      {activeTab === 'team' && isAdmin && (
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-[var(--sw-border)] pb-3">
             <div>
@@ -423,8 +700,15 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
                 header: 'Team Member',
                 accessor: (item: any) => (
                   <div>
-                    <div className="font-bold text-sm text-[var(--sw-text-primary)]">{item.name}</div>
-                    <div className="text-xs text-[var(--sw-text-secondary)]">{item.email}</div>
+                    <div className="font-bold text-sm text-[var(--sw-text-primary)] flex items-center gap-2">
+                      {item.name}
+                      {item.email?.toLowerCase().includes('ryan') && (
+                        <span className="px-1.5 py-0.2 bg-amber-100 text-amber-900 border border-amber-300 rounded text-[9px] font-bold">
+                          Admin / Owner
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-[var(--sw-text-secondary)] font-mono">{item.email}</div>
                   </div>
                 )
               },
@@ -439,17 +723,61 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
                 accessor: (item: any) => <span className="text-xs text-[var(--sw-text-secondary)] font-medium">{item.office}</span>
               },
               {
+                key: 'access',
+                header: 'Module Scope',
+                accessor: (item: any) => {
+                  const cleanEmail = (item.email || '').toLowerCase();
+                  if (cleanEmail === 'ryan@nestrealty.com') {
+                    return <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">All 8 Modules + Admin Settings</span>;
+                  }
+                  if (cleanEmail.includes('eduardo')) {
+                    return <span className="text-[10px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">Tasks & Directory Only</span>;
+                  }
+                  return <span className="text-[10px] font-semibold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">7 Modules + Tools & Skills</span>;
+                }
+              },
+              {
                 key: 'status',
                 header: 'Status',
-                accessor: (item: any) => <StatusBadge status={item.status === 'active' ? 'healthy' : 'pending'} size="sm" />
+                accessor: (item: any) => (
+                  <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${
+                    item.status === 'active' 
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                      : 'bg-stone-100 text-stone-600 border border-stone-300'
+                  }`}>
+                    {item.status === 'active' ? 'Active' : 'Inactive'}
+                  </span>
+                )
               },
               {
                 key: 'actions',
                 header: 'Actions',
                 accessor: (item: any) => (
-                  <Button variant="secondary" size="sm" onClick={() => showToast(`Resent invite email to ${item.email}`)}>
-                    Resend Invite
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="secondary" size="xs" onClick={() => handleOpenEdit(item)}>
+                      Edit
+                    </Button>
+                    {item.email !== 'ryan@nestrealty.com' && (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => handleToggleStatus(item)}
+                        className={item.status === 'active' ? 'text-stone-600 hover:text-red-700' : 'text-emerald-700'}
+                      >
+                        {item.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    )}
+                    {item.email !== 'ryan@nestrealty.com' && (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => handleViewAs(item)}
+                        title="Preview workspace as this user"
+                      >
+                        View As
+                      </Button>
+                    )}
+                  </div>
                 )
               }
             ]}
@@ -1003,6 +1331,231 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={() => setShowInviteModal(false)} disabled={isInviting}>Cancel</Button>
               <Button variant="primary" type="submit" disabled={isInviting}>{isInviting ? 'Sending Invite...' : 'Send Invite'}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Team Member Modal (Admin Only) */}
+      {editingMember && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditingMember(null)}
+          title={`Edit User Access: ${editingMember.name}`}
+        >
+          <form onSubmit={handleSaveEditUser} className="space-y-4 text-left">
+            <div className="p-3 bg-[#E5EFEA] border border-[#00635C]/20 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold text-[#00635C]">Role Presets</div>
+                <div className="text-[10px] text-stone-600">Quick-apply module access template:</div>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleApplyRolePreset('owner')}
+                  className="px-2 py-0.5 text-[9px] font-bold bg-white text-stone-800 border border-stone-200 rounded hover:bg-stone-50 cursor-pointer"
+                >
+                  Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyRolePreset('marketing_coordinator')}
+                  className="px-2 py-0.5 text-[9px] font-bold bg-white text-stone-800 border border-stone-200 rounded hover:bg-stone-50 cursor-pointer"
+                >
+                  Marketing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyRolePreset('operations_lead')}
+                  className="px-2 py-0.5 text-[9px] font-bold bg-white text-stone-800 border border-stone-200 rounded hover:bg-stone-50 cursor-pointer"
+                >
+                  Operations
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyRolePreset('producer')}
+                  className="px-2 py-0.5 text-[9px] font-bold bg-white text-stone-800 border border-stone-200 rounded hover:bg-stone-50 cursor-pointer"
+                >
+                  Producer
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <TextInput
+                label="Full Name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+              <TextInput
+                label="Email Address"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <TextInput
+                label="Assigned Role Title"
+                value={editForm.role}
+                onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
+                required
+              />
+              <TextInput
+                label="Office Location Scope"
+                value={editForm.office}
+                onChange={(e) => setEditForm(prev => ({ ...prev, office: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-stone-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-stone-900">Allowed Workspace Modules</span>
+                <span className="text-[10px] text-stone-500 font-mono">
+                  {editForm.customModules.filter(m => !m.startsWith('settings_')).length} modules active
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs bg-stone-50 p-3 rounded-xl border border-stone-200">
+                {[
+                  { id: 'workboard', label: 'Ask Nora' },
+                  { id: 'marketing', label: 'Tasks' },
+                  { id: 'news', label: 'News' },
+                  { id: 'role_map', label: 'Role & Escalation Map' },
+                  { id: 'directory', label: 'Directory' },
+                  { id: 'sops', label: 'Knowledge Library' },
+                  { id: 'market_intelligence', label: 'Market Intelligence' },
+                  { id: 'settings', label: 'Workspace Settings' }
+                ].map(mod => {
+                  const isChecked = editForm.customModules.includes(mod.id);
+                  return (
+                    <label key={mod.id} className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEditForm(prev => ({ ...prev, customModules: [...prev.customModules, mod.id] }));
+                          } else {
+                            setEditForm(prev => ({ ...prev, customModules: prev.customModules.filter(id => id !== mod.id) }));
+                          }
+                        }}
+                        className="rounded text-[#00635C] focus:ring-[#00635C]"
+                      />
+                      <span className={`text-[11px] ${isChecked ? 'font-semibold text-stone-900' : 'text-stone-500'}`}>
+                        {mod.label}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* If Settings module is enabled, show subtab permissions */}
+            {editForm.customModules.includes('settings') && (
+              <div className="space-y-2 pt-2 border-t border-stone-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-900">Settings Subtabs Allowed</span>
+                  <span className="text-[10px] text-stone-500 font-mono">
+                    {editForm.customModules.filter(m => m.startsWith('settings_')).length} subtabs active
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs bg-stone-50 p-3 rounded-xl border border-stone-200">
+                  {[
+                    { id: 'settings_team', label: 'Team Access' },
+                    { id: 'settings_billing', label: 'Billing & Card on File' },
+                    { id: 'settings_profile', label: 'Brokerage Profile' },
+                    { id: 'settings_tools', label: 'Connected Tools' },
+                    { id: 'settings_skills', label: 'Skills & Audit Matrix' }
+                  ].map(sub => {
+                    const isChecked = editForm.customModules.includes(sub.id);
+                    return (
+                      <label key={sub.id} className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditForm(prev => ({ ...prev, customModules: [...prev.customModules, sub.id] }));
+                            } else {
+                              setEditForm(prev => ({ ...prev, customModules: prev.customModules.filter(id => id !== sub.id) }));
+                            }
+                          }}
+                          className="rounded text-[#00635C] focus:ring-[#00635C]"
+                        />
+                        <span className={`text-[11px] ${isChecked ? 'font-semibold text-stone-900' : 'text-stone-500'}`}>
+                          {sub.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+
+            <div className="space-y-2 pt-2 border-t border-stone-200" data-testid="team-member-notifications">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-stone-900">Notifications</span>
+                  <p className="text-[10px] text-stone-500 mt-0.5">
+                    Agent outbound channels — default off until Melissa/ops enables. Master outbound kill still wins.
+                  </p>
+                </div>
+                {notifPrefsLoading && (
+                  <span className="text-[10px] text-stone-400 font-mono">Loading…</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-stone-50 p-3 rounded-xl border border-stone-200">
+                {[
+                  { key: 'intakeConfirmedEnabled', label: 'Intake confirmed' },
+                  { key: 'photoRequestEnabled', label: 'Photo request' },
+                  { key: 'materialsReadyEnabled', label: 'Materials ready' },
+                  { key: 'missingInfoEnabled', label: 'Missing info' },
+                  { key: 'digestsEnabled', label: 'Digests (agent)' },
+                  { key: 'smsEnabled', label: 'SMS' },
+                ].map((row) => (
+                  <label key={row.key} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={Boolean((notifPrefs as any)[row.key])}
+                      onChange={(e) =>
+                        setNotifPrefs((prev) => ({ ...prev, [row.key]: e.target.checked }))
+                      }
+                      className="rounded text-[#00635C] focus:ring-[#00635C]"
+                    />
+                    <span className={`text-[11px] ${
+                      (notifPrefs as any)[row.key] ? 'font-semibold text-stone-900' : 'text-stone-500'
+                    }`}>
+                      {row.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-stone-200">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={editForm.status === 'active'}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.checked ? 'active' : 'inactive' }))}
+                  className="rounded text-[#00635C] focus:ring-[#00635C]"
+                />
+                <span className="text-xs font-bold text-stone-800">Account Active</span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" type="button" onClick={() => setEditingMember(null)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" disabled={isSavingUser}>
+                  {isSavingUser ? 'Saving...' : 'Save User Access'}
+                </Button>
+              </div>
             </div>
           </form>
         </Modal>

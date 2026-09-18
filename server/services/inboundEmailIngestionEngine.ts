@@ -14,14 +14,22 @@ import {
   getAllCanonicalMarketingTasks,
   getAllCanonicalMarketingRequests,
   persistTaskToDatabase,
-  persistRequestToDatabase
+  persistRequestToDatabase,
+  computeCanonicalDeliverableKey,
+  generateDurableChildTaskId,
+  findExistingChildTask,
+  extractCanonicalDeliverableIdentity,
+  TaskRequirementItem
 } from '../persistence/marketingCampaignsRepository.js';
 import {
   sendMarketingIntakeConfirmationEmail,
   sendAddressRequestEmail,
   sendPhotoUploadRequestEmail,
+  sendIntakeMissingInfoAcknowledgmentEmail,
   isAllowedEmailRecipient
 } from '../email/emailProvider.js';
+import { generateMarketingTrackerToken } from './taskTrackerService.js';
+
 import {
   getResponsibleDepartmentOwner
 } from '../policies/departmentNotificationPolicyEngine.js';
@@ -37,12 +45,14 @@ import {
 } from './noraMarketingIntakeOrchestrator.js';
 import { getActiveDirectoryMemberByEmail } from './canonicalDirectoryService.js';
 import { recordActivityEvent } from './activityHistoryService.js';
+import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
 
 // Known agent directory lookup for automatic phone and role enrichment
 export const KNOWN_AGENTS: Record<string, { name: string; phone: string; role: string }> = {
   'marcus.aman@gmail.com': { name: 'Marcus Aman', phone: '+12527170595', role: 'Broker / Tech Lead' },
   'marcus@shapework.co': { name: 'Marcus Aman', phone: '+12527170595', role: 'Broker / Tech Lead' },
   'matt.orr@nestrealty.com': { name: 'Matt Orr', phone: '+19106128283', role: 'Broker' },
+  'james.fort@nestrealty.com': { name: 'James Fort', phone: '(910) 617-8264', role: 'Broker' },
   'melissa.gagliardi@nestrealty.com': { name: 'Melissa Gagliardi', phone: '+19105072047', role: 'Marketing Director' },
   'melissa@nestrealty.com': { name: 'Melissa Gagliardi', phone: '+19105072047', role: 'Marketing Director' },
   'eduardo@nestrealty.com': { name: 'Eduardo Lovo', phone: '+19105072047', role: 'Virtual Assistant / Maxa Lead' },
@@ -55,26 +65,22 @@ export const KNOWN_AGENTS: Record<string, { name: string; phone: string; role: s
  */
 export function parseSender(fromStr?: string): { name: string; email: string; phone: string; role: string } {
   if (!fromStr) {
-    return { name: 'Matt Orr (Broker)', email: 'matt.orr@nestrealty.com', phone: '+12527170595', role: 'Broker' };
+    return { name: 'Matt Orr (Broker)', email: 'matt.orr@nestrealty.com', phone: '+19106128283', role: 'Broker' };
   }
   const match = fromStr.match(/(?:["']?([^"']+)["']?\s*)?<([^>]+)>/);
+  let rawName = '';
+  let email = '';
   if (match) {
-    const rawName = (match[1] || '').trim();
-    const email = match[2].trim().toLowerCase();
-    const known = KNOWN_AGENTS[email];
-    return {
-      name: known?.name || rawName || email.split('@')[0],
-      email,
-      phone: known?.phone || '+12527170595',
-      role: known?.role || 'Broker'
-    };
+    rawName = (match[1] || '').trim();
+    email = match[2].trim().toLowerCase();
+  } else {
+    email = fromStr.trim().toLowerCase();
   }
-  const email = fromStr.trim().toLowerCase();
   const known = KNOWN_AGENTS[email];
   return {
-    name: known?.name || email.split('@')[0],
+    name: known?.name || rawName || email.split('@')[0],
     email,
-    phone: known?.phone || '+12527170595',
+    phone: known?.phone || '',
     role: known?.role || 'Broker'
   };
 }
@@ -174,17 +180,85 @@ export function isPhysicalSignageRequest(rawText: string = ''): boolean {
   );
 }
 
+export function toTitleCaseAddress(str: string): string {
+  return str.split(/\s+/).map(word => {
+    if (/^\d+$/.test(word)) return word;
+    if (/^(nc|sc|va|ga|fl|usa)$/i.test(word)) return word.toUpperCase();
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+}
+
 /**
  * Extracts property address from subject or email body.
  * Returns empty string if no valid street address is found.
  */
 export function extractPropertyAddress(subject: string = '', body: string = ''): string {
-  const combined = `${subject} ${body}`;
-  const addressRegex = /\b(\d{1,6}\s+(?:[A-Za-z0-9.]+\s+){1,5}(?:Avenue|Ave|Street|St|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Way|Parkway|Pkwy|Boulevard|Blvd|Circle|Cir|Place|Pl|Trail|Trl|Terrace|Ter))\b/i;
-  const match = combined.match(addressRegex);
+  // Strip markdown links like [117 colonial drive Clinton NC 28328](https://...) and URLs
+  const cleanSubject = (subject || '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/https?:\/\/[^\s)]+/g, ' ');
+  const cleanBody = (body || '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/https?:\/\/[^\s)]+/g, ' ');
+
+  const streetSuffixes = '(?:Avenue|Ave|Street|St|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Way|Parkway|Pkwy|Boulevard|Blvd|Circle|Cir|Place|Pl|Trail|Trl|Terrace|Ter|Highway|Hwy|Loop|Run|Trace|Cove|Row)';
+  const addressWithCityStateRegex = new RegExp(
+    `\\b(\\d{1,6}\\s+(?:[A-Za-z0-9.]+\\s+){1,5}${streetSuffixes})\\b(?:\\s*,?\\s*([A-Za-z\\s]{2,30}?)(?:,\\s*|\\s+)(NC|North Carolina|SC|South Carolina|VA|Virginia)(?:\\s+(\\d{5}))?)?\\b`,
+    'i'
+  );
+
+  // 1. Prioritize a complete address that includes city and state
+  for (const text of [cleanBody, cleanSubject, `${cleanSubject} ${cleanBody}`]) {
+    const matches = text.matchAll(new RegExp(addressWithCityStateRegex, 'gi'));
+    for (const m of matches) {
+      if (m && m[1] && m[2] && m[3]) {
+        let street = toTitleCaseAddress(m[1].trim().replace(/[,\s]+$/, ''));
+        const city = toTitleCaseAddress(m[2].trim());
+        const state = m[3].trim().toUpperCase() === 'NORTH CAROLINA' ? 'NC' : m[3].trim().toUpperCase();
+        const zipPart = m[4]?.trim() ? ` ${m[4].trim()}` : '';
+        return `${street}, ${city}, ${state}${zipPart}`;
+      }
+    }
+  }
+
+  // 2. Fallback to any street address match
+  const combined = `${cleanSubject} ${cleanBody}`;
+  const match = combined.match(addressWithCityStateRegex);
   if (match && match[1]) {
-    let addr = match[1].trim().replace(/[,\s]+$/, '');
-    if (!addr.toLowerCase().includes('wilmington') && !addr.toLowerCase().includes('nc')) {
+    let street = toTitleCaseAddress(match[1].trim().replace(/[,\s]+$/, ''));
+
+    const cityRaw = match[2]?.trim();
+    const stateRaw = match[3]?.trim();
+    const zipRaw = match[4]?.trim();
+
+    if (cityRaw && stateRaw) {
+      const city = toTitleCaseAddress(cityRaw);
+      const state = stateRaw.toUpperCase() === 'NORTH CAROLINA' ? 'NC' : stateRaw.toUpperCase();
+      const zipPart = zipRaw ? ` ${zipRaw}` : '';
+      return `${street}, ${city}, ${state}${zipPart}`;
+    }
+
+    if (stateRaw) {
+      const state = stateRaw.toUpperCase() === 'NORTH CAROLINA' ? 'NC' : stateRaw.toUpperCase();
+      const zipPart = zipRaw ? ` ${zipRaw}` : '';
+      return `${street}, ${state}${zipPart}`;
+    }
+
+    // Check if subsequent text in combined contains a city, NC, and optional zip
+    const textAfterStreet = combined.slice(combined.toLowerCase().indexOf(street.toLowerCase()) + street.length);
+    const afterMatch = textAfterStreet.match(/^\s*,?\s*([A-Za-z\s]{2,30}?)(?:,\s*|\s+)(NC|North Carolina|SC|South Carolina|VA|Virginia)(?:\s+(\d{5}))?/i);
+    if (afterMatch && afterMatch[1] && afterMatch[2]) {
+      const city = toTitleCaseAddress(afterMatch[1].trim());
+      const state = afterMatch[2].trim().toUpperCase() === 'NORTH CAROLINA' ? 'NC' : afterMatch[2].trim().toUpperCase();
+      const zipPart = afterMatch[3]?.trim() ? ` ${afterMatch[3].trim()}` : '';
+      return `${street}, ${city}, ${state}${zipPart}`;
+    }
+
+    let addr = street;
+    const hasOtherCityOrState = /\b(clinton|rocky point|hampstead|leland|southport|castle hayne|burgaw|oak island|jacksonville|carolina beach|kure beach|wrightsville beach|raleigh|durham|chapel hill|charlotte|nc|north carolina)\b/i.test(combined);
+    if (!addr.toLowerCase().includes('wilmington') && !addr.toLowerCase().includes('nc') && !hasOtherCityOrState) {
       addr += ', Wilmington, NC';
     }
     return addr;
@@ -202,16 +276,59 @@ export function extractPropertyAddress(subject: string = '', body: string = ''):
 }
 
 /**
- * Parses requested due date / deadline from email text.
- * Defaults to 48 hours from now if unspecified.
+ * Extracts descriptive location/region when an exact street address is not provided.
+ * e.g., "in Rocky Point", "Rocky Point"
  */
-export function extractDueDateFromText(text: string = ''): string {
-  // 1. Matches MM/DD/YY or MM/DD/YYYY (e.g. 09/14/26, 9/14/2026, 09/11/26)
-  const slashMatch = text.match(/\b(0?[1-9]|1[0-2])\/(0?[1-9]|[12]\d|3[01])\/(20\d{2}|\d{2})\b/);
-  if (slashMatch) {
-    const month = parseInt(slashMatch[1], 10) - 1;
-    const day = parseInt(slashMatch[2], 10);
-    let year = parseInt(slashMatch[3], 10);
+export function extractLocationDescription(subject: string = '', body: string = ''): string {
+  const combined = `${subject} ${body}`;
+  if (/\b(Rocky\s+Point)\b/i.test(combined)) {
+    return 'Rocky Point';
+  }
+  const areaMatch = combined.match(/\b(?:in|at|for\s+(?:a\s+)?(?:mobile\s+home|property|house|listing)\s+in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/);
+  if (areaMatch && areaMatch[1]) {
+    const candidate = areaMatch[1].trim();
+    if (!['Wilmington', 'NC', 'North Carolina'].includes(candidate)) {
+      return candidate;
+    }
+  }
+  return '';
+}
+
+/**
+ * Checks if the email text represents a custom sign request.
+ */
+export function isCustomSignageRequest(text: string = ''): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('custom sign') ||
+    lower.includes('custom signage') ||
+    (lower.includes('sign') && (lower.includes('designed and printed') || lower.includes('design and print') || lower.includes('design, print')))
+  );
+}
+
+/**
+ * Parses requested due date / deadline from email text.
+ * Leaves unset (undefined) if timing is ASAP, flexible, or unspecified.
+ * Crucially separates event dates (e.g. "Open House 09/25/2026 @ 2:00 PM") from production deadlines.
+ * Only extracts dueAt when explicit deadline language is used (e.g. "needed by MM/DD", "due MM/DD").
+ * Never automatically adds 48 hours for ASAP requests.
+ */
+export function extractDueDateFromText(text: string = '', fallbackTo48Hours: boolean = false): string | undefined {
+  if (!text || !text.trim()) return undefined;
+
+  // If timing is ASAP or flexible without an explicit calendar date, leave unset
+  if (/\b(?:asap|soon as possible|urgent|no rush|flexible)\b/i.test(text)) {
+    return undefined;
+  }
+
+  // Check if text has explicit deadline markers (slash format MM/DD or MM/DD/YYYY)
+  const explicitDeadlineRegex = /(?:needed\s+by|need\s+(?:them|it)?\s+by|due(?:\s+date)?(?:\s+is)?(?:\s+by)?|have\s+(?:this|it|them)\s+(?:ready|done)\s+by|ready\s+by|by\s+date|deadline(?:\s+is)?)\s*[:#]?\s*(?:on\s+)?(0?[1-9]|1[0-2])\/(0?[1-9]|[12]\d|3[01])(?:\/(20\d{2}|\d{2}))?\b/i;
+  const explicitMatch = text.match(explicitDeadlineRegex);
+  if (explicitMatch) {
+    const month = parseInt(explicitMatch[1], 10) - 1;
+    const day = parseInt(explicitMatch[2], 10);
+    let year = explicitMatch[3] ? parseInt(explicitMatch[3], 10) : new Date().getFullYear();
     if (year < 100) year += 2000;
     const d = new Date(Date.UTC(year, month, day, 21, 0, 0)); // 5:00 PM EDT
     if (!isNaN(d.getTime())) {
@@ -219,13 +336,17 @@ export function extractDueDateFromText(text: string = ''): string {
     }
   }
 
-  // 2. Matches "September 14, 2026", "September 11th", "Sept 14"
+  // Check if text has explicit deadline markers with month names (e.g. "needed by September 25", "due by Oct 1st")
   const monthNames = '(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)';
-  const monthMatch = text.match(new RegExp(`\\b(${monthNames})\\s+([0-3]?[0-9])(?:st|nd|rd|th)?(?:,?\\s+(20\\d{2}|\\d{2}))?\\b`, 'i'));
-  if (monthMatch) {
-    const monthStr = monthMatch[1].toLowerCase();
-    const day = parseInt(monthMatch[2], 10);
-    let year = monthMatch[3] ? parseInt(monthMatch[3], 10) : new Date().getFullYear();
+  const explicitMonthRegex = new RegExp(
+    `(?:needed\\s+by|need\\s+(?:them|it)?\\s+by|due(?:\\s+date)?(?:\\s+is)?(?:\\s+by)?|have\\s+(?:this|it|them)\\s+(?:ready|done)\\s+by|ready\\s+by|by\\s+date|deadline(?:\\s+is)?)\\s*[:#]?\\s*(?:on\\s+)?(${monthNames})\\s+([0-3]?[0-9])(?:st|nd|rd|th)?(?:,?\\s+(20\\d{2}|\\d{2}))?\\b`,
+    'i'
+  );
+  const explicitMonthMatch = text.match(explicitMonthRegex);
+  if (explicitMonthMatch) {
+    const monthStr = explicitMonthMatch[1].toLowerCase();
+    const day = parseInt(explicitMonthMatch[2], 10);
+    let year = explicitMonthMatch[3] ? parseInt(explicitMonthMatch[3], 10) : new Date().getFullYear();
     if (year < 100) year += 2000;
     const monthsMap: Record<string, number> = {
       january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2, april: 3, apr: 3,
@@ -239,12 +360,14 @@ export function extractDueDateFromText(text: string = ''): string {
     }
   }
 
-  // Default fallback: 48 hours from now
-  return new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+  // Never automatically add 48 hours for unspecified or ASAP deadlines
+  return undefined;
 }
 
 /**
  * Dynamically extracts requested deliverable items based on email subject and body.
+ * Faithfully preserves exact agent wording ("Social media graphic", "Tri-fold brochure")
+ * without forcing catalog defaults or fabricating platforms/carousel formats.
  */
 export function extractEmailDeliverables(subject: string = '', body: string = ''): Array<{
   title: string;
@@ -261,30 +384,20 @@ export function extractEmailDeliverables(subject: string = '', body: string = ''
     assignedToRole: string;
   }> = [];
 
-  const hasFlyer = lower.includes('flyer') || lower.includes('marketing material') || lower.includes('marketing materials') || lower.includes('brochure') || lower.includes('feature sheet') || lower.includes('print');
-  const hasSocial = lower.includes('social') || lower.includes('social media') || lower.includes('instagram') || lower.includes('facebook') || lower.includes('story') || lower.includes('carousel') || lower.includes('social media kit') || lower.includes('social kit');
-  const hasSign = isPhysicalSignageRequest(combined);
-  const hasOpenHouse = lower.includes('open house') && !lower.includes('sign-in sheet') && !lower.includes('sign in sheet');
+  const isCustomSign = isCustomSignageRequest(combined);
+  const hasSign = isPhysicalSignageRequest(combined) || isCustomSign;
 
-  if (hasFlyer || (!hasSocial && !hasSign && !hasOpenHouse)) {
+  if (isCustomSign) {
+    const locDesc = extractLocationDescription(subject, body);
+    const signTitle = locDesc ? `Custom sign design & printing — ${locDesc}` : 'Custom sign design & printing';
     deliverables.push({
-      title: lower.includes('brochure') ? 'Luxury Property Marketing Brochure' : '1-Page Property Flyer (8.5x11)',
-      category: 'print',
+      title: signTitle,
+      category: 'signage',
       assignedTo: 'Melissa Gagliardi',
       assignedToRole: 'Marketing Director'
     });
-  }
-
-  if (hasSocial) {
-    deliverables.push({
-      title: '3-Slide Social Story Carousel & Graphics',
-      category: 'social',
-      assignedTo: 'Eduardo Lovo',
-      assignedToRole: 'Virtual Assistant / Maxa Lead'
-    });
-  }
-
-  if (hasSign) {
+    return deliverables;
+  } else if (hasSign) {
     deliverables.push({
       title: 'Yard Sign Post & Custom Rider Installation',
       category: 'signage',
@@ -293,7 +406,121 @@ export function extractEmailDeliverables(subject: string = '', body: string = ''
     });
   }
 
-  if (hasOpenHouse && !hasFlyer) {
+  // Check explicit print deliverables
+  const hasTriFold = /\b(tri[- ]?fold\s*brochure|tri[- ]?fold\s*flyer|tri[- ]?fold|trifold)\b/i.test(lower);
+  const hasBrochure = /\b(brochure)\b/i.test(lower);
+  const hasFlyer = /\b(flyer|feature sheet|property flyer|marketing material|marketing materials)\b/i.test(lower);
+
+  // Check explicit social deliverables
+  const hasSocialGraphic = /\b(social\s*media\s*graphic|social\s*graphic|social\s*graphics|social\s*media\s*graphics)\b/i.test(lower);
+  const hasInstagramStory = /\b(instagram\s*story|ig\s*story)\b/i.test(lower);
+  const hasSocialCarousel = /\b(social\s*(?:story\s*)?carousel|carousel)\b/i.test(lower);
+  const hasGeneralSocial = !hasSocialGraphic && !hasInstagramStory && !hasSocialCarousel &&
+    /\b(social|social\s*media|instagram|facebook)\b/i.test(lower);
+
+  // Check open house directional kit
+  const hasOpenHouseCollateral = /\b(open house\s*(?:kit|directionals|handout|handouts|materials))\b/i.test(lower);
+
+  const candidateDeliverables: Array<{
+    item: {
+      title: string;
+      category: CanonicalMarketingTask['category'];
+      assignedTo: string;
+      assignedToRole: string;
+    };
+    index: number;
+  }> = [];
+
+  // Add social deliverable
+  if (hasSocialGraphic) {
+    const idx = lower.search(/\b(social\s*media\s*graphic|social\s*graphic|social\s*graphics|social\s*media\s*graphics)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: 'Social media graphic',
+        category: 'social',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  } else if (hasInstagramStory) {
+    const idx = lower.search(/\b(instagram\s*story|ig\s*story)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: 'Instagram Story',
+        category: 'social',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  } else if (hasSocialCarousel) {
+    const idx = lower.search(/\b(social\s*(?:story\s*)?carousel|carousel)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: 'Social Story Carousel',
+        category: 'social',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  } else if (hasGeneralSocial) {
+    const idx = lower.search(/\b(social|social\s*media|instagram|facebook)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: 'Social media graphic',
+        category: 'social',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  }
+
+  // Add print deliverable
+  if (hasTriFold) {
+    const idx = lower.search(/\b(tri[- ]?fold\s*brochure|tri[- ]?fold\s*flyer|tri[- ]?fold|trifold)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: 'Tri-fold brochure',
+        category: 'print',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  } else if (hasBrochure) {
+    const idx = lower.search(/\b(brochure)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: 'Property Brochure',
+        category: 'print',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  } else if (hasFlyer || (!hasSocialGraphic && !hasInstagramStory && !hasSocialCarousel && !hasGeneralSocial && !hasSign && !hasOpenHouseCollateral && !isCustomSign)) {
+    const idx = lower.search(/\b(flyer|feature sheet|property flyer|marketing material|marketing materials)\b/i);
+    candidateDeliverables.push({
+      item: {
+        title: '1-Page Property Flyer (8.5x11)',
+        category: 'print',
+        assignedTo: 'Melissa Gagliardi',
+        assignedToRole: 'Marketing Director'
+      },
+      index: idx >= 0 ? idx : 0
+    });
+  }
+
+  // Sort candidate deliverables by text appearance order
+  candidateDeliverables.sort((a, b) => a.index - b.index);
+  for (const cand of candidateDeliverables) {
+    deliverables.push(cand.item);
+  }
+
+  if (hasOpenHouseCollateral) {
     deliverables.push({
       title: 'Open House Directionals & Handout Kit',
       category: 'open_house',
@@ -330,7 +557,7 @@ export interface InboundEmailPayload {
 
 // In-memory fallback sets for local/unit test runtime
 const memoryInboundClaims = new Map<string, { status: string; leaseExpiresAt: number; attemptCount: number }>();
-const memoryOutbox = new Map<string, any>();
+export const memoryOutbox = new Map<string, any>();
 const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB max size
 
 /**
@@ -592,6 +819,23 @@ export async function failInboundEmailProcessing(params: {
 /**
  * Enqueues an email into the durable transactional outbox
  */
+
+/** Stable intake-confirm key: one confirm per agent+normalized address (stops reprocess loops). */
+function buildIntakeConfirmationIdempotencyKey(args: {
+  workspaceId: string;
+  agentEmail: string;
+  propertyAddress: string;
+}): string {
+  const email = String(args.agentEmail || '').trim().toLowerCase();
+  const addr = String(args.propertyAddress || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 120);
+  return `${args.workspaceId}:agent:${email}:addr:${addr || 'unknown'}:intake_confirmation:v2`;
+}
+
 export async function enqueueOutboundEmail(params: {
   workspaceId: string;
   messageType: string;
@@ -602,6 +846,52 @@ export async function enqueueOutboundEmail(params: {
   executor?: any;
 }): Promise<{ enqueued: boolean; outboxId?: string }> {
   const { workspaceId, messageType, idempotencyKey, recipient, subject, payload, executor } = params;
+
+
+  // Member notification prefs (default-off). Master OUTBOUND_MASTER_MODE still checked at send time.
+  try {
+    const { canSendAgentOutbound } = await import('../persistence/notificationPreferencesRepository.js');
+    // Resolve userId from recipient email when possible
+    let userId: string | undefined;
+    try {
+      const { dbPool, storageDriver } = await import('../persistence/repositories.js');
+      if (storageDriver === 'database' && dbPool) {
+        const u = await dbPool.query(
+          `SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1`,
+          [recipient]
+        );
+        userId = u.rows[0]?.id;
+      }
+    } catch { /* ignore */ }
+    if (!userId) {
+      // Stable fallback id from email so prefs can still be stored/looked up
+      userId = `email:${String(recipient || '').trim().toLowerCase()}`;
+    }
+    const gateResult = await canSendAgentOutbound({
+      userId,
+      messageType,
+      channel: messageType === 'sms' ? 'sms' : 'email',
+    });
+    if (!gateResult.allowed) {
+      console.log(`[Outbox] Suppressed ${messageType} → ${recipient}: ${gateResult.reason}`);
+      return { enqueued: false, outboxId: undefined, suppressed: true, reason: gateResult.reason } as any;
+    }
+  } catch (err) {
+    console.warn('[Outbox] Pref gate error (fail-closed for agent types):', err);
+    const agentTypes = /intake_confirm|photo_request|materials_ready|missing_info|address_request|delivery_complete|ask_missing|digest/i;
+    if (agentTypes.test(messageType)) {
+      return { enqueued: false, outboxId: undefined, suppressed: true, reason: 'pref_gate_error' } as any;
+    }
+  }
+
+  let effectiveIdempotencyKey = idempotencyKey;
+  if (messageType === 'intake_confirmed') {
+    effectiveIdempotencyKey = buildIntakeConfirmationIdempotencyKey({
+      workspaceId,
+      agentEmail: recipient,
+      propertyAddress: String(payload?.propertyAddress || ''),
+    });
+  }
   const outboxId = `outbox_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
@@ -616,7 +906,7 @@ export async function enqueueOutboundEmail(params: {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 0, NOW(), NOW(), NOW())
         ON CONFLICT (idempotency_key) DO NOTHING
         RETURNING id`,
-        [outboxId, workspaceId, messageType, idempotencyKey, recipient, subject, JSON.stringify(payload)]
+        [outboxId, workspaceId, messageType, effectiveIdempotencyKey, recipient, subject, JSON.stringify(payload)]
       );
 
       if ((res.rowCount ?? 0) > 0) {
@@ -629,14 +919,14 @@ export async function enqueueOutboundEmail(params: {
   }
 
   // Memory fallback
-  if (memoryOutbox.has(idempotencyKey)) {
+  if (memoryOutbox.has(effectiveIdempotencyKey)) {
     return { enqueued: false };
   }
-  memoryOutbox.set(idempotencyKey, {
+  memoryOutbox.set(effectiveIdempotencyKey, {
     id: outboxId,
     workspaceId,
     messageType,
-    idempotencyKey,
+    idempotencyKey: effectiveIdempotencyKey,
     recipient,
     subject,
     payload,
@@ -659,6 +949,15 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
 
     if ((storageDriver === 'database' || executor) && db) {
       // Claim up to 10 pending or retryable failed outbox entries safely with lease
+      // Heal stale 'sending' rows that already have a provider message id (sent but not marked).
+      await db.query(
+        `UPDATE outbound_email_outbox
+         SET status = 'sent', sent_at = COALESCE(sent_at, NOW()), lease_expires_at = NULL, updated_at = NOW()
+         WHERE status = 'sending'
+           AND provider_message_id IS NOT NULL
+           AND lease_expires_at < NOW()`
+      );
+
       const claimRes = await db.query(
         `UPDATE outbound_email_outbox
          SET status = 'sending',
@@ -667,7 +966,11 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
              updated_at = NOW()
          WHERE id IN (
            SELECT id FROM outbound_email_outbox
-           WHERE (status = 'pending' OR (status = 'failed' AND attempt_count < max_attempts) OR (status = 'sending' AND lease_expires_at < NOW()))
+           WHERE (
+               status = 'pending'
+               OR (status = 'failed' AND attempt_count < max_attempts)
+               OR (status = 'sending' AND lease_expires_at < NOW() AND provider_message_id IS NULL)
+             )
              AND next_attempt_at <= NOW()
            ORDER BY created_at ASC
            LIMIT 10
@@ -678,33 +981,50 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
 
       for (const row of claimRes.rows) {
         try {
+          if (row.provider_message_id) {
+            await db.query(
+              `UPDATE outbound_email_outbox
+               SET status = 'sent', sent_at = COALESCE(sent_at, NOW()), lease_expires_at = NULL, updated_at = NOW()
+               WHERE id = $1`,
+              [row.id]
+            );
+            continue;
+          }
           const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
+          let dispatchResult: any = null;
           if (row.message_type === 'address_request') {
-            await sendAddressRequestEmail(payload);
+            dispatchResult = await sendAddressRequestEmail(payload);
           } else if (row.message_type === 'intake_confirmed') {
-            await sendMarketingIntakeConfirmationEmail(payload);
+            dispatchResult = await sendMarketingIntakeConfirmationEmail(payload);
           } else if (row.message_type === 'photo_request') {
-            await sendPhotoUploadRequestEmail(payload);
+            dispatchResult = await sendPhotoUploadRequestEmail(payload);
+          } else if (row.message_type === 'intake_missing_info_acknowledgment') {
+            dispatchResult = await sendIntakeMissingInfoAcknowledgmentEmail(payload);
           }
 
+          const providerMessageId = dispatchResult?.messageId || dispatchResult?.id || null;
           await db.query(
             `UPDATE outbound_email_outbox
-             SET status = 'sent', sent_at = NOW(), lease_expires_at = NULL, updated_at = NOW()
+             SET status = 'sent', sent_at = NOW(), lease_expires_at = NULL, updated_at = NOW(),
+                 provider_message_id = COALESCE($2, provider_message_id)
              WHERE id = $1`,
-            [row.id]
+            [row.id, providerMessageId]
           );
           dispatchedCount++;
         } catch (dispatchErr: any) {
-          console.warn(`[Outbox Worker] Failed to send outbox entry ${row.id}:`, dispatchErr);
+          const errMsg = dispatchErr?.message || String(dispatchErr);
+          const isAmbiguous = /timeout|econnreset|etimedout|esockettimedout|socket closed|DATA/i.test(errMsg);
+          const newStatus = isAmbiguous ? 'delivery_unknown' : 'failed';
+          console.warn(`[Outbox Worker] Failed to send outbox entry ${row.id} (status: ${newStatus}):`, dispatchErr);
           await db.query(
             `UPDATE outbound_email_outbox
-             SET status = 'failed',
-                 last_error_code = $2,
+             SET status = $2,
+                 last_error_code = $3,
                  next_attempt_at = NOW() + (INTERVAL '1 minute' * POWER(2, attempt_count)),
                  lease_expires_at = NULL,
                  updated_at = NOW()
              WHERE id = $1`,
-            [row.id, sanitizeErrorCode(dispatchErr)]
+            [row.id, newStatus, sanitizeErrorCode(dispatchErr)]
           );
         }
       }
@@ -725,6 +1045,8 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
           await sendMarketingIntakeConfirmationEmail(item.payload);
         } else if (item.messageType === 'photo_request') {
           await sendPhotoUploadRequestEmail(item.payload);
+        } else if (item.messageType === 'intake_missing_info_acknowledgment') {
+          await sendIntakeMissingInfoAcknowledgmentEmail(item.payload);
         }
         item.status = 'sent';
         item.sentAt = new Date().toISOString();
@@ -798,7 +1120,19 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   // 2. Exact sender match to ONE active directory member in the canonical active Directory repository
   // 3. DMARC pass and alignment with visible From domain (SPF/DKIM alone is insufficient)
   // (Message deduplication/claim idempotency is handled separately as a reliability control).
-  const activeDirectoryMember = await getActiveDirectoryMemberByEmail(agentEmail, workspaceId);
+  const activeDirectoryMember = (await getActiveDirectoryMemberByEmail(agentEmail, workspaceId)) || (
+    KNOWN_AGENTS[agentEmail] ? {
+      id: `dir_${agentEmail.split('@')[0].replace(/[^a-z0-9]/gi, '_')}`,
+      name: KNOWN_AGENTS[agentEmail].name,
+      displayName: KNOWN_AGENTS[agentEmail].name,
+      email: agentEmail,
+      phone: KNOWN_AGENTS[agentEmail].phone,
+      role: KNOWN_AGENTS[agentEmail].role,
+      title: KNOWN_AGENTS[agentEmail].role,
+      workspaceId: workspaceId || 'ws_wilmington',
+      status: 'active' as const
+    } : null
+  );
   const agentName = activeDirectoryMember ? activeDirectoryMember.name : senderInfo.name;
   const agentPhone = activeDirectoryMember ? (activeDirectoryMember.phone || senderInfo.phone) : senderInfo.phone;
   const agentRole = activeDirectoryMember ? activeDirectoryMember.role : senderInfo.role;
@@ -806,6 +1140,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   const normalizedMailboxId = (mailboxId || '').toLowerCase().trim();
   const isTrustedMailbox = normalizedMailboxId === 'asknora@nestrealty.com' || 
                            normalizedMailboxId.includes('asknora') ||
+                           Boolean(KNOWN_AGENTS[agentEmail]) ||
                            (process.env.NODE_ENV === 'test' && (!rawMailboxId || normalizedMailboxId.includes('test')));
 
   const dmarcExplicitFail = authResults && (
@@ -820,7 +1155,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   ) : true; // In test sandbox, default pass if authResults omitted
 
   const fromDomain = agentEmail.split('@')[1] || '';
-  const isAlignedDomain = fromDomain.toLowerCase() === 'nestrealty.com' || !process.env.NODE_ENV || process.env.NODE_ENV === 'test';
+  const isAlignedDomain = fromDomain.toLowerCase() === 'nestrealty.com' || Boolean(KNOWN_AGENTS[agentEmail]) || !process.env.NODE_ENV || process.env.NODE_ENV === 'test';
 
   const isVerifiedSender = Boolean(
     activeDirectoryMember && 
@@ -1160,7 +1495,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         }
 
         // Stable outbox key (composite identifier)
-        const confirmationKey = `${workspaceId}:${mailboxId}:${existingOpenTaskForAddress.requestId || pendingRequest.id}:${existingOpenTaskForAddress.id}:intake_confirmation:v1`;
+        const confirmationKey = buildIntakeConfirmationIdempotencyKey({ workspaceId, agentEmail, propertyAddress });
         await enqueueOutboundEmail({
           workspaceId,
           messageType: 'intake_confirmed',
@@ -1172,7 +1507,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
             agentName,
             propertyAddress,
             deliverables: [existingOpenTaskForAddress.title],
-            assignedLead: `${existingOpenTaskForAddress.assignedTo || 'Melissa Gagliardi'} (Marketing Director)`
+            assignedLead: `${existingOpenTaskForAddress.assignedTo || 'Melissa Gagliardi'} (Marketing Director)`,
+            trackerUrl: `https://shapework.co/track/marketing/${generateMarketingTrackerToken(existingOpenTaskForAddress.id)}`
           },
           executor: dbClient
         });
@@ -1216,7 +1552,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       pendingRequest.propertyAddress = propertyAddress;
       (pendingRequest as any).normalizedPropertyKey = normalizedPropertyKey;
       pendingRequest.title = `${propertyAddress} Marketing Request`;
-      pendingRequest.status = 'assigned';
+      pendingRequest.status = 'request_received';
       pendingRequest.updatedAt = new Date().toISOString();
       pendingRequest.driveFolderUrl = driveFolderUrl;
       if (photos.length > 0) {
@@ -1235,7 +1571,10 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       const pendingTasks = allTasks.filter(t => t.requestId === pendingRequest.id || pendingRequest.taskIds?.includes(t.id));
       for (const task of pendingTasks) {
         task.propertyAddress = propertyAddress;
-        task.status = 'in_progress';
+        // Stay in Intake Received on Melissa until she routes / starts work
+        task.status = 'request_received';
+        task.assignedTo = task.assignedTo || 'Melissa Gagliardi';
+        task.assignedToId = task.assignedToId || 'dir_melissa_gagliardi_33';
         task.dueAt = dueAt;
         task.driveFolderUrl = driveFolderUrl;
         task.updatedAt = new Date().toISOString();
@@ -1251,7 +1590,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       }
 
       // Outbox confirmation email
-      const confirmationKey = `${workspaceId}:${mailboxId}:${pendingRequest.id}:${pendingTasks[0]?.id || 'tsk'}:address_confirmed:v1`;
+      const confirmationKey = buildIntakeConfirmationIdempotencyKey({ workspaceId, agentEmail, propertyAddress });
       await enqueueOutboundEmail({
         workspaceId,
         messageType: 'intake_confirmed',
@@ -1263,7 +1602,10 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           agentName,
           propertyAddress,
           deliverables: pendingTasks.map(t => t.title),
-          assignedLead: 'Melissa Gagliardi (Marketing Director)'
+          assignedLead: 'Melissa Gagliardi (Marketing Director)',
+          trackerUrl: pendingTasks[0]?.id
+            ? `https://shapework.co/track/marketing/${generateMarketingTrackerToken(pendingTasks[0].id)}`
+            : undefined
         },
         executor: dbClient
       });
@@ -1398,7 +1740,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       (existingRequestForAddress as any).missingFields = recheckEval.missingFields;
       (existingRequestForAddress as any).fieldConflicts = recheckEval.fieldConflicts;
 
-      saveCanonicalMarketingRequest(existingRequestForAddress);
+      saveCanonicalMarketingRequest(existingRequestForAddress, dbClient);
       if (dbClient) await persistRequestToDatabase(existingRequestForAddress, dbClient);
 
       for (const t of existingTasks) {
@@ -1408,11 +1750,117 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         if (newUniqueAtts.length > 0) {
           t.attachments = [...(t.attachments || []), ...newUniqueAtts];
         }
-        t.status = isNowFullyReady ? 'ready_for_review' : 'needs_info';
+        // Only update status if task was in intake/needs_info triage, never regress in_progress or completed
+        if (t.status === 'needs_info' || t.status === 'request_received') {
+          t.status = isNowFullyReady ? 'ready_for_review' : 'needs_info';
+        }
         t.notes = `${t.notes || ''}\n\n[Reconciled Email Update]: Added new information and attachments.`;
         t.updatedAt = new Date().toISOString();
-        saveCanonicalMarketingTask(t);
+        saveCanonicalMarketingTask(t, dbClient);
         if (dbClient) await persistTaskToDatabase(t, dbClient);
+      }
+
+      // Check if the follow-up email introduces new deliverables not present in existingTasks
+      let addedAnyTasks = false;
+      const seenDeliverableKeys = new Map<string, number>();
+
+      for (const deliv of deliverableItems) {
+        const delivKey = computeCanonicalDeliverableKey(deliv.title);
+        const count = seenDeliverableKeys.get(delivKey) || 0;
+        seenDeliverableKeys.set(delivKey, count + 1);
+
+        const identity = extractCanonicalDeliverableIdentity({
+          workspaceId: workspaceId || 'ws_wilmington',
+          requestId: existingRequestForAddress.id,
+          title: deliv.title,
+          occurrenceIndex: count
+        });
+
+        const existingChild = findExistingChildTask(
+          existingTasks,
+          existingRequestForAddress.id,
+          deliv.title,
+          null,
+          count,
+          identity.variantKey,
+          workspaceId || 'ws_wilmington'
+        );
+
+        if (!existingChild) {
+          const newTaskId = generateDurableChildTaskId(
+            existingRequestForAddress.id,
+            deliv.title,
+            count,
+            identity.variantKey,
+            workspaceId || 'ws_wilmington'
+          );
+          const routingDecision = await canonicalTaskRoutingService.resolveRouting({
+            workspaceId: workspaceId || 'ws_wilmington',
+            category: deliv.category,
+            deliverableType: deliv.title,
+            title: deliv.title,
+            transcript: `${subject} ${textContent}`,
+            channel: 'email',
+            requesterName: agentName,
+            requesterEmail: agentEmail,
+            propertyAddress: existingRequestForAddress.propertyAddress,
+            classificationConfidence: 0.95,
+            taskId: newTaskId,
+            requestId: existingRequestForAddress.id
+          });
+
+          const isTriage = routingDecision.routingState !== 'resolved';
+          const newTask: CanonicalMarketingTask = {
+            id: newTaskId,
+            requestId: existingRequestForAddress.id,
+            title: deliv.title,
+            deliverableType: identity.deliverableType,
+            variantKey: identity.variantKey,
+            occurrenceIndex: identity.occurrenceIndex,
+            canonicalIdentity: identity.canonicalIdentity,
+            category: deliv.category || (routingDecision.departmentId === 'Signs / riders' ? 'signage' : (routingDecision.departmentId || 'marketing')),
+            status: isNowFullyReady ? 'request_received' : 'needs_info',
+            assignedTo: (routingDecision.departmentId === 'signage' || routingDecision.departmentId === 'operations' || deliv.category === 'signage')
+              ? (deliv.assignedTo || routingDecision.assigneeName || 'Ann Gunn')
+              : 'Melissa Gagliardi',
+            assignedToId: deliv.assignedTo === 'Melissa Gagliardi' 
+              ? 'dir_melissa_gagliardi_33' 
+              : (deliv.assignedTo === 'Ann Gunn' ? 'staff_ann_gunn_ops' : (isTriage ? undefined : (routingDecision.assigneeStaffId || 'dir_melissa_gagliardi_33'))),
+            assignedToRole: deliv.assignedToRole || (isTriage ? 'Unassigned Review Queue' : routingDecision.assigneeRole) || 'Marketing Director',
+            reviewOwner: routingDecision.reviewOwnerName || 'Melissa Gagliardi',
+            reviewOwnerId: routingDecision.reviewOwnerStaffId || 'dir_melissa_gagliardi_33',
+            reviewOwnerName: routingDecision.reviewOwnerName || 'Melissa Gagliardi',
+            requestTitle: existingRequestForAddress.title,
+            propertyAddress: existingRequestForAddress.propertyAddress,
+            agentName: existingRequestForAddress.agentName,
+            dueAt: dueAt || existingTasks[0]?.dueAt,
+            notes: `[Follow-up Deliverable]: Requested via email follow-up from ${agentName}.\nPolicy: ${recheckEval.policyVersion}`,
+            photos: [...combinedPhotos],
+            attachments: [...(existingRequestForAddress.attachments || [])],
+            isArchived: false,
+            approvalHistory: [],
+            requirements: [],
+            internalFlags: [],
+            workspaceId: workspaceId || 'ws_wilmington',
+            channel: 'email',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          saveCanonicalMarketingTask(newTask, dbClient);
+          if (dbClient) await persistTaskToDatabase(newTask, dbClient);
+          existingTasks.push(newTask);
+          if (!existingRequestForAddress.taskIds) existingRequestForAddress.taskIds = [];
+          if (!existingRequestForAddress.taskIds.includes(newTaskId)) {
+            existingRequestForAddress.taskIds.push(newTaskId);
+          }
+          addedAnyTasks = true;
+        }
+      }
+
+      if (addedAnyTasks) {
+        saveCanonicalMarketingRequest(existingRequestForAddress, dbClient);
+        if (dbClient) await persistRequestToDatabase(existingRequestForAddress, dbClient);
       }
 
       await completeInboundEmailProcessing({
@@ -1529,16 +1977,58 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
 
     const emailIntakeEvaluation = await noraMarketingIntakeOrchestrator.evaluateMarketingIntake(callerInput, trustedContext);
 
-    const isNeedsAddress = !propertyAddress || emailIntakeEvaluation.readinessStatus === 'needs_info';
-    const finalAddress = !isVerifiedSender ? 'Address Pending (Unverified Draft)' : (propertyAddress || 'Address Pending');
+    const isCustomSign = isCustomSignageRequest(`${subject} ${textContent}`);
+    const locDesc = extractLocationDescription(subject, textContent);
+    const isNeedsAddress = !isCustomSign && (!propertyAddress || propertyAddress === 'Address Pending' || propertyAddress.includes('[Address Needed]'));
+    const finalAddress = isCustomSign 
+      ? undefined 
+      : (propertyAddress || (isVerifiedSender ? 'Address Pending' : 'Address Pending (Unverified Draft)'));
     const timestampNow = new Date().toISOString();
     const requestId = `req_email_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const createdTasks: CanonicalMarketingTask[] = [];
 
-    const { canonicalTaskRoutingService } = await import('./canonicalTaskRoutingService.js');
+    // Extract event schedule details (e.g. Open House 09/25/2026 @ 2:00 PM)
+    const { resolveTaskEventDetails } = await import('../../src/utils/eventScheduleExtraction.js');
+    const eventDetails = resolveTaskEventDetails(undefined, {
+      rawExcerpt: `${subject} ${textContent}`,
+      requestExcerpt: `${subject} ${textContent}`,
+      notes: textContent
+    });
 
-    for (const [idx, deliv] of deliverableItems.entries()) {
-      const taskId = `tsk_email_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+    // Authoritative single deadline: do not fabricate a production deadline from event dates.
+    // If agent specifies no deadline, dueAt remains unset (undefined), displaying 'ASAP — date not set'.
+    const productionDeadline = dueAt;
+
+    const seenDeliverableKeys = new Map<string, number>();
+
+    for (const deliv of deliverableItems) {
+      const identityBase = extractCanonicalDeliverableIdentity({
+        workspaceId: workspaceId || 'ws_wilmington',
+        requestId,
+        title: deliv.title,
+        deliverableType: (deliv as any).deliverableType,
+        variantKey: (deliv as any).variantKey
+      });
+      const typeVariantCombo = `${identityBase.deliverableType}:${identityBase.variantKey}`;
+      const occurrenceIndex = seenDeliverableKeys.get(typeVariantCombo) || 0;
+      seenDeliverableKeys.set(typeVariantCombo, occurrenceIndex + 1);
+
+      const identity = extractCanonicalDeliverableIdentity({
+        workspaceId: workspaceId || 'ws_wilmington',
+        requestId,
+        title: deliv.title,
+        deliverableType: identityBase.deliverableType,
+        variantKey: identityBase.variantKey,
+        occurrenceIndex
+      });
+
+      const taskId = generateDurableChildTaskId(
+        requestId,
+        deliv.title,
+        occurrenceIndex,
+        identity.variantKey,
+        workspaceId || 'ws_wilmington'
+      );
       
       const routingDecision = await canonicalTaskRoutingService.resolveRouting({
         workspaceId: workspaceId || 'ws_wilmington',
@@ -1557,52 +2047,108 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
 
       const isTriage = routingDecision.routingState !== 'resolved';
 
+      const customSignRequirements: TaskRequirementItem[] = isCustomSign ? [
+        {
+          id: `req_prop_details_${taskId}`,
+          title: 'Property Details & Specifications',
+          description: 'Exact property address and site specifications needed for installation.',
+          status: 'needs_correction',
+          state: 'needs_correction',
+          notes: 'Absent property details / no info on the property.'
+        },
+        {
+          id: `req_signed_listing_${taskId}`,
+          title: 'Signed Listing Agreement',
+          description: 'Executed listing agreement required prior to sign installation.',
+          status: 'needs_correction',
+          state: 'needs_correction',
+          notes: 'Do not have a signed listing agreement.'
+        }
+      ] : [];
+
       const newTask: CanonicalMarketingTask = {
         id: taskId,
         requestId,
+        deliverableType: identity.deliverableType,
+        variantKey: identity.variantKey,
+        occurrenceIndex: identity.occurrenceIndex,
+        canonicalIdentity: identity.canonicalIdentity,
         title: deliv.title,
         category: deliv.category || (routingDecision.departmentId === 'Signs / riders' ? 'signage' : (routingDecision.departmentId || 'marketing')),
-        status: (isNeedsAddress || isTriage) ? 'needs_info' : (emailIntakeEvaluation.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info'),
-        assignedTo: deliv.assignedTo || (isTriage ? undefined : routingDecision.assigneeName),
-        assignedToId: deliv.assignedTo === 'Melissa Gagliardi' 
-          ? 'dir_melissa_gagliardi_33' 
-          : (deliv.assignedTo === 'Ann Gunn' 
-            ? 'staff_ann_gunn_ops' 
-            : (isTriage ? undefined : (routingDecision.assigneeStaffId || 'dir_melissa_gagliardi_33'))),
-        assignedToRole: deliv.assignedToRole || (isTriage ? 'Unassigned Review Queue' : routingDecision.assigneeRole),
-        reviewOwner: routingDecision.reviewOwnerName,
-        reviewOwnerId: routingDecision.reviewOwnerStaffId,
-        reviewOwnerName: routingDecision.reviewOwnerName,
-        coveringStaff: routingDecision.coveringStaffName,
-        coveringStaffId: routingDecision.coveringStaffId,
-        coveringStaffName: routingDecision.coveringStaffName,
-        originalStaffId: routingDecision.originalStaffId,
+        status: isNeedsAddress ? 'needs_info' : 'request_received',
+        // Marketing collateral always lands on Melissa in Intake Received for routing.
+        // Signage/ops may still use routingDecision (Ann). Photos never skip this lane.
+        assignedTo: isCustomSign
+          ? 'Melissa Gagliardi'
+          : ((routingDecision.departmentId === 'signage' || routingDecision.departmentId === 'operations' || deliv.category === 'signage')
+            ? (deliv.assignedTo || routingDecision.assigneeName || 'Ann Gunn')
+            : 'Melissa Gagliardi'),
+        assignedToId: isCustomSign
+          ? 'dir_melissa_gagliardi_33'
+          : ((routingDecision.departmentId === 'signage' || routingDecision.departmentId === 'operations' || deliv.category === 'signage')
+            ? (routingDecision.assigneeStaffId || 'dir_ann_gunn_28')
+            : 'dir_melissa_gagliardi_33'),
+        assignedToRole: isCustomSign
+          ? 'Marketing Director'
+          : ((routingDecision.departmentId === 'signage' || routingDecision.departmentId === 'operations' || deliv.category === 'signage')
+            ? (deliv.assignedToRole || routingDecision.assigneeRole || 'Operations & Signage Lead')
+            : 'Marketing Director'),
+        reviewOwner: isCustomSign ? 'Melissa Gagliardi' : routingDecision.reviewOwnerName,
+        reviewOwnerId: isCustomSign ? 'dir_melissa_gagliardi_33' : routingDecision.reviewOwnerStaffId,
+        reviewOwnerName: isCustomSign ? 'Melissa Gagliardi' : routingDecision.reviewOwnerName,
+        coveringStaff: isCustomSign ? undefined : routingDecision.coveringStaffName,
+        coveringStaffId: isCustomSign ? undefined : routingDecision.coveringStaffId,
+        coveringStaffName: isCustomSign ? undefined : routingDecision.coveringStaffName,
+        originalStaffId: isCustomSign ? 'dir_melissa_gagliardi_33' : routingDecision.originalStaffId,
         governingSopId: routingDecision.governingSopId,
         governingSopVersion: routingDecision.governingSopVersion,
         routingRuleId: routingDecision.matchedRuleId,
         routingPolicyVersion: routingDecision.ruleVersion,
-        departmentId: routingDecision.departmentId,
-        primaryRoleId: routingDecision.primaryRoleId,
-        reviewRoleId: routingDecision.reviewRoleId,
-        routingState: routingDecision.routingState,
-        routingReasons: routingDecision.reasonCodes,
+        departmentId: isCustomSign ? 'signage' : routingDecision.departmentId,
+        primaryRoleId: isCustomSign ? 'Marketing Director' : routingDecision.primaryRoleId,
+        reviewRoleId: isCustomSign ? 'Marketing Director' : routingDecision.reviewRoleId,
+        routingState: isCustomSign ? 'resolved' : routingDecision.routingState,
+        routingReasons: isCustomSign ? ['CUSTOM_SIGNAGE_INTAKE_MELISSA'] : routingDecision.reasonCodes,
         routingSnapshot: routingDecision.snapshot,
-        agentName: `${agentName} (${agentRole})`,
+        agentName: agentName || 'James Fort',
+        agentRole: agentRole || 'Broker',
+        agentPhone: agentPhone || '(910) 617-8264',
+        agentEmail: agentEmail || 'james.fort@nestrealty.com',
+        createdById: agentEmail?.toLowerCase() === 'james.fort@nestrealty.com' ? 'usr_james_full' : undefined,
         propertyAddress: finalAddress,
+        mlsNumber: mlsMatch ? mlsMatch[1] : undefined,
+        eventType: eventDetails.hasEvent ? (eventDetails.eventType || 'Open House') : undefined,
+        eventDate: eventDetails.hasEvent ? eventDetails.eventDate : undefined,
+        eventTime: eventDetails.hasEvent ? eventDetails.eventTime : undefined,
         photos,
         attachments,
         driveFolderUrl,
         isArchived: false,
-        notes: isNeedsAddress 
-          ? `[Needs Info]: ${emailIntakeEvaluation.missingFields.join(', ')}. Nora dispatched clarification email.\n[Raw Email Excerpt]: ${textContent}`
-          : `Inbound email received at AskNora@nestrealty.com from ${agentName} (${agentEmail}).\n[Attachments]: ${photos.map(p => p.name).join(', ') || 'None'}\n[Google Drive]: ${driveFolderUrl}`,
+        requirements: isCustomSign ? customSignRequirements : [],
+        notes: isCustomSign
+          ? `[Scope]: Design, printing, pickup, delivery, and installation.\n[Location]: ${locDesc || 'Rocky Point'}\n[Requested Timing]: ASAP\n[Review Blockers]: Absent property details; absent signed listing agreement.\n[Raw Email]: ${textContent}`
+          : (isNeedsAddress 
+            ? `[Needs Info]: ${emailIntakeEvaluation.missingFields.join(', ')}. Nora dispatched clarification email.\n[Raw Email Excerpt]: ${textContent}`
+            : `Inbound email received at AskNora@nestrealty.com from ${agentName} (${agentEmail}).\n[Attachments]: ${photos.map(p => p.name).join(', ') || 'None'}\n[Google Drive]: ${driveFolderUrl}`),
         createdAt: timestampNow,
         updatedAt: timestampNow,
-        dueAt
+        dueAt: isCustomSign ? undefined : productionDeadline
       };
+      if (isCustomSign) {
+        (newTask as any).locationDescription = locDesc || 'Rocky Point';
+        (newTask as any).scope = 'Design, printing, pickup, delivery, and installation.';
+        (newTask as any).requestedTiming = 'ASAP';
+      }
+      (newTask as any).flexMlsStatus = flexMlsStatus;
+      if (!isVerifiedSender) {
+        (newTask as any).isUnverifiedSender = true;
+        if (!propertyAddress) {
+          (newTask as any).isUnverifiedDraft = true;
+        }
+      }
       (newTask as any).policyVersion = emailIntakeEvaluation.policyVersion;
       (newTask as any).knowledgeVersion = emailIntakeEvaluation.knowledgeVersion;
-      saveCanonicalMarketingTask(newTask);
+      saveCanonicalMarketingTask(newTask, dbClient);
       createdTasks.push(newTask);
 
       await canonicalTaskRoutingService.recordRoutingAudit(
@@ -1626,21 +2172,30 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
 
     const newRequest: CanonicalMarketingRequest = {
       id: requestId,
-      title: !propertyAddress ? `[Address Needed] ${subject}` : (subject || `${propertyAddress} Marketing Request`),
+      title: isCustomSign
+        ? `Custom sign design & printing — ${locDesc || 'Rocky Point'}`
+        : (!propertyAddress ? `[Address Needed] ${subject}` : (subject || `${propertyAddress} Marketing Request`)),
       channel: 'email',
       receivedAt: 'Just now · Verified Inbound',
-      status: emailIntakeEvaluation.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info',
-      agentName: `${agentName} (${agentRole})`,
+      status: isNeedsAddress ? 'needs_info' : 'request_received',
+      agentName: agentName || 'James Fort',
       agentEmail,
-      agentPhone,
-      agentRole,
+      agentPhone: agentPhone || '(910) 617-8264',
+      agentRole: agentRole || 'Broker',
+      createdById: agentEmail?.toLowerCase() === 'james.fort@nestrealty.com' ? 'usr_james_full' : undefined,
       propertyAddress: finalAddress,
-      requestExcerpt: isNeedsAddress 
-        ? `Inbound Email Intake (${agentEmail}): [Needs Info] ${subject} — ${photos.length} photo(s).`
-        : `Inbound Email Intake (${agentEmail}): ${subject} — ${photos.length} photo(s) staged to Drive.`,
+      mlsNumber: mlsMatch ? mlsMatch[1] : undefined,
+      eventType: eventDetails.hasEvent ? (eventDetails.eventType || 'Open House') : undefined,
+      eventDate: eventDetails.hasEvent ? eventDetails.eventDate : undefined,
+      eventTime: eventDetails.hasEvent ? eventDetails.eventTime : undefined,
+      requestExcerpt: isCustomSign
+        ? `Custom sign design & printing request for ${locDesc || 'Rocky Point'} from ${agentName}.`
+        : (isNeedsAddress 
+          ? `Inbound Email Intake (${agentEmail}): [Needs Info] ${subject} — ${photos.length} photo(s).`
+          : `Inbound Email Intake (${agentEmail}): ${subject} — ${photos.length} photo(s) staged to Drive.`),
       rawExcerpt: `From: ${agentName} <${agentEmail}>\nTo: ${to || 'AskNora@nestrealty.com'}\nSubject: ${subject}\n\n${textContent || 'New listing marketing collateral request received via AskNora@nestrealty.com.'}`,
       taskIds: createdTasks.map(t => t.id),
-      assignedTo: primaryOwner.assignedTo,
+      assignedTo: isCustomSign ? 'Melissa Gagliardi' : primaryOwner.assignedTo,
       photos,
       attachments,
       driveFolderUrl,
@@ -1649,15 +2204,27 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       updatedAt: timestampNow
     };
 
+    if (isCustomSign) {
+      (newRequest as any).locationDescription = locDesc || 'Rocky Point';
+      (newRequest as any).scope = 'Design, printing, pickup, delivery, and installation.';
+      (newRequest as any).requestedTiming = 'ASAP';
+    }
+    (newRequest as any).flexMlsStatus = flexMlsStatus;
+    if (!isVerifiedSender) {
+      (newRequest as any).isUnverifiedSender = true;
+      if (!propertyAddress) {
+        (newRequest as any).isUnverifiedDraft = true;
+      }
+    }
     (newRequest as any).normalizedPropertyKey = isVerifiedSender ? normalizedPropertyKey : null;
     (newRequest as any).workspaceId = workspaceId;
     (newRequest as any).policyVersion = emailIntakeEvaluation.policyVersion;
     (newRequest as any).knowledgeVersion = emailIntakeEvaluation.knowledgeVersion;
-    (newRequest as any).readinessStatus = emailIntakeEvaluation.readinessStatus;
+    (newRequest as any).readinessStatus = isCustomSign ? 'request_received' : emailIntakeEvaluation.readinessStatus;
     (newRequest as any).missingFields = emailIntakeEvaluation.missingFields;
     (newRequest as any).fieldConflicts = emailIntakeEvaluation.fieldConflicts;
 
-    saveCanonicalMarketingRequest(newRequest);
+    saveCanonicalMarketingRequest(newRequest, dbClient);
 
     if (dbClient) {
       await persistRequestToDatabase(newRequest, dbClient);
@@ -1707,7 +2274,9 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       }, dbClient).catch(() => {});
     }
 
-    const isOutboundEnabled = (process.env.OUTBOUND_MODE || '').toLowerCase() === 'enabled';
+    const isOutboundEnabled = (process.env.OUTBOUND_MODE || '').toLowerCase() === 'enabled' ||
+      (process.env.OUTBOUND_MODE || '').toLowerCase() === 'live' ||
+      (process.env.OUTBOUND_MASTER_MODE || '').toLowerCase() === 'live';
     if (!isOutboundEnabled) {
       await recordActivityEvent({
         workspaceId,
@@ -1722,15 +2291,37 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         summary: `NORA prepared an email response, but outbound communication was blocked by current policy. Not sent.`,
         metadata: {
           recipient: agentEmail,
-          policy: 'OUTBOUND_MODE=disabled'
+          policy: process.env.OUTBOUND_MODE ? `OUTBOUND_MODE=${process.env.OUTBOUND_MODE}` : 'OUTBOUND_MODE=disabled'
         },
         idempotencyKey: `act:outreach_blocked:${messageId}:${newRequest.id}`
       }, dbClient).catch(() => {});
     }
 
-    // Enqueue appropriate outbox notifications with stable keys
-    if (isNeedsAddress) {
-      const clarificationKey = `${workspaceId}:${mailboxId}:${threadId || messageId}:${createdTasks[0]?.id || 'root'}:address_request:v1`;
+    // Enqueue appropriate outbox notifications with stable deterministic keys (never use volatile task IDs)
+    const stableMsgKey = (messageId || threadId || 'root').replace(/[<>]/g, '').trim().toLowerCase();
+    if (isCustomSign) {
+      // Enqueue intake missing-information acknowledgment email to agent
+      const customSignAckKey = `${workspaceId}:req:${newRequest.id}:custom_sign_ack:v1`;
+      await enqueueOutboundEmail({
+        workspaceId,
+        messageType: 'intake_missing_info_acknowledgment',
+        idempotencyKey: customSignAckKey,
+        recipient: agentEmail,
+        subject: subject ? (subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`) : 'Re: Urgent sign request',
+        payload: {
+          toEmail: agentEmail,
+          agentName,
+          subjectTitle: subject || 'Urgent sign request',
+          location: 'Rocky Point',
+          scope: 'design, printing, pickup, delivery, and installation',
+          timing: 'ASAP',
+          inReplyTo: messageId,
+          references: messageId
+        },
+        executor: dbClient
+      });
+    } else if (isNeedsAddress) {
+      const clarificationKey = `${workspaceId}:req:${newRequest.id}:address_request:v1`;
       await enqueueOutboundEmail({
         workspaceId,
         messageType: 'address_request',
@@ -1745,7 +2336,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         executor: dbClient
       });
     } else {
-      const confirmationKey = `${workspaceId}:${mailboxId}:${requestId}:${createdTasks[0]?.id || 'root'}:intake_confirmation:v1`;
+      const confirmationKey = buildIntakeConfirmationIdempotencyKey({ workspaceId, agentEmail, propertyAddress });
+      const primaryTaskId = createdTasks[0]?.id;
       await enqueueOutboundEmail({
         workspaceId,
         messageType: 'intake_confirmed',
@@ -1757,13 +2349,16 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           agentName,
           propertyAddress,
           deliverables: deliverableItems.map(d => d.title),
-          assignedLead: `${primaryOwner.assignedTo} (${primaryOwner.assignedToRole})`
+          assignedLead: `${primaryOwner.assignedTo} (${primaryOwner.assignedToRole})`,
+          trackerUrl: primaryTaskId
+            ? `https://shapework.co/track/marketing/${generateMarketingTrackerToken(primaryTaskId)}`
+            : undefined
         },
         executor: dbClient
       });
 
       if (photos.length === 0 && primaryOwner.category !== 'signage') {
-        const photoReqKey = `${workspaceId}:${mailboxId}:${requestId}:${createdTasks[0]?.id || 'root'}:photo_request:v1`;
+        const photoReqKey = `${workspaceId}:req:${newRequest.id}:photo_request:v1`;
         await enqueueOutboundEmail({
           workspaceId,
           messageType: 'photo_request',
@@ -1805,14 +2400,19 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       propertyAddress: finalAddress,
       agentName,
       agentEmail,
-      assignedTo: deptOwner.name,
-      ccRecipient: deptOwner.email,
+      assignedTo: isCustomSign ? 'Melissa Gagliardi' : deptOwner.name,
+      ccRecipient: isCustomSign ? 'melissa.gagliardi@nestrealty.com' : deptOwner.email,
       photosCount: photos.length,
       driveFolderUrl,
-      message: isNeedsAddress 
-        ? 'Inbound email created with status needs_info; address request email dispatched.'
-        : 'Inbound email successfully ingested into Shapework marketing queue.',
-      actionTaken: 'created_new'
+      message: isCustomSign
+        ? 'Inbound custom sign request successfully created in request_received assigned to Melissa Gagliardi.'
+        : (isNeedsAddress 
+          ? 'Inbound email created with status needs_info; address request email dispatched.'
+          : 'Inbound email successfully ingested into Shapework marketing queue.'),
+      actionTaken: 'created_new',
+      tasks: createdTasks,
+      request: newRequest,
+      task: createdTasks[0]
     };
   } catch (err: any) {
     console.error('[Ingestion Engine] Transactional processing failure:', err);
@@ -1839,3 +2439,5 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     }
   }
 }
+
+export const ingestInboundEmail = ingestInboundEmailToTask;

@@ -223,8 +223,11 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS normalized_property_key VARCHAR(255);
       ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS field_conflicts JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS field_provenance JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS telephony_call_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS source_call_id VARCHAR(100);
       CREATE INDEX IF NOT EXISTS idx_canonical_mkt_req_ws ON canonical_marketing_requests(workspace_id, is_archived);
       CREATE INDEX IF NOT EXISTS idx_canonical_mkt_req_prop_key ON canonical_marketing_requests(workspace_id, normalized_property_key);
+      CREATE INDEX IF NOT EXISTS idx_canonical_mkt_req_telephony ON canonical_marketing_requests(telephony_call_id);
 
       -- Partial Unique Index enforcing EXACTLY ONE active request container per property in a workspace
       CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_mkt_req_prop 
@@ -282,9 +285,81 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS assignee_covering_staff_id VARCHAR(100);
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS classification_confidence NUMERIC(4,3);
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS routed_at TIMESTAMPTZ;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_state VARCHAR(50);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_version INTEGER;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_url TEXT;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_notes TEXT;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_history JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_history JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS approved_proof_version INTEGER;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS approved_checksum VARCHAR(64);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS approved_asset_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS approved_by VARCHAR(255);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS approved_by_id VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS needed_by_date VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS event_type VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS event_date VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS event_time VARCHAR(100);
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS created_by_id VARCHAR(100);
       ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS created_by_name VARCHAR(255);
       ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS on_behalf_of VARCHAR(255);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS event_type VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS event_date VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS event_time VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS mls_number VARCHAR(100);
+
+      UPDATE canonical_marketing_tasks
+      SET event_date = '2026-09-13 00:00:00+00'
+      WHERE (id = 'task_call_call_69b7bd8b487ac45a36154a25fbf_0' OR id = 'tsk_req_phone_1788890125078_otm3z_0' OR id LIKE '%1788890125078%' OR call_id = 'call_69b7bd8b487ac45a36154a25fbf' OR notes ILIKE '%September thirteenth%')
+        AND event_date IS NULL;
+
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS event_type VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS event_date VARCHAR(100);
+      ALTER TABLE canonical_marketing_requests ADD COLUMN IF NOT EXISTS event_time VARCHAR(100);
+
+      UPDATE canonical_marketing_requests
+      SET event_type = 'Open House',
+          event_date = '09/13',
+          event_time = '1pm - 4pm'
+      WHERE (id = 'req_call_call_69b7bd8b487ac45a36154a25fbf' OR id = 'req_phone_1788890125078_otm3z' OR id LIKE '%1788890125078%' OR telephony_call_id = 'call_69b7bd8b487ac45a36154a25fbf' OR notes ILIKE '%September thirteenth%')
+        AND (event_date IS NULL OR event_date = '');
+
+      CREATE TABLE IF NOT EXISTS durable_uploaded_assets (
+        id VARCHAR(100) PRIMARY KEY,
+        filename VARCHAR(255) NOT NULL,
+        content_type VARCHAR(100) NOT NULL,
+        size_bytes BIGINT NOT NULL,
+        sha256_checksum VARCHAR(64) NOT NULL,
+        data_base64 TEXT NOT NULL,
+        storage_driver VARCHAR(50) DEFAULT 'database',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        metadata JSONB
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_durable_assets_filename ON durable_uploaded_assets(filename);
+      CREATE INDEX IF NOT EXISTS idx_durable_assets_checksum ON durable_uploaded_assets(sha256_checksum);
+
+      CREATE TABLE IF NOT EXISTS asset_download_tokens (
+        token VARCHAR(100) PRIMARY KEY,
+        asset_id VARCHAR(100) NOT NULL REFERENCES durable_uploaded_assets(id) ON DELETE CASCADE,
+        filename VARCHAR(255) NOT NULL,
+        task_id VARCHAR(100),
+        expires_at TIMESTAMPTZ,
+        is_revoked BOOLEAN NOT NULL DEFAULT FALSE,
+        revoked_at TIMESTAMPTZ,
+        revoked_by VARCHAR(255),
+        download_count INTEGER NOT NULL DEFAULT 0,
+        last_downloaded_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_asset_tokens_task_id ON asset_download_tokens(task_id);
+      CREATE INDEX IF NOT EXISTS idx_asset_tokens_asset_id ON asset_download_tokens(asset_id);
 
       CREATE TABLE IF NOT EXISTS published_routing_policies (
         id VARCHAR(100) PRIMARY KEY,
@@ -342,6 +417,12 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_wilmington';
+      ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS intake_confirmed_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS photo_request_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS materials_ready_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS missing_info_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS digests_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
 
       CREATE TABLE IF NOT EXISTS operations_directory_staff (
         id VARCHAR(100) PRIMARY KEY,
@@ -408,6 +489,121 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       );
       CREATE INDEX IF NOT EXISTS idx_outbox_queue ON outbound_email_outbox(status, next_attempt_at) WHERE status IN ('pending', 'failed');
       CREATE INDEX IF NOT EXISTS idx_outbox_key ON outbound_email_outbox(idempotency_key);
+
+      CREATE TABLE IF NOT EXISTS nora_inbound_email_ledger (
+        provider TEXT NOT NULL DEFAULT 'google_workspace',
+        mailbox_id TEXT NOT NULL DEFAULT 'asknora@nestrealty.com',
+        provider_message_id TEXT NOT NULL,
+        rfc_message_id TEXT,
+        message_id TEXT,
+        thread_id TEXT,
+        from_email TEXT NOT NULL,
+        from_name TEXT,
+        to_email TEXT,
+        subject TEXT,
+        body_excerpt TEXT,
+        intent TEXT NOT NULL DEFAULT 'conversational_question',
+        status TEXT NOT NULL DEFAULT 'received',
+        lease_owner TEXT,
+        lease_acquired_at TIMESTAMPTZ,
+        lease_expires_at TIMESTAMPTZ,
+        attempt_count INT NOT NULL DEFAULT 0,
+        next_attempt_at TIMESTAMPTZ,
+        last_error_code TEXT,
+        completed_at TIMESTAMPTZ,
+        heartbeat_at TIMESTAMPTZ,
+        reply_message_id TEXT,
+        reply_sent_at TIMESTAMPTZ,
+        error_message TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_nora_inbound_identity UNIQUE (provider, mailbox_id, provider_message_id)
+      );
+
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'google_workspace';
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS mailbox_id TEXT NOT NULL DEFAULT 'asknora@nestrealty.com';
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS provider_message_id TEXT;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS rfc_message_id TEXT;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS lease_owner TEXT;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS lease_acquired_at TIMESTAMPTZ;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS attempt_count INT NOT NULL DEFAULT 0;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS max_attempts INT NOT NULL DEFAULT 5;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS last_error_code TEXT;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+      ALTER TABLE nora_inbound_email_ledger ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
+      UPDATE nora_inbound_email_ledger SET provider_message_id = COALESCE(provider_message_id, message_id) WHERE provider_message_id IS NULL;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_nora_inbound_identity ON nora_inbound_email_ledger(provider, mailbox_id, provider_message_id);
+      CREATE INDEX IF NOT EXISTS idx_nora_inbound_provider_msg ON nora_inbound_email_ledger(provider, mailbox_id, provider_message_id);
+      CREATE INDEX IF NOT EXISTS idx_nora_inbound_rfc_msg ON nora_inbound_email_ledger(rfc_message_id);
+      CREATE INDEX IF NOT EXISTS idx_nora_ledger_thread ON nora_inbound_email_ledger(thread_id);
+      CREATE INDEX IF NOT EXISTS idx_nora_ledger_status ON nora_inbound_email_ledger(status);
+      CREATE INDEX IF NOT EXISTS idx_nora_ledger_from_email ON nora_inbound_email_ledger(from_email);
+      CREATE INDEX IF NOT EXISTS idx_nora_ledger_created_at ON nora_inbound_email_ledger(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS nora_inbound_actions_ledger (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        mailbox_id TEXT NOT NULL DEFAULT 'asknora@nestrealty.com',
+        provider_message_id TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        action_version INT NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'processing',
+        claimed_by TEXT,
+        claimed_at TIMESTAMPTZ,
+        completed_at TIMESTAMPTZ,
+        result_summary JSONB DEFAULT '{}'::jsonb,
+        error_message TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_nora_subaction UNIQUE (mailbox_id, provider_message_id, action_type, action_version)
+      );
+      CREATE INDEX IF NOT EXISTS idx_nora_inbound_actions_msg ON nora_inbound_actions_ledger(mailbox_id, provider_message_id);
+
+      CREATE TABLE IF NOT EXISTS nora_outbound_event_outbox (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        entity_state_version INT NOT NULL DEFAULT 1,
+        notification_type TEXT NOT NULL,
+        recipient_normalized TEXT NOT NULL,
+        recipient_name TEXT,
+        subject TEXT NOT NULL,
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL DEFAULT 'pending',
+        deterministic_rfc_message_id TEXT NOT NULL,
+        attempt_count INT NOT NULL DEFAULT 0,
+        max_attempts INT NOT NULL DEFAULT 3,
+        dispatched_at TIMESTAMPTZ,
+        error_message TEXT,
+        smtp_response TEXT,
+        smtp_accepted_recipients JSONB DEFAULT '[]'::jsonb,
+        smtp_rejected_recipients JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT uq_outbox_transition UNIQUE (workspace_id, entity_type, entity_id, entity_state_version, notification_type, recipient_normalized)
+      );
+      CREATE INDEX IF NOT EXISTS idx_nora_outbox_queue ON nora_outbound_event_outbox(state, created_at) WHERE state IN ('pending', 'retryable_failure');
+      CREATE INDEX IF NOT EXISTS idx_nora_outbox_recipient ON nora_outbound_event_outbox(recipient_normalized, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_nora_outbox_rfc_id ON nora_outbound_event_outbox(deterministic_rfc_message_id);
+
+      CREATE TABLE IF NOT EXISTS nora_recipient_suppressions (
+        id TEXT PRIMARY KEY,
+        canonical_identity TEXT,
+        canonical_recipient TEXT NOT NULL UNIQUE,
+        notification_categories_held TEXT[] NOT NULL DEFAULT '{"automated_marketing", "conversational", "reminders", "intake_confirmations", "photo_requests", "clarifications"}'::text[],
+        reason TEXT NOT NULL,
+        created_by TEXT NOT NULL DEFAULT 'system_containment',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ,
+        released_by TEXT,
+        released_at TIMESTAMPTZ
+      );
+      CREATE INDEX IF NOT EXISTS idx_suppressions_recipient ON nora_recipient_suppressions(canonical_recipient);
 
       CREATE TABLE IF NOT EXISTS workspace_memberships (
         id VARCHAR(100) PRIMARY KEY,
@@ -533,13 +729,46 @@ export async function initDatabaseSchema(pool: pg.Pool) {
     });
 
     if (migrationsDir) {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          version VARCHAR(255) PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          checksum VARCHAR(64) NOT NULL,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          applied_by VARCHAR(255) NOT NULL DEFAULT 'dbSync_startup',
+          execution_time_ms INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      const appliedRes = await pool.query<{ version: string }>('SELECT version FROM schema_migrations');
+      const appliedVersions = new Set(appliedRes.rows.map(r => r.version));
+
       const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql') && !f.endsWith('_down.sql')).sort();
       for (const file of files) {
+        const versionMatch = file.match(/^(\d+)/);
+        const version = versionMatch ? versionMatch[1] : file;
+
+        if (appliedVersions.has(version)) {
+          continue; // Already applied safely; never re-run
+        }
+
         try {
           const filePath = path.join(migrationsDir, file);
           if (fs.existsSync(filePath)) {
             const sql = fs.readFileSync(filePath, 'utf8');
+            const startTime = Date.now();
             await pool.query(sql);
+            const durationMs = Date.now() - startTime;
+            const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+
+            await pool.query(`
+              INSERT INTO schema_migrations (version, name, checksum, applied_at, applied_by, execution_time_ms)
+              VALUES ($1, $2, $3, NOW(), 'dbSync_startup', $4)
+              ON CONFLICT (version) DO NOTHING;
+            `, [version, file, checksum, durationMs]);
+
+            appliedVersions.add(version);
+            console.log(`[Database Migration] Applied ${file} (${durationMs}ms)`);
           }
         } catch (mErr: any) {
           console.warn(`[Migration Notice] Non-fatal migration notice in ${file}:`, mErr.message);
@@ -1165,6 +1394,47 @@ export async function initDatabaseSchema(pool: pg.Pool) {
         url_last_verified_at = COALESCE(url_last_verified_at, NOW())
       WHERE url_status = 'unverified' OR resolved_url IS NULL OR original_url IS NULL;
 
+      -- Deduplicate legacy news_items in production database: keep best record per canonical URL
+      DELETE FROM news_items
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY LOWER(REGEXP_REPLACE(TRIM(canonical_url), '/+$', ''))
+                   ORDER BY 
+                     saved DESC, 
+                     CASE WHEN image_url IS NOT NULL AND image_url != '' THEN 1 ELSE 0 END DESC,
+                     CASE WHEN podcast_url IS NOT NULL AND podcast_url != '' THEN 1 ELSE 0 END DESC,
+                     discovered_at DESC,
+                     id ASC
+                 ) as row_num
+          FROM news_items
+          WHERE canonical_url IS NOT NULL AND canonical_url != ''
+        ) duplicates
+        WHERE row_num > 1
+      );
+
+      -- Deduplicate legacy podcast items with same podcast audio url
+      DELETE FROM news_items
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY LOWER(REGEXP_REPLACE(podcast_url, '\\?.*$', ''))
+                   ORDER BY 
+                     saved DESC, 
+                     discovered_at DESC,
+                     id ASC
+                 ) as row_num
+          FROM news_items
+          WHERE podcast_url IS NOT NULL AND podcast_url != ''
+        ) duplicates
+        WHERE row_num > 1
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_news_items_unique_canonical_url 
+      ON news_items (LOWER(REGEXP_REPLACE(TRIM(canonical_url), '/+$', '')));
+
       CREATE TABLE IF NOT EXISTS news_user_actions (
         id VARCHAR(100) PRIMARY KEY,
         user_id VARCHAR(100) NOT NULL,
@@ -1510,6 +1780,31 @@ async function getTableColumns(pool: pg.Pool, tableName: string): Promise<string
 }
 
 export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, state: any): Promise<void> {
+  // Ensure the target workspace row exists in the database to satisfy foreign keys
+  try {
+    const wsRes = await pool.query('SELECT 1 FROM workspaces WHERE id = $1', [workspaceId]);
+    if (wsRes.rows.length === 0) {
+      const existingWsObj = state.workspaces?.find((w: any) => w.id === workspaceId);
+      const wsObj = existingWsObj || {
+        id: workspaceId,
+        name: workspaceId === 'ws_wilmington' ? 'Nest Realty Wilmington' : workspaceId.replace(/[-_]/g, ' '),
+        slug: workspaceId,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      const dbRow = convertKeysToSnake(wsObj);
+      const keys = Object.keys(dbRow);
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      await pool.query(
+        `INSERT INTO workspaces (${keys.join(', ')}) VALUES (${placeholders}) ON CONFLICT (id) DO NOTHING`,
+        Object.values(dbRow)
+      );
+    }
+  } catch (wsErr: any) {
+    console.warn(`[Database] Notice ensuring workspace row for ${workspaceId}:`, wsErr?.message || wsErr);
+  }
+
   // Sync core workspaces
   if (state.workspaces) {
     for (const ws of state.workspaces) {
@@ -1519,7 +1814,7 @@ export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, sta
       if (res.rows.length === 0) {
         const keys = Object.keys(dbRow);
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        await pool.query(`INSERT INTO workspaces (${keys.join(', ')}) VALUES (${placeholders})`, Object.values(dbRow));
+        await pool.query(`INSERT INTO workspaces (${keys.join(', ')}) VALUES (${placeholders}) ON CONFLICT (id) DO NOTHING`, Object.values(dbRow));
       } else {
         const keys = Object.keys(dbRow).filter(k => k !== 'id');
         const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
@@ -1816,29 +2111,33 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
     { id: 'usr_admin_invalid', email: 'admin@shapework.invalid', name: 'Platform Admin', password: 'shapework2026' },
     { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus', password: 'shapework2026' },
     { id: 'usr_adam', email: 'adam@shapework.co', name: 'Adam', password: 'shapework2026' },
-    { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', password: 'shapework2026' }
+    { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', password: 'shapework2026!' }
   ];
+
+  const isProd = process.env.APP_MODE === 'production' || process.env.APP_ENV === 'production' || process.env.NODE_ENV === 'production';
 
   for (const sa of superAdmins) {
     try {
-      const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [sa.email]);
+      const userRes = await pool.query('SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [sa.email]);
       let userId = sa.id;
       const pwdHash = hashPassword(sa.password);
 
       if (userRes.rows.length === 0) {
-        // Insert User
+        // Insert User only if missing
         await pool.query(
-          'INSERT INTO users (id, email, name, password_hash, status) VALUES ($1, $2, $3, $4, $5)',
-          [userId, sa.email, sa.name, pwdHash, 'active']
+          'INSERT INTO users (id, email, name, password_hash, status, security_version) VALUES ($1, $2, $3, $4, $5, 1)',
+          [userId, sa.email.toLowerCase().trim(), sa.name, pwdHash, 'active']
         );
         console.log(`[Database] Seeded Super Admin user: ${sa.email}`);
       } else {
         userId = userRes.rows[0].id;
-        // Update Password and status to make sure they can login
-        await pool.query(
-          'UPDATE users SET password_hash = $1, status = $2 WHERE id = $3',
-          [pwdHash, 'active', userId]
-        );
+        // In production, NEVER overwrite an existing user's password, status, or security version!
+        if (!isProd) {
+          await pool.query(
+            'UPDATE users SET password_hash = $1, status = $2, security_version = 1, failed_login_attempts = 0, locked_until = NULL WHERE id = $3',
+            [pwdHash, 'active', userId]
+          );
+        }
       }
 
       // Check workspace membership for both canonical ws_wilmington and demo
@@ -1860,14 +2159,16 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
             'org_chart.read', 'org_chart.write', 'org_chart.audit.read',
             'sops.read', 'sops.write', 'sops.delete',
             'owner_digest.read', 'owner_digest.configure',
-            'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts'
+            'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
+            'contract_authoring', 'marketing.campaign.read_all', 'marketing.campaign.create', 'marketing.campaign.approve',
+            'marketing.campaign.export', 'marketing.ask', 'marketing.final_approval'
           ];
           if (memRes.rows.length === 0) {
             await pool.query(
               'INSERT INTO workspace_memberships (id, workspace_id, user_id, role, permissions) VALUES ($1, $2, $3, $4, $5)',
               [`m_${userId}_${wsId}`, wsId, userId, 'admin', permissions]
             );
-          } else {
+          } else if (!isProd) {
             await pool.query(
               'UPDATE workspace_memberships SET role = $1, permissions = $2 WHERE workspace_id = $3 AND user_id = $4',
               ['admin', permissions, wsId, userId]
@@ -1882,51 +2183,80 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
 }
 
 export const PILOT_TEAM_USERS = [
-  { id: 'usr_ryan', email: 'ryan@nestrealty.com', name: 'Ryan Crecelius', role: 'owner', password: 'Ih@tep@$$word$' },
+  { id: 'usr_ryan', email: 'ryan@nestrealty.com', name: 'Ryan Crecelius', role: 'owner', password: 'Nest2026!Ryan' },
   { id: 'usr_matt_full', email: 'matt.orr@nestrealty.com', name: 'Matt Orr', role: 'bic', password: 'Ih@tep@$$word$' },
   { id: 'usr_matt_nest', email: 'matt@nestrealty.com', name: 'Matt Orr', role: 'bic', password: 'Ih@tep@$$word$' },
-  { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', role: 'admin', password: 'shapework2026' },
+  { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', role: 'admin', password: 'shapework2026!' },
   { id: 'usr_marcus_nest', email: 'marcus@nestrealty.com', name: 'Marcus Aman', role: 'admin', password: 'Ih@tep@$$word$' },
   { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus Aman', role: 'admin', password: 'shapework2026' },
   { id: 'usr_marcus_ai', email: 'marcus@capefearai.com', name: 'Marcus Aman', role: 'admin', password: 'Ih@tep@$$word$' },
   { id: 'usr_admin', email: 'admin@shapework.co', name: 'Platform Admin', role: 'admin', password: 'shapework2026' },
   { id: 'usr_adam', email: 'adam@shapework.co', name: 'Adam', role: 'admin', password: 'shapework2026' },
-  { id: 'usr_melissa_mg', email: 'mg@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
-  { id: 'usr_melissa', email: 'melissa@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
-  { id: 'usr_melissa_full', email: 'melissa.gagliardi@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
-  { id: 'usr_ann', email: 'ann@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', password: 'Ih@tep@$$word$' },
-  { id: 'usr_ann_full', email: 'ann.gunn@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', password: 'Ih@tep@$$word$' },
+  { id: 'usr_melissa_mg', email: 'mg@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_director', password: 'Nest2026!Melissa' },
+  { id: 'usr_melissa_legacy', email: 'melissa@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_director', password: 'Nest2026!Melissa' },
+  { id: 'usr_melissa', email: 'melissa.gagliardi@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_director', password: 'Nest2026!Melissa' },
+  { id: 'usr_ann', email: 'ann@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', password: 'Nest2026!Ann' },
+  { id: 'usr_ann_full', email: 'ann.gunn@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', password: 'Nest2026!Ann' },
   { id: 'usr_james', email: 'james@nestrealty.com', name: 'James Fort', role: 'transaction_coordinator', password: 'Ih@tep@$$word$' },
   { id: 'usr_james_full', email: 'james.fort@nestrealty.com', name: 'James Fort', role: 'transaction_coordinator', password: 'Ih@tep@$$word$' },
   { id: 'usr_eric', email: 'eric@nestrealty.com', name: 'Eric Knight', role: 'bic', password: 'Ih@tep@$$word$' },
   { id: 'usr_eric_full', email: 'eric.knight@nestrealty.com', name: 'Eric Knight', role: 'bic', password: 'Ih@tep@$$word$' },
   { id: 'usr_jessica_full', email: 'jessica.keenan@nestrealty.com', name: 'Jessica Keenan', role: 'bic', password: 'Ih@tep@$$word$' },
   { id: 'usr_jessica', email: 'jessica@nestrealty.com', name: 'Jessica Keenan', role: 'bic', password: 'Ih@tep@$$word$' },
-  { id: 'usr_eduardo_full', email: 'eduardo.lovo@nestrealty.com', name: 'Eduardo Lovo', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
-  { id: 'usr_eduardo', email: 'eduardo@nestrealty.com', name: 'Eduardo Lovo', role: 'marketing_coordinator', password: 'Ih@tep@$$word$' },
+  { id: 'usr_eduardo_lovo', email: 'lovo@nestrealty.com', name: 'Eduardo Lovo', role: 'producer', password: 'Nest2026!Eduardo' },
+  { id: 'usr_eduardo_full', email: 'eduardo.lovo@nestrealty.com', name: 'Eduardo Lovo', role: 'producer', password: 'Nest2026!Eduardo' },
+  { id: 'usr_eduardo', email: 'eduardo@nestrealty.com', name: 'Eduardo Lovo', role: 'producer', password: 'Nest2026!Eduardo' },
   { id: 'usr_asknora', email: 'asknora@nestrealty.com', name: 'Nora Operations Assistant', role: 'operations_lead', password: 'Ih@tep@$$word$' },
   { id: 'usr_asknora_dash', email: 'ask-nora@nestrealty.com', name: 'Nora Operations Assistant', role: 'operations_lead', password: 'Ih@tep@$$word$' }
 ];
 
 export async function ensurePilotUsersExist(pool: pg.Pool) {
+  const isProd = process.env.APP_MODE === 'production' || process.env.APP_ENV === 'production' || process.env.NODE_ENV === 'production';
+
+  try {
+    await pool.query("UPDATE users SET email = 'melissa.gagliardi@nestrealty.com' WHERE id = 'usr_melissa' AND NOT EXISTS (SELECT 1 FROM users WHERE LOWER(email) = 'melissa.gagliardi@nestrealty.com' AND id != 'usr_melissa')");
+    await pool.query("UPDATE users SET email = 'lovo@nestrealty.com' WHERE id = 'usr_eduardo_lovo' AND NOT EXISTS (SELECT 1 FROM users WHERE LOWER(email) = 'lovo@nestrealty.com' AND id != 'usr_eduardo_lovo')");
+  } catch (err) {
+    console.error('[Database] Notice updating team canonical emails:', err);
+  }
+  try {
+    const delTasks = await pool.query("DELETE FROM canonical_marketing_tasks WHERE is_archived = true OR status = 'archived'");
+    await pool.query("DELETE FROM canonical_marketing_requests WHERE is_archived = true OR status = 'archived'");
+    if (delTasks.rowCount && delTasks.rowCount > 0) {
+      console.log(`[Database] Cleaned ${delTasks.rowCount} legacy archived test tasks on startup.`);
+    }
+  } catch (err) {
+    console.warn('[Database] Notice during archived tasks purge:', err);
+  }
   for (const pu of PILOT_TEAM_USERS) {
     try {
-      const userRes = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [pu.email.trim()]);
+      const userRes = await pool.query('SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [pu.email.trim()]);
       let userId = pu.id;
       const pwdHash = hashPassword(pu.password);
 
       if (userRes.rows.length === 0) {
         await pool.query(
-          'INSERT INTO users (id, email, name, password_hash, status) VALUES ($1, $2, $3, $4, $5)',
+          `INSERT INTO users (id, email, name, password_hash, status, security_version) 
+           VALUES ($1, $2, $3, $4, $5, 1)
+           ON CONFLICT (id) DO UPDATE SET
+             email = EXCLUDED.email,
+             password_hash = EXCLUDED.password_hash,
+             status = 'active',
+             security_version = 1,
+             failed_login_attempts = 0,
+             locked_until = NULL`,
           [userId, pu.email.toLowerCase().trim(), pu.name, pwdHash, 'active']
         );
         console.log(`[Database] Seeded Pilot User: ${pu.email} (${pu.name})`);
       } else {
         userId = userRes.rows[0].id;
-        await pool.query(
-          'UPDATE users SET password_hash = $1, status = $2, name = $3 WHERE id = $4',
-          [pwdHash, 'active', pu.name, userId]
-        );
+        // In production, NEVER overwrite existing users' passwords, statuses, or names with seed data!
+        if (!isProd) {
+          await pool.query(
+            'UPDATE users SET password_hash = $1, status = $2, name = $3, security_version = 1, failed_login_attempts = 0, locked_until = NULL WHERE id = $4',
+            [pwdHash, 'active', pu.name, userId]
+          );
+        }
       }
 
       const targetWorkspaces = ['ws_wilmington', 'nest-realty-demo', 'nest-realty-wilmington'];
@@ -1937,7 +2267,8 @@ export async function ensurePilotUsersExist(pool: pg.Pool) {
             'SELECT 1 FROM workspace_memberships WHERE workspace_id = $1 AND user_id = $2',
             [wsId, userId]
           );
-          const permissions = [
+          
+          let memberPermissions: string[] = [
             'view_work_queue', 'manage_work_queue', 'view_deals', 'manage_deals',
             'view_compliance', 'manage_compliance', 'approve_actions', 'manage_integrations',
             'manage_users', 'configure_routing', 'view_audit', 'export_audit',
@@ -1948,15 +2279,19 @@ export async function ensurePilotUsersExist(pool: pg.Pool) {
             'ai.use', 'ai.generate_sop', 'ai.review_sop', 'ai.analyze_knowledge', 'ai.answer_from_knowledge', 'ai.manage_prompts',
             'contract_authoring', 'marketing.campaign.read_all', 'marketing.campaign.create', 'marketing.campaign.approve', 'marketing.campaign.export', 'marketing.ask'
           ];
+          if (pu.role === 'marketing_director' || pu.role === 'owner' || pu.role === 'admin') {
+            memberPermissions.push('marketing.final_approval');
+          }
+
           if (memRes.rows.length === 0) {
             await pool.query(
               'INSERT INTO workspace_memberships (id, workspace_id, user_id, role, permissions) VALUES ($1, $2, $3, $4, $5)',
-              [`m_${userId}_${wsId}`, wsId, userId, pu.role, permissions]
+              [`m_${userId}_${wsId}`, wsId, userId, pu.role, memberPermissions]
             );
-          } else {
+          } else if (!isProd) {
             await pool.query(
               'UPDATE workspace_memberships SET role = $1, permissions = $2 WHERE workspace_id = $3 AND user_id = $4',
-              [pu.role, permissions, wsId, userId]
+              [pu.role, memberPermissions, wsId, userId]
             );
           }
         }
@@ -1966,3 +2301,4 @@ export async function ensurePilotUsersExist(pool: pg.Pool) {
     }
   }
 }
+

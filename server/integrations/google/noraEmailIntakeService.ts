@@ -14,7 +14,9 @@
  */
 
 import { google } from 'googleapis';
-import { NORA_EMAIL_CONFIG, sendMarketingIntakeConfirmationEmail } from '../../email/emailProvider.js';
+import { NORA_EMAIL_CONFIG } from '../../email/emailProvider.js';
+import { enqueueOutboundEmail, processOutboundEmailOutbox } from '../../services/inboundEmailIngestionEngine.js';
+import { generateMarketingTrackerToken } from '../../services/taskTrackerService.js';
 import {
   getAllCanonicalMarketingTasks,
   getAllCanonicalMarketingRequests,
@@ -29,6 +31,7 @@ import { isGoogleServiceAccountConfigured } from './googleConfig.js';
 import { getOAuthTokenRecord } from '../../persistence/oauthTokensRepository.js';
 import { decryptToken } from '../shared/integrationCredentialVault.js';
 import { IntegrationStateStore } from '../shared/integrationStateStore.js';
+import { buildCreativeTaskDraft } from '../../services/nora/creativeRequestTriage.js';
 
 export interface InboundAgentEmail {
   id: string;
@@ -256,8 +259,22 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     agentName = `${rosterMatch.displayName} (${rosterMatch.role || 'Broker'})`;
   }
 
-  const cleanAddr = propertyAddress.split(',')[0].replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
-  const driveFolderUrl = `https://drive.google.com/drive/folders/1DRV_${cleanAddr}`;
+  // Prefer a real AskNora Drive folder; never invent 1DRV_ placeholder URLs.
+  let driveFolderUrl = '';
+  try {
+    const { GoogleDriveService } = await import('../../services/googleDriveService.js');
+    const scaffold = await GoogleDriveService.scaffoldListingFolder({
+      propertyAddress,
+      agentName,
+      agentEmail: email.fromEmail,
+      deliverables: deliverableTitle,
+    });
+    if (scaffold.isLiveDrive && scaffold.driveFolderUrl && !/1DRV_/i.test(scaffold.driveFolderUrl)) {
+      driveFolderUrl = scaffold.driveFolderUrl;
+    }
+  } catch (driveErr: any) {
+    console.warn('[EmailIntake] Live Drive scaffold skipped:', driveErr?.message || driveErr);
+  }
   
   // Extract photo attachments (.jpg, .jpeg, .png, .webp)
   const photoAttachments = email.attachments?.filter(a => 
@@ -325,11 +342,9 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     }
     matchedTask.driveFolderUrl = matchedTask.driveFolderUrl || driveFolderUrl;
 
-    // Auto-advance to in_progress if photos arrived and task was waiting
-    if (photoAttachments.length > 0 && (matchedTask.status === 'request_received' || matchedTask.status === 'assigned')) {
-      matchedTask.status = 'in_progress';
-      matchedTask.updatedAt = new Date().toISOString();
-    }
+    // Photos stage onto the task but do NOT skip Intake Received.
+    // Melissa (or Ann for ops) must intentionally Start Work / route before in_progress.
+    matchedTask.updatedAt = new Date().toISOString();
 
     saveCanonicalMarketingTask(matchedTask);
 
@@ -350,17 +365,27 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
 
     console.log(`[EmailIntake] Matched existing task "${matchedTask.title}" (${matchedTask.id}) for ${propertyAddress} -> Staged ${photoAttachments.length} photos and updated status to ${matchedTask.status}`);
 
-    // Send confirmation email (strictly whitelist guarded)
+    // Idempotent confirmation (one per request) via durable outbox
     try {
-      await sendMarketingIntakeConfirmationEmail({
-        toEmail: email.fromEmail,
-        agentName: email.fromName,
-        propertyAddress,
-        deliverables: items,
-        assignedLead: matchedTask.assignedTo || assignedLead
+      const requestKey = existing.request?.id || matchedTask.requestId || matchedTask.id;
+      await enqueueOutboundEmail({
+        workspaceId: matchedTask.workspaceId || 'ws_wilmington',
+        messageType: 'intake_confirmed',
+        idempotencyKey: `ws_wilmington:agent:${String(agentEmail||"").toLowerCase()}:addr:${String(propertyAddress||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120)}:intake_confirmation:v2`,
+        recipient: email.fromEmail,
+        subject: `Marketing Intake Confirmed: ${propertyAddress}`,
+        payload: {
+          toEmail: email.fromEmail,
+          agentName: email.fromName,
+          propertyAddress,
+          deliverables: items,
+          assignedLead: matchedTask.assignedTo || assignedLead,
+          trackerUrl: `https://shapework.co/track/marketing/${generateMarketingTrackerToken(matchedTask.id)}`
+        }
       });
+      await processOutboundEmailOutbox();
     } catch (err) {
-      console.warn(`[EmailIntake] Notice sending intake confirmation email to ${email.fromEmail}:`, err);
+      console.warn(`[EmailIntake] Notice enqueueing intake confirmation email to ${email.fromEmail}:`, err);
     }
 
     return {
@@ -393,7 +418,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     telephonyCallId: undefined,
     channel: 'email',
     receivedAt: new Date(email.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · Today',
-    status: 'assigned',
+    status: 'request_received',
     agentName,
     propertyAddress,
     requestExcerpt: `Email Intake (${email.fromEmail}): "${email.subject}" — ${email.bodyText.slice(0, 180)}...`,
@@ -429,13 +454,28 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
   const specsSummary = specs.length > 0 ? `\n[Property Specs]: ${specs.join(' • ')}` : '';
 
   // Create Deliverable Task
+  const creativeDraft =
+    category === 'signage'
+      ? null
+      : buildCreativeTaskDraft({
+          source: 'email',
+          subject: email.subject,
+          text: email.bodyText,
+          propertyAddress,
+          agentName,
+        });
+
   const newTask: CanonicalMarketingTask = {
     id: taskId,
     requestId,
     title: deliverableTitle,
     category,
-    status: photoAttachments.length > 0 ? 'in_progress' : 'request_received',
-    assignedTo: assignedLead, // Melissa assigned first; can 1-click route to Eduardo
+    status: 'request_received', // Always Intake Received — photos do not auto-start production
+    assignedTo: assignedLead, // Melissa for marketing triage; she routes / assigns next
+    assignedToId: 'dir_melissa_gagliardi_33',
+    assignedToRole: 'Marketing Director',
+    reviewOwner: assignedLead === 'Melissa Gagliardi' ? 'Melissa Gagliardi' : undefined,
+    reviewOwnerName: assignedLead === 'Melissa Gagliardi' ? 'Melissa Gagliardi' : undefined,
     agentName,
     propertyAddress,
     photos: structuredPhotos,
@@ -446,8 +486,19 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     dueAt: new Date(Date.now() + 86400000 * 2).toISOString(),
     vendorName: category === 'signage' ? 'Coastal Sign Post Co.' : (category === 'print' ? 'Coastal Print Works' : undefined),
     isArchived: false,
-    notes: `Email received at asknora@nestrealty.com.${specsSummary}\n[Attachments]: ${photoAttachments.map(p => p.filename).join(', ') || '1004.jpg'} staged to Google Drive: ${driveFolderUrl}`
-  };
+    notes: creativeDraft
+      ? `${creativeDraft.notes}\n\nEmail received at asknora@nestrealty.com.${specsSummary}\n[Attachments]: ${photoAttachments.map(p => p.filename).join(', ') || '1004.jpg'} ${driveFolderUrl ? `Google Drive: ${driveFolderUrl}` : "Drive folder pending"}`
+      : `Email received at asknora@nestrealty.com.${specsSummary}\n[Attachments]: ${photoAttachments.map(p => p.filename).join(', ') || '1004.jpg'} ${driveFolderUrl ? `Google Drive: ${driveFolderUrl}` : "Drive folder pending"}`,
+    ...(creativeDraft
+      ? {
+          creativeBrief: creativeDraft.creativeBrief,
+          routingSnapshot: {
+            ...creativeDraft.routingSnapshot,
+            fulfillmentStaffName: 'Eduardo Lovo',
+          },
+        }
+      : {}),
+  } as CanonicalMarketingTask;
 
   saveCanonicalMarketingTask(newTask);
 
@@ -455,17 +506,26 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
 
   console.log(`[EmailIntake] Successfully ingested marketing email from ${email.fromEmail} -> Created task "${deliverableTitle}" for ${propertyAddress} (Assigned to ${assignedLead}, with ${structuredPhotos.length} photos)`);
 
-  // 3. Send automated confirmation email from asknora@nestrealty.com
+  // 3. Idempotent confirmation (one per request) via durable outbox
   try {
-    await sendMarketingIntakeConfirmationEmail({
-      toEmail: email.fromEmail,
-      agentName: email.fromName,
-      propertyAddress,
-      deliverables: items,
-      assignedLead
+    await enqueueOutboundEmail({
+      workspaceId: 'ws_wilmington',
+      messageType: 'intake_confirmed',
+      idempotencyKey: `ws_wilmington:agent:${String(agentEmail||"").toLowerCase()}:addr:${String(propertyAddress||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120)}:intake_confirmation:v2`,
+      recipient: email.fromEmail,
+      subject: `Marketing Intake Confirmed: ${propertyAddress}`,
+      payload: {
+        toEmail: email.fromEmail,
+        agentName: email.fromName,
+        propertyAddress,
+        deliverables: items,
+        assignedLead,
+        trackerUrl: `https://shapework.co/track/marketing/${generateMarketingTrackerToken(taskId)}`
+      }
     });
+    await processOutboundEmailOutbox();
   } catch (err) {
-    console.warn(`[EmailIntake] Notice sending intake confirmation email to ${email.fromEmail}:`, err);
+    console.warn(`[EmailIntake] Notice enqueueing intake confirmation email to ${email.fromEmail}:`, err);
   }
 
   return {
