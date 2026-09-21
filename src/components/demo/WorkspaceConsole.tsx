@@ -1,3 +1,4 @@
+import { isAllowedCustomerWorkboardRole } from '../../utils/customerWorkboardRoles';
 import React from 'react';
 import { Lock } from 'lucide-react';
 import AppShell from '../layout/AppShell';
@@ -7,7 +8,6 @@ import { useWorkspaceConsoleState } from '../../state/useWorkspaceConsoleState';
 import ErrorBoundary from '../system/ErrorBoundary';
 import WorkspaceAccessGate from '../system/WorkspaceAccessGate';
 
-const allowedCustomerRoles = ['owner', 'admin', 'broker', 'agent', 'operations_manager', 'transaction_coordinator', 'compliance_officer', 'staff', 'guest'];
 
 export default function WorkspaceConsole() {
   const state = useWorkspaceConsoleState();
@@ -111,7 +111,7 @@ export default function WorkspaceConsole() {
     );
   }
 
-  if (!allowedCustomerRoles.includes(activeProfile?.role || '')) {
+  if (!isAllowedCustomerWorkboardRole(activeProfile?.role || '')) {
     return (
       <div className="min-h-screen bg-[#012822] flex items-center justify-center font-sans p-6 text-left text-[#F6F7F1] select-none">
         <div className="max-w-md w-full bg-[#013028] border border-emerald-500/20 rounded-2xl p-8 shadow-2xl space-y-6">
