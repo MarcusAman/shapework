@@ -4,10 +4,9 @@ import path from 'path';
 import { MARKETING_SUBTABS } from '../components/marketing/marketingSubtabs';
 
 describe('Marketing Production Workspace & Slide-Over Drawer Integration', () => {
-  it('1. Verifies subtab is named "Workspace" (not VA Workspace)', () => {
-    const vaSubtab = MARKETING_SUBTABS.find(t => t.id === 'va');
-    expect(vaSubtab).toBeDefined();
-    expect(vaSubtab?.label).toBe('Workspace');
+  it('1. Verifies Workspace tab is folded into Tasks (no separate Workspace pill)', () => {
+    expect(MARKETING_SUBTABS.find(t => t.id === 'va')).toBeUndefined();
+    expect(MARKETING_SUBTABS.find(t => t.id === 'requests')?.label).toBe('Tasks');
   });
 
   it('2. Verifies VAWorkspaceView has header "Marketing Production Workspace"', () => {

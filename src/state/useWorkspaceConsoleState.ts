@@ -24,6 +24,11 @@ let cachedModePromise: Promise<any> | null = null;
 let cachedDbStatePromise: Map<string, Promise<any>> = new Map();
 let cachedAuthSessionPromise: Promise<any> | null = null;
 
+export function invalidateCachedAuthSession() {
+  cachedAuthSessionPromise = null;
+}
+
+
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
     if (path.startsWith('/internal')) {
@@ -402,31 +407,54 @@ export function useWorkspaceConsoleState() {
         if (data.profiles) {
           setProfiles(data.profiles);
           
-          let loggedInUser = null;
+          let loggedInUser: any = null;
           try {
+            // Cache the PARSED session user, never the Response — Response.body can only be
+            // consumed once. A second sync that re-reads .json() throws and falls through to
+            // profiles[0] (Adam admin on nest-realty-demo).
             if (!cachedAuthSessionPromise) {
-              cachedAuthSessionPromise = apiClient.get('/api/auth/session', { workspaceId }).catch(err => {
-                cachedAuthSessionPromise = null;
-                throw err;
-              });
+              cachedAuthSessionPromise = apiClient
+                .get('/api/auth/session', { workspaceId })
+                .then(async (sessRes) => {
+                  if (!sessRes.ok) return null;
+                  const sessData = await sessRes.json();
+                  return sessData?.user || null;
+                })
+                .catch((err) => {
+                  cachedAuthSessionPromise = null;
+                  throw err;
+                });
             }
-            const sessRes = await cachedAuthSessionPromise;
-            if (sessRes.ok) {
-              const sessData = await sessRes.json();
-              if (sessData && sessData.user) {
-                loggedInUser = sessData.user;
-              }
-            }
+            loggedInUser = await cachedAuthSessionPromise;
           } catch {
             cachedAuthSessionPromise = null;
+            loggedInUser = null;
           }
 
           if (loggedInUser) {
-            setActiveProfile(loggedInUser);
+            const matched = (data.profiles || []).find(
+              (p: any) =>
+                p.id === loggedInUser.id ||
+                (p.email &&
+                  loggedInUser.email &&
+                  String(p.email).toLowerCase() === String(loggedInUser.email).toLowerCase())
+            );
+            setActiveProfile(
+              matched
+                ? { ...matched, ...loggedInUser, name: loggedInUser.name || matched.name }
+                : loggedInUser
+            );
           } else if (data.profiles && data.profiles.length > 0) {
             const currentToken = localStorage.getItem('shapework_session_token') || '';
-            const userProfile = data.profiles.find((p: any) => p.email === currentToken || p.id === currentToken) || data.profiles[0];
-            setActiveProfile(userProfile);
+            const looksLikeJwt = currentToken.split('.').length === 3;
+            const userProfile = looksLikeJwt
+              ? null
+              : data.profiles.find((p: any) => p.email === currentToken || p.id === currentToken);
+            if (userProfile) {
+              setActiveProfile(userProfile);
+            } else if (!looksLikeJwt) {
+              setActiveProfile(data.profiles[0]);
+            }
           } else {
             setActiveProfile({
               id: 'usr_marcus',

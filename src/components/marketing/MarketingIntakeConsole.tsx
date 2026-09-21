@@ -165,6 +165,7 @@ export default function MarketingIntakeConsole({
     const canonical = (LEGACY_SUBTAB_ALIASES[targetTab] || targetTab) as MarketingSubtab;
     setActiveTab(canonical);
     setSelectedCampaignId(null);
+    setSelectedTaskIdForModal(null);
 
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -175,6 +176,10 @@ export default function MarketingIntakeConsole({
       url.searchParams.delete("mode");
       url.searchParams.delete("asset");
       url.searchParams.delete("jobId");
+      url.searchParams.delete("taskId");
+      if (canonical !== "requests" && canonical !== "va") {
+        url.searchParams.delete("view");
+      }
 
       window.history.pushState({}, "", url.toString());
     }
@@ -830,17 +835,48 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
 
   const [marketingWorkItems, setMarketingWorkItems] = useState<any[]>([]);
 
+  // Robust Auth Header Builder (avoids mock identity fallbacks and attaches verified JWT if available)
+  const getConsoleAuthHeaders = useCallback((customWsId?: string): Record<string, string> => {
+    const wsId = customWsId || (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'ws_wilmington';
+    const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('shapework_session_token') || localStorage.getItem('token')) : null;
+    const headers: Record<string, string> = {
+      'x-workspace-id': wsId
+    };
+    if (token && token !== 'usr_ryan' && !token.startsWith('usr_')) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['x-session-token'] = token;
+    }
+    return headers;
+  }, []);
+
+  // Fetch Persistent Canonical Tasks
+  const fetchCanonicalTasks = useCallback(() => {
+    fetch("/api/marketing/tasks", { 
+      headers: getConsoleAuthHeaders(),
+      credentials: "include"
+    })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.tasks)) {
+          setCanonicalTasks(data.tasks);
+        }
+      })
+      .catch(() => {});
+  }, [getConsoleAuthHeaders]);
+
+  // Set up continuous background polling for canonical tasks (every 15s)
+  useEffect(() => {
+    fetchCanonicalTasks();
+    const interval = setInterval(fetchCanonicalTasks, 15000);
+    return () => clearInterval(interval);
+  }, [fetchCanonicalTasks]);
+
   // Fetch All Persistent Marketing Campaigns & Work Items on Mount
   useEffect(() => {
-    const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
-    const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
-    const authHeaders = {
-      'Authorization': `Bearer ${token}`,
-      'x-workspace-id': workspaceId,
-      'x-session-token': token
-    };
-
-    fetch("/api/marketing/campaigns", { headers: authHeaders })
+    fetch("/api/marketing/campaigns", { 
+      headers: getConsoleAuthHeaders(),
+      credentials: "include"
+    })
       .then((res) => {
         if (!res.ok) return null;
         return res.json().catch(() => null);
@@ -852,7 +888,10 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
       })
       .catch(() => {});
 
-    fetch("/api/marketing/work-items", { headers: authHeaders })
+    fetch("/api/marketing/work-items", { 
+      headers: getConsoleAuthHeaders(),
+      credentials: "include"
+    })
       .then((res) => {
         if (!res.ok) return null;
         return res.json().catch(() => null);
@@ -864,16 +903,10 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
       })
       .catch(() => {});
 
-    fetch("/api/marketing/tasks", { headers: authHeaders })
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (data && data.success && Array.isArray(data.tasks)) {
-          setCanonicalTasks(data.tasks);
-        }
-      })
-      .catch(() => {});
-
-    fetch("/api/marketing/canonical-requests", { headers: authHeaders })
+    fetch("/api/marketing/canonical-requests", { 
+      headers: getConsoleAuthHeaders(),
+      credentials: "include"
+    })
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (data && data.success && Array.isArray(data.requests)) {
@@ -881,7 +914,7 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
         }
       })
       .catch(() => {});
-  }, []);
+  }, [getConsoleAuthHeaders]);
 
   // Fetch Selected Campaign with Local Instant Resolution + Remote Refresh
   useEffect(() => {
@@ -913,17 +946,11 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
     }
 
     const abortController = new AbortController();
-    const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
-    const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
 
     fetch(`/api/marketing/campaigns/${selectedCampaignId}`, {
       signal: abortController.signal,
       credentials: "include",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "x-workspace-id": workspaceId,
-        "x-session-token": token
-      },
+      headers: getConsoleAuthHeaders(),
     })
       .then((res) => {
         if (!res.ok) {
@@ -1453,16 +1480,11 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
 
-      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
-      const authHeaders = {
-        'Authorization': `Bearer ${token}`,
-        'x-workspace-id': workspaceId,
-        'x-session-token': token
-      };
-
       // Fetch updated campaign from server to refresh state (status = 'exported')
-      const updatedRes = await fetch(`/api/marketing/campaigns/${campaignId}`, { headers: authHeaders });
+      const updatedRes = await fetch(`/api/marketing/campaigns/${campaignId}`, { 
+        headers: getConsoleAuthHeaders(),
+        credentials: "include"
+      });
       const updatedData = await updatedRes.json();
       if (updatedData.success && updatedData.campaign) {
         setActiveCampaign(updatedData.campaign);
@@ -1482,17 +1504,14 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
   const handleDeliverGoogleDrive = async () => {
     try {
       const campaignId = activeCampaign?.id || "campaign_990_inspiration";
-      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
-      const authHeaders = {
-        'Authorization': `Bearer ${token}`,
-        'x-workspace-id': workspaceId,
-        'x-session-token': token
-      };
 
       const res = await fetch(
         `/api/marketing/campaigns/${campaignId}/deliver/google_drive`,
-        { method: "POST", headers: authHeaders },
+        { 
+          method: "POST", 
+          headers: getConsoleAuthHeaders(),
+          credentials: "include"
+        },
       );
       const data = await res.json();
       if (data.success && data.campaign) {
@@ -1513,17 +1532,14 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
       setIsComplianceAuditing(true);
       setIntakeToast("⚖️ Running NCREC & Equal Housing compliance audit...");
       const campaignId = activeCampaign?.id || "campaign_990_inspiration";
-      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
-      const authHeaders = {
-        'Authorization': `Bearer ${token}`,
-        'x-workspace-id': workspaceId,
-        'x-session-token': token
-      };
 
       const res = await fetch(
         `/api/marketing/campaigns/${campaignId}/compliance`,
-        { method: "POST", headers: authHeaders },
+        { 
+          method: "POST", 
+          headers: getConsoleAuthHeaders(),
+          credentials: "include"
+        },
       );
       const data = await res.json();
       if (data.success && data.checks) {
@@ -1553,19 +1569,13 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
   ) => {
     try {
       const campaignId = activeCampaign?.id || "campaign_990_inspiration";
-      const token = (typeof localStorage !== 'undefined' && (localStorage.getItem('shapework_session_token') || localStorage.getItem('token'))) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
-      const authHeaders = {
-        'Authorization': `Bearer ${token}`,
-        'x-workspace-id': workspaceId,
-        'x-session-token': token
-      };
 
       const res = await fetch(
         `/api/marketing/campaigns/${campaignId}/approve`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders },
+          headers: { "Content-Type": "application/json", ...getConsoleAuthHeaders() },
+          credentials: "include",
           body: JSON.stringify({
             reviewerName: "Ryan Crecelius",
             role: "Broker-in-Charge",
@@ -1779,16 +1789,38 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [callsError, setCallsError] = useState<string | null>(null);
 
-  const fetchTelephonyCalls = async () => {
+  const [syncingRetell, setSyncingRetell] = useState(false);
+
+  const fetchTelephonyCalls = async (triggerRetellSync = false) => {
     setLoadingCalls(true);
     try {
-      const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'ws_wilmington';
-      const res = await fetch('/api/marketing/calls', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-workspace-id': workspaceId
+      if (triggerRetellSync) {
+        setSyncingRetell(true);
+        try {
+          const syncRes = await fetch('/api/marketing/calls/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getConsoleAuthHeaders()
+            },
+            credentials: 'include',
+            body: JSON.stringify({})
+          });
+          const syncData = await syncRes.json().catch(() => null);
+          if (syncData && syncData.totalPersisted > 0) {
+            setIntakeToast(`✓ Synced ${syncData.totalPersisted} new call${syncData.totalPersisted === 1 ? '' : 's'} from Retell AI!`);
+            setTimeout(() => setIntakeToast(null), 4000);
+          }
+        } catch (syncErr) {
+          console.warn('Retell manual sync request notice:', syncErr);
+        } finally {
+          setSyncingRetell(false);
         }
+      }
+
+      const res = await fetch('/api/marketing/calls', {
+        headers: getConsoleAuthHeaders(),
+        credentials: 'include'
       });
       if (res.ok) {
         const data = await res.json();
@@ -1807,27 +1839,35 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
         }
       } else {
         const errText = await res.text();
-        setCallsError(`Telephony service returned HTTP ${res.status}: ${errText}`);
+        if (res.status === 429) {
+          setCallsError('Telephony service temporarily busy (rate limit). Please retry shortly.');
+        } else {
+          let cleanMessage = errText;
+          try {
+            const parsed = JSON.parse(errText);
+            if (parsed.error) cleanMessage = parsed.error;
+          } catch {}
+          setCallsError(`Telephony service returned HTTP ${res.status}: ${cleanMessage}`);
+        }
       }
     } catch (err: any) {
       console.warn('Failed to fetch live marketing calls:', err);
       setCallsError(`Failed to connect to telephony ledger: ${err.message}`);
     } finally {
       setLoadingCalls(false);
+      setSyncingRetell(false);
     }
   };
 
   const handleRouteCall = async (callId: string, department: string, assignee: string) => {
     try {
-      const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
       const res = await fetch(`/api/marketing/calls/${callId}/route`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-workspace-id': workspaceId
+          ...getConsoleAuthHeaders()
         },
+        credentials: 'include',
         body: JSON.stringify({ targetDepartment: department, assignee, sendSms: true })
       });
       if (res.ok) {
@@ -1846,15 +1886,13 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
   const handleSendFollowUp = async (callId: string) => {
     setSendingFollowUp(true);
     try {
-      const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
-      const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
       const res = await fetch(`/api/marketing/calls/${callId}/send-followup`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-workspace-id': workspaceId
-        }
+          ...getConsoleAuthHeaders()
+        },
+        credentials: 'include'
       });
       const data = await res.json();
       if (data.success) {
@@ -2078,8 +2116,26 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
       channels.includes('sms') && data?.recipientPhone ? `SMS: ${data.recipientPhone}` : null,
       channels.includes('email') && data?.recipientEmail ? `Email: ${data.recipientEmail}` : null
     ].filter(Boolean).join(' • ');
+
+    // Modal already POSTed send-questions — never re-send (was causing materials-ready + missing-info duplex).
+    if (data?.dispatchReceipt) {
+      const intent = data?.intent || data?.dispatchReceipt?.intent;
+      if (intent !== 'delivery_complete') {
+        setAllCampaigns(prev => prev.map(c => c.id === campaign.id ? { ...c, status: 'needs_information' } : c));
+      }
+      const ok = data.dispatchReceipt.success !== false;
+      setIntakeToast(
+        ok
+          ? (intent === 'delivery_complete'
+              ? `✓ Agent notified for ${property.split(',')[0]}`
+              : `✓ Questions sent via ${channelsStr} to ${recipient} for ${property.split(',')[0]}! ${destinationDetail ? `(${destinationDetail})` : ''}`)
+          : (data.dispatchReceipt.error || 'Outreach did not send')
+      );
+      setTimeout(() => setIntakeToast(null), 6000);
+      return;
+    }
     
-    // Update local campaign status to needs_information
+    // Update local campaign status to needs_information (ask-missing path only)
     setAllCampaigns(prev => prev.map(c => c.id === campaign.id ? { ...c, status: 'needs_information' } : c));
     
     try {
@@ -2094,7 +2150,9 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
           channels,
           message: data?.message || `Hi ${recipient}, could you please provide the missing details for ${property}?`,
           selectedQuestions: data?.selectedQuestions || [],
-          propertyAddress: property
+          propertyAddress: property,
+          intent: data?.intent || 'ask_missing',
+          taskId: data?.taskId || campaign.taskId || campaign.id,
         })
       });
       if (res.ok) {
@@ -2147,8 +2205,26 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
     const handleOpenVoiceIntake = () => handleTabSwitch("intake");
     const handleRefreshData = () => {
       fetchTelephonyCalls();
+      fetchCanonicalTasks();
       setIntakeToast("✓ Refreshed marketing records");
       setTimeout(() => setIntakeToast(null), 2500);
+    };
+
+    const handleTasksUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tasks?: any[]; source?: string }>;
+      if (customEvent.detail?.source === 'MarketingHomeInbox') {
+        return; // Already synchronized directly via onTasksChange
+      }
+      if (customEvent.detail?.tasks && Array.isArray(customEvent.detail.tasks)) {
+        const incomingTasks = customEvent.detail.tasks;
+        setCanonicalTasks(prev => {
+          const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+          const newKey = incomingTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+          return prevKey === newKey ? prev : incomingTasks;
+        });
+      } else {
+        fetchCanonicalTasks();
+      }
     };
 
     const handleOpenNora = () => setShowNoraCopilotDrawer(true);
@@ -2158,6 +2234,7 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
     window.addEventListener("open-marketing-voice-intake", handleOpenVoiceIntake);
     window.addEventListener("open-nora-copilot", handleOpenNora);
     window.addEventListener("refresh-marketing-data", handleRefreshData);
+    window.addEventListener("marketing-tasks-updated", handleTasksUpdated);
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -2189,8 +2266,12 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
         "refresh-marketing-data",
         handleRefreshData,
       );
+      window.removeEventListener(
+        "marketing-tasks-updated",
+        handleTasksUpdated,
+      );
     };
-  }, []);
+  }, [fetchCanonicalTasks]);
 
   const selectedCall = calls.find((c) => c.id === selectedCallId) || calls[0];
 
@@ -2245,8 +2326,9 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
                   countBadge = todayDue.length;
                 }
                 if (tab.id === "calls") {
-                  const todayCalls = calls.filter(isCallFromToday);
-                  countBadge = todayCalls.length;
+                  // Today's calls only (America/New_York via isCallFromToday). None today → 0.
+                  // History lives under Calls → All Calls.
+                  countBadge = calls.filter(isCallFromToday).length;
                 }
                 if (tab.id === "va") {
                   const activeWorkspaceTasks = canonicalTasks.filter(
@@ -2265,7 +2347,7 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
                     }}
                     aria-current={isActive ? "page" : undefined}
                     data-testid={`marketing-nav-${tab.id}`}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
+                    className={`nest-pill px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer flex items-center gap-2 ${
                       isActive
                         ? "bg-[#00635C] text-white shadow-sm"
                         : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -2293,11 +2375,12 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
         <main data-testid="marketing-view-content" className="w-full min-w-0 space-y-6">
 
           {/* TAB 1: REQUESTS FEED (MASTER TASK QUEUE) */}
-          {(activeTab === "requests" || activeTab === "workboard" || activeTab === "campaigns") && !selectedCampaignId && (
+          {(activeTab === "requests" || activeTab === "workboard" || activeTab === "campaigns" || activeTab === "va" || activeTab === "va_workspace") && !selectedCampaignId && (
             <div data-testid="marketing-requests-view" className="space-y-4 w-full">
               <MarketingHomeInbox
                 campaigns={allCampaigns}
                 activeJob={activeBuildJob}
+                currentUser={state?.activeProfile || state?.currentUser}
                 initialSelectedTaskId={selectedTaskIdForModal || undefined}
                 onCloseTaskDetail={() => setSelectedTaskIdForModal(null)}
                 onSelectCampaign={(cId, mode) => {
@@ -2337,6 +2420,25 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
                     setTranscriptDrawerCall(targetCall);
                   }
                   handleTabSwitch("calls");
+                }}
+                initialTasks={canonicalTasks}
+                initialRequests={canonicalRequests}
+                onTasksChange={(updatedTasks) => {
+                  setCanonicalTasks(prev => {
+                    const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+                    const newKey = updatedTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+                    return prevKey === newKey ? prev : updatedTasks;
+                  });
+                  if (false) {
+                    setCanonicalTasks(updatedTasks);
+                  }
+                }}
+                onRequestsChange={(updatedRequests) => {
+                  setCanonicalRequests(prev => {
+                    const prevKey = prev.map(r => `${r.id}:${r.status}:${r.updatedAt || ''}`).join('|');
+                    const newKey = updatedRequests.map(r => `${r.id}:${r.status}:${r.updatedAt || ''}`).join('|');
+                    return prevKey === newKey ? prev : updatedRequests;
+                  });
                 }}
               />
             </div>
@@ -2444,12 +2546,12 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
 
                   <button
                     type="button"
-                    onClick={fetchTelephonyCalls}
-                    disabled={loadingCalls}
+                    onClick={() => fetchTelephonyCalls(false)}
+                    disabled={loadingCalls || syncingRetell}
                     className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${loadingCalls ? 'animate-spin' : ''}`} />
-                    <span>Refresh</span>
+                    <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${(loadingCalls || syncingRetell) ? 'animate-spin' : ''}`} />
+                    <span>{syncingRetell ? 'Syncing…' : 'Refresh'}</span>
                   </button>
 
                   {isOperator && (
@@ -2472,7 +2574,7 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
                 error={callsError}
                 currentUserRole={currentUserRole}
                 isOperator={isOperator}
-                onRefresh={fetchTelephonyCalls}
+                onRefresh={() => fetchTelephonyCalls(false)}
                 onAssignToEduardo={handleAssignToEduardo}
                 onSendQuestionsToRequester={handleSendQuestionsToRequester}
                 onApplyAiRecommendation={handleApplyAiRecommendation}
@@ -2496,9 +2598,10 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
           )}
 
           {/* VA WORKSPACE VIEW */}
-          {(activeTab === "va" || activeTab === "va_workspace") && (
+          {(false) && (activeTab === "va" || activeTab === "va_workspace") && (
             <div data-testid="marketing-va-view" className="w-full">
               <VAWorkspaceView
+                currentUser={state?.activeProfile || state?.currentUser}
                 tasks={canonicalTasks}
                 workItems={marketingWorkItems}
                 campaigns={allCampaigns}
@@ -2547,8 +2650,22 @@ const INITIAL_MARKETING_CAMPAIGNS: any[] = [];
                 onSubmitProof={(id, proofUrl, notes) => {
                   setMarketingWorkItems(prev => prev.map(item => item.id === id ? { ...item, status: 'proof_submitted', proofUrl, notes } : item));
                   setAllCampaigns(prev => prev.map(c => (c.id === id || c.id === `campaign_${id.toLowerCase()}`) ? { ...c, status: 'ready_for_review', proofUrl } : c));
-                  setIntakeToast(`✓ Proof submitted by Eduardo for work item ${id}!`);
-                  setTimeout(() => setIntakeToast(null), 3500);
+                  setCanonicalTasks(prev => prev.map(t => t.id === id ? {
+                    ...t,
+                    status: 'in_progress',
+                    reviewState: 'awaiting_review',
+                    proofUrl,
+                    proofNotes: notes,
+                    reviewOwnerId: 'dir_melissa_gagliardi_33',
+                    reviewOwnerName: 'Melissa Gagliardi'
+                  } : t));
+                  const targetTask = canonicalTasks.find(t => t.id === id);
+                  const propName = targetTask?.propertyAddress || targetTask?.title || 'Marketing Request';
+                  setIntakeToast(`✓ Eduardo submitted proofs for ${propName} — awaiting Melissa Gagliardi's approval!`);
+                  setTimeout(() => setIntakeToast(null), 4500);
+                  if (typeof fetchCanonicalTasks === 'function') {
+                    fetchCanonicalTasks();
+                  }
                 }}
                 onReassignTask={(taskId, newAssignee) => {
                   const memberRole = newAssignee === 'Melissa Gagliardi' ? 'Marketing Director' :

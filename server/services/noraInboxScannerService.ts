@@ -72,6 +72,10 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
     emitLogs: false
   });
 
+  client.on('error', (err) => {
+    console.warn('[IMAP Scanner] Connection/socket notice:', err?.message || err);
+  });
+
   try {
     console.log(`[IMAP Scanner] Connecting to ${imapUser}@imap.gmail.com:993...`);
     await client.connect();
