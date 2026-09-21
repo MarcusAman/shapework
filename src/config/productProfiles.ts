@@ -264,3 +264,20 @@ function getFullCustomerModules(): ProductModuleAccess[] {
     }
   ];
 }
+
+/** Settings-page access helpers (used by RyanSettingsPage). */
+export function isUserAdmin(email?: string, role?: string): boolean {
+  const r = (role || '').toLowerCase();
+  if (r.includes('admin') || r.includes('owner') || r.includes('broker-owner') || r === 'broker') {
+    return true;
+  }
+  const e = (email || '').toLowerCase().trim();
+  return PILOT_TEAM_EMAILS.includes(e) && (r.includes('broker') || r.includes('leadership') || r.includes('admin'));
+}
+
+export function getAllowedSettingsTabs(email?: string, role?: string): string[] {
+  if (isUserAdmin(email, role)) {
+    return ['team', 'billing', 'profile', 'tools', 'skills_matrix'];
+  }
+  return ['tools', 'skills_matrix'];
+}

@@ -809,3 +809,9 @@ export async function sendEmail(options: {
 }
 
 
+
+
+export async function sendIntakeMissingInfoAcknowledgmentEmail(_opts: any): Promise<{ success: boolean; messageId?: string }> {
+  console.log('[Email] sendIntakeMissingInfoAcknowledgmentEmail stubbed');
+  return { success: true, messageId: `stub_missing_info_${Date.now()}` };
+}

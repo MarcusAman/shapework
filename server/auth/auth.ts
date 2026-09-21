@@ -568,3 +568,9 @@ export function requireInternal(req: AuthenticatedRequest, res: Response, next: 
   }
   next();
 }
+
+export function requireStaffOrOidcAuth(req: any, res: any, next: any) {
+  // fail-closed stub: reuse requireInternal if present, else 401
+  if (typeof requireInternal === 'function') return requireInternal(req, res, next);
+  return res.status(401).json({ error: 'unauthorized' });
+}

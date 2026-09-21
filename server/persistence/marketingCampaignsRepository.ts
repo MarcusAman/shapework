@@ -4798,3 +4798,33 @@ export function dispatchPrintShopOrder(
 
 
 
+
+
+/** Build-unblock stubs (prefs tip imported these before modules landed). */
+export function computeCanonicalDeliverableKey(input: any): string {
+  return String(input?.id || input?.taskId || input?.deliverableKey || 'unknown');
+}
+export function generateDurableChildTaskId(parentId: string, key: string): string {
+  return `${parentId}__${key}`;
+}
+export function findExistingChildTask(_parentId: string, _key: string): any | null {
+  return null;
+}
+export function extractCanonicalDeliverableIdentity(input: any): any {
+  return { key: computeCanonicalDeliverableKey(input), input };
+}
+export function getCanonicalMarketingTasksLive(): any[] {
+  return (typeof getAllCanonicalMarketingTasks === 'function' ? getAllCanonicalMarketingTasks() : []).filter((t: any) => !t?.isArchived);
+}
+export function getCanonicalMarketingRequestsLive(): any[] {
+  return (typeof getAllCanonicalMarketingRequests === 'function' ? getAllCanonicalMarketingRequests() : []).filter((r: any) => !r?.isArchived);
+}
+export async function performBulkTaskActionAsync(_action: string, _ids: string[]): Promise<{ ok: boolean }> {
+  return { ok: false };
+}
+export async function purgeAllArchivedCanonicalTasksAsync(): Promise<{ purged: number }> {
+  return { purged: 0 };
+}
+export function recoverInvisibleAwaitingReviewSubmissions(): { recovered: number } {
+  return { recovered: 0 };
+}
