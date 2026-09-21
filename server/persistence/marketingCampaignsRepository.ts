@@ -8,6 +8,7 @@ import path from 'path';
 import { getAllStaffMembers, resolveStaffMember } from './operationsDirectoryRepository.js';
 import { canonicalTaskRoutingService } from '../services/canonicalTaskRoutingService.js';
 import { OfficeSupplyDeduplicationService } from '../services/officeSupplyDeduplicationService.js';
+import { tombstoneIntakeScope } from './intakeTombstoneRepository.js';
 
 const isProduction = () => typeof process !== 'undefined' && (process.env?.NODE_ENV === 'production' || process.env?.APP_ENV === 'production') && process.env?.ALLOW_FILE_STORAGE_UAT !== 'true';
 
@@ -3373,7 +3374,16 @@ export function approveCanonicalMarketingTaskProof(
 }
 
 export function archiveCanonicalMarketingTask(taskId: string): CanonicalMarketingTask | null {
-  return updateCanonicalMarketingTaskStatus(taskId, 'archived', { performedBy: 'User' });
+  const updated = updateCanonicalMarketingTaskStatus(taskId, 'archived', { performedBy: 'User' });
+  if (updated) {
+    void tombstoneIntakeScope({
+      workspaceId: (updated as any).workspaceId || 'ws_wilmington',
+      requestId: updated.requestId,
+      propertyAddress: updated.propertyAddress,
+      reason: 'archived_task',
+    }).catch((err) => console.warn('[archive] tombstone failed:', err?.message || err));
+  }
+  return updated;
 }
 
 export function getAllCanonicalMarketingRequests(): CanonicalMarketingRequest[] {
@@ -3440,6 +3450,14 @@ export function archiveCanonicalMarketingRequestAndTasks(requestId: string): { r
     saveCanonicalMarketingTask(t);
     archivedTasks.push(t);
   }
+
+  // Durable tombstone — row absence is not enough (IMAP can resurrect).
+  void tombstoneIntakeScope({
+    workspaceId: (req as any).workspaceId || 'ws_wilmington',
+    requestId: requestId,
+    propertyAddress: req.propertyAddress || archivedTasks[0]?.propertyAddress,
+    reason: 'archived_request',
+  }).catch((err) => console.warn('[archive] tombstone failed:', err?.message || err));
 
   return { request: req, archivedTasks };
 }

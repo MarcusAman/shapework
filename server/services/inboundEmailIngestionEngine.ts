@@ -46,6 +46,8 @@ import {
 import { getActiveDirectoryMemberByEmail } from './canonicalDirectoryService.js';
 import { recordActivityEvent } from './activityHistoryService.js';
 import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
+import { evaluateOutboundDispatchGuard, looksLikeSmokeOrTestThread } from '../email/outboundDispatchGuards.js';
+import { isTombstoned } from '../persistence/intakeTombstoneRepository.js';
 
 // Known agent directory lookup for automatic phone and role enrichment
 export const KNOWN_AGENTS: Record<string, { name: string; phone: string; role: string }> = {
@@ -884,6 +886,21 @@ export async function enqueueOutboundEmail(params: {
     }
   }
 
+
+  {
+    const g = await evaluateOutboundDispatchGuard({
+      workspaceId,
+      propertyAddress: payload?.propertyAddress,
+      requestId: payload?.requestId || payload?.campaignId,
+      threadId: payload?.threadId,
+      messageId: payload?.inReplyTo || payload?.messageId,
+    });
+    if (!g.allowed) {
+      console.log(`[Outbox] Dispatch guard blocked ${messageType} → ${recipient}: ${g.reason}`);
+      return { enqueued: false, outboxId: undefined, suppressed: true, reason: g.reason } as any;
+    }
+  }
+
   let effectiveIdempotencyKey = idempotencyKey;
   if (messageType === 'intake_confirmed') {
     effectiveIdempotencyKey = buildIntakeConfirmationIdempotencyKey({
@@ -1110,6 +1127,36 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   const rawAttachments = explicitRawAttachments || passedAttachments || (payload as any).rawAttachments || [];
   const mailboxId = rawMailboxId || to || 'asknora@nestrealty.com';
   const messageId = rawMessageId || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  // Tombstone + smoke: never mint marketing intake from deleted scopes or smoke threads on live mailbox.
+  if (looksLikeSmokeOrTestThread(subject, textContent || htmlContent)) {
+    console.log(`[Ingestion Engine] Skipping smoke/test thread messageId=${messageId} subject=${subject}`);
+    return {
+      success: true,
+      skipped: true,
+      reason: 'smoke_or_test_thread',
+      messageId,
+    } as any;
+  }
+  {
+    const tomb = await isTombstoned({
+      workspaceId,
+      messageId,
+      threadId,
+      propertyAddress: extractPropertyAddress(subject, textContent || htmlContent) || undefined,
+    });
+    if (tomb?.doNotReingest || tomb?.state === 'tombstoned') {
+      console.log(`[Ingestion Engine] Skipping tombstoned scope=${tomb.scopeKey} messageId=${messageId}`);
+      return {
+        success: true,
+        skipped: true,
+        reason: 'tombstoned',
+        messageId,
+        scopeKey: tomb.scopeKey,
+      } as any;
+    }
+  }
+
 
   const senderInfo = parseSender(from);
   const agentEmail = senderInfo.email;
