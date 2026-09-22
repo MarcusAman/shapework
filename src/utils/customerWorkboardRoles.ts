@@ -21,3 +21,13 @@ export function isAllowedCustomerWorkboardRole(role: string | undefined | null):
   if (!role) return false;
   return ALLOWED_CUSTOMER_WORKBOARD_ROLES.includes(String(role).trim().toLowerCase());
 }
+
+/** Marketing ops roles that should land on Tasks/Calls, not Ask Nora. */
+export function isMarketingOpsRole(role: string | undefined | null): boolean {
+  const n = String(role || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[\s-]+/g, '_');
+  return n === 'marketing_director' || n === 'marketing_coordinator';
+}
+

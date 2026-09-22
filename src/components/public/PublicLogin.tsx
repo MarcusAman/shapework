@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LogIn, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { clearSandboxIdentityForPasswordLogin } from '../../utils/sandboxIdentity';
+import { isMarketingOpsRole } from '../../utils/customerWorkboardRoles';
 import { invalidateCachedAuthSession } from '../../state/useWorkspaceConsoleState';
 
 interface PublicLoginProps {
@@ -30,7 +31,7 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
       .then(data => {
         if (data && data.user) {
           const email = (data.user.email || '').toLowerCase().trim();
-          onNavigate('/app/workboard');
+          onNavigate(isMarketingOpsRole(data?.user?.role) ? '/app/tasks' : '/app/workboard');
         }
       })
       .catch(() => {});
@@ -69,7 +70,7 @@ export default function PublicLogin({ onNavigate }: PublicLoginProps) {
         localStorage.setItem('shapework_session_token', token);
       }
       sessionStorage.removeItem('shapework_logged_out');
-      onNavigate('/app/workboard');
+      onNavigate(isMarketingOpsRole(data?.user?.role) ? '/app/tasks' : '/app/workboard');
     } catch (err: any) {
       console.error('[Login] Error during authentication:', err);
       setErrorMsg(err.message || 'Connection error. Please try again.');

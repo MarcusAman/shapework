@@ -1,3 +1,4 @@
+import { isMarketingOpsRole } from '../utils/customerWorkboardRoles';
 import {
   Brain,
   Inbox,
@@ -65,6 +66,55 @@ export function getProductProfile(
   role: string | undefined,
   workspaceId: string
 ): { experience: ProductExperience; modules: ProductModuleAccess[] } {
+  // Marketing ops land on Tasks/Calls — not Wilmington Ask Nora / Workboard.
+  if (isMarketingOpsRole(role)) {
+    return {
+      experience: 'ryan_pilot',
+      modules: [
+        {
+          moduleId: 'marketing',
+          name: 'Tasks',
+          tab: 'Tasks',
+          icon: CheckSquare,
+          visible: true,
+          enabled: true
+        },
+        {
+          moduleId: 'news',
+          name: 'News',
+          tab: 'News',
+          icon: Newspaper,
+          visible: true,
+          enabled: true
+        },
+        {
+          moduleId: 'directory',
+          name: 'Directory',
+          tab: 'Directory',
+          icon: Contact,
+          visible: true,
+          enabled: true
+        },
+        {
+          moduleId: 'sops',
+          name: 'Knowledge Library',
+          tab: 'Staff SOP Templates',
+          icon: FileText,
+          visible: true,
+          enabled: true
+        },
+        {
+          moduleId: 'settings',
+          name: 'Workspace Settings',
+          tab: 'Settings',
+          icon: Settings,
+          visible: true,
+          enabled: true
+        }
+      ]
+    };
+  }
+
   const isWilmington = workspaceId === 'nest-realty-demo' || workspaceId === 'nest-realty-wilmington' || workspaceId === 'ws_wilmington';
   
   if (isWilmington) {

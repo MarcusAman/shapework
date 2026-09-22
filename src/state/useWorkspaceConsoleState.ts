@@ -19,6 +19,7 @@ import { initialCatalogConnectors } from '../data/integrationCatalog';
 import { apiClient } from '../utils/apiClient';
 import { getWorkspaceDirectory, clearAllDirectoryCaches } from '../utils/directoryCache';
 import { getProductProfile, PILOT_TEAM_EMAILS } from '../config/productProfiles';
+import { isMarketingOpsRole } from '../utils/customerWorkboardRoles';
 
 let cachedModePromise: Promise<any> | null = null;
 let cachedDbStatePromise: Map<string, Promise<any>> = new Map();
@@ -1668,6 +1669,14 @@ Ann Gunn (Operations Lead) recommended tasks:
 
   useEffect(() => {
     const cleanEmail = (activeProfile?.email || '').toLowerCase().trim();
+    // Marketing ops should never linger on Ask Nora / Workboard after password login.
+    if (isMarketingOpsRole(activeProfile?.role)) {
+      const tab = (currentTab || '').toLowerCase();
+      if (!tab || tab === 'workboard' || tab === 'ask nora' || tab === 'ask nest ops') {
+        setCurrentTab('Tasks');
+        return;
+      }
+    }
     const isRestricted = PILOT_TEAM_EMAILS.includes(cleanEmail) || (!activeProfile?.role?.includes('admin') && cleanEmail.endsWith('@nestrealty.com'));
     if (isRestricted) {
       const profile = getProductProfile(activeProfile?.email, activeProfile?.role, workspaceId || 'nest-realty-demo');
@@ -1709,7 +1718,7 @@ Ann Gunn (Operations Lead) recommended tasks:
       const isAllowed = allowedTabs.some(t => t.toLowerCase() === cLower || (cLower.includes('intelligence') && t.toLowerCase().includes('intelligence')));
 
       if (currentTab && !isAllowed) {
-        setCurrentTab('Workboard');
+        setCurrentTab(isMarketingOpsRole(activeProfile?.role) ? 'Tasks' : 'Workboard');
       }
     }
   }, [activeProfile, currentTab, setCurrentTab, workspaceId]);
