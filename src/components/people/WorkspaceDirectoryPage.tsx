@@ -33,6 +33,19 @@ import {
 } from 'lucide-react';
 import { orgChartService } from '../../services/orgChartService';
 import { invalidateWorkspaceDirectoryCache } from '../../utils/directoryCache';
+import {
+  aggregateDirectoryBannerCounts,
+  formatProfileTitle,
+  getDirectoryOfficeFilterOptions,
+  getDirectoryTypeFilterOptions,
+  isBicPerson,
+  matchesOfficeFilter,
+  matchesTypeFilter,
+  normalizeOfficeLabel,
+  normalizePersonType,
+  sanitizeDirectoryPhone,
+  typeFilterLabel,
+} from '../../utils/directoryWave1Fixes';
 import { NEST_FULL_ROSTER_72 } from '../../../server/persistence/nestRosterSeed';
 import RoleProfileModal from './RoleProfileModal';
 import AgentRetentionHub from './AgentRetentionHub';
@@ -89,7 +102,7 @@ interface DirectoryPerson {
   title?: string;
   role?: string;
   team?: string;
-  personType: 'leadership' | 'staff' | 'agent' | 'contractor' | 'other';
+  personType: 'leadership' | 'staff' | 'agent' | 'assistant' | 'contractor' | 'other';
   officeIds: string[];
   officeNames: string[];
   primaryOfficeId?: string;
@@ -248,7 +261,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
     title: '',
     role: '',
     team: '',
-    primaryOfficeName: 'Wilmington',
+    primaryOfficeName: 'Mayfaire',
     additionalOffices: '',
     personType: 'agent' as DirectoryPerson['personType'],
     email: '',
@@ -582,20 +595,20 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       );
     }
 
-    // Filter Office
+    // Filter Office (Wilmington → Mayfaire)
     if (filterOffice !== 'all') {
-      result = result.filter(p => p.primaryOfficeName === filterOffice);
+      result = result.filter(p => matchesOfficeFilter(p, filterOffice));
     }
 
-    // Filter Type
+    // Filter Type (Assistants → Staff; BIC supported as a type)
     if (filterType !== 'all') {
-      result = result.filter(p => p.personType === filterType);
+      result = result.filter(p => matchesTypeFilter(p, filterType));
     }
 
     // Filter Broker-in-Charge
     if (filterBic !== 'all') {
       const wantBic = filterBic === 'yes';
-      result = result.filter(p => !!p.isBrokerInCharge === wantBic);
+      result = result.filter(p => isBicPerson(p) === wantBic);
     }
 
     // Filter Contact completeness
@@ -630,20 +643,26 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
     return result;
   }, [people, searchQuery, filterOffice, filterType, filterBic, filterInfo, filterStatus, sortBy]);
 
-  // Statistics Computations
+  // Statistics Computations (Wave 1: derived from roster, Wilmington→Mayfaire, assistants→staff)
   const stats = useMemo(() => {
     const total = people.length;
     const active = people.filter(p => p.status === 'active' || !p.status).length;
     const needsReview = people.filter(p => p.status === 'needs_review').length;
     const inactive = people.filter(p => p.status === 'inactive').length;
-    const wilmington = people.filter(p => (p.primaryOfficeName === 'Wilmington' || p.officeNames?.includes('Wilmington')) && p.status !== 'inactive').length;
-    const cb = people.filter(p => (p.primaryOfficeName === 'Carolina Beach' || p.officeNames?.includes('Carolina Beach')) && p.status !== 'inactive').length;
-    const bics = people.filter(p => (p.isBrokerInCharge || p.role === 'Broker-in-Charge' || (p.title || '').toLowerCase().includes('broker-in-charge') || (p.title || '').toLowerCase().includes('bic')) && p.status !== 'inactive').length;
-    const leadership = people.filter(p => (p.personType === 'leadership' || (p.title || '').toLowerCase().includes('owner') || (p.title || '').toLowerCase().includes('director') || (p.title || '').toLowerCase().includes('manager')) && p.status !== 'inactive').length;
-    const staff = people.filter(p => p.personType === 'staff' && p.status !== 'inactive').length;
-    const agents = people.filter(p => (p.personType === 'agent' || !p.personType) && p.status !== 'inactive').length;
-
-    return { total, active, needsReview, inactive, wilmington, cb, bics, staff, leadership, agents };
+    const banner = aggregateDirectoryBannerCounts(people);
+    return {
+      total,
+      active: banner.totalActive,
+      needsReview,
+      inactive,
+      wilmington: banner.mayfaireAgents,
+      mayfaire: banner.mayfaireAgents,
+      cb: banner.carolinaBeachAgents,
+      bics: banner.bic,
+      staff: banner.staff,
+      leadership: banner.leadership,
+      agents: banner.mayfaireAgents + banner.carolinaBeachAgents,
+    };
   }, [people]);
 
 
@@ -665,12 +684,15 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
         </span>
       );
     }
-    if (!person.phone) {
-      badges.push(
-        <span key="no_phone" className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-300 border border-red-500/20">
-          MISSING PHONE
-        </span>
-      );
+    {
+      const phoneInfo = sanitizeDirectoryPhone(person.phone);
+      if (!phoneInfo.phone) {
+        badges.push(
+          <span key="no_phone" className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-300 border border-red-500/20">
+            {phoneInfo.needsReview ? 'NEEDS REVIEW' : 'MISSING PHONE'}
+          </span>
+        );
+      }
     }
     if (person.primaryOfficeName === 'Unknown') {
       badges.push(
@@ -711,7 +733,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       title: '',
       role: '',
       team: '',
-      primaryOfficeName: 'Wilmington',
+      primaryOfficeName: 'Mayfaire',
       additionalOffices: '',
       personType: 'agent',
       email: '',
@@ -763,7 +785,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       title: person.title || '',
       role: person.role || '',
       team: person.team || '',
-      primaryOfficeName: person.primaryOfficeName || 'Wilmington',
+      primaryOfficeName: normalizeOfficeLabel(person.primaryOfficeName) || 'Mayfaire',
       additionalOffices: person.officeNames ? person.officeNames.filter(o => o !== person.primaryOfficeName).join(', ') : '',
       personType: person.personType,
       email: person.email || '',
@@ -1037,7 +1059,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-3">
         <div>
           <h1 className="text-xl font-serif font-bold text-stone-900">People, Directory & Retention</h1>
-          <p className="text-xs text-stone-500">Manage all 74 agents, leadership roles, retention signals, and video libraries.</p>
+          <p className="text-xs text-stone-500">Manage all {stats.active} people, leadership roles, and retention signals.</p>
         </div>
         <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl text-xs self-start sm:self-auto">
           <button
@@ -1152,10 +1174,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
               className="directory-input rounded-lg px-2 py-1 font-semibold focus:outline-none"
             >
               <option value="all" className="bg-[#012a23]">All Offices</option>
-              <option value="Wilmington" className="bg-[#012a23]">Wilmington</option>
-              <option value="Carolina Beach" className="bg-[#012a23]">Carolina Beach</option>
-              <option value="Home" className="bg-[#012a23]">Home</option>
-              <option value="Other" className="bg-[#012a23]">Other</option>
+              {getDirectoryOfficeFilterOptions().map(office => (
+                <option key={office} value={office} className="bg-[#012a23]">{office}</option>
+              ))}
             </select>
           </div>
 
@@ -1167,9 +1188,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
               className="directory-input rounded-lg px-2 py-1 font-semibold focus:outline-none"
             >
               <option value="all" className="bg-[#012a23]">All Types</option>
-              <option value="leadership" className="bg-[#012a23]">Leadership</option>
-              <option value="agent" className="bg-[#012a23]">Agents</option>
-              <option value="staff" className="bg-[#012a23]">Staff</option>
+              {getDirectoryTypeFilterOptions().map(t => (
+                <option key={t} value={t} className="bg-[#012a23]">{typeFilterLabel(t)}</option>
+              ))}
             </select>
           </div>
 
@@ -1339,7 +1360,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                             ? 'bg-blue-500/10 text-blue-300 border border-blue-500/30'
                             : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
                         }`}>
-                          {person.personType.toUpperCase()}
+                          {(normalizePersonType(person.personType) === 'other' ? person.personType : normalizePersonType(person.personType)).toUpperCase()}
                         </span>
                       </div>
                     </div>
@@ -1349,7 +1370,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                         {person.displayName}
                       </h3>
                       <p className="text-xs directory-text-secondary font-medium mt-0.5 truncate">
-                        {person.title || 'Agent'}
+                        {formatProfileTitle(person.title, { group: person.team, isLeader: !!person.isTeamLeader }) || 'Agent'}
                       </p>
                     </div>
 
@@ -1367,7 +1388,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                       {person.phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="w-3.5 h-3.5 directory-text-secondary shrink-0" />
-                          <span>{person.phone}</span>
+                          <span>{sanitizeDirectoryPhone(person.phone).phone || person.phone}</span>
                         </div>
                       )}
                     </div>
@@ -1463,9 +1484,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                           </div>
                         </td>
                         <td className="p-4 font-medium directory-text-secondary">{person.primaryOfficeName}</td>
-                        <td className="p-4 text-xs font-medium directory-text-secondary">{person.title || 'Agent'}</td>
+                        <td className="p-4 text-xs font-medium directory-text-secondary">{formatProfileTitle(person.title, { group: person.team, isLeader: !!person.isTeamLeader }) || 'Agent'}</td>
                         <td className="p-4 font-mono text-xs directory-text-secondary">{person.email || '-'}</td>
-                        <td className="p-4 text-xs directory-text-secondary">{person.phone || '-'}</td>
+                        <td className="p-4 text-xs directory-text-secondary">{sanitizeDirectoryPhone(person.phone).phone || person.phone || '-'}</td>
                         <td className="p-4">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
@@ -1596,7 +1617,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
               {/* STEP 1: CHOOSE SOURCE */}
               {importStep === 1 && (
                 <div className="space-y-4">
-                  <p className="text-sm text-[#D0D6BB] mb-6">Select how you want to import your broker roster database into Wilmington and Carolina Beach workspaces.</p>
+                  <p className="text-sm text-[#D0D6BB] mb-6">Select how you want to import your broker roster database into Mayfaire and Carolina Beach workspaces.</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button 
                       onClick={() => { setImportSource('google_sheets'); setImportStep(2); }}
@@ -1698,7 +1719,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                         }}
                         rows={8}
                         className="w-full px-3 py-2 bg-black/35 border border-white/10 rounded-lg text-sm text-white font-mono placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="First Name	Last Name	Email	Phone	Office&#10;Mary	Hester	mary@nestrealty.com	(910) 555-1234	Wilmington"
+                        placeholder="First Name	Last Name	Email	Phone	Office&#10;Mary	Hester	mary@nestrealty.com	(910) 555-1234	Mayfaire"
                       />
                       <span className="block text-[11px] text-[#D0D6BB]/75">Accepts tab-separated or comma-separated rows.</span>
                     </div>
@@ -2067,7 +2088,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                     {isEditing ? 'Edit Person' : 'Add Person'}
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
-                    {isEditing ? 'Edit contact details in the Wilmington and Carolina Beach directory.' : 'Add a person to the Wilmington and Carolina Beach directory.'}
+                    {isEditing ? 'Edit contact details in the Mayfaire and Carolina Beach directory.' : 'Add a person to the Mayfaire and Carolina Beach directory.'}
                   </p>
                 </div>
                 <button 
@@ -2130,7 +2151,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                         onChange={(e) => setFormValues(prev => ({ ...prev, primaryOfficeName: e.target.value }))}
                         className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#00635C] text-stone-900"
                       >
-                        <option value="Wilmington">Wilmington</option>
+                        <option value="Mayfaire">Mayfaire</option>
                         <option value="Carolina Beach">Carolina Beach</option>
                         <option value="Home">Home / Remote</option>
                         <option value="Other">Other</option>
