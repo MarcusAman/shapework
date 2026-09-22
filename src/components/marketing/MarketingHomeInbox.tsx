@@ -554,6 +554,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   const [activeActionDropdownId, setActiveActionDropdownId] = useState<string | null>(null);
   const [sendToSubmenuTaskId, setSendToSubmenuTaskId] = useState<string | null>(null);
   const [quickActionsTask, setQuickActionsTask] = useState<CanonicalMarketingTask | null>(null);
+  const [quickActionsMode, setQuickActionsMode] = useState<'full' | 'reassign'>('full');
   const [showNewRequestModal, setShowNewRequestModal] = useState<boolean>(false);
   const [inspectorRequest, setInspectorRequest] = useState<CanonicalMarketingRequest | null>(null);
   const [showInspectorDrawer, setShowInspectorDrawer] = useState<boolean>(false);
@@ -2237,7 +2238,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setQuickActionsTask(task);
+                                setQuickActionsMode('full'); setQuickActionsTask(task);
                               }}
                               className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
                               title="Quick Actions"
@@ -2394,6 +2395,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                           label: 'Reassign',
                           onClick: (e: React.MouseEvent) => {
                             e.stopPropagation();
+                            setQuickActionsMode('reassign');
                             setQuickActionsTask(task);
                           }
                         };
@@ -2408,7 +2410,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                           context="tasks"
                           onClick={() => handleOpenTaskDetail(task)}
                           onQuickActions={(e) => {
-                            setQuickActionsTask(task);
+                            setQuickActionsMode('full'); setQuickActionsTask(task);
                           }}
                           onActivityClick={(e) => {
                             handleOpenTaskDetail(task, 'activity');
@@ -2891,8 +2893,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       {/* 13. CENTERED TASK QUICK ACTIONS MODAL */}
       <TaskQuickActionsModal
         isOpen={!!quickActionsTask}
+        mode={quickActionsMode}
         task={quickActionsTask}
-        onClose={() => setQuickActionsTask(null)}
+        onClose={() => { setQuickActionsTask(null); setQuickActionsMode('full'); }}
         onOpenProofWorkstation={(task) => {
           handleOpenTaskDetail(task);
         }}

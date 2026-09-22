@@ -39,13 +39,15 @@ export interface TaskQuickActionsModalProps {
   onAskRequester?: (task: CanonicalMarketingTask) => void;
   onAssignTeamMember: (taskId: string, assigneeName: string) => void;
   onArchiveTask: (taskId: string) => void;
+  /** 'reassign' = people picker only (from card Reassign). Default full sheet. */
+  mode?: 'full' | 'reassign';
 }
 
 const TEAM_MEMBERS = [
   { name: 'Melissa Gagliardi', role: 'Marketing Director / Reviewer', avatar: 'MG', color: 'bg-[#00635C] text-white' },
   { name: 'Eduardo Lovo', role: 'Virtual Assistant / Maxa Lead', avatar: 'EL', color: 'bg-purple-700 text-white' },
   { name: 'Ann Gunn', role: 'Operations & Signage Lead', avatar: 'AG', color: 'bg-blue-700 text-white' },
-  { name: 'Ryan Crecelius', role: 'Owner', avatar: 'RC', color: 'bg-amber-700 text-white' }
+  { name: 'Ryan Crecelius', role: 'Owner', avatar: 'RC', color: 'bg-amber-700 text-white' },
 ];
 
 export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
@@ -57,7 +59,8 @@ export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
   onDispatchBrowserAgent,
   onAskRequester,
   onAssignTeamMember,
-  onArchiveTask
+  onArchiveTask,
+  mode = 'full',
 }) => {
   // Handle ESC key to close
   useEffect(() => {
@@ -133,13 +136,15 @@ export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close Quick Actions"
+            aria-label={mode === 'reassign' ? 'Close Reassign' : 'Close Quick Actions'}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {mode !== 'reassign' && (
+        <>
         {/* Primary Action Matrix */}
         <div className="space-y-2.5">
           <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -251,13 +256,15 @@ export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
             </button>
           )}
         </div>
+        </>
+        )}
 
         {/* Reassign Team Member Section */}
         <div className="space-y-2.5 pt-2 border-t border-slate-100">
           <div className="flex items-center justify-between">
             <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Users className="w-3 h-3" />
-              <span>Reassign Task Lead</span>
+              <span>{mode === 'reassign' ? 'Choose who owns this task' : 'Reassign Task Lead'}</span>
             </h4>
             <span className="text-[10px] text-slate-500 font-medium">
               Current: <strong className="text-slate-800">{currentAssignee}</strong>
@@ -306,6 +313,7 @@ export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
 
         {/* Footer: Archive & Dismiss */}
         <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+          {mode !== 'reassign' && (
           <button
             type="button"
             onClick={() => {
@@ -317,6 +325,7 @@ export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
             <Archive className="w-3.5 h-3.5" />
             <span>Archive Task</span>
           </button>
+          )}
 
           <button
             type="button"
