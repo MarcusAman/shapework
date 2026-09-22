@@ -80,6 +80,14 @@ export function getProductProfile(
           enabled: true
         },
         {
+          moduleId: 'workboard',
+          name: 'Ask Nora',
+          tab: 'Workboard',
+          icon: Brain,
+          visible: true,
+          enabled: true
+        },
+        {
           moduleId: 'news',
           name: 'News',
           tab: 'News',

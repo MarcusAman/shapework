@@ -1669,24 +1669,20 @@ Ann Gunn (Operations Lead) recommended tasks:
 
   useEffect(() => {
     const cleanEmail = (activeProfile?.email || '').toLowerCase().trim();
-    // Marketing ops should never linger on Ask Nora / Workboard after password login.
-    if (isMarketingOpsRole(activeProfile?.role)) {
-      const tab = (currentTab || '').toLowerCase();
-      if (!tab || tab === 'workboard' || tab === 'ask nora' || tab === 'ask nest ops') {
-        setCurrentTab('Tasks');
-        return;
-      }
-    }
+    // Landing default for marketing ops is handled at login (/app/tasks) and when
+    // a tab is disallowed below — do NOT yank them off Ask Nora after they click it.
     const isRestricted = PILOT_TEAM_EMAILS.includes(cleanEmail) || (!activeProfile?.role?.includes('admin') && cleanEmail.endsWith('@nestrealty.com'));
     if (isRestricted) {
       const profile = getProductProfile(activeProfile?.email, activeProfile?.role, workspaceId || 'nest-realty-demo');
-      const profileTabs = (profile?.modules || []).filter(m => m.enabled).map(m => m.tab);
+      const profileTabs = (profile?.modules || [])
+        .filter(m => m.enabled)
+        .flatMap(m => [m.tab, m.name].filter(Boolean));
 
       const aliasesAndSubtabs = [
         "Pitch & 'Aha!' Demo", 'Pitch Demo',
         'Pre-MLS Board', 'Pocket Matches',
         'Vendor Dispatch', 'Repair Board',
-        'Ask Nest Ops', 'Workboard', 'Nest Ops Hub', 'Today', 'Command Center', 'Today in the Brokerage', 'Overview',
+        'Ask Nora', 'Ask Nest Ops', 'Workboard', 'Nest Ops Hub', 'Today', 'Command Center', 'Today in the Brokerage', 'Overview',
         'My Connections',
         'Work Queue', 'Work',
         'Approvals', 'Agent Approval Portal', 'Approval Portal',
