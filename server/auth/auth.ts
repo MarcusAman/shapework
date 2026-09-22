@@ -8,7 +8,16 @@ import { verifyJwt } from './jwt.js';
 
 // Canonical Workspace Identifier for Nest Realty Wilmington Pilot
 export const CANONICAL_WILMINGTON_WORKSPACE_ID = 'ws_wilmington';
-export const WILMINGTON_WORKSPACE_ALIASES = ['ws_wilmington', 'nest-realty-wilmington', 'nest-realty-demo', 'tenant_nest', 'tenant_nest_uat'];
+export const WILMINGTON_WORKSPACE_ALIASES = [
+  'ws_wilmington',
+  'nest-realty-wilmington',
+  'nest-realty-demo',
+  'tenant_nest',
+  'tenant_nest_uat',
+  'all_locations',
+  'wilmington_nc',
+  'carolina_beach_nc'
+];
 
 // Define marketing explicit capabilities
 export const MARKETING_CAPABILITIES = [

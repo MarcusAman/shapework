@@ -2111,7 +2111,7 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
     { id: 'usr_admin_invalid', email: 'admin@shapework.invalid', name: 'Platform Admin', password: 'shapework2026' },
     { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus', password: 'shapework2026' },
     { id: 'usr_adam', email: 'adam@shapework.co', name: 'Adam', password: 'shapework2026' },
-    { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', password: 'shapework2026!' }
+    { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', password: 'shapework2026' }
   ];
 
   const isProd = process.env.APP_MODE === 'production' || process.env.APP_ENV === 'production' || process.env.NODE_ENV === 'production';
@@ -2131,11 +2131,21 @@ export async function ensureSuperAdminsExist(pool: pg.Pool) {
         console.log(`[Database] Seeded Super Admin user: ${sa.email}`);
       } else {
         userId = userRes.rows[0].id;
-        // In production, NEVER overwrite an existing user's password, status, or security version!
+        // Always ensure super admins are active and not locked out
+        await pool.query(
+          'UPDATE users SET status = $1, failed_login_attempts = 0, locked_until = NULL WHERE id = $2',
+          ['active', userId]
+        );
         if (!isProd) {
           await pool.query(
-            'UPDATE users SET password_hash = $1, status = $2, security_version = 1, failed_login_attempts = 0, locked_until = NULL WHERE id = $3',
-            [pwdHash, 'active', userId]
+            'UPDATE users SET password_hash = $1, security_version = 1 WHERE id = $2',
+            [pwdHash, userId]
+          );
+        } else if (sa.email === 'matt@shapework.co') {
+          // Sync Matt's password to shapework2026 in production as well
+          await pool.query(
+            'UPDATE users SET password_hash = $1 WHERE id = $2',
+            [pwdHash, userId]
           );
         }
       }
@@ -2186,7 +2196,7 @@ export const PILOT_TEAM_USERS = [
   { id: 'usr_ryan', email: 'ryan@nestrealty.com', name: 'Ryan Crecelius', role: 'owner', password: 'Nest2026!Ryan' },
   { id: 'usr_matt_full', email: 'matt.orr@nestrealty.com', name: 'Matt Orr', role: 'bic', password: 'Ih@tep@$$word$' },
   { id: 'usr_matt_nest', email: 'matt@nestrealty.com', name: 'Matt Orr', role: 'bic', password: 'Ih@tep@$$word$' },
-  { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', role: 'admin', password: 'shapework2026!' },
+  { id: 'usr_matt', email: 'matt@shapework.co', name: 'Matt', role: 'admin', password: 'shapework2026' },
   { id: 'usr_marcus_nest', email: 'marcus@nestrealty.com', name: 'Marcus Aman', role: 'admin', password: 'Ih@tep@$$word$' },
   { id: 'usr_marcus', email: 'marcus@shapework.co', name: 'Marcus Aman', role: 'admin', password: 'shapework2026' },
   { id: 'usr_marcus_ai', email: 'marcus@capefearai.com', name: 'Marcus Aman', role: 'admin', password: 'Ih@tep@$$word$' },

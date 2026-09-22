@@ -58,6 +58,14 @@ export const ALLOWED_TEST_EMAIL_RECIPIENTS = [
 
 export function isAllowedEmailRecipient(email?: string): boolean {
   if (!email) return false;
+  // If in live outbound mode, production mode, or if whitelist is explicitly disabled, allow all valid email recipients
+  if (
+    process.env.OUTBOUND_MASTER_MODE === 'live' ||
+    process.env.APP_MODE === 'production' ||
+    process.env.DISABLE_EMAIL_WHITELIST === 'true'
+  ) {
+    return true;
+  }
   const normalized = email.toLowerCase().trim();
   const envAllowlist = (process.env.EMAIL_TEST_ALLOWLIST || '')
     .split(',')
