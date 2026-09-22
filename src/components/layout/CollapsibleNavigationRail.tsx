@@ -395,40 +395,6 @@ export default function CollapsibleNavigationRail({
         )}
       </div>
 
-      {/* Scope Switcher Banner */}
-      {(!collapsed || isMobileOpen) && (
-        <div className="mx-3 mt-2.5 mb-1 p-2 bg-stone-100/90 border border-stone-200 rounded-xl flex items-center justify-between shadow-2xs">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-xs shrink-0">{isRyanDashboardScope ? '👑' : '🏢'}</span>
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold text-stone-900 truncate font-mono">
-                {isRyanDashboardScope ? "Ryan's Dashboard" : "nest-realty-demo"}
-              </div>
-              <div className="text-[8px] text-stone-500 truncate">
-                {isRyanDashboardScope ? "Executive Owner View" : "Full Brokerage Operations"}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (isRyanDashboardScope) {
-                localStorage.setItem('customer_app_scope', 'nest-realty-demo');
-                window.location.href = '/app/workboard?scope=nest-realty-demo';
-              } else {
-                localStorage.setItem('customer_app_scope', 'ryans-dashboard');
-                localStorage.setItem('shapework_active_profile_id', 'usr_ryan');
-                window.location.href = '/app/ryan-shield?scope=ryans-dashboard';
-              }
-            }}
-            className="text-[9px] font-bold text-[var(--brand-primary)] hover:opacity-80 shrink-0 hover:underline px-1.5 py-0.5 rounded bg-white border border-stone-200 cursor-pointer shadow-2xs"
-            title={isRyanDashboardScope ? "Switch to Full Workspace" : "Switch to Ryan's Dashboard"}
-          >
-            {isRyanDashboardScope ? "All Tabs →" : "Ryan's View →"}
-          </button>
-        </div>
-      )}
-
       {/* Nav List with Accordion Categories & Hidden Scrollbar */}
       <div 
         className="flex-1 overflow-y-auto py-3 px-3 space-y-4 overflow-x-hidden"
