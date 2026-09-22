@@ -22708,20 +22708,35 @@ if (hasDistBuild) {
 
   // Explicit Video Streaming Route with Range & Cache Headers
   app.get('/*.mp4', (req, res, next) => {
-    const videoFile = path.basename(req.path);
-    const candidatePaths = [
-      path.join(distPath, videoFile),
-      path.join(rootDir, 'public', videoFile),
-      path.join(process.cwd(), 'public', videoFile),
-      path.join(rootDir, 'src', 'assets', videoFile),
-      path.join(process.cwd(), 'src', 'assets', videoFile)
-    ];
-    for (const p of candidatePaths) {
-      if (fs.existsSync(p)) {
-        res.setHeader('Content-Type', 'video/mp4');
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-        return res.sendFile(p);
+    const rawName = path.basename(req.path);
+    let decodedName = rawName;
+    try {
+      decodedName = decodeURIComponent(rawName);
+    } catch {
+      decodedName = rawName;
+    }
+    const candidateFilenames = Array.from(new Set([
+      rawName,
+      decodedName,
+      decodedName.replace(/\s+/g, '_'),
+      decodedName.replace(/_+/g, ' ')
+    ]));
+
+    for (const videoFile of candidateFilenames) {
+      const candidatePaths = [
+        path.join(distPath, videoFile),
+        path.join(rootDir, 'public', videoFile),
+        path.join(process.cwd(), 'public', videoFile),
+        path.join(rootDir, 'src', 'assets', videoFile),
+        path.join(process.cwd(), 'src', 'assets', videoFile)
+      ];
+      for (const p of candidatePaths) {
+        if (fs.existsSync(p)) {
+          res.setHeader('Content-Type', 'video/mp4');
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+          return res.sendFile(p);
+        }
       }
     }
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
