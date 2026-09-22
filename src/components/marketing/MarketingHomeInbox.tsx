@@ -42,6 +42,7 @@ import {
   Tag,
   Calendar,
   Eye,
+  UserPlus,
   SlidersHorizontal,
   Building2,
   Folder,
@@ -2363,56 +2364,37 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
 
                       // Contextual Primary Action in Nest green
                       let primaryAction = undefined;
-                      if (task.status === 'request_received') {
+                      let secondaryAction = undefined;
+                      const assigneeName = String(task.assignedTo || task.assignedToName || '').trim();
+                      const isUnassigned = !assigneeName || assigneeName.toLowerCase() === 'unassigned';
+
+                      // A/C footer: Assign|Reassign + Open (status workflow lives in the drawer)
+                      secondaryAction = {
+                        label: 'Open',
+                        icon: <Eye className="w-3 h-3" />,
+                        onClick: (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          handleOpenTaskDetail(task);
+                        }
+                      };
+                      if (isUnassigned) {
                         primaryAction = {
-                          label: 'Take Task',
+                          label: 'Assign',
+                          icon: <UserPlus className="w-3 h-3" />,
                           onClick: (e: React.MouseEvent) => {
-                            handleAssignTask(task.id, taskDomainType === 'operations' ? 'Ann Gunn' : 'Melissa Gagliardi');
+                            e.stopPropagation();
+                            handleAssignTask(
+                              task.id,
+                              taskDomainType === 'operations' ? 'Ann Gunn' : 'Melissa Gagliardi'
+                            );
                           }
                         };
-                      } else if (task.status === 'assigned') {
+                      } else {
                         primaryAction = {
-                          label: 'Start Work',
-                          icon: <Play className="w-2.5 h-2.5 fill-current" />,
+                          label: 'Reassign',
                           onClick: (e: React.MouseEvent) => {
-                            handleStartWork(task.id);
-                          }
-                        };
-                      } else if (task.status === 'in_progress') {
-                        primaryAction = {
-                          label: 'Review',
-                          variant: 'purple' as const,
-                          onClick: (e: React.MouseEvent) => {
-                            handleUpdateStatus(task.id, 'agent_review');
-                          }
-                        };
-                      } else if (task.status === 'agent_review') {
-                        primaryAction = {
-                          label: 'Approve',
-                          variant: 'emerald' as const,
-                          onClick: (e: React.MouseEvent) => {
-                            if (task.category === 'signage' || task.category === 'print') {
-                              handleSendToVendor(task.id);
-                            } else {
-                              handleUpdateStatus(task.id, 'approved');
-                            }
-                          }
-                        };
-                      } else if (task.status === 'revisions') {
-                        primaryAction = {
-                          label: 'Rework',
-                          variant: 'amber' as const,
-                          onClick: (e: React.MouseEvent) => {
-                            handleStartWork(task.id);
-                          }
-                        };
-                      } else if (task.status === 'with_vendor' || task.status === 'approved') {
-                        primaryAction = {
-                          label: 'Complete',
-                          variant: 'emerald' as const,
-                          icon: <Check className="w-3 h-3" />,
-                          onClick: (e: React.MouseEvent) => {
-                            handleUpdateStatus(task.id, 'completed');
+                            e.stopPropagation();
+                            setQuickActionsTask(task);
                           }
                         };
                       }
@@ -2432,6 +2414,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                             handleOpenTaskDetail(task, 'activity');
                           }}
                           primaryAction={primaryAction}
+                          secondaryAction={secondaryAction}
                         />
                       );
                     })

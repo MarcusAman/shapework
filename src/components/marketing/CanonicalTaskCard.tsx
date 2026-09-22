@@ -29,6 +29,8 @@ import {
   AlertCircle,
   Database,
   User,
+  UserPlus,
+  Eye,
   MoreHorizontal,
   MoreVertical,
   Play,
@@ -66,6 +68,8 @@ export interface CanonicalTaskCardProps {
   onClick?: () => void;
   onQuickActions?: (e: React.MouseEvent) => void;
   primaryAction?: CanonicalTaskCardAction;
+  /** Open / secondary footer action (A/C dual footer). */
+  secondaryAction?: CanonicalTaskCardAction;
   quickMoveOptions?: QuickMoveOption[];
   onActivityClick?: (e: React.MouseEvent) => void;
   className?: string;
@@ -83,6 +87,7 @@ export const CanonicalTaskCard: React.FC<CanonicalTaskCardProps> = ({
   onClick,
   onQuickActions,
   primaryAction,
+  secondaryAction,
   quickMoveOptions,
   className = '',
   context = 'tasks',
@@ -540,9 +545,8 @@ export const CanonicalTaskCard: React.FC<CanonicalTaskCardProps> = ({
         )}
       </div>
 
-      {/* ── 4. COMPACT FOOTER: ASSIGNEE & PRIMARY ACTION (Nest Green #00635C) ── */}
-      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap text-[11px]">
-        {/* Assignee Avatar & Name */}
+      {/* ── 4. FOOTER: assignee + A/C action row (Nest #00635C) ── */}
+      <div className="pt-2 border-t border-slate-100 flex flex-col gap-2 text-[11px]">
         <div className="flex items-center gap-1.5 min-w-0">
           {staffMember ? (
             <div className="flex items-center gap-1.5 truncate">
@@ -565,9 +569,49 @@ export const CanonicalTaskCard: React.FC<CanonicalTaskCardProps> = ({
           )}
         </div>
 
-        {/* Primary Action Button */}
-        {primaryAction && (
-          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+        {secondaryAction && primaryAction ? (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="grid grid-cols-2 gap-1.5 w-full"
+          >
+            {(() => {
+              const isAssigned = Boolean(staffMember) || (Boolean(assigneeName) && assigneeName !== 'Unassigned');
+              // A: unassigned → Assign solid + Open outline
+              // C: assigned → Reassign outline + Open solid
+              const assignBtn = primaryAction;
+              const openBtn = secondaryAction;
+              const solid =
+                'inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#00635C] hover:bg-[#004D47] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs';
+              const outline =
+                'inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white hover:bg-slate-50 text-[#00635C] border border-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+              const assignClass = isAssigned ? outline : solid;
+              const openClass = isAssigned ? solid : outline;
+              return (
+                <>
+                  <button
+                    type="button"
+                    disabled={assignBtn.disabled}
+                    onClick={assignBtn.onClick}
+                    className={assignClass}
+                  >
+                    {assignBtn.icon}
+                    <span>{assignBtn.label}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={openBtn.disabled}
+                    onClick={openBtn.onClick}
+                    className={openClass}
+                  >
+                    {openBtn.icon}
+                    <span>{openBtn.label}</span>
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        ) : primaryAction ? (
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0 self-end">
             <button
               type="button"
               disabled={primaryAction.disabled}
@@ -586,7 +630,7 @@ export const CanonicalTaskCard: React.FC<CanonicalTaskCardProps> = ({
               <span>{primaryAction.label}</span>
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
