@@ -93,43 +93,65 @@ export const TaskQuickActionsModal: React.FC<TaskQuickActionsModalProps> = ({
         className="relative bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 z-10 space-y-6 animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header: Property Info & Close Button */}
+        {/* Header */}
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
           <div className="flex items-start gap-3.5 min-w-0">
-            {/* Property Photo Thumbnail */}
-            {hasPhotos && photoUrl ? (
-              <img 
-                src={photoUrl} 
-                alt={propertyAddr} 
+            {mode === 'reassign' ? (
+              <div
+                className="w-12 h-12 rounded-2xl bg-[#00635C]/10 border border-[#00635C]/20 shrink-0 flex items-center justify-center"
+                aria-hidden="true"
+              >
+                <Users className="w-5 h-5 text-[#00635C]" />
+              </div>
+            ) : hasPhotos && photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={propertyAddr}
                 className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0 shadow-xs"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}
               />
             ) : (
-              <div className="w-14 h-14 rounded-2xl bg-[#003831] border border-[#002823] shrink-0 flex flex-col items-center justify-center relative overflow-hidden shadow-xs p-1">
-                <img src="/nest-realty-logo-white.svg" alt="Nest" className="w-10 object-contain mb-2" />
-                <div className="absolute inset-x-0 bottom-0 bg-amber-400 py-0.5 text-center text-[7px] font-black text-black uppercase tracking-wider">
-                  Photos Needed
-                </div>
+              <div
+                className="w-14 h-14 rounded-2xl bg-[#003831] border border-[#002823] shrink-0 flex items-center justify-center shadow-xs"
+                aria-hidden="true"
+              >
+                <img src="/nest-realty-logo-white.svg" alt="" className="w-8 object-contain" />
               </div>
             )}
 
             <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-[10px] font-bold text-[#00635C] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                  {task.id}
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 uppercase tracking-tight">
-                  {task.deliverableType || 'Marketing Task'}
-                </span>
-              </div>
-              <h3 className="text-base font-bold text-slate-900 truncate" title={propertyAddr}>
-                {propertyAddr}
-              </h3>
-              <p className="text-xs text-slate-500 truncate">
-                {task.title} • Agent: <strong>{task.agentName || 'Agent'}</strong>
-              </p>
+              {mode === 'reassign' ? (
+                <>
+                  <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 uppercase tracking-tight">
+                    {task.deliverableType || 'Marketing Task'}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 truncate" title={propertyAddr}>
+                    {propertyAddr}
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    Reassign ownership · {task.title}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-[10px] font-bold text-[#00635C] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      {task.id}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 uppercase tracking-tight">
+                      {task.deliverableType || 'Marketing Task'}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 truncate" title={propertyAddr}>
+                    {propertyAddr}
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    {task.title} • Agent: <strong>{task.agentName || 'Agent'}</strong>
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
