@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Plus, Calendar, ChevronDown, Check, Menu, X, LogOut, Zap, FileText, Upload, Mail, Phone, Shield, Megaphone, RefreshCw, BookOpen, Bot, Truck, Camera, Brain, CheckSquare } from 'lucide-react';
+import { Search, Bell, Plus, Calendar, ChevronDown, Check, Menu, X, LogOut, Zap, FileText, Upload, Mail, Phone, Shield, Megaphone, RefreshCw, BookOpen, Bot, Truck, Camera, Brain, CheckSquare, SlidersHorizontal } from 'lucide-react';
 import { Profile } from '../../types/shapework';
 import LocationSelectorDropdown from '../ui/LocationSelectorDropdown';
 import { GlobalEvidenceDrawer, GlobalEvidenceCardData } from '../brokerage-ops/GlobalEvidenceDrawer';
@@ -89,6 +89,28 @@ export default function TopBar({
   const isRoleMapPage = currentTab === 'Role Map' || currentTab === 'Role & Escalation Map';
   const isSettingsPage = currentTab === 'Settings' || currentTab === 'Workspace Settings';
   const isVendorPage = currentTab === 'Vendor Dispatch' || currentTab === 'Vendors' || currentTab === 'Vendor Hub' || currentTab === 'Repair Board' || currentTab === 'Field Equipment' || currentTab?.toLowerCase().includes('vendor');
+  const isNewsPage = currentTab === 'News' || currentTab === 'news' || currentTab === 'Real Estate News' || currentTab === 'Industry News' || (typeof window !== 'undefined' && window.location.pathname.includes('/news'));
+
+  const [newsSyncState, setNewsSyncState] = useState<'idle' | 'syncing' | 'synced'>('idle');
+
+  useEffect(() => {
+    const handleSyncStarted = () => setNewsSyncState('syncing');
+    const handleSyncCompleted = () => {
+      setNewsSyncState('synced');
+      setTimeout(() => setNewsSyncState('idle'), 2000);
+    };
+    const handleSyncFailed = () => setNewsSyncState('idle');
+
+    window.addEventListener('news-sync-started', handleSyncStarted);
+    window.addEventListener('news-sync-completed', handleSyncCompleted);
+    window.addEventListener('news-sync-failed', handleSyncFailed);
+
+    return () => {
+      window.removeEventListener('news-sync-started', handleSyncStarted);
+      window.removeEventListener('news-sync-completed', handleSyncCompleted);
+      window.removeEventListener('news-sync-failed', handleSyncFailed);
+    };
+  }, []);
 
   if (variant === 'minimal') {
     return (
@@ -277,6 +299,20 @@ export default function TopBar({
                 Automated work orders for Coastal Sign Post Co., HDR Media shoot calendar, approved vendor directory, and Supra Bluetooth Lockbox fleet tracking.
               </p>
             </div>
+          ) : isNewsPage ? (
+            <div className="flex flex-col text-left min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-[#00635C]">
+                  Executive Intelligence Hub
+                </span>
+              </div>
+              <h1 className="font-serif font-black text-sm md:text-base text-slate-900 tracking-tight leading-tight mt-0.5">
+                News & Market Dispatch
+              </h1>
+              <p className="hidden xl:block text-[11px] text-slate-500 font-sans pt-0.5 truncate max-w-xl">
+                Curated industry shifts, local Cape Fear developments, and actionable intelligence for Nest Realty.
+              </p>
+            </div>
           ) : isAskNestOpsPage ? (
             <div className="flex flex-col text-left">
               <h1 className="font-sans font-bold text-base text-[var(--brand-primary)] tracking-tight leading-tight">
@@ -412,6 +448,32 @@ export default function TopBar({
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Invite Staff to Document an SOP</span>
+            </button>
+          </div>
+        ) : isNewsPage ? (
+          <div className="flex items-center gap-2 select-none shrink-0">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('trigger-news-sync'))}
+              disabled={newsSyncState === 'syncing'}
+              className="px-3.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-xl text-xs font-semibold text-stone-700 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Sync latest real estate feeds"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#00635C] ${newsSyncState === 'syncing' ? 'animate-spin' : ''}`} />
+              <span>
+                {newsSyncState === 'syncing' ? 'Syncing...' : newsSyncState === 'synced' ? 'Synced!' : 'Sync Feeds'}
+              </span>
+              {newsSyncState === 'synced' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-news-sources-drawer'))}
+              className="px-3.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-xl text-xs font-semibold text-stone-700 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Configure News Sources"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#00635C]" />
+              <span>Sources</span>
             </button>
           </div>
         ) : (

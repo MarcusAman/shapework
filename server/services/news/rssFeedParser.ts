@@ -312,13 +312,33 @@ function extractRssItemLink(itemXml: string, channelLink?: string, baseUrl?: str
 }
 
 export function parseRssXml(xml: string, sourceSiteUrl?: string): ParsedFeed {
-  // Security Guard 1: Defense against oversized XML payloads
-  if (!xml || xml.length > 5 * 1024 * 1024) {
-    throw new Error('Feed payload exceeds safety threshold of 5MB.');
+  if (!xml) {
+    throw new Error('Feed payload is empty.');
+  }
+
+  // Security Guard 1: Defense against catastrophic payloads (> 15MB)
+  if (xml.length > 15 * 1024 * 1024) {
+    throw new Error('Feed payload exceeds safety threshold of 15MB.');
+  }
+
+  // Optimize large podcast feeds (> 3MB): retain channel header and top 50 freshest episodes
+  let processedXml = xml;
+  if (processedXml.length > 3 * 1024 * 1024) {
+    if (processedXml.includes('<item>')) {
+      const itemSplits = processedXml.split('<item>');
+      if (itemSplits.length > 51) {
+        processedXml = itemSplits.slice(0, 51).join('<item>') + '</channel></rss>';
+      }
+    } else if (processedXml.includes('<item ')) {
+      const itemSplits = processedXml.split('<item ');
+      if (itemSplits.length > 51) {
+        processedXml = itemSplits.slice(0, 51).join('<item ') + '</channel></rss>';
+      }
+    }
   }
 
   // Security Guard 2: Strip DOCTYPE and ENTITY declarations to defend against XXE
-  const sanitizedXml = sanitizeXml(xml);
+  const sanitizedXml = sanitizeXml(processedXml);
 
   const isAtom = /<feed[^>]*xmlns=['"]http:\/\/www\.w3\.org\/2005\/Atom['"]/i.test(sanitizedXml) ||
                  /<feed[\s>]/i.test(sanitizedXml);

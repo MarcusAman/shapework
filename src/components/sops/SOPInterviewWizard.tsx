@@ -65,7 +65,7 @@ const PHASE_COPY: Record<
   basics: {
     eyebrow: 'Interview',
     title: 'Name it — and say when it starts',
-    subtitle: 'A clear title and trigger make this usable for Melissa, Ann, and Nora.',
+    subtitle: 'A clear title and trigger make this usable for the Operations Lead, Transaction Coordinator, and AI Copilot.',
   },
   tools: {
     eyebrow: 'Interview',
@@ -93,7 +93,7 @@ const STEP_EXAMPLES_BY_TYPE: Record<SopInterviewTypeId, string[]> = {
   Marketing: [
     'Confirm listing photos are approved',
     'Draft Just Listed flyer in Maxa',
-    'Send eblast for Melissa review',
+    'Send eblast for Marketing Coordinator review',
     'Schedule social posts',
   ],
   Operations: [

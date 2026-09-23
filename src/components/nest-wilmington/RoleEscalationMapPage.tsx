@@ -39,6 +39,8 @@ interface RoleEscalationMapPageProps {
   model?: OrgModel;
   defaultTab?: string;
   workspaceId?: string;
+  state?: any;
+  onNavigateToSop?: (sopId: string) => void;
 }
 
 const EXPANDED_ROLE_PRESETS = [
@@ -146,7 +148,7 @@ const getAvatarForRole = (name: string, customUrl?: string) => {
   return null;
 };
 
-export default function RoleEscalationMapPage({ data, model: initialModel, defaultTab = 'roles', workspaceId }: RoleEscalationMapPageProps) {
+export default function RoleEscalationMapPage({ data, model: initialModel, defaultTab = 'roles', workspaceId, state, onNavigateToSop }: RoleEscalationMapPageProps) {
   const effectiveWorkspaceId = workspaceId || 'ws_wilmington';
   const [activeTab, setActiveTab] = useState<'roles' | 'visual_map' | 'overview' | 'routing' | 'escalations' | 'connected_tools'>(
     defaultTab === 'visual_map' || defaultTab === 'overview' || defaultTab === 'routing' || defaultTab === 'escalations' || defaultTab === 'connected_tools'
@@ -154,6 +156,25 @@ export default function RoleEscalationMapPage({ data, model: initialModel, defau
       : 'roles'
   );
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const handleNavigateToSop = (sopId: string) => {
+    try {
+      localStorage.setItem('sop_studio_selected_sop_id', sopId);
+    } catch (e) {
+      // ignore
+    }
+    if (onNavigateToSop) {
+      onNavigateToSop(sopId);
+      return;
+    }
+    if (state?.setCurrentTab) {
+      state.setCurrentTab('Knowledge Library');
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('shapework:navigate-tab', { detail: { tab: 'Knowledge Library', sopId } }));
+    }
+  };
 
   // Department filter for Overview navigation
   const [positionFilterDept, setPositionFilterDept] = useState<string>('All');
@@ -222,11 +243,54 @@ export default function RoleEscalationMapPage({ data, model: initialModel, defau
     backup: string;
     sla: string;
     description: string;
+    governingSopId?: string;
+    governingSopRef?: string;
+    governingSopTitle?: string;
   }>>([
-    { id: 'rt_1', category: 'Listing Pre-Launch & MLS Entry', primary: 'Listing Specialist', backup: 'Transaction Coordinator', sla: '4 hours', description: 'Automated intake checklist triggers upon inbound message receipt.' },
-    { id: 'rt_2', category: 'Contract Audit & EMD Verification', primary: 'Transaction Coordinator', backup: 'Managing Broker', sla: '2 hours', description: 'Immediate escrow verification and compliance review.' },
-    { id: 'rt_3', category: 'Marketing Material Request', primary: 'Marketing Lead', backup: 'Office Coordinator', sla: '6 hours', description: 'Custom flyer and social campaign graphic generation.' },
-    { id: 'rt_4', category: 'Sign Post Installation / Lockbox', primary: 'Field Operator', backup: 'Listing Specialist', sla: '24 hours', description: 'Field dispatch for physical sign and electronic lockbox.' }
+    { 
+      id: 'rt_1', 
+      category: 'Listing Pre-Launch & MLS Entry', 
+      primary: 'Listing Specialist', 
+      backup: 'Transaction Coordinator', 
+      sla: '4 hours', 
+      description: 'Automated intake checklist triggers upon inbound message receipt.',
+      governingSopId: 'sop_listing_launch_001',
+      governingSopRef: 'SOP-001',
+      governingSopTitle: 'Listing Launch SOP'
+    },
+    { 
+      id: 'rt_2', 
+      category: 'Contract Audit & EMD Verification', 
+      primary: 'Transaction Coordinator', 
+      backup: 'Managing Broker', 
+      sla: '2 hours', 
+      description: 'Immediate escrow verification and compliance review.',
+      governingSopId: 'sop_cda_approval_002',
+      governingSopRef: 'SOP-002',
+      governingSopTitle: 'CDA Approval & Escrow Verification'
+    },
+    { 
+      id: 'rt_3', 
+      category: 'Marketing Material Request', 
+      primary: 'Marketing Lead', 
+      backup: 'Office Coordinator', 
+      sla: '6 hours', 
+      description: 'Custom flyer and social campaign graphic generation.',
+      governingSopId: 'sop_marketing_intake_004',
+      governingSopRef: 'SOP-004',
+      governingSopTitle: 'Marketing Material Request'
+    },
+    { 
+      id: 'rt_4', 
+      category: 'Sign Post Installation / Lockbox', 
+      primary: 'Field Operator', 
+      backup: 'Listing Specialist', 
+      sla: '24 hours', 
+      description: 'Field dispatch for physical sign and electronic lockbox.',
+      governingSopId: 'sop_sign_vendor_003',
+      governingSopRef: 'SOP-003',
+      governingSopTitle: 'Yard Sign & Lockbox Vendor Dispatch'
+    }
   ]);
 
   // Published policy and preview states
@@ -254,14 +318,33 @@ export default function RoleEscalationMapPage({ data, model: initialModel, defau
       if (data && data.policy) {
         setPublishedPolicyData(data);
         if (data.rules && data.rules.length > 0) {
-          setRoutingRules(data.rules.map((r: any) => ({
-            id: r.id,
-            category: r.display_name || r.category,
-            primary: r.primary_staff_id,
-            backup: r.backup_staff_id || 'None',
-            sla: r.sla_display || `${r.sla_hours} hours`,
-            description: r.metadata?.description || `Governed by ${r.governing_sop_id || 'Standard Operating Procedure'}`
-          })));
+          setRoutingRules(data.rules.map((r: any) => {
+            const defaultRef = 
+              (r.category || r.display_name || '').toLowerCase().includes('listing') ? 'SOP-001' :
+              (r.category || r.display_name || '').toLowerCase().includes('contract') || (r.category || r.display_name || '').toLowerCase().includes('emd') ? 'SOP-002' :
+              (r.category || r.display_name || '').toLowerCase().includes('sign') || (r.category || r.display_name || '').toLowerCase().includes('lockbox') ? 'SOP-003' :
+              (r.category || r.display_name || '').toLowerCase().includes('marketing') ? 'SOP-004' : 'SOP-001';
+            const defaultId =
+              defaultRef === 'SOP-001' ? 'sop_listing_launch_001' :
+              defaultRef === 'SOP-002' ? 'sop_cda_approval_002' :
+              defaultRef === 'SOP-003' ? 'sop_sign_vendor_003' : 'sop_marketing_intake_004';
+            const defaultTitle =
+              defaultRef === 'SOP-001' ? 'Listing Launch SOP' :
+              defaultRef === 'SOP-002' ? 'CDA Approval & Escrow Verification' :
+              defaultRef === 'SOP-003' ? 'Yard Sign & Lockbox Vendor Dispatch' : 'Marketing Material Request';
+
+            return {
+              id: r.id,
+              category: r.display_name || r.category,
+              primary: r.primary_staff_id,
+              backup: r.backup_staff_id || 'None',
+              sla: r.sla_display || `${r.sla_hours} hours`,
+              description: r.metadata?.description || `Governed by ${r.governing_sop_id || defaultTitle}`,
+              governingSopId: r.governing_sop_id || defaultId,
+              governingSopRef: r.governing_sop_ref || defaultRef,
+              governingSopTitle: r.governing_sop_title || r.metadata?.sop_title || defaultTitle
+            };
+          }));
         }
       }
     } catch (err) {
@@ -1046,30 +1129,60 @@ export default function RoleEscalationMapPage({ data, model: initialModel, defau
             </div>
 
             <div className="divide-y divide-stone-100">
-              {routingRules.map((rule) => (
-                <div key={rule.id} className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 group">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-stone-900">{rule.category}</span>
-                      <Badge variant="neutral">Due: {rule.sla}</Badge>
+              {routingRules.map((rule) => {
+                const sopRef = rule.governingSopRef || (
+                  rule.category.toLowerCase().includes('listing') ? 'SOP-001' :
+                  rule.category.toLowerCase().includes('contract') || rule.category.toLowerCase().includes('emd') ? 'SOP-002' :
+                  rule.category.toLowerCase().includes('sign') || rule.category.toLowerCase().includes('lockbox') ? 'SOP-003' :
+                  rule.category.toLowerCase().includes('marketing') ? 'SOP-004' : 'SOP-001'
+                );
+                const sopTitle = rule.governingSopTitle || (
+                  sopRef === 'SOP-001' ? 'Listing Launch SOP' :
+                  sopRef === 'SOP-002' ? 'CDA Approval & Escrow Verification' :
+                  sopRef === 'SOP-003' ? 'Yard Sign & Lockbox Vendor Dispatch' :
+                  sopRef === 'SOP-004' ? 'Marketing Material Request' : 'Standard Operating Procedure'
+                );
+                const sopId = rule.governingSopId || (
+                  sopRef === 'SOP-001' ? 'sop_listing_launch_001' :
+                  sopRef === 'SOP-002' ? 'sop_cda_approval_002' :
+                  sopRef === 'SOP-003' ? 'sop_sign_vendor_003' : 'sop_marketing_intake_004'
+                );
+
+                return (
+                  <div key={rule.id} className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 group">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-stone-900">{rule.category}</span>
+                        <Badge variant="neutral">Due: {rule.sla}</Badge>
+                        <button
+                          type="button"
+                          onClick={() => handleNavigateToSop(sopId)}
+                          title={`Open ${sopRef} (${sopTitle}) in Knowledge Library`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#E5EFEA] hover:bg-[#d0e5dc] text-[#00635C] border border-[#00635C]/20 text-[11px] font-mono font-bold transition cursor-pointer shadow-2xs group-hover:border-[#00635C]/40"
+                        >
+                          <FileText className="w-3 h-3 text-[#00635C]" />
+                          <span>Governed by: {sopRef} · {sopTitle}</span>
+                          <ArrowUpRight className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-stone-600">{rule.description}</p>
                     </div>
-                    <p className="text-xs text-stone-600">{rule.description}</p>
+                    <div className="flex items-center gap-3 text-xs shrink-0">
+                      <span className="text-stone-500">Primary: <strong className="text-stone-800">{rule.primary}</strong></span>
+                      <span className="text-stone-400">→</span>
+                      <span className="text-stone-500">Backup: <strong className="text-stone-800">{rule.backup}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRoutingRule(rule.id, rule.category)}
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        title="Delete this route rule"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-xs shrink-0">
-                    <span className="text-stone-500">Primary: <strong className="text-stone-800">{rule.primary}</strong></span>
-                    <span className="text-stone-400">→</span>
-                    <span className="text-stone-500">Backup: <strong className="text-stone-800">{rule.backup}</strong></span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRoutingRule(rule.id, rule.category)}
-                      className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      title="Delete this route rule"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </div>

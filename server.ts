@@ -14105,7 +14105,10 @@ app.post('/api/elevenlabs/conversation-token', async (req: any, res) => {
   }
 });
 
-// ELEVENLABS TEXT-TO-SPEECH STREAMING ENDPOINT
+// ELEVENLABS TEXT-TO-SPEECH STREAMING ENDPOINT WITH PERSISTENT CACHING
+const AUDIO_CACHE_DIR = path.join(process.cwd(), 'data', 'audio_cache');
+const ttsInMemoryCache = new Map<string, Buffer>();
+
 app.post('/api/elevenlabs/tts', async (req: any, res) => {
   try {
     const { text, voiceId = 'l006hw6wZaEYAv80cbzj' } = req.body;
@@ -14115,6 +14118,38 @@ app.post('/api/elevenlabs/tts', async (req: any, res) => {
 
     const apiKey = process.env.ELEVENLABS_API_KEY || 'sk_68a3273befa5c9414832506a8598905eba8198e694a744cb';
     const cleanText = text.replace(/[*#_`]/g, '').trim();
+    if (!cleanText) {
+      return res.status(400).json({ success: false, error: 'Clean text is empty.' });
+    }
+
+    // Hash for cache key
+    const cacheKey = crypto.createHash('sha256').update(`${voiceId}:${cleanText}`).digest('hex');
+    const cachedFilePath = path.join(AUDIO_CACHE_DIR, `${cacheKey}.mp3`);
+
+    // 1. Check in-memory cache
+    if (ttsInMemoryCache.has(cacheKey)) {
+      const buffer = ttsInMemoryCache.get(cacheKey)!;
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('X-Cache', 'HIT-MEMORY');
+      return res.send(buffer);
+    }
+
+    // 2. Check disk cache
+    if (fs.existsSync(cachedFilePath)) {
+      try {
+        const fileBuffer = fs.readFileSync(cachedFilePath);
+        ttsInMemoryCache.set(cacheKey, fileBuffer);
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('X-Cache', 'HIT-DISK');
+        return res.send(fileBuffer);
+      } catch (readErr) {
+        console.warn('[ElevenLabs Cache Read Warning]:', readErr);
+      }
+    }
+
+    // 3. Cache miss: Call ElevenLabs TTS API
+    // Support up to 5,000 characters for full 2-minute morning briefing
+    const textToSend = cleanText.slice(0, 5000);
 
     const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
@@ -14123,7 +14158,7 @@ app.post('/api/elevenlabs/tts', async (req: any, res) => {
         'xi-api-key': apiKey
       },
       body: JSON.stringify({
-        text: cleanText.slice(0, 1000),
+        text: textToSend,
         model_id: 'eleven_turbo_v2_5',
         voice_settings: {
           stability: 0.5,
@@ -14135,12 +14170,25 @@ app.post('/api/elevenlabs/tts', async (req: any, res) => {
     if (!ttsRes.ok) {
       const errData = await ttsRes.text();
       console.warn('[ElevenLabs TTS] API error response:', errData);
-      return res.status(ttsRes.status).json({ success: false, error: 'ElevenLabs TTS API error' });
+      return res.status(ttsRes.status).json({ success: false, error: 'ElevenLabs TTS API error', details: errData });
     }
 
-    const audioBuffer = await ttsRes.arrayBuffer();
+    const audioBuffer = Buffer.from(await ttsRes.arrayBuffer());
+
+    // Save to memory cache & disk cache
+    ttsInMemoryCache.set(cacheKey, audioBuffer);
+    try {
+      if (!fs.existsSync(AUDIO_CACHE_DIR)) {
+        fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
+      }
+      fs.writeFileSync(cachedFilePath, audioBuffer);
+    } catch (writeErr) {
+      console.warn('[ElevenLabs Cache Write Warning]:', writeErr);
+    }
+
     res.setHeader('Content-Type', 'audio/mpeg');
-    return res.send(Buffer.from(audioBuffer));
+    res.setHeader('X-Cache', 'MISS');
+    return res.send(audioBuffer);
   } catch (err: any) {
     console.error('[ElevenLabs TTS Error]:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -16656,24 +16704,43 @@ app.get('/api/ops/sops', requireAuth, resolveWorkspaceContext, requireWorkspaceM
   const seenTitles = new Set<string>();
   const sops: any[] = [];
 
+  const repoDrafts = sopRepository.listDraftsSync('tenant_nest_uat', wsId);
+  const repoMap = new Map<string, any>();
+  for (const d of repoDrafts) {
+    repoMap.set(d.id, d);
+    if (d.title) repoMap.set(d.title.trim().toLowerCase(), d);
+  }
+
   for (const s of rawList) {
     const key = s.sopId || s.id;
     const titleKey = (s.title || s.name || '').trim().toLowerCase();
     if (!seenIds.has(key) && (!titleKey || !seenTitles.has(titleKey))) {
       seenIds.add(key);
       if (titleKey) seenTitles.add(titleKey);
+      const matchedDraft = repoMap.get(key) || repoMap.get(titleKey);
+      if (matchedDraft) {
+        if (!s.category || s.category === 'Operations' || s.category === 'Office') {
+          s.category = matchedDraft.category;
+        }
+        if (matchedDraft.title) s.title = matchedDraft.title;
+      }
       sops.push(s);
     }
   }
 
-  if (sops.length === 0) {
-    try {
-      const repoDrafts = await sopRepository.listDrafts('tenant_nest_uat', wsId);
-      const adapted = (repoDrafts || []).map((d: any) => ({
+  // Also include any repoDrafts that were not in dbState.opsSops yet
+  for (const d of repoDrafts) {
+    const key = d.id;
+    const titleKey = (d.title || '').trim().toLowerCase();
+    if (!seenIds.has(key) && (!titleKey || !seenTitles.has(titleKey))) {
+      seenIds.add(key);
+      if (titleKey) seenTitles.add(titleKey);
+      sops.push({
         id: d.id,
         sopId: d.id,
         title: d.title,
         department: d.department || 'Operations',
+        category: d.category,
         ownerRole: d.processOwner || 'operations_lead',
         processOwner: d.processOwner || d.ownerRole || 'Admin Coordinator',
         author: d.author || d.createdBy || d.processOwner || 'Nest Team',
@@ -16683,14 +16750,20 @@ app.get('/api/ops/sops', requireAuth, resolveWorkspaceContext, requireWorkspaceM
         scope: d.scope || '',
         trigger: d.trigger || '',
         status: d.status || 'published',
-        version: typeof d.version === 'number' ? `${d.version}.0` : (d.version || '1.0'),
         steps: (d.orderedSteps || []).map((st: any) => ({
           id: st.id || `st_${st.stepNumber}`,
           stepNumber: st.stepNumber,
-          instruction: st.action,
-          role: st.role,
-          systemUsed: st.systemUsed
+          title: st.title || '',
+          action: st.action || st.instruction || '',
+          instruction: st.action || st.instruction || '',
+          role: st.role || st.assignedRole || 'Admin Coordinator',
+          primaryRole: st.primaryRole || st.role || st.assignedRole || 'Admin Coordinator',
+          secondaryRole: st.secondaryRole || '',
+          durationPolicy: st.durationPolicy,
+          affirmationCheck: st.affirmationCheck || '',
+          systemUsed: st.systemUsed || ''
         })),
+        orderedSteps: d.orderedSteps || [],
         decisions: d.decisions || [],
         exceptions: d.exceptions || [],
         escalationPaths: d.escalationPaths || [],
@@ -16700,18 +16773,7 @@ app.get('/api/ops/sops', requireAuth, resolveWorkspaceContext, requireWorkspaceM
         },
         sourceDocument: d.sourceDocument,
         workspaceId: wsId
-      }));
-      for (const ad of adapted) {
-        const key = ad.sopId || ad.id;
-        const titleKey = (ad.title || '').trim().toLowerCase();
-        if (!seenIds.has(key) && (!titleKey || !seenTitles.has(titleKey))) {
-          seenIds.add(key);
-          if (titleKey) seenTitles.add(titleKey);
-          sops.push(ad);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load repo SOPs fallback:', e);
+      });
     }
   }
 

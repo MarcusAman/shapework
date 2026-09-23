@@ -56,6 +56,7 @@ export function useDemoConsoleState() {
     if (clean.startsWith('/demo/transactions') || clean.startsWith('/demo/deals') || clean.startsWith('/demo/listings')) return 'Transactions';
     if (clean.startsWith('/demo/compliance')) return 'Compliance';
     if (clean.startsWith('/demo/market-intelligence') || clean.startsWith('/demo/marketing-intelligence') || clean.includes('/market-intelligence') || clean.includes('/marketing-intelligence') || clean.includes('/spatial-comps') || clean.includes('/comps')) return 'Market Intelligence';
+    if (clean.startsWith('/demo/news') || clean.includes('/news')) return 'News';
     if (clean.startsWith('/demo/tasks') || clean.startsWith('/demo/marketing') || clean.includes('/tasks') || clean.includes('/marketing')) return 'Tasks';
     if (clean.startsWith('/demo/people')) return 'People';
     if (clean.startsWith('/demo/growth')) return 'Growth Engine';
@@ -123,6 +124,11 @@ export function useDemoConsoleState() {
       case 'BIC Sentinel':
       case 'Nora Employee':
         return `${prefix}/market-intelligence`;
+      case 'News':
+      case 'Real Estate News':
+      case 'Industry News':
+      case 'news':
+        return `${prefix}/news`;
       case 'Tasks':
       case 'Marketing':
       case 'Marketing Requests':
