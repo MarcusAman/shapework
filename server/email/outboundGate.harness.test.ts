@@ -3,6 +3,7 @@
  * The gate is the only policy. APP_MODE must not widen who can receive mail.
  */
 import { describe, it, expect, afterEach } from 'vitest';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { checkOutbound } from './outboundGate.js';
@@ -18,25 +19,65 @@ const SEND_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: 'resend emails endpoint', re: /api\.resend\.com\/emails\b/ },
 ];
 
-function walk(dir: string, out: string[]) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+const SOURCE_EXT = /\.(ts|tsx|js|mjs|cjs)$/;
+
+function gitTrackedSourceFiles(): string[] | null {
+  try {
+    const out = execFileSync('git', ['ls-files', '-z'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return out.split('\0').filter((rel) => SOURCE_EXT.test(rel));
+  } catch {
+    return null;
+  }
+}
+
+function isGitIgnored(rel: string): boolean {
+  try {
+    execFileSync('git', ['check-ignore', '-q', '--', rel], {
+      cwd: ROOT,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function walkSkippingGitignored(dir: string, out: string[]) {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
     if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git' || entry.name === 'coverage') continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, out);
-    else if (/\.(ts|tsx|js|mjs|cjs)$/.test(entry.name)) out.push(full);
+    const rel = path.relative(ROOT, full).split(path.sep).join('/');
+    if (isGitIgnored(rel)) continue;
+    if (entry.isDirectory()) walkSkippingGitignored(full, out);
+    else if (SOURCE_EXT.test(entry.name)) out.push(rel);
   }
+}
+
+function sourceFilesToScan(): string[] {
+  const tracked = gitTrackedSourceFiles();
+  if (tracked) return tracked;
+  const walked: string[] = [];
+  walkSkippingGitignored(ROOT, walked);
+  return walked;
 }
 
 describe('outbound transport structural gate', () => {
   it('allows nodemailer sendMail, gmail messages/drafts.send, and Resend emails.send only inside the gated transport', () => {
-    const files: string[] = [];
-    walk(ROOT, files);
     const offenders: string[] = [];
-    for (const file of files) {
-      const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    for (const rel of sourceFilesToScan()) {
       if (rel === 'server/email/gatedTransport.ts') continue;
       if (rel === 'server/email/outboundGate.harness.test.ts') continue;
-      const text = fs.readFileSync(file, 'utf8');
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
       for (const pattern of SEND_PATTERNS) {
         if (pattern.re.test(text)) offenders.push(`${rel} → ${pattern.label}`);
       }

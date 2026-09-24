@@ -47,6 +47,7 @@ import { getActiveDirectoryMemberByEmail } from './canonicalDirectoryService.js'
 import { recordActivityEvent } from './activityHistoryService.js';
 import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
 import { evaluateOutboundDispatchGuard, looksLikeSmokeOrTestThread } from '../email/outboundDispatchGuards.js';
+import { checkOutbound } from '../email/outboundGate.js';
 import { isTombstoned } from '../persistence/intakeTombstoneRepository.js';
 import { coalesceRealDriveUrl, isRealGoogleDriveUrl, listingAddressKey, promoteAskNoraListingFolder } from './askNoraDriveDelivery.js';
 
@@ -865,8 +866,8 @@ export async function enqueueOutboundEmail(params: {
     // Resolve userId from recipient email when possible
     let userId: string | undefined;
     try {
-      const { dbPool, storageDriver } = await import('../persistence/repositories.js');
-      if (storageDriver === 'database' && dbPool) {
+      const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
+      if (getStorageDriver() === 'database' && dbPool) {
         const u = await dbPool.query(
           `SELECT id FROM users WHERE lower(email) = lower($1) LIMIT 1`,
           [recipient]
@@ -905,8 +906,25 @@ export async function enqueueOutboundEmail(params: {
       messageId: payload?.inReplyTo || payload?.messageId,
     });
     if (!g.allowed) {
-      console.log(`[Outbox] Dispatch guard blocked ${messageType} → ${recipient}: ${g.reason}`);
-      return { enqueued: false, outboxId: undefined, suppressed: true, reason: g.reason } as any;
+      // production+memory refuses a live send. Hold still queues so checkOutbound can record the row.
+      const decision = checkOutbound({
+        to: toList,
+        cc: ccList,
+        channel: messageType === 'sms' ? 'sms' : 'email',
+        source: `enqueue:${messageType}`,
+      });
+      const heldByGate = g.reason === 'memory_driver' && decision.allowed === false && decision.reason === 'held';
+      const tombstoned = heldByGate && await isTombstoned({
+        workspaceId,
+        propertyAddress: payload?.propertyAddress,
+        requestId: payload?.requestId || payload?.campaignId,
+        threadId: payload?.threadId,
+        messageId: payload?.inReplyTo || payload?.messageId,
+      });
+      if (!heldByGate || tombstoned) {
+        console.log(`[Outbox] Dispatch guard blocked ${messageType} → ${recipient}: ${tombstoned ? 'tombstone' : g.reason}`);
+        return { enqueued: false, outboxId: undefined, suppressed: true, reason: tombstoned ? 'tombstone' : g.reason } as any;
+      }
     }
   }
 
@@ -921,10 +939,10 @@ export async function enqueueOutboundEmail(params: {
   const outboxId = `outbox_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
-    const { dbPool, storageDriver } = await import('../persistence/repositories.js');
+    const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((storageDriver === 'database' || executor) && db) {
+    if ((getStorageDriver() === 'database' || executor) && db) {
       const res = await db.query(
         `INSERT INTO outbound_email_outbox (
           id, workspace_id, message_type, idempotency_key, recipient, subject, payload,
@@ -986,10 +1004,10 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
   let dispatchedCount = 0;
 
   try {
-    const { dbPool, storageDriver } = await import('../persistence/repositories.js');
+    const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((storageDriver === 'database' || executor) && db) {
+    if ((getStorageDriver() === 'database' || executor) && db) {
       // Claim up to 10 pending or retryable failed outbox entries safely with lease
       // Heal stale 'sending' rows that already have a provider message id (sent but not marked).
       await db.query(

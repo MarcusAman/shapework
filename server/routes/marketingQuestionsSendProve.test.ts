@@ -45,9 +45,15 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
   const outboundMaster = process.env.OUTBOUND_MASTER_MODE;
   const outboundMode = process.env.OUTBOUND_MODE;
   const allowDispatch = process.env.ALLOW_EXTERNAL_DISPATCH;
+  const appMode = process.env.APP_MODE;
+  const appEnv = process.env.APP_ENV;
+  const isProduction = process.env.IS_PRODUCTION;
 
   beforeAll(async () => {
     process.env.OUTBOUND_MASTER_MODE = 'hold';
+    process.env.APP_MODE = 'development';
+    process.env.APP_ENV = 'development';
+    process.env.IS_PRODUCTION = 'false';
     installDefaultDriveList();
     storeSnapshot = fs.existsSync(STORE) ? fs.readFileSync(STORE, 'utf8') : '';
     const app = express();
@@ -68,6 +74,12 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     resetAskNoraListingFolderRegistry();
     if (outboundMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
     else process.env.OUTBOUND_MASTER_MODE = outboundMaster;
+    if (appMode === undefined) delete process.env.APP_MODE;
+    else process.env.APP_MODE = appMode;
+    if (appEnv === undefined) delete process.env.APP_ENV;
+    else process.env.APP_ENV = appEnv;
+    if (isProduction === undefined) delete process.env.IS_PRODUCTION;
+    else process.env.IS_PRODUCTION = isProduction;
     const items = getAllCanonicalMarketingTasks();
     const idx = items.findIndex((t) => t.id === TASK_ID);
     if (idx >= 0) items.splice(idx, 1);
