@@ -46,7 +46,6 @@ import {
   SlidersHorizontal,
   Building2,
   Folder,
-  FolderOpen,
   CornerDownRight,
   MoreHorizontal,
   Users,
@@ -97,19 +96,8 @@ import { getTeamMemberSops, getCampaignGoverningSop, MarketingSopDefinition, MAR
 import { SOPQuickViewDrawer } from './SOPQuickViewDrawer';
 import { getSlaUrgencyInfo } from './VAWorkspaceView';
 import { CANONICAL_WORKSPACE_ROSTER } from '../../services/canonicalRoster';
-import { MlsNumberBadge } from './MlsNumberBadge';
 import { CanonicalTaskCard } from './CanonicalTaskCard';
-import { RequestSourceIcon } from './RequestSourceIcon';
 import { useFitBoardLayout } from './useFitBoardLayout';
-import {
-  deriveMaxaBoardStatus,
-  formatMaxaBoardStatus,
-  isMarketingCreativeTask,
-} from '../../lib/creativeRequestTriage';
-import {
-  formatDealTriageBoardBadge,
-  getDealTriageFromTask,
-} from '../../lib/dealTriage';
 
 export interface MarketingHomeInboxProps {
   campaigns?: any[];
@@ -608,15 +596,14 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     }
   };
   const [searchQuery, setSearchQuery] = useState<string>('');
-  /** Surface bar: Mine · Open · Address; Blocked stays dormant (v1). */
+  /** Surface bar v2: Mine · Open · Blocked · Address (one row). */
   const [surfaceMineOnly, setSurfaceMineOnly] = useState(false);
   const [surfaceOpenOnly, setSurfaceOpenOnly] = useState(false);
+  const [surfaceBlockedOnly, setSurfaceBlockedOnly] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('All Statuses');
   const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('All Team Members');
   const [selectedTimeframe, setSelectedTimeframe] = useState<'all' | '30d' | 'quarter' | 'future_2027'>('all');
-  /** ClickUp-style list: which lane sections are collapsed in Table view */
-  const [collapsedListLanes, setCollapsedListLanes] = useState<Record<string, boolean>>({});
   /** Parent intake request accordion: requestId → expanded (default collapsed when 2+ subtasks) */
   const [expandedRequestIds, setExpandedRequestIds] = useState<Record<string, boolean>>({});
   const [showArchived, setShowArchived] = useState<boolean>(false);
@@ -1555,7 +1542,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           !surfaceOpenOnly ||
           (!t.isArchived && t.status !== 'archived' && t.status !== 'approved' && t.status !== 'completed' && getCanonicalLaneForTask(t) !== 'approved');
 
-        return matchesSearch && matchesStatus && matchesCategory && matchesAssignee && matchesTimeframe && matchesSurfaceMine && matchesSurfaceOpen;
+        const matchesSurfaceBlocked =
+          !surfaceBlockedOnly ||
+          t.status === 'blocked' ||
+          String((t as any).routingState || '').toLowerCase() === 'blocked' ||
+          Boolean((t as any).isBlocked);
+
+        return matchesSearch && matchesStatus && matchesCategory && matchesAssignee && matchesTimeframe && matchesSurfaceMine && matchesSurfaceOpen && matchesSurfaceBlocked;
       })
       .sort((a, b) => {
         if (sortField === 'receivedAt' || sortField === 'createdAt') {
@@ -1575,102 +1568,11 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         const diff = getSortWeight(aDate) - getSortWeight(bDate);
         return sortOrder === 'asc' ? diff : -diff;
       });
-  }, [allTasksCombined, taskDomain, searchQuery, selectedStatus, selectedCategory, selectedAssignee, selectedTimeframe, showArchived, sortField, sortOrder, nowMs, requests, surfaceMineOnly, surfaceOpenOnly, propCurrentUser]);
-
-  // ClickUp-style Table: group filtered tasks by Nest pipeline lane (hide empty sections)
-  const tableLaneGroups = useMemo(() => {
-    const isArchivedMode = selectedStatus === 'Archived' || showArchived;
-    const stages = isArchivedMode ? [
-      ...PIPELINE_STAGES,
-      {
-        id: 'archived' as any,
-        label: 'Archived Tasks',
-        shortLabel: 'Archived',
-        description: 'Completed and archived deliverables stored for records & compliance',
-        dotColor: 'bg-slate-400',
-        badgeBg: 'bg-slate-100 text-slate-700 border-slate-300',
-        color: 'border-slate-200',
-        headerBar: 'bg-slate-100 border-b border-slate-200 text-slate-800',
-        headerCount: 'bg-white text-slate-700 border-slate-300',
-      }
-    ] : PIPELINE_STAGES;
-
-    return stages.map((stage) => {
-      const tasks = filteredTasks.filter((t) => {
-        const lane = getCanonicalLaneForTask(t);
-        if (stage.id === 'request_received') {
-          return lane === 'request_received' || lane === 'legacy_unreconciled';
-        }
-        return lane === stage.id;
-      });
-      return {
-        id: stage.id,
-        label: stage.label,
-        shortLabel: stage.shortLabel,
-        description: stage.description,
-        dotColor: stage.dotColor,
-        badgeBg: stage.badgeBg,
-        color: stage.color,
-        headerBar: stage.headerBar,
-        headerCount: stage.headerCount,
-        tasks
-      };
-    }).filter((g) => g.tasks.length > 0);
-  }, [filteredTasks, selectedStatus, showArchived]);
-
-  const toggleListLaneCollapse = (laneId: string) => {
-    setCollapsedListLanes((prev) => ({ ...prev, [laneId]: !prev[laneId] }));
-  };
+  }, [allTasksCombined, taskDomain, searchQuery, selectedStatus, selectedCategory, selectedAssignee, selectedTimeframe, showArchived, sortField, sortOrder, nowMs, requests, surfaceMineOnly, surfaceOpenOnly, surfaceBlockedOnly, propCurrentUser]);
 
   const toggleRequestAccordion = (requestId: string) => {
     setExpandedRequestIds((prev) => ({ ...prev, [requestId]: !prev[requestId] }));
   };
-
-  // Derived Metrics from Real Records
-  const metrics = useMemo(() => {
-    const startOfTodayMs = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
-    const activeTasks = allTasksCombined.filter(t => {
-      if (t.isArchived || t.status === 'archived') return false;
-      if (taskDomain === 'marketing' && !isMarketing(t)) return false;
-      if (taskDomain === 'operations' && !isOperational(t)) return false;
-        if (taskDomain === 'listing_launch' && !isListingLaunch(t)) return false;
-        if (taskDomain === 'offer_2t' && !isOffer2T(t)) return false;
-      return true;
-    });
-
-    const archivedTasks = allTasksCombined.filter(t => {
-      if (!t.isArchived && t.status !== 'archived') return false;
-      if (taskDomain === 'marketing' && !isMarketing(t)) return false;
-      if (taskDomain === 'operations' && !isOperational(t)) return false;
-        if (taskDomain === 'listing_launch' && !isListingLaunch(t)) return false;
-        if (taskDomain === 'offer_2t' && !isOffer2T(t)) return false;
-      return true;
-    });
-
-    const isPriorDayApproved = (t: CanonicalMarketingTask) => {
-      if (getCanonicalLaneForTask(t) !== 'approved') return false;
-      const doneAt = t.completedAt || t.archivedAt || t.updatedAt || t.createdAt;
-      const doneMs = doneAt ? new Date(doneAt).getTime() : 0;
-      return doneMs > 0 && doneMs < startOfTodayMs;
-    };
-
-    return {
-      activeRequests: requests.filter(r => !r.isArchived).length,
-      openTasks: activeTasks.filter(t => !isPriorDayApproved(t)).length,
-      unassignedCount: activeTasks.filter(t => {
-        const lane = getCanonicalLaneForTask(t);
-        return lane === 'request_received' || lane === 'legacy_unreconciled';
-      }).length,
-      assignedCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'assigned').length,
-      inProgressCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'in_progress').length,
-      agentReviewCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'agent_review').length,
-      revisionsCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'revisions').length,
-      approvedCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'approved').length,
-      withVendorCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'with_vendor').length,
-      legacyUnreconciledCount: activeTasks.filter(t => getCanonicalLaneForTask(t) === 'legacy_unreconciled').length,
-      archivedCount: archivedTasks.length
-    };
-  }, [allTasksCombined, requests, taskDomain, nowMs]);
 
   // Requests Container Rollup
   const requestContainersWithRollup = useMemo(() => {
@@ -1850,9 +1752,8 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         </div>
       </div>
 
-      {/* 2. TWO-ROW TOOLBAR: ROW 1 (SEARCH & FILTERS & VIEW SWITCHER) / ROW 2 (STATUS PILLS) */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs space-y-2.5">
-        {/* ROW 1: Search, Team Member Filter, Date Filter, Board/Table Switcher (Aligned Right) */}
+      {/* 2. SURFACE TOOLBAR v2 — one row: Mine · Open · Blocked · Address · Board|Table */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
         <div className="flex items-center justify-between gap-2.5 flex-wrap">
           <div className="flex items-center gap-2 flex-1 min-w-[260px] flex-wrap sm:flex-nowrap">
             <div className="flex items-center gap-1.5 shrink-0" data-testid="tasks-surface-filters">
@@ -1885,9 +1786,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
               <button
                 type="button"
                 data-testid="tasks-filter-blocked"
-                disabled
-                title="Blocked filter — dormant in v1"
-                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-slate-200/60 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
+                aria-pressed={surfaceBlockedOnly}
+                onClick={() => setSurfaceBlockedOnly(v => !v)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition ${
+                  surfaceBlockedOnly
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
+                }`}
               >
                 Blocked
               </button>
@@ -1905,34 +1810,6 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                 className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C]/20"
               />
             </div>
-
-            <select
-              aria-label="Team queue — filters Tasks by assignee (replaces the old Workspace tab)"
-              title="Pick whose queue to work. Lane + assignee drive the workflow — no separate Workspace tab."
-              value={selectedAssignee}
-              onChange={(e) => setSelectedAssignee(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
-              data-testid="team-queue-filter"
-            >
-              <option value="All Team Members">Workspace</option>
-              {TEAM_MEMBERS.map(m => (
-                <option key={m.name} value={m.name}>{m.name.split(' ')[0]}</option>
-              ))}
-              <option value="Unassigned">Unassigned</option>
-            </select>
-
-            <select
-              aria-label="Filter by Timeframe"
-              value={selectedTimeframe}
-              onChange={(e) => setSelectedTimeframe(e.target.value as any)}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
-            >
-              <option value="all">All Dates</option>
-              <option value="7d">Past 7 Days</option>
-              <option value="30d">Past 30 Days</option>
-              <option value="quarter">This Quarter</option>
-              <option value="future_2027">Future 2027</option>
-            </select>
           </div>
 
           {/* View Switcher Aligned Right */}
@@ -1960,41 +1837,6 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
               <span>Table</span>
             </button>
           </div>
-        </div>
-
-        {/* ROW 2: Status Filters & Counts */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 border-t border-slate-100 pt-2.5 flex-wrap">
-          {['All Tasks', 'Unassigned', 'In Progress', 'Awaiting Manager Review', 'With Vendor', 'Approved', ...(metrics.legacyUnreconciledCount > 0 ? ['Unreconciled Legacy'] : []), 'Archived'].map(statusName => {
-            const isSelected = selectedStatus === statusName || (selectedStatus === 'All Statuses' && statusName === 'All Tasks');
-            const count = statusName === 'All Tasks' ? metrics.openTasks :
-                          statusName === 'Unassigned' ? metrics.unassignedCount :
-                          statusName === 'In Progress' ? metrics.inProgressCount :
-                          (statusName === 'Awaiting Manager Review' || statusName === 'Agent Review') ? metrics.agentReviewCount :
-                          statusName === 'With Vendor' ? metrics.withVendorCount :
-                          statusName === 'Approved' ? metrics.approvedCount :
-                          statusName === 'Unreconciled Legacy' ? metrics.legacyUnreconciledCount :
-                          metrics.archivedCount;
-
-            return (
-              <button
-                key={statusName}
-                type="button"
-                onClick={() => setSelectedStatus(statusName)}
-                className={`nest-pill px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-slate-900 text-white shadow-xs font-bold'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
-                }`}
-              >
-                <span>{statusName === 'Approved' ? 'Approved / Done' : statusName}</span>
-                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -2071,26 +1913,26 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     </div>
                   </th>
 
-                  {/* 6. Activity */}
-                  <th className="py-3.5 px-3 w-[14%] min-w-[140px] font-bold text-slate-700 text-left" data-testid="tasks-col-activity">
-                    Activity
-                  </th>
-
-                  {/* 7. Blocker (v1 stub) */}
+                  {/* 6. Blocker (stub until fields) */}
                   <th className="py-3.5 px-3 w-[8%] min-w-[72px] font-bold text-slate-700 text-left" data-testid="tasks-col-blocker">
                     Blocker
                   </th>
 
-                  {/* 8. Where (v1 stub) */}
+                  {/* 7. Where (stub until fields) */}
                   <th className="py-3.5 px-3 w-[8%] min-w-[72px] font-bold text-slate-700 text-left" data-testid="tasks-col-where">
                     Where
                   </th>
 
-                  {/* 9. Lane (domain helpers — not pipeline stage) */}
+                  {/* 8. Lane (domain helpers — not pipeline stage) */}
                   <th className="py-3.5 px-3 w-[9%] min-w-[88px] font-bold text-slate-700 text-left" data-testid="tasks-col-lane">
                     Lane
                   </th>
-</tr>
+
+                  {/* 9. Activity */}
+                  <th className="py-3.5 px-3 w-[14%] min-w-[140px] font-bold text-slate-700 text-left" data-testid="tasks-col-activity">
+                    Activity
+                  </th>
+                </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {filteredTasks.length === 0 ? (
@@ -2101,80 +1943,37 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                         <div className="space-y-1">
                           <p className="font-serif font-bold text-sm text-[#01362D]">Intake is clear.</p>
                           <p className="text-xs text-slate-500 leading-relaxed">
-                            Nothing matches these filters right now — Nora is quiet on this lane. Try All Tasks, or start something new.
+                            Nothing matches these filters right now — Nora is quiet on this lane. Try clearing filters, or start something new.
                           </p>
                         </div>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  tableLaneGroups.map((group) => {
-                    const isLaneCollapsed = Boolean(collapsedListLanes[group.id]);
-                    return (
-                      <React.Fragment key={`lane-${group.id}`}>
-                        <tr
-                          data-testid={`list-lane-header-${group.id}`}
-                          className="border-y border-transparent"
-                        >
-                          <td colSpan={9} className="py-0 px-0">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleListLaneCollapse(group.id);
-                              }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition cursor-pointer select-none group ${group.headerBar} hover:bg-slate-50/90`}
-                              aria-expanded={!isLaneCollapsed}
-                              title={group.description}
-                            >
-                              {isLaneCollapsed
-                                ? <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
-                                : <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />}
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${group.dotColor}`} />
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
-                                {group.label}
-                              </span>
-                              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full border ${group.headerCount}`}>
-                                {group.tasks.length}
-                              </span>
-                              <span className="ml-auto text-[10px] text-slate-400 font-medium opacity-0 group-hover:opacity-100 transition">
-                                {isLaneCollapsed ? 'Expand' : 'Collapse'}
-                              </span>
-                            </button>
-                          </td>
-                        </tr>
-                        {!isLaneCollapsed && buildLaneListItems(group.tasks, expandedRequestIds).map((listItem) => {
+                  buildLaneListItems(filteredTasks, expandedRequestIds).map((listItem) => {
                     if (listItem.kind === 'request') {
                       const reqTasks = listItem.tasks;
                       const parentReq = requests.find(r => r.id === listItem.requestId);
                       const sample = reqTasks[0];
                       const isExpanded = Boolean(expandedRequestIds[listItem.requestId]);
-                      const photoCount = (parentReq?.photos?.length || 0) || reqTasks.reduce((n, t) => n + (t.photos?.length || 0), 0);
-                      const mls = parentReq?.mlsNumber || sample?.mlsNumber;
-                      const eventBits = [
-                        parentReq?.eventType || sample?.eventType,
-                        parentReq?.eventDate || sample?.eventDate,
-                        parentReq?.eventTime || sample?.eventTime
-                      ].filter(Boolean).join(' · ');
-                      const needed = formatNeededByDate(sample?.neededByDate, sample?.dueAt);
+                      const addressLabel = parentReq?.propertyAddress || sample?.propertyAddress || parentReq?.title || sample?.requestTitle || 'Marketing Request';
 
                       const allSubtasksSelected = reqTasks.length > 0 && reqTasks.every(t => selectedTaskIds.includes(t.id));
                       const someSubtasksSelected = reqTasks.some(t => selectedTaskIds.includes(t.id)) && !allSubtasksSelected;
 
                       return (
                         <tr
-                          key={`req-${group.id}-${listItem.requestId}`}
+                          key={`req-${listItem.requestId}`}
                           data-testid={`list-request-row-${listItem.requestId}`}
                           className="bg-[#F3F8F5] border-t border-t-[#00635C]/25"
                         >
-                          {/* 1. Folder Checkbox (Selects All Subtasks) */}
-                          <td 
-                            className="py-2.5 px-3 text-center align-top bg-[#F3F8F5] border-l-4 border-l-[#00635C]"
+                          <td
+                            className="py-2.5 px-3 text-center align-middle bg-[#F3F8F5] border-l-4 border-l-[#00635C]"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
                               type="checkbox"
-                              aria-label={`Select all ${reqTasks.length} subtasks in ${parentReq?.propertyAddress || sample?.propertyAddress || 'folder'}`}
+                              aria-label={`Select all ${reqTasks.length} subtasks in ${addressLabel}`}
                               checked={allSubtasksSelected}
                               ref={(el) => {
                                 if (el) {
@@ -2190,11 +1989,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                                   setSelectedTaskIds(prev => prev.filter(id => !subtaskIds.includes(id)));
                                 }
                               }}
-                              className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer mt-1"
+                              className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer"
                             />
                           </td>
-
-                          {/* 2-8. Folder Header Content */}
                           <td colSpan={8} className="py-0 px-0 bg-[#F3F8F5]">
                             <div
                               data-testid={`list-request-accordion-${listItem.requestId}`}
@@ -2211,55 +2008,20 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                                   toggleRequestAccordion(listItem.requestId);
                                 }
                               }}
-                              className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-[#E5EFEA]/80 transition cursor-pointer select-none"
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#E5EFEA]/80 transition cursor-pointer select-none"
                               aria-expanded={isExpanded}
                             >
-                              <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                              <div className="flex items-center gap-1.5 shrink-0">
                                 {isExpanded
                                   ? <ChevronDown className="w-4 h-4 text-[#00635C]" />
                                   : <ChevronRight className="w-4 h-4 text-[#00635C]" />}
-                                <FolderOpen className="w-4 h-4 text-[#00635C]" />
                               </div>
-                              <div className="flex-1 min-w-0 space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#00635C] text-white shadow-2xs">
-                                    Property Folder
-                                  </span>
-                                  <span className="text-xs sm:text-[13px] font-black text-slate-900 truncate">
-                                    {parentReq?.propertyAddress || sample?.propertyAddress || parentReq?.title || sample?.requestTitle || 'Marketing Request'}
-                                  </span>
-                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-[#00635C]/30 text-[#00635C] shadow-2xs">
-                                    {reqTasks.length} subtask{reqTasks.length === 1 ? '' : 's'}
-                                  </span>
-                                  {isExpanded && (
-                                    <span className="text-[10px] text-slate-400 font-medium">
-                                      (Click to collapse folder)
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-600 pl-0.5">
-                                  <span className="font-semibold text-slate-700">{parentReq?.agentName || sample?.agentName || 'Agent'}</span>
-                                  {eventBits && <span className="text-slate-500">· {eventBits}</span>}
-                                  {mls && <MlsNumberBadge mlsNumber={mls} size="xs" />}
-                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-semibold ${
-                                    photoCount > 0
-                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                      : 'bg-amber-50 text-amber-900 border-amber-200'
-                                  }`}>
-                                    {photoCount > 0 ? `${photoCount} photo${photoCount === 1 ? '' : 's'}` : 'Photos needed'}
-                                  </span>
-                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${needed.badgeClass}`}>
-                                    <Calendar className="w-3 h-3 shrink-0" />
-                                    Needed {needed.label}
-                                  </span>
-                                </div>
-                                {!isExpanded && (
-                                  <div className="text-[10px] text-slate-500 truncate flex items-center gap-1.5 pt-0.5 pl-0.5">
-                                    <span className="font-medium text-slate-400">Included deliverables:</span>
-                                    <span className="text-slate-700 font-medium">{reqTasks.map(t => t.title).join(' · ')}</span>
-                                  </div>
-                                )}
-                              </div>
+                              <span className="text-xs sm:text-[13px] font-black text-slate-900 truncate flex-1 min-w-0">
+                                {addressLabel}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-[#00635C]/30 text-[#00635C] shadow-2xs shrink-0">
+                                {reqTasks.length} subtask{reqTasks.length === 1 ? '' : 's'}
+                              </span>
                             </div>
                           </td>
                         </tr>
@@ -2269,47 +2031,24 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     const task = listItem.task;
                     const rowIndent = listItem.indent;
                     const isSubtask = rowIndent > 0;
-                    const isFirstSubtask = Boolean(listItem.isFirstSubtask);
                     const isLastSubtask = Boolean(listItem.isLastSubtask);
                     const stage = getStageForTask(task);
-                    const catInfo = CATEGORY_LABELS[task.category] || CATEGORY_LABELS.other;
                     const isSelected = selectedTaskIds.includes(task.id);
+                    const neededInfo = formatNeededByDate(task.neededByDate, task.dueAt);
 
-                    // Match corresponding campaign for deep actions modal
                     const matchedCamp = campaigns.find((c: any) => c.id === task.requestId || c.propertyAddress?.includes(task.requestTitle)) || {
                       id: task.requestId || task.id,
                       propertyAddress: task.propertyAddress || task.requestTitle,
                       agentName: task.agentName,
                       status: task.status,
                       statusKey: task.status,
-                      generatedDeliverables: [
-                        { id: 'deliv_1', name: 'Double-Sided 8.5x11 Property Flyer', format: 'pdf', dpi: 300 },
-                        { id: 'deliv_2', name: '9:16 Social Story Carousel', format: 'png', dpi: 300 },
-                        { id: 'deliv_3', name: '6x9 Jumbo EDDM Postcard', format: 'pdf', dpi: 300 }
-                      ]
+                      generatedDeliverables: []
                     };
 
-                    const parentReq = (task.requestId ? requests.find(r => r.id === task.requestId) : undefined) ||
-                      requests.find(r => r.id === task.requestId || r.taskIds?.includes(task.id) || (r.propertyAddress && task.propertyAddress && r.propertyAddress === task.propertyAddress));
-                    const mls = task.mlsNumber || parentReq?.mlsNumber;
-                    const channel = parentReq?.channel || (task.id.includes('email') ? 'email' : (task.id.includes('sms') || task.id.includes('text') ? 'text' : (task.id.includes('chat') ? 'chat' : 'phone')));
-                    const timeStr = parentReq?.receivedAt || (task.createdAt ? new Date(task.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
-
-                    const channelStyles = {
-                      email: { bg: 'bg-amber-50 text-amber-800 border-amber-200', icon: Mail, label: 'Email' },
-                      text: { bg: 'bg-purple-50 text-purple-800 border-purple-200', icon: MessageSquare, label: 'SMS' },
-                      sms: { bg: 'bg-purple-50 text-purple-800 border-purple-200', icon: MessageSquare, label: 'SMS' },
-                      chat: { bg: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: Bot, label: 'Nora Chat' },
-                      phone: { bg: 'bg-blue-50 text-blue-800 border-blue-200', icon: Phone, label: 'Phone' },
-                    }[channel] || { bg: 'bg-slate-50 text-slate-700 border-slate-200', icon: Phone, label: 'Phone' };
-
-                    const ChannelIcon = channelStyles.icon;
-                    const neededInfo = formatNeededByDate(task.neededByDate, task.dueAt);
-
                     return (
-                      <React.Fragment key={`task-frag-${group.id}-${task.id}`}>
+                      <React.Fragment key={`task-frag-${task.id}`}>
                         <tr
-                          key={`${group.id}-${task.id}`}
+                          key={task.id}
                           onClick={() => handleOpenTaskDetail(task)}
                           className={`nest-row-open cursor-pointer transition ${
                             isSelected
@@ -2326,8 +2065,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                           data-subtask-indent={rowIndent}
                           data-testid={isSubtask ? `subtask-row-${task.id}` : `task-row-${task.id}`}
                         >
-                          {/* 1. Selection Checkbox */}
-                          <td 
+                          <td
                             className={`py-2 px-3 text-center align-top ${isSubtask ? 'bg-[#F9FBFA]' : ''}`}
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -2342,210 +2080,129 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                             />
                           </td>
 
-                          {/* 2. Task */}
+                          {/* Task — children: title only */}
                           <td className={`py-2 px-3 align-top ${isSubtask ? 'pl-4 sm:pl-6' : ''}`}>
-                            <div className="space-y-0.5">
-                              {/* Primary line: Task title */}
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenTaskDetail(task);
-                                }}
-                                className="font-bold text-slate-900 text-xs sm:text-[13px] hover:text-[#00635C] transition cursor-pointer flex items-center gap-1.5 group leading-snug"
-                              >
-                                {isSubtask && (
-                                  <>
-                                    <CornerDownRight className="w-3.5 h-3.5 text-[#00635C] shrink-0" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#00635C]/10 text-[#00635C] border border-[#00635C]/20 shrink-0">
-                                      Subtask
-                                    </span>
-                                  </>
-                                )}
-                                <span className="line-clamp-2">{task.title}</span>
-                                <Eye className="w-3 h-3 text-slate-300 group-hover:text-[#00635C] opacity-0 group-hover:opacity-100 transition shrink-0" />
-                              </div>
-
-                              {/* Secondary line: Deliverable specs for subtask, or Property address for standalone */}
-                              {isSubtask ? (
-                                <div className="text-[11px] text-slate-500 font-medium leading-tight flex items-center gap-2 pt-0.5 flex-wrap pl-5">
-                                  <span className="text-slate-700 font-semibold">
-                                    {task.description && task.description !== task.title ? task.description : catInfo.label}
-                                  </span>
-                                  <span className="text-slate-300">•</span>
-                                  <RequestSourceIcon
-                                    channel={task.channel || parentReq?.channel}
-                                    callId={task.callId || (task as any).telephonyCallId}
-                                    id={task.id}
-                                    variant="badge"
-                                    showLabel={true}
-                                  />
-                                  {mls && <MlsNumberBadge mlsNumber={mls} size="xs" />}
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="text-[11px] text-slate-600 font-medium leading-tight">
-                                    <span className="truncate block">
-                                      {task.propertyAddress || (task.category === 'operations' ? 'Nest Realty Wilmington Office' : (task.requestTitle || 'Wilmington Office'))}
-                                    </span>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                                    <RequestSourceIcon
-                                      channel={task.channel || parentReq?.channel}
-                                      callId={task.callId || (task as any).telephonyCallId}
-                                      id={task.id}
-                                      variant="badge"
-                                      showLabel={true}
-                                    />
-                                    {mls && <MlsNumberBadge mlsNumber={mls} size="xs" />}
-                                  </div>
-                                </>
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenTaskDetail(task);
+                              }}
+                              className="font-bold text-slate-900 text-xs sm:text-[13px] hover:text-[#00635C] transition cursor-pointer flex items-center gap-1.5 group leading-snug"
+                            >
+                              {isSubtask && (
+                                <CornerDownRight className="w-3.5 h-3.5 text-[#00635C] shrink-0" />
                               )}
+                              <span className="line-clamp-2">{task.title}</span>
+                              <Eye className="w-3 h-3 text-slate-300 group-hover:text-[#00635C] opacity-0 group-hover:opacity-100 transition shrink-0" />
                             </div>
                           </td>
 
-                        {/* 3. Status */}
-                        <td
-                          className="py-2 px-3 align-top whitespace-nowrap"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center justify-between gap-1.5">
-                            <div className="flex flex-col items-start gap-1">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stage.badgeBg}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${stage.dotColor}`} />
-                              <span>{stage.label}</span>
-                            </span>
-                            {isMarketingCreativeTask(task) && (
-                              <span
-                                className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-bold border border-orange-200 bg-orange-50 text-orange-900"
-                                data-testid="board-maxa-status"
-                              >
-                                {formatMaxaBoardStatus(deriveMaxaBoardStatus(task))}
+                          {/* Status — one pill only */}
+                          <td
+                            className="py-2 px-3 align-top whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stage.badgeBg}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${stage.dotColor}`} />
+                                <span>{stage.label}</span>
                               </span>
-                            )}
-                            {getDealTriageFromTask(task) && (
-                              <span
-                                className="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-bold border border-rose-200 bg-rose-50 text-rose-900"
-                                data-testid="board-deal-triage"
-                                title="Human negotiates — no client auto-outbound"
-                              >
-                                {formatDealTriageBoardBadge(getDealTriageFromTask(task)!)}
-                              </span>
-                            )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              {(task.isArchived || task.status === 'archived') && (
+                              <div className="flex items-center gap-1.5">
+                                {(task.isArchived || task.status === 'archived') && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRestoreTask(task.id);
+                                    }}
+                                    className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    title="Restore Task to Active Pipeline"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>Restore</span>
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleRestoreTask(task.id);
+                                    setQuickActionsMode('full'); setQuickActionsTask(task);
                                   }}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
-                                  title="Restore Task to Active Pipeline"
+                                  className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                  title="Quick Actions"
+                                  aria-label="Quick Actions"
                                 >
-                                  <RotateCcw className="w-3 h-3" />
-                                  <span>Restore</span>
+                                  <MoreHorizontal className="w-3.5 h-3.5" />
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setQuickActionsMode('full'); setQuickActionsTask(task);
-                                }}
-                                className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                                title="Quick Actions"
-                                aria-label="Quick Actions"
-                              >
-                                <MoreHorizontal className="w-3.5 h-3.5" />
-                              </button>
+                              </div>
                             </div>
-                          </div>
+                            <div className="hidden">
+                              <button type="button" onClick={() => setSelectedActionCampaign(matchedCamp)}>Handle</button>
+                              <button type="button" onClick={() => setBrowserAgentCampaign(matchedCamp)}>Click to Run Autonomous Maxa Browser Agent</button>
+                              <button type="button" onClick={() => handleOpenTaskDetail(task)}>Open Maxa Proof Assets</button>
+                              <button type="button" onClick={() => handleAssignTask(task.id, 'Eduardo Lovo')}>Send to VA</button>
+                              <button type="button" onClick={() => setSendToSubmenuTaskId(task.id)}>Send to...</button>
+                              <button type="button" onClick={() => setQuestionModalCampaign(matchedCamp)}>Ask Questions</button>
+                            </div>
+                          </td>
 
-                          {/* Hidden backward-compatibility action buttons */}
-                          <div className="hidden">
-                            <button type="button" onClick={() => setSelectedActionCampaign(matchedCamp)}>Handle</button>
-                            <button type="button" onClick={() => setBrowserAgentCampaign(matchedCamp)}>Click to Run Autonomous Maxa Browser Agent</button>
-                            <button type="button" onClick={() => handleOpenTaskDetail(task)}>Open Maxa Proof Assets</button>
-                            <button type="button" onClick={() => handleAssignTask(task.id, 'Eduardo Lovo')}>Send to VA</button>
-                            <button type="button" onClick={() => setSendToSubmenuTaskId(task.id)}>Send to...</button>
-                            <button type="button" onClick={() => setQuestionModalCampaign(matchedCamp)}>Ask Questions</button>
-                          </div>
-                        </td>
+                          {/* Owner */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap">
+                            {getTeamMemberBadge(task.assignedTo)}
+                          </td>
 
-                        {/* 4. Owner */}
-                        <td className="py-2 px-3 align-top whitespace-nowrap">
-                          {getTeamMemberBadge(task.assignedTo)}
-                        </td>
-
-                        {/* 5. Due */}
-                        <td className="py-2 px-3 align-top whitespace-nowrap">
-                          <div className="space-y-0.5">
+                          {/* Due */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] border ${neededInfo.badgeClass}`}>
                               <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                               <span>{neededInfo.label}</span>
                             </span>
-                            {task.eventDate && (
-                              <div className="text-[10px] text-slate-500 font-medium pl-0.5">
-                                Event: {new Date(task.eventDate).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  timeZone: (task.eventDate.includes('T00:00:00') || task.eventDate.length === 10) ? 'UTC' : 'America/New_York'
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        {/* 6. Activity */}
-                        <td className="py-2 px-3 align-top" data-testid="task-activity-cell" onClick={(e) => e.stopPropagation()}>
-                          <CompactActivityCardBadge
-                            taskId={task.id}
-                            fallbackSummary={task.notes || task.title || 'Intake recorded'}
-                            fallbackTime={task.updatedAt || task.createdAt}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenTaskDetail(task, 'activity');
-                            }}
-                          />
-                        </td>
+                          </td>
 
-                        {/* 7. Blocker (v1 stub — do not scrape notes) */}
-                        <td className="py-2 px-3 align-top whitespace-nowrap text-slate-400" data-testid="task-blocker-cell">
-                          —
-                        </td>
+                          {/* Blocker stub */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap text-slate-400" data-testid="task-blocker-cell">
+                            —
+                          </td>
 
-                        {/* 8. Where (v1 stub) */}
-                        <td className="py-2 px-3 align-top whitespace-nowrap text-slate-400" data-testid="task-where-cell">
-                          —
-                        </td>
+                          {/* Where stub */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap text-slate-400" data-testid="task-where-cell">
+                            —
+                          </td>
 
-                        {/* 9. Lane (domain helpers) */}
-                        <td className="py-2 px-3 align-top whitespace-nowrap" data-testid="task-lane-cell">
-                          <span className="text-[11px] font-semibold text-slate-700">{getSurfaceDomainLane(task)}</span>
-                        </td>
+                          {/* Lane (domain helpers) */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap" data-testid="task-lane-cell">
+                            <span className="text-[11px] font-semibold text-slate-700">{getSurfaceDomainLane(task)}</span>
+                          </td>
 
-                      </tr>
-                      {isSubtask && isLastSubtask && (
-                        <tr key={`spacer-end-${group.id}-${task.id}`} className="h-2.5 bg-slate-50/70 border-b border-slate-200" aria-hidden="true">
-                          <td colSpan={9} className="py-0 px-0" />
+                          {/* Activity */}
+                          <td className="py-2 px-3 align-top" data-testid="task-activity-cell" onClick={(e) => e.stopPropagation()}>
+                            <CompactActivityCardBadge
+                              taskId={task.id}
+                              fallbackSummary={task.notes || task.title || 'Intake recorded'}
+                              fallbackTime={task.updatedAt || task.createdAt}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenTaskDetail(task, 'activity');
+                              }}
+                            />
+                          </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </React.Fragment>
-            );
-          })
+                        {isSubtask && isLastSubtask && (
+                          <tr key={`spacer-end-${task.id}`} className="h-2.5 bg-slate-50/70 border-b border-slate-200" aria-hidden="true">
+                            <td colSpan={9} className="py-0 px-0" />
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Table Footer Summary */}
+          {/* Table Footer Summary — one filtered-set count */}
           <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-            <span>Showing {filteredTasks.length} of {allTasksCombined.length} tasks · {tableLaneGroups.length} lane{tableLaneGroups.length === 1 ? '' : 's'}</span>
+            <span data-testid="tasks-filtered-count">{filteredTasks.length} tasks</span>
             <span className="text-slate-400">Sorted by {sortField === 'title' ? 'Title' : sortField === 'receivedAt' ? 'Received' : sortField === 'createdAt' ? 'Created Date' : 'Needed By Date'}</span>
           </div>
         </div>
