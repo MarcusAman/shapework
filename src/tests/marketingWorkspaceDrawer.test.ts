@@ -46,7 +46,7 @@ describe('Marketing Production Workspace & Slide-Over Drawer Integration', () =>
     // Autonomous Maxa presentation removed
     expect(content).not.toContain('Autonomous Maxa Staged Package');
     // Producer does not receive Approve & Deliver to Agent
-    expect(content).toContain('Send to Manager for Approval');
+    expect(content).toContain('Send for review');
     expect(content).toContain('Upload Finished Asset');
     expect(content).toContain('activeTask.requestedAssets');
     expect(content).toContain('ProofUploadWizard');
@@ -86,7 +86,7 @@ describe('Marketing Production Workspace & Slide-Over Drawer Integration', () =>
 
     // Producer state & handler routing
     expect(content).toContain('isProducer');
-    expect(content).toContain('Send to Manager for Approval');
+    expect(content).toContain('Send for review');
     expect(content).not.toContain('Approve & Deliver to Agent');
   });
 

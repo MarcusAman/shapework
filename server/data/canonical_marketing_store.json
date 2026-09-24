@@ -21,7 +21,7 @@
       "coveringStaff": null,
       "coverageHistory": [],
       "reviewState": "awaiting_review",
-      "proofVersion": 3,
+      "proofVersion": 4,
       "proofHistory": [
         {
           "notes": "QA staged stub",
@@ -40,12 +40,20 @@
           "uploadedById": "usr_eduardo"
         },
         {
+          "notes": "QA role-gate prove staged \u2014 do not approve/send",
           "version": 3,
+          "proofUrl": "https://drive.google.com/file/d/1qaRoleGateProofStub/view",
+          "uploadedAt": "2026-09-24T16:27:05.987Z",
+          "uploadedBy": "Eduardo Lovo",
+          "uploadedById": "usr_eduardo"
+        },
+        {
+          "version": 4,
           "proofUrl": "https://drive.google.com/file/d/1qaRoleGateProofStub/view",
           "uploadedBy": "Eduardo Lovo",
           "uploadedById": "usr_eduardo",
-          "uploadedAt": "2026-09-24T16:27:05.987Z",
-          "notes": "QA role-gate prove staged \u2014 do not approve/send"
+          "uploadedAt": "2026-09-24T16:57:20.273Z",
+          "notes": "QA role-gate reprove \u2014 stage proofUrl only, do not approve/send"
         }
       ],
       "reviewHistory": [
@@ -66,12 +74,20 @@
           "feedbackNotes": "QA staged"
         },
         {
+          "action": "proof_submitted",
           "version": 3,
+          "timestamp": "2026-09-24T16:27:05.987Z",
+          "reviewerId": "usr_eduardo",
+          "reviewerName": "Eduardo Lovo",
+          "feedbackNotes": "QA role-gate prove staged \u2014 do not approve/send"
+        },
+        {
+          "version": 4,
           "action": "proof_submitted",
           "reviewerId": "usr_eduardo",
           "reviewerName": "Eduardo Lovo",
-          "feedbackNotes": "QA role-gate prove staged \u2014 do not approve/send",
-          "timestamp": "2026-09-24T16:27:05.987Z"
+          "feedbackNotes": "QA role-gate reprove \u2014 stage proofUrl only, do not approve/send",
+          "timestamp": "2026-09-24T16:57:20.273Z"
         }
       ],
       "requirements": [],
@@ -150,14 +166,20 @@
           "performedBy": "Eduardo Lovo"
         },
         {
+          "note": "QA role-gate prove staged \u2014 do not approve/send",
           "action": "Proof v3 submitted",
-          "performedBy": "Eduardo Lovo",
           "timestamp": "2026-09-24T16:27:05.987Z",
-          "note": "QA role-gate prove staged \u2014 do not approve/send"
+          "performedBy": "Eduardo Lovo"
+        },
+        {
+          "action": "Proof v4 submitted",
+          "performedBy": "Eduardo Lovo",
+          "timestamp": "2026-09-24T16:57:20.273Z",
+          "note": "QA role-gate reprove \u2014 stage proofUrl only, do not approve/send"
         }
       ],
       "createdAt": "2026-09-24T15:21:05.506Z",
-      "updatedAt": "2026-09-24T16:27:05.987Z",
+      "updatedAt": "2026-09-24T16:57:20.273Z",
       "photos": [
         {
           "id": "sha256:0920bb69c61910f72a518a757c51648f0742a1ee40babe28bd6d785fcef3eb26",
@@ -181,7 +203,7 @@
         }
       ],
       "proofUrl": "https://drive.google.com/file/d/1qaRoleGateProofStub/view",
-      "proofNotes": "QA role-gate prove staged \u2014 do not approve/send"
+      "proofNotes": "QA role-gate reprove \u2014 stage proofUrl only, do not approve/send"
     },
     {
       "id": "req_email_1790263265506_r8nhi__Social media graphic",
@@ -272,7 +294,7 @@
         }
       ],
       "createdAt": "2026-09-24T15:21:05.506Z",
-      "updatedAt": "2026-09-24T15:28:08.925Z",
+      "updatedAt": "2026-09-24T16:41:00.660Z",
       "photos": [
         {
           "id": "sha256:0920bb69c61910f72a518a757c51648f0742a1ee40babe28bd6d785fcef3eb26",
@@ -752,7 +774,7 @@
       "requestId": "req_call_call_01029eb55179e9b49d2c93deea7",
       "workspaceId": "ws_wilmington",
       "title": "Open House Flyer & Information Sheet",
-      "status": "request_received",
+      "status": "in_production",
       "category": "open_house",
       "agentName": "Marcus Aman (Broker / Tech Lead)",
       "propertyAddress": "1104 South Live Oak Parkway, Wilmington, NC",
@@ -768,8 +790,17 @@
       "coveringStaff": null,
       "coverageHistory": [],
       "reviewState": null,
-      "proofVersion": 0,
-      "proofHistory": [],
+      "proofVersion": 1,
+      "proofHistory": [
+        {
+          "version": 1,
+          "proofUrl": "/uploads/Test_marcusgmail.png",
+          "uploadedBy": "Eduardo Lovo",
+          "uploadedById": "dir_eduardo_lovo_73",
+          "uploadedAt": "2026-09-24T17:14:39.729169Z",
+          "notes": "Finished asset staged"
+        }
+      ],
       "reviewHistory": [],
       "requirements": [],
       "internalFlags": [],
@@ -857,7 +888,7 @@
         }
       ],
       "createdAt": "2026-09-23T12:55:48.573Z",
-      "updatedAt": "2026-09-24T15:06:11.936Z",
+      "updatedAt": "2026-09-24T17:14:39.729169Z",
       "photos": [
         {
           "id": "photo_liveoak_hero_1",
@@ -924,7 +955,10 @@
           "sizeBytes": 1200000,
           "contentType": "application/pdf"
         }
-      ]
+      ],
+      "reviewerId": null,
+      "proofUrl": "/uploads/Test_marcusgmail.png",
+      "proofNotes": "Finished open house flyer staged"
     },
     {
       "id": "tsk_email_1789655854877_t19sw_brochure_tri_fold",
@@ -2399,5 +2433,5 @@
       "fieldProvenance": {}
     }
   ],
-  "savedAt": "2026-09-24T16:27:05.987Z"
+  "savedAt": "2026-09-24T16:57:20.273Z"
 }

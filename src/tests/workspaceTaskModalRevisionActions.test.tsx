@@ -184,7 +184,7 @@ describe('Workspace Task Modal Revision Actions & Delivery Suite', () => {
     expect(updatedLane).toBe('awaiting_review');
   });
 
-  it('3. Producer fresh task (not revision) displays "Send to Manager for Approval"', () => {
+  it('3. Producer fresh task (not revision) displays "Send for review"', () => {
     const freshTask: WorkspaceDrawerTask = {
       ...baseTask,
       status: 'in_production',
@@ -202,7 +202,7 @@ describe('Workspace Task Modal Revision Actions & Delivery Suite', () => {
       />
     );
 
-    expect(markup).toContain('Send to Manager for Approval');
+    expect(markup).toContain('Send for review');
     expect(markup).not.toContain('Send to Melissa for review');
   });
 

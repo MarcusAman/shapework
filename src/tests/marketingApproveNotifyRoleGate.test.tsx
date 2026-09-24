@@ -286,7 +286,8 @@ describe('WorkspaceTaskDrawer — live corrupt assignedToId (Eduardo name / Meli
       />
     );
     expect(html).not.toContain('Approve &amp; Notify Agent');
-    expect(html).toContain('Send to Manager for Approval');
+    expect(html).toContain('Send for review');
+    expect(html).not.toContain('Send to Manager');
   });
 
   it('Melissa-as-reviewer still sees Approve (corrupt assignee id must not steal reviewer CTA)', () => {
@@ -386,6 +387,152 @@ describe('ADR — DROP FORBIDDEN_SELF_APPROVAL (reviewer id SoT)', () => {
     expect(safety.allowed).toBe(false);
     expect(safety.errorCode).toBe('FORBIDDEN_NOT_TASK_REVIEWER');
     expect(safety.errorCode).not.toBe('FORBIDDEN_SELF_APPROVAL');
+  });
+});
+
+
+
+describe('WorkspaceTaskDrawer — Live Oak producer Send for review (in_production + staged proof)', () => {
+  /** QA reopen: 1104 South Live Oak — Eduardo assignee, Melissa reviewer, In production + staged proof */
+  function liveOakTask(overrides: Partial<WorkspaceDrawerTask> = {}): WorkspaceDrawerTask {
+    return peachtreeTask({
+      id: 'task_call_call_01029eb55179e9b49d2c93deea7_0',
+      campaignId: 'camp_live_oak_role_gate',
+      propertyAddress: '1104 South Live Oak Parkway, Wilmington, NC',
+      agentName: 'Marcus Aman',
+      packageType: 'Open House Flyer & Information Sheet',
+      status: 'in_production',
+      reviewState: undefined,
+      proofVersion: 1,
+      assignedTo: 'Eduardo Lovo',
+      assignedToId: 'dir_eduardo_lovo_73',
+      assignedToRole: 'Virtual Assistant & Marketing Production',
+      reviewOwnerId: 'dir_melissa_gagliardi_33',
+      reviewOwnerName: 'Melissa Gagliardi',
+      proofUrl: '/uploads/Test_marcusgmail.png',
+      proofNotes: 'Finished open house flyer staged',
+      proofHistory: [
+        {
+          version: 1,
+          proofUrl: '/uploads/Test_marcusgmail.png',
+          uploadedBy: 'Eduardo Lovo',
+          uploadedById: 'dir_eduardo_lovo_73',
+          uploadedAt: new Date().toISOString(),
+          notes: 'Finished asset staged',
+        },
+      ],
+      requestedAssets: [
+        { name: 'Open House Flyer', format: 'PDF', dimensions: 'letter' },
+        { name: 'Information Sheet', format: 'PDF', dimensions: 'letter' },
+      ],
+      listingDetails: {
+        price: '',
+        bedsBaths: '',
+        sqft: '',
+        headline: 'Open House Flyer & Information Sheet',
+        description: '1104 South Live Oak Parkway',
+        disclosures: 'Nest Realty',
+        mlsNumber: '',
+        licenseNumber: '',
+      },
+      sopCode: 'sop_marketing_intake_003',
+      sopTitle: 'Governing Standard Operating Procedure',
+      category: 'print',
+      ...overrides,
+    } as WorkspaceDrawerTask);
+  }
+
+  const task = liveOakTask();
+
+  it('actor=Eduardo (assignee ≠ reviewer) → primary CTA Send for review; Approve & Notify hidden', () => {
+    const caps = resolveMarketingApproveNotifyCapabilities(
+      { id: 'dir_eduardo_lovo_73', name: 'Eduardo Lovo', role: 'producer' },
+      task
+    );
+    expect(caps.isAssignee).toBe(true);
+    expect(caps.isReviewer).toBe(false);
+    expect(caps.canSubmitToReviewer).toBe(true);
+    expect(caps.canApproveAndNotify).toBe(false);
+    expect(caps.primaryCta).toBe('submit_to_reviewer');
+
+    const html = renderToStaticMarkup(
+      <WorkspaceTaskDrawer
+        isOpen={true}
+        activeTask={task}
+        onClose={() => {}}
+        currentUser={{
+          id: 'dir_eduardo_lovo_73',
+          name: 'Eduardo Lovo',
+          role: 'producer',
+          email: 'eduardo@nestrealty.com',
+          permissions: ['marketing.create', 'marketing.edit'],
+        }}
+      />
+    );
+    expect(html).toContain('Send for review');
+    expect(html).toContain('data-action="Send for review"');
+    expect(html).not.toContain('Approve &amp; Notify Agent');
+    expect(html).not.toContain('Send to Manager');
+  });
+
+  it('actor=Melissa (session === reviewerId) → Approve & Notify; Send for review hidden', () => {
+    const caps = resolveMarketingApproveNotifyCapabilities(
+      {
+        id: 'dir_melissa_gagliardi_33',
+        name: 'Melissa Gagliardi',
+        role: 'marketing_director',
+      },
+      task
+    );
+    expect(caps.isReviewer).toBe(true);
+    expect(caps.canApproveAndNotify).toBe(true);
+    expect(caps.canSubmitToReviewer).toBe(false);
+    expect(caps.primaryCta).toBe('approve_and_notify');
+
+    const html = renderToStaticMarkup(
+      <WorkspaceTaskDrawer
+        isOpen={true}
+        activeTask={task}
+        onClose={() => {}}
+        currentUser={{
+          id: 'dir_melissa_gagliardi_33',
+          name: 'Melissa Gagliardi',
+          role: 'marketing_director',
+          email: 'melissa.gagliardi@nestrealty.com',
+          permissions: ['marketing.final_approval', 'marketing.approve'],
+        }}
+      />
+    );
+    expect(html).toContain('Approve &amp; Notify Agent');
+    expect(html).not.toContain('data-action="Send for review"');
+    expect(html).not.toContain('>Send for review<');
+  });
+
+  it('Ids are SoT: CTA = f(actor, reviewerId, assigneeId) — never staff title alone', () => {
+    const directorNotReviewer = resolveMarketingApproveNotifyCapabilities(
+      { id: 'dir_marcus_aman', name: 'Marcus Aman', role: 'marketing_director' },
+      task
+    );
+    expect(directorNotReviewer.canApproveAndNotify).toBe(false);
+    expect(directorNotReviewer.canSubmitToReviewer).toBe(false);
+    expect(directorNotReviewer.primaryCta).toBe('none');
+
+    const html = renderToStaticMarkup(
+      <WorkspaceTaskDrawer
+        isOpen={true}
+        activeTask={task}
+        onClose={() => {}}
+        currentUser={{
+          id: 'dir_marcus_aman',
+          name: 'Marcus Aman',
+          role: 'marketing_director',
+          email: 'marcus@capefearai.com',
+          permissions: ['marketing.final_approval', 'marketing.approve'],
+        }}
+      />
+    );
+    expect(html).not.toContain('Approve &amp; Notify Agent');
+    expect(html).not.toContain('data-action="Send for review"');
   });
 });
 

@@ -145,7 +145,7 @@ describe('Calls Tab & Eduardo Proof Submission to Melissa', () => {
     );
 
     // Submit button is present and not disabled
-    expect(html).toContain('Send to Manager for Approval');
+    expect(html).toContain('Send for review');
   });
 
   it('4. submitCanonicalMarketingTaskProof updates task to awaiting_review under Melissa Gagliardi', () => {

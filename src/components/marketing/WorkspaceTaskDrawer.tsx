@@ -3816,7 +3816,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
               </button>
             )}
             
-            {/* PRODUCER VIEW — hide Send to Manager once proof is already awaiting director review (show amber status instead) */}
+            {/* PRODUCER VIEW — hide Send for review once proof is already awaiting director review (show amber status instead) */}
             {surfaceGates.showApproveNotify && canSubmitToReviewer && !(isAwaitingReviewLane && hasAnyProof && !isRevision) && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 {/* Explain why disabled if requirements unmet */}
@@ -3829,25 +3829,25 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   </div>
                 )}
 
-                {/* Primary Action Button: Send to Melissa for review / Send to Manager for Approval */}
+                {/* Primary Action Button: Send for review (producer / assignee ≠ reviewer) */}
                 <button
                   type="button"
                   onClick={handleAttemptSendForApproval}
                   disabled={!canSendForApproval || isSubmitting}
+                  data-action="Send for review"
+                  data-testid="producer-send-for-review"
                   className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
                     canSendForApproval && !isSubmitting
                       ? 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
-                  title={canSendForApproval ? (isRevision ? `Send revised proof to ${directorFirstName} for review` : `Send finished proofs to ${directorFirstName} for approval`) : blockingReasons.join(' • ')}
+                  title={canSendForApproval ? 'Send for review' : blockingReasons.join(' • ')}
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>
                     {isSubmitting
                       ? 'Submitting...'
-                      : isRevision
-                        ? `Send to ${directorFirstName} for review`
-                        : 'Send to Manager for Approval'}
+                      : 'Send for review'}
                   </span>
                 </button>
               </div>
