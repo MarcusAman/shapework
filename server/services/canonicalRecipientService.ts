@@ -211,5 +211,6 @@ export async function resolveServerCanonicalRecipient(options: {
     };
   }
 
+  // Directory miss. Prove Gmail is not a Nest agent and is not inserted here.
   return null;
 }

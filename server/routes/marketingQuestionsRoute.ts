@@ -7,13 +7,16 @@
 
 import { Router, Request, Response } from 'express';
 import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
+import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
 import {
   resolveServerCanonicalRecipient,
   isProhibitedPhone,
   isProhibitedEmail,
-  isHotlineNumber
+  isHotlineNumber,
+  maskEmail,
 } from '../services/canonicalRecipientService.js';
+import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
 import { recordActivityEvent, getActivityHistoryForTask } from '../services/activityHistoryService.js';
 import {
   ensureAskNoraDeliveryDrivePack,
@@ -22,6 +25,7 @@ import {
 } from '../services/askNoraDriveDelivery.js';
 import {
   getAllCanonicalMarketingTasks,
+  getCanonicalMarketingTaskById,
   saveCanonicalMarketingTask,
 } from '../persistence/marketingCampaignsRepository.js';
 import {
@@ -112,8 +116,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     const safeRecipientPhone =
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
 
-    // 2. Server-side Canonical Recipient Re-resolution
-    const resolvedRecipient = await resolveServerCanonicalRecipient({
+    // 2. Directory first. Prove Gmail is not a directory person.
+    const directoryRecipient = await resolveServerCanonicalRecipient({
       requesterId,
       requesterName: recipientName,
       requesterEmail: recipientEmail,
@@ -121,12 +125,33 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       workspaceId
     });
 
-    if (!resolvedRecipient) {
+    // Local kill-off only. Drops when outbound is live. Not an identity.
+    const proveAllowlistTo =
+      !directoryRecipient && isLocalProveAllowlistTo(recipientEmail)
+        ? String(recipientEmail).trim().toLowerCase()
+        : null;
+
+    if (!directoryRecipient && !proveAllowlistTo) {
       return res.status(400).json({
         success: false,
         error: 'Could not resolve a canonical directory record for this recipient in the current workspace.'
       });
     }
+
+    const resolvedRecipient = directoryRecipient ?? {
+      id: proveAllowlistTo as string,
+      name: String(recipientName || proveAllowlistTo).replace(/\(.*?\)/g, '').trim() || (proveAllowlistTo as string),
+      firstName: String(recipientName || proveAllowlistTo).replace(/\(.*?\)/g, '').trim().split(' ')[0] || 'Agent',
+      email: proveAllowlistTo,
+      phone: null,
+      emailVerified: true,
+      phoneVerified: false,
+      maskedEmail: maskEmail(proveAllowlistTo),
+      maskedPhone: null,
+      role: '',
+      isAgentOrBroker: false,
+      workspaceId
+    };
 
     // Validate destinations for requested channels
     if (channels.includes('email') && (!resolvedRecipient.email || !resolvedRecipient.emailVerified)) {
@@ -144,8 +169,11 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     }
 
 
+    // Prove To is not a directory person. Member prefs stay on the Nest path.
+    const viaAllowlist = Boolean(proveAllowlistTo);
+
     // Member notification prefs (materials ready / missing info / SMS)
-    try {
+    if (!viaAllowlist) try {
       const msgType =
         intent === 'delivery_complete'
           ? 'materials_ready'
@@ -281,6 +309,63 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       (masterMode !== 'live' && process.env.ALLOW_EXTERNAL_DISPATCH !== 'true');
 
     if (isOutboundDisabled) {
+      // Hold (including :3049 OUTBOUND_MASTER_MODE=hold): queue the existing outbox for an
+      // exact allowlist To. Do not SMTP. Do not invent a second mailer. Directory recipients
+      // keep the draft / 503 path below.
+      const holdQueue =
+        viaAllowlist &&
+        wantsEmail &&
+        masterMode === 'hold' &&
+        Boolean(resolvedRecipient.email);
+
+      if (holdQueue && resolvedRecipient.email) {
+        const queued = await enqueueOutboundEmail({
+          workspaceId,
+          messageType: isDeliveryComplete ? 'materials_ready' : 'missing_info',
+          idempotencyKey: `allowlist_hold_${outreachTaskKey}_${intent}`,
+          recipient: resolvedRecipient.email,
+          subject: emailSubject,
+          payload: {
+            body: message,
+            propertyAddress,
+            requestId: campaignId,
+            campaignId,
+            taskId: outreachTaskKey,
+            cc: resolvedCc,
+            intent,
+            hold: true,
+          },
+          skipMemberPrefs: true,
+        });
+        if (!queued.enqueued) {
+          return res.status(503).json({
+            success: false,
+            error: 'Outbound hold did not accept this allowlist recipient.',
+            reason: (queued as { reason?: string }).reason,
+          });
+        }
+
+        const heldTask = getCanonicalMarketingTaskById(String(taskId || campaignId));
+        if (heldTask && heldTask.reviewState === 'awaiting_review') {
+          heldTask.reviewState = 'approved';
+          saveCanonicalMarketingTask(heldTask);
+        }
+
+        sentOnceMap.set(outreachOnceKey, Date.now());
+        return res.status(200).json({
+          success: true,
+          mode: 'held',
+          campaignId,
+          outboxId: queued.outboxId,
+          recipient: {
+            name: resolvedRecipient.name,
+            maskedEmail: resolvedRecipient.maskedEmail,
+            maskedPhone: resolvedRecipient.maskedPhone,
+          },
+          message: `Queued to outbound hold for ${resolvedRecipient.name}.`,
+        });
+      }
+
       // Record truthful audit event for saved draft / blocked external send
       const channelLabel = channels.includes('email') && channels.includes('sms')
         ? 'Email & Text'
