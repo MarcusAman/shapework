@@ -103,6 +103,17 @@ import {
   getDealTriageFromTask,
   shouldBlockClientOutbound,
 } from '../../lib/dealTriage';
+import {
+  SURFACE_DRAWER_CONFIRM_ROUTING_LABEL,
+  SURFACE_DRAWER_NEEDS_TRIAGE_CHIP,
+  resolveSurfaceDrawerGates,
+  resolveSurfaceDrawerH1,
+  resolveSurfaceDrawerLaneChip,
+  resolveSurfaceDrawerNext,
+  resolveSurfaceDrawerShell,
+  resolveSurfaceDrawerTriageBody,
+  type SurfaceDrawerShell,
+} from '../../lib/surfaceDrawerLock2';
 
 export interface WorkspaceDrawerTask {
   id: string;
@@ -958,6 +969,43 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const taskIndex = tasksList.findIndex(t => t.id === activeTask.id);
   const hasPrev = taskIndex > 0;
   const hasNext = taskIndex >= 0 && taskIndex < tasksList.length - 1;
+
+  const surfaceShell: SurfaceDrawerShell = useMemo(
+    () => resolveSurfaceDrawerShell(activeTask),
+    [activeTask]
+  );
+  const surfaceNext = useMemo(
+    () => resolveSurfaceDrawerNext(activeTask, surfaceShell),
+    [activeTask, surfaceShell]
+  );
+  const surfaceGates = useMemo(
+    () =>
+      resolveSurfaceDrawerGates({
+        shell: surfaceShell,
+        pagerIndex: taskIndex,
+        pagerTotal: tasksList.length,
+        task: activeTask,
+        nextVerb: surfaceNext.verb,
+      }),
+    [surfaceShell, taskIndex, tasksList.length, activeTask, surfaceNext.verb]
+  );
+  const surfaceH1 = useMemo(
+    () => resolveSurfaceDrawerH1(activeTask, surfaceShell),
+    [activeTask, surfaceShell]
+  );
+  const surfaceLaneChip = useMemo(
+    () => resolveSurfaceDrawerLaneChip(activeTask, surfaceShell),
+    [activeTask, surfaceShell]
+  );
+  const isSurfaceTriage = surfaceShell === 'A_triage';
+  const surfaceTriageBody = useMemo(
+    () => resolveSurfaceDrawerTriageBody(activeTask),
+    [activeTask]
+  );
+  const dealRiskAlert = useMemo(
+    () => (surfaceGates.showDealRiskShell ? getDealTriageFromTask(activeTask) : null),
+    [surfaceGates.showDealRiskShell, activeTask]
+  );
 
   // Check if proof exists
   const hasValidUploadedProof = stagedAssets.length > 0;
@@ -1836,8 +1884,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             
             {/* Left: Previous/Next Navigation & Heading Hierarchy */}
             <div className="flex items-start sm:items-center gap-3 min-w-0">
-              {tasksList.length > 1 && (
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+              {surfaceGates.showPager && (
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0" data-testid="surface-drawer-pager">
                   <button
                     type="button"
                     onClick={() => hasPrev && onSelectTask && onSelectTask(tasksList[taskIndex - 1].id)}
@@ -1864,50 +1912,72 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  {/* Primary Heading: Property Address */}
+                  {/* Surface lock #2: Mode A H1 = deliverable; Mode B H1 = address */}
                   <h2
                     id="workspace-task-modal-title"
+                    data-testid="surface-drawer-h1"
                     className="text-lg sm:text-xl font-bold text-slate-900 truncate max-w-sm sm:max-w-xl tracking-tight"
                   >
-                    {activeTask.propertyAddress || activeTask.title || 'Task Details'}
+                    {surfaceH1}
                   </h2>
-                  <MlsNumberBadge
-                    mlsNumber={activeTask.listingDetails?.mlsNumber}
-                    showStatus
-                    status={(activeTask as any).flexMlsStatus || 'supplied'}
-                    isLive={(activeTask as any).flexMlsStatus === 'flex_live' || (activeTask as any).flexMlsStatus === 'live'}
-                  />
+                  {!isSurfaceTriage && (
+                    <MlsNumberBadge
+                      mlsNumber={activeTask.listingDetails?.mlsNumber}
+                      showStatus
+                      status={(activeTask as any).flexMlsStatus || 'supplied'}
+                      isLive={(activeTask as any).flexMlsStatus === 'flex_live' || (activeTask as any).flexMlsStatus === 'live'}
+                    />
+                  )}
                 </div>
 
-                {/* Subtitle Line: Requested work + Deliverables + Needed by deadline */}
-                <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 flex-wrap font-medium">
-                  <span className="text-slate-900 font-semibold">{activeTask.packageType}</span>
-                  <span>•</span>
-                  <span>{activeTask.requestedAssets?.length || 1} deliverable{(activeTask.requestedAssets?.length || 1) === 1 ? '' : 's'}</span>
-                  <span>•</span>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className={`w-3.5 h-3.5 ${isOverdue ? 'text-rose-600' : 'text-slate-400'}`} />
-                    <span className={isOverdue ? 'font-bold text-rose-700' : 'text-slate-700'}>
-                      {formattedDue !== 'Not provided' && formattedDue !== 'Deadline not specified'
-                        ? `Needed by ${formattedDue}`
-                        : (activeTask.targetSla && !/today\s*5:00\s*pm/i.test(activeTask.targetSla) && activeTask.targetSla !== 'Deadline not specified'
-                            ? `SLA Due: ${activeTask.targetSla}`
-                            : 'Deadline not specified')}
+                {isSurfaceTriage ? (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1 flex-wrap font-medium" data-testid="surface-drawer-triage-chips">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                      {SURFACE_DRAWER_NEEDS_TRIAGE_CHIP}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      {activeTask.channel || 'web'}
                     </span>
                     {isOverdue && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                        {relativeDue}
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        overdue
                       </span>
                     )}
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 flex-wrap font-medium">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-[#00635C] border border-emerald-200" data-testid="surface-drawer-lane-chip">
+                      {surfaceLaneChip}
+                    </span>
+                    <span className="text-slate-900 font-semibold">{activeTask.packageType || activeTask.title}</span>
+                    <span>•</span>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className={`w-3.5 h-3.5 ${isOverdue ? 'text-rose-600' : 'text-slate-400'}`} />
+                      <span className={isOverdue ? 'font-bold text-rose-700' : 'text-slate-700'}>
+                        {formattedDue !== 'Not provided' && formattedDue !== 'Deadline not specified'
+                          ? `Needed by ${formattedDue}`
+                          : (activeTask.targetSla && !/today\s*5:00\s*pm/i.test(activeTask.targetSla) && activeTask.targetSla !== 'Deadline not specified'
+                              ? `SLA Due: ${activeTask.targetSla}`
+                              : 'Deadline not specified')}
+                      </span>
+                      {isOverdue && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                          {relativeDue}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500 mt-1 font-medium" data-testid="surface-drawer-next">
+                  {surfaceNext.sentence}
+                </p>
               </div>
             </div>
 
             {/* Right: Status badge & Compact Controls */}
             <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center flex-wrap justify-end">
               {renderStatusBadge()}
-              {!hasAnyProof && !isCurrentProofApproved && (
+              {surfaceGates.showUpload && !hasAnyProof && !isCurrentProofApproved && (
                 <button
                   type="button"
                   data-testid="header-upload-asset-badge"
@@ -1956,7 +2026,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 </div>
               )}
 
-              {/* Overflow Menu (...) */}
+              {/* Overflow Menu (...) — hidden in Mode A triage */}
+              {!isSurfaceTriage && (
               <div className="relative">
                 <button
                   type="button"
@@ -2043,6 +2114,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Close Button */}
               <button
@@ -2095,9 +2167,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
               VIEW MODE SWITCHER & WORKFLOW ANCHORS
              ========================================================================= */}
           <div className="flex flex-col gap-2.5 pt-3 mt-1 border-t border-slate-100" data-testid="drawer-tabs-and-specs">
+            {surfaceGates.showWorkstationTabs && (
             <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar">
-            {/* Primary Segmented Controller: Workstation vs History */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+            {/* Primary Segmented Controller: Work | History (Surface lock #2) */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0" data-testid="surface-drawer-work-history">
               <button
                 type="button"
                 onClick={() => {
@@ -2111,7 +2184,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Workstation</span>
+                <span>Work</span>
               </button>
 
               <button
@@ -2127,7 +2200,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" />
-                <span>History &amp; Activity</span>
+                <span>History</span>
                 {drawerActivityEvents.length > 0 && (
                   <span
                     className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-slate-200 text-slate-700"
@@ -2180,7 +2253,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
               })}
             </div>
             </div>
+            )}
 
+            {!isSurfaceTriage && (
             <div className="flex flex-wrap items-center gap-1.5" data-testid="drawer-spec-badges">
               {listingSpecBadges.visible.map((b) => (
                 <button
@@ -2205,12 +2280,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   +{listingSpecBadges.overflow}
                 </span>
               )}
-              {activeTask.propertyAddress && (
+              {surfaceGates.showMaps && activeTask.propertyAddress && (
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeTask.propertyAddress)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-[#00635C] hover:bg-emerald-50"
+                  data-testid="surface-drawer-maps"
                 >
                   <MapPin className="w-3 h-3" />
                   Maps
@@ -2218,6 +2294,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 </a>
               )}
             </div>
+            )}
             <div
               className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-slate-600 leading-tight"
               data-testid="chunk-who-when"
@@ -2251,58 +2328,37 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 pb-28">
           
           {/* Triage Alert & Resolution Card */}
-          {(activeTask.status === 'triage' || activeTask.routingState === 'triage_required') && (
+          {isSurfaceTriage && (
             <div className="bg-amber-50/80 border-2 border-amber-300 rounded-2xl p-5 shadow-xs space-y-4 animate-in fade-in" data-testid="triage-resolution-card">
               <div className="flex items-center justify-between pb-2 border-b border-amber-200">
                 <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                   <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span>Triage Required: Work Item Unrouted</span>
+                  <span>{SURFACE_DRAWER_NEEDS_TRIAGE_CHIP}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-1 bg-white border border-amber-300 text-amber-900 rounded-lg text-[11px] font-medium uppercase tracking-wider">
-                    Channel: {activeTask.channel || 'web'}
+                    {activeTask.channel || 'web'}
                   </span>
-                  <span className="px-2.5 py-1 bg-amber-200 text-amber-950 rounded-lg text-[11px] font-mono font-bold">
-                    {activeTask.classificationConfidence ? `${(activeTask.classificationConfidence * 100).toFixed(0)}% Conf` : 'Ambiguous'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Problem & Facts Grid */}
-              <div className="text-xs text-amber-900 bg-white rounded-xl p-4 border border-amber-200 font-medium space-y-2.5 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800">Failure Reason:</span>
-                  {/* raw call id moved behind Inspect / Technical Reference */}
-                </div>
-                <p className="text-slate-700 leading-relaxed font-normal">
-                  {activeTask.triageReason || (activeTask.routingReasons && activeTask.routingReasons.join(', ')) || 'Task facts require manager classification or address confirmation.'}
-                </p>
-                
-                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <span className="font-semibold text-slate-700">Requester:</span>
-                    <span>{activeTask.agentName || 'Unknown Caller / Requester'}</span>
-                    {activeTask.agentPhone && <span className="text-slate-400 font-mono">({activeTask.agentPhone})</span>}
-                  </div>
-                  {activeTask.missingFacts && activeTask.missingFacts.length > 0 && (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-bold text-rose-600 uppercase">Missing:</span>
-                      {activeTask.missingFacts.map(fact => (
-                        <span key={fact} className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px] font-semibold">
-                          {fact.replace('_', ' ')}
-                        </span>
-                      ))}
-                    </div>
+                  {isOverdue && (
+                    <span className="px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-lg text-[11px] font-bold">
+                      overdue
+                    </span>
                   )}
                 </div>
               </div>
 
-              {/* Suggestions Label */}
-              <div className="text-[11px] text-slate-600 bg-amber-100/50 rounded-lg p-2.5 border border-amber-200/60 flex items-center gap-2">
-                <Info className="w-4 h-4 text-amber-700 shrink-0" />
-                <span>
-                  <strong>Candidate Suggestions:</strong> Marketing Collateral, Yard Sign Post Installation, Form 2-T Contract Review, or IT & Systems Support. Select a category below to route.
-                </span>
+              {/* Mode A body — plain copy, never raw reason codes */}
+              <div className="text-xs text-amber-900 bg-white rounded-xl p-4 border border-amber-200 font-medium space-y-2.5 shadow-2xs">
+                <p className="text-slate-800 leading-relaxed font-medium text-sm" data-testid="surface-drawer-triage-body">
+                  {surfaceTriageBody}
+                </p>
+                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <span className="font-semibold text-slate-700">Requester:</span>
+                    <span>{activeTask.agentName || verifiedRecipient.name || 'Unknown Caller / Requester'}</span>
+                    {activeTask.agentPhone && <span className="text-slate-400 font-mono">({activeTask.agentPhone})</span>}
+                  </div>
+                </div>
               </div>
 
               {/* Manager Resolution Form */}
@@ -2311,7 +2367,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Category</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Category</label>
                     <select
                       value={triageCategory}
                       onChange={e => setTriageCategory(e.target.value)}
@@ -2328,7 +2384,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Property Address</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Address</label>
                     <input
                       type="text"
                       value={triageAddress}
@@ -2340,7 +2396,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Deliverable Type</label>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Deliverable</label>
                   <input
                     type="text"
                     value={triageDeliverable}
@@ -2386,7 +2442,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     disabled={isTriageResolving || !triageCategory}
                     className="nest-press px-4 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-bold disabled:opacity-50 cursor-pointer shadow-2xs"
                   >
-                    {isTriageResolving ? 'Routing...' : 'Confirm Rerouting'}
+                    {isTriageResolving ? 'Routing...' : SURFACE_DRAWER_CONFIRM_ROUTING_LABEL}
                   </button>
                 </div>
               </div>
@@ -2394,7 +2450,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
           )}
 
           {/* PEAK-END RULE: CELEBRATORY MILESTONE CONFIRMATION SCREEN */}
-          {isSubmittedMilestone && activeViewMode === 'workstation' ? (
+          {/* Mode A triage: hide workstation / history body — triage card is the only surface */}
+          {isSurfaceTriage ? null : isSubmittedMilestone && activeViewMode === 'workstation' ? (
             <div className="p-8 sm:p-12 bg-gradient-to-b from-emerald-50/80 via-white to-white rounded-3xl border border-emerald-200 text-center space-y-6 animate-in zoom-in-95 duration-200 shadow-sm max-w-2xl mx-auto my-4">
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-[#00635C] flex items-center justify-center mx-auto shadow-md ring-8 ring-emerald-50">
                 <Sparkles className="w-8 h-8" />
@@ -2660,7 +2717,58 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
               })()}
 
 
-                {/* CARD 2: Operational brief + creative copy (Maxa at bottom) */}
+                {/* Surface lock #2 B2/B3: What / Blocker / Decide — no Brief&copy, no CAPS dump */}
+                {surfaceGates.showDealRiskShell && (
+                  <div className="bg-white border border-rose-200 rounded-2xl p-4 shadow-xs space-y-3.5" data-testid="deal-risk-shell">
+                    <div className="flex items-center gap-2 pb-2 border-b border-rose-100">
+                      <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center font-bold shrink-0">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <h3 className="font-extrabold text-sm text-slate-900">Deal risk</h3>
+                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        {surfaceLaneChip}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5" data-testid="deal-risk-what">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">What</span>
+                      <p className="text-sm text-slate-800 leading-relaxed font-medium m-0">
+                        {dealRiskAlert
+                          ? `${(dealRiskAlert.kinds || []).join(' · ') || 'Collapsing file'} — BIC/owner negotiates; no client auto-send.`
+                          : (activeTask.notes || activeTask.title || 'Operational file needs an unblock path.')}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2" data-testid="deal-risk-blocker">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Blocker</span>
+                      <p className="text-sm text-rose-950 leading-relaxed font-medium m-0">
+                        {dealRiskAlert?.playbookExcerpt
+                          ? String(dealRiskAlert.playbookExcerpt).slice(0, 180)
+                          : 'File is blocked until a human decision path is chosen.'}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5" data-testid="deal-risk-decide">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Decide</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {['Repair credit', 'Terminate', 'Renegotiate', 'Extend'].map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white text-[11px] font-bold text-slate-800 cursor-pointer nest-press"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {!surfaceGates.hideCapsPlaybookDump && dealRiskAlert?.playbookTitle && (
+                      <div className="text-[11px] text-rose-700/90" data-testid="deal-risk-playbook-dump">
+                        Playbook: {dealRiskAlert.playbookTitle}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* CARD 2: Operational brief + creative copy (Maxa at bottom) — B1 only */}
+                {surfaceGates.showBriefAndCopy && (
                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3.5" data-testid="brief-and-copy-card">
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                     <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#00635C] flex items-center justify-center font-bold shrink-0">
@@ -2716,8 +2824,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     </div>
                   </div>
 
-                  {/* 1-Click Copy Blocks */}
-                  <div className="space-y-3 pt-1">
+                  {/* 1-Click Copy Blocks — hidden for B2/B3 */}
+                  {surfaceGates.showHeadlineRemarksCopy && (
+                  <div className="space-y-3 pt-1" data-testid="headline-remarks-copy">
                     {/* Headline */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
@@ -2773,8 +2882,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     </div>
                   </div>
 
-                  {/* Maxa status on same board/drawer — no Maxa rebuild */}
-                  {getDealTriageFromTask(activeTask) && (
+                  )}
+                  {/* Legacy deal-triage-banner only when CAPS dump allowed (B1 edge) */}
+                  {!surfaceGates.hideCapsPlaybookDump && getDealTriageFromTask(activeTask) && (
                     <div
                       className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-950 space-y-1"
                       data-testid="deal-triage-banner"
@@ -2826,6 +2936,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     </button>
                   </div>
                 </div>
+                )}
 
                 </div>
               </section>
@@ -3038,14 +3149,17 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                       </h3>
                     </div>
 
+                    {surfaceGates.showUpload && (
                     <button
                       type="button"
                       onClick={() => setIsUploadWizardOpen(true)}
                       className="px-4 py-2 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0 self-start sm:self-auto"
+                      data-testid="surface-drawer-upload-body"
                     >
                       <Upload className="w-3.5 h-3.5" />
                       <span>Upload Finished Asset</span>
                     </button>
+                    )}
                   </div>
 
                   {/* Staged Asset Preview with Instant DPI Inspector Badge */}
@@ -3511,9 +3625,41 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
           {/* Right: Unambiguous Next Action & Modal Close */}
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+
+            {/* Mode A — footer primary matches Next verb */}
+            {isSurfaceTriage && (
+              <button
+                type="button"
+                onClick={handleConfirmTriage}
+                disabled={isTriageResolving || !triageCategory}
+                data-testid="surface-drawer-footer-confirm-routing"
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
+                  triageCategory && !isTriageResolving
+                    ? 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+                title={SURFACE_DRAWER_CONFIRM_ROUTING_LABEL}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{isTriageResolving ? 'Routing...' : surfaceNext.verb}</span>
+              </button>
+            )}
+
+            {/* Mode B2/B3 — Unblock primary */}
+            {!isSurfaceTriage && surfaceGates.showDealRiskShell && (
+              <button
+                type="button"
+                data-testid="surface-drawer-footer-unblock"
+                className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer"
+                title={surfaceNext.sentence}
+              >
+                <Flag className="w-3.5 h-3.5" />
+                <span>{surfaceNext.verb}</span>
+              </button>
+            )}
             
             {/* PRODUCER VIEW — hide Send to Manager once proof is already awaiting director review (show amber status instead) */}
-            {isProducer && !(isAwaitingReviewLane && hasAnyProof && !isRevision) && (
+            {surfaceGates.showApproveNotify && isProducer && !(isAwaitingReviewLane && hasAnyProof && !isRevision) && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 {/* Explain why disabled if requirements unmet */}
                 {!canSendForApproval && (
@@ -3551,13 +3697,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
             {/* NON-MANAGER IN REVIEW LANE (Informative state for non-directors viewing an in-review task) */}
             {/* Producers waiting on Melissa — never show this self-loop when the director is completing her own agent-requested work */}
-            {!hasMarketingFinalApproval && !isDirectorSelfComplete && isAwaitingReviewLane && hasAnyProof && (
+            {surfaceGates.showApproveNotify && !hasMarketingFinalApproval && !isDirectorSelfComplete && isAwaitingReviewLane && hasAnyProof && (
               <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-semibold">
                 <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>Submitted • Awaiting Manager Approval ({activeTask.reviewOwnerName || directorFirstName || 'Melissa'})</span>
               </div>
             )}
-            {!hasMarketingFinalApproval && !isDirectorSelfComplete && isAwaitingReviewLane && !hasAnyProof && (
+            {surfaceGates.showApproveNotify && !hasMarketingFinalApproval && !isDirectorSelfComplete && isAwaitingReviewLane && !hasAnyProof && (
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 text-xs font-semibold">
                 <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span>In Production • Proof Staging Pending</span>
@@ -3565,14 +3711,16 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             )}
 
             {/* DEPARTMENT DIRECTOR REVIEW / SELF-COMPLETE VIEW */}
-            {hasDepartmentFinalApproval && (
+            {surfaceGates.showApproveNotify && hasDepartmentFinalApproval && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap sm:flex-nowrap">
                 {/* Intended Recipient & Proof Attribution */}
+                {surfaceGates.showEmailFooter && (
                 <div
                   className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border shadow-2xs ${
                     !isRecipientConfirmed ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'
                   }`}
                   title={isRecipientConfirmed ? `To: ${verifiedRecipient.name} (${verifiedRecipient.email || 'No email'}) • Proof v${currentProofVersion}` : 'Requester needs confirmation before external delivery'}
+                  data-testid="surface-drawer-email-footer"
                 >
                   <Mail className={`w-3.5 h-3.5 shrink-0 ${!isRecipientConfirmed ? 'text-amber-600' : 'text-slate-400'}`} />
                   <span className="truncate max-w-[220px] sm:max-w-xs font-medium">
@@ -3592,6 +3740,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     </button>
                   )}
                 </div>
+                )}
 
                 {/* Final approval — header/status carries authority; keep footer lean */}
 
