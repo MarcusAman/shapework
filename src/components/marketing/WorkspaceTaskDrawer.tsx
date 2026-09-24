@@ -1586,11 +1586,6 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
 
-    if (!hasAnyProof) {
-      setUrlValidationError('Upload a finished asset or paste an optional image link before approving.');
-      return;
-    }
-
     if (manualProofUrl.trim()) {
       const check = validateProofUrl(manualProofUrl);
       if (!check.valid) {
@@ -4048,21 +4043,19 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   <button
                     type="button"
                     onClick={openDeliveryOutreach}
-                    disabled={isSubmitting || !hasAnyProof || !isRecipientConfirmed}
+                    disabled={isSubmitting || !isRecipientConfirmed}
                     data-action="Approve & send to agent"
                     data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
                     aria-label="Approve for Delivery (Approve & Send to Agent)"
                     className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                      !hasAnyProof || !isRecipientConfirmed || isSubmitting
+                      !isRecipientConfirmed || isSubmitting
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                     }`}
                     title={
                       !isRecipientConfirmed
                         ? 'Requester needs confirmation before external delivery'
-                        : (hasAnyProof
-                            ? 'Approve current proof version and deliver to agent (Approve for Delivery • Approve & send to agent • Approve & Send to Agent)'
-                            : 'Upload a finished asset (link optional)')
+                        : 'Approve and notify the agent. The Drive folder is created automatically; paste a link only if create fails.'
                     }
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />

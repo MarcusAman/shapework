@@ -57,3 +57,20 @@ export function isLocalProveAllowlistTo(email?: string | null): boolean {
   if (!email || !isLocalProveKillOff()) return false;
   return email.trim().toLowerCase() === LOCAL_PROVE_ALLOWLIST_TO;
 }
+
+/**
+ * Every address on EXPLICIT_OUTBOUND_ALLOWLIST resolves as a prove recipient
+ * while outbound is held, including production. Live, disabled, and enabled do not.
+ * This does not create a directory person.
+ */
+export function isAllowlistedProveRecipient(email?: string | null, mode?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  const onList = EXPLICIT_OUTBOUND_ALLOWLIST.some((item) => item.toLowerCase() === normalized);
+  if (!onList) return false;
+  const resolved = (mode != null && String(mode).trim() !== '')
+    ? String(mode).trim().toLowerCase()
+    : (readEnv('OUTBOUND_MASTER_MODE') || readEnv('OUTBOUND_MODE') || 'hold').trim().toLowerCase();
+  if (resolved === 'live' || resolved === 'disabled' || resolved === 'enabled') return false;
+  return resolved === 'hold' || resolved === '';
+}

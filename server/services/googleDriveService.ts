@@ -11,6 +11,7 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { getOAuthClient, getGoogleAccessToken } from '../integrations/google/googleOAuth.js';
 import { IntegrationStateStore } from '../integrations/shared/integrationStateStore.js';
+import { GOOGLE_DRIVE_NOT_CONNECTED } from './driveConnectionReason.js';
 
 export interface ListingDriveScaffold {
   id: string;
@@ -24,6 +25,7 @@ export interface ListingDriveScaffold {
   createdAt: string;
   status: 'active' | 'archived';
   isLiveDrive: boolean;
+  error?: string;
 }
 
 export interface DriveDocumentResult {
@@ -83,6 +85,24 @@ class GoogleDriveServiceEngine {
   }
 
   /**
+   * No workspace_integration_connections row, a non-connected status, or connected:false.
+   */
+  private async workspaceDriveBlockReason(workspaceId: string): Promise<string | null> {
+    try {
+      const dbState = (global as any).__SHAPEWORK_DB_STATE || {};
+      const store = new IntegrationStateStore(dbState);
+      const connection = await store.getConnection(workspaceId, 'google_workspace');
+      const explicitlyOff = Boolean(connection && (connection as { connected?: boolean }).connected === false);
+      if (!connection || connection.status !== 'connected' || explicitlyOff) {
+        return GOOGLE_DRIVE_NOT_CONNECTED;
+      }
+      return null;
+    } catch {
+      return GOOGLE_DRIVE_NOT_CONNECTED;
+    }
+  }
+
+  /**
    * Helper to retrieve authenticated Google Drive client
    */
   private async getAuthenticatedDriveClient(workspaceId: string = 'nest-realty-demo'): Promise<{ drive: any; userEmail: string } | null> {
@@ -90,7 +110,8 @@ class GoogleDriveServiceEngine {
       const dbState = (global as any).__SHAPEWORK_DB_STATE || {};
       const store = new IntegrationStateStore(dbState);
       const connection = await store.getConnection(workspaceId, 'google_workspace');
-      if (!connection || connection.status !== 'connected') {
+      const explicitlyOff = Boolean(connection && (connection as { connected?: boolean }).connected === false);
+      if (!connection || connection.status !== 'connected' || explicitlyOff) {
         return null;
       }
 
@@ -171,6 +192,24 @@ class GoogleDriveServiceEngine {
   }): Promise<ListingDriveScaffold> {
     const { propertyAddress, agentName, agentEmail, deliverables, workspaceId = 'nest-realty-demo', mlsNumber } = params;
     void mlsNumber;
+
+    const notConnected = await this.workspaceDriveBlockReason(workspaceId);
+    if (notConnected) {
+      return {
+        id: `scaffold_${Date.now()}`,
+        propertyAddress,
+        agentName,
+        agentEmail,
+        driveFolderId: '',
+        driveFolderUrl: '',
+        subfolders: [],
+        deliverables: deliverables ? deliverables.split(',').map(d => d.trim()) : [],
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        isLiveDrive: false,
+        error: notConnected,
+      };
+    }
 
     const auth = await this.getAuthenticatedDriveClient(workspaceId);
     let driveFolderId = `folder_${Date.now()}`;

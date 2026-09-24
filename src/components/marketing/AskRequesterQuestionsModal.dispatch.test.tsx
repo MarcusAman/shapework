@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { AskRequesterQuestionsModal } from './AskRequesterQuestionsModal';
+import { driveCreateFailureReason } from '../../../server/services/evaluateDispatch';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -174,5 +175,28 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     expect(sendButton()?.disabled).toBe(false);
     expect(sendButton()?.getAttribute('data-send-ready')).toBe('true');
     expect(document.body.textContent).not.toContain(BLOCKED);
+  });
+
+  it('shows the exact not-connected Drive reason and does not wrap it', async () => {
+    const exact = "Google Drive isn't connected for this workspace.";
+    const reason = driveCreateFailureReason(exact);
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('ensure-drive')) {
+        return jsonResponse({ success: false, reason, error: reason, code: 'DRIVE_FOLDER_CREATE_FAILED' }, 400);
+      }
+      if (url.includes('dispatch-check')) {
+        return jsonResponse({ ...verdict(false), reason: exact }, 400);
+      }
+      return jsonResponse({});
+    }) as typeof fetch;
+
+    await renderModal();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain(exact);
+    expect(document.body.textContent).not.toContain("Couldn't create the Drive folder");
   });
 });

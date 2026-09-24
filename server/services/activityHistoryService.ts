@@ -30,6 +30,8 @@ export type ActivityEventType =
   // NORA Outreach
   | 'outreach.drafted'
   | 'outreach.queued'
+  | 'outreach.sent'
+  | 'outreach.held'
   | 'outreach.blocked'
   | 'outreach.provider_accepted'
   | 'outreach.delivered'
@@ -76,6 +78,7 @@ export type DirectionType = 'inbound' | 'outbound' | 'internal';
 export type CommunicationStatus =
   | 'drafted'
   | 'queued'
+  | 'sent'
   | 'blocked'
   | 'provider_accepted'
   | 'delivered'

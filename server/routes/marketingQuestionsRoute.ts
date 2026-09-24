@@ -8,7 +8,7 @@
 import { Router, Request, Response } from 'express';
 import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
 import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
-import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
+import { isAllowlistedProveRecipient } from '../../src/lib/outboundAllowlistGate.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
 import {
   resolveServerCanonicalRecipient,
@@ -448,7 +448,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       workspaceId
     });
     const proveAllowlistTo =
-      !directoryRecipient && isLocalProveAllowlistTo(recipientEmail)
+      !directoryRecipient && isAllowlistedProveRecipient(recipientEmail)
         ? String(recipientEmail).trim().toLowerCase()
         : null;
 
@@ -1075,8 +1075,10 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       allowed: true,
       gateReason: '',
       recipientStatus: verdict.recipientStatus,
+      recipientId: verdict.recipientId,
       effectiveTo: verdict.effectiveTo,
       effectiveCc: verdict.effectiveCc,
+      dropped: verdict.dropped,
       partial: warnings.length > 0,
       campaignId,
       dispatchedAt: new Date().toISOString(),

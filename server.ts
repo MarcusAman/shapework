@@ -8026,28 +8026,38 @@ app.post('/api/marketing/requests/:id/resend-photo-request', requireAuth, resolv
       mlsNumber
     });
 
+    const { classifyOutboundEmailResult } = await import('./server/email/outboundSendOutcome.js');
+    const classified = classifyOutboundEmailResult(result);
     const { recordActivityEvent } = await import('./server/services/activityHistoryService.js');
     await recordActivityEvent({
       workspaceId: request.workspaceId || 'ws_wilmington',
       requestId: request.id,
-      eventType: 'outreach.sent',
+      eventType: classified.activityEvent,
       actorType: 'nora',
       actorDisplayName: 'Ask Nora',
       channel: 'email',
       direction: 'outbound',
-      communicationStatus: result.success ? 'sent' : 'blocked',
-      summary: `NORA dispatched photo upload request to ${agentName} (${agentEmail}) for ${propertyAddress}`,
+      communicationStatus: classified.communicationStatus,
+      summary: classified.success
+        ? `NORA dispatched photo upload request to ${agentName} (${agentEmail}) for ${propertyAddress}`
+        : `NORA photo upload request ${classified.outcome} for ${agentName} (${agentEmail}): ${classified.reason || classified.outcome}`,
       metadata: {
         recipient: agentEmail,
         messageId: result.messageId,
-        propertyAddress
+        propertyAddress,
+        outcome: classified.outcome,
+        reason: classified.reason,
       },
       idempotencyKey: `act:photo_req:${request.id}:${Date.now()}`
     }).catch(() => {});
 
     return res.json({
-      success: true,
-      message: `Nora photo upload request dispatched to ${agentName} (${agentEmail})`,
+      success: classified.success,
+      outcome: classified.outcome,
+      reason: classified.reason,
+      message: classified.success
+        ? `Nora photo upload request dispatched to ${agentName} (${agentEmail})`
+        : `Nora photo upload request ${classified.outcome}${classified.reason ? `: ${classified.reason}` : ''}`,
       result
     });
   } catch (err: any) {
@@ -8173,8 +8183,7 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
     if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
     const { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack } = await import('./server/services/askNoraDriveDelivery.js');
     const { driveCreateFailureReason } = await import('./server/services/evaluateDispatch.js');
-    // Hydrate proofs from request body when task record is thin (common on first open)
-    if (!task.proofUrl && req.body?.proofUrl) task.proofUrl = String(req.body.proofUrl);
+    // Client-pasted proofUrl is never copied onto the task. Only a folder this server created or listed may be stored.
     if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {
       task.attachments = req.body.attachments;
     }

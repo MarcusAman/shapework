@@ -77,7 +77,7 @@ export type AskNoraDriveDeps = {
     agentName?: string;
     agentEmail?: string;
     workspaceId?: string;
-  }) => Promise<{ isLive: boolean; driveFolderId: string; driveFolderUrl: string }>;
+  }) => Promise<{ isLive: boolean; driveFolderId: string; driveFolderUrl: string; error?: string }>;
   uploadFile: (params: {
     folderId: string;
     fileName: string;
@@ -138,7 +138,7 @@ async function defaultCreateFolder(params: {
   agentName?: string;
   agentEmail?: string;
   workspaceId?: string;
-}): Promise<{ isLive: boolean; driveFolderId: string; driveFolderUrl: string }> {
+}): Promise<{ isLive: boolean; driveFolderId: string; driveFolderUrl: string; error?: string }> {
   const scaffold = await GoogleDriveService.scaffoldListingFolder({
     propertyAddress: params.propertyAddress,
     agentName: params.agentName || 'Nest Agent',
@@ -146,7 +146,7 @@ async function defaultCreateFolder(params: {
     workspaceId: params.workspaceId || 'ws_wilmington',
   });
   const ref = scaffold.isLiveDrive ? realFolderRef(scaffold.driveFolderId, scaffold.driveFolderUrl) : null;
-  if (!ref) return { isLive: false, driveFolderId: '', driveFolderUrl: '' };
+  if (!ref) return { isLive: false, driveFolderId: '', driveFolderUrl: '', error: scaffold.error };
   const key = listingAddressKey(params.propertyAddress);
   if (key) listingFolderRegistry.set(key, ref);
   return { isLive: true, driveFolderId: ref.id, driveFolderUrl: ref.url };
@@ -273,7 +273,13 @@ export async function promoteAskNoraListingFolder(input: {
       });
       const ref = createdRes.isLive ? realFolderRef(createdRes.driveFolderId, createdRes.driveFolderUrl) : null;
       if (!ref) {
-        return { ...deferredFolder, uploaded: [], error: 'Drive folder create failed; no folder URL stored.' };
+        const cause = String(createdRes.error || 'no folder URL stored');
+        console.warn('[AskNoraDrive] create folder failed:', cause);
+        return {
+          ...deferredFolder,
+          uploaded: [],
+          error: createdRes.error || 'Drive folder create failed; no folder URL stored.',
+        };
       }
       folder = ref;
       created = true;

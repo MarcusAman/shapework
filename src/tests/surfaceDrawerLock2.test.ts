@@ -320,7 +320,7 @@ describe('Surface drawer lock #2.1 — B1 Apple cut helpers', () => {
     expect(resolveSurfaceAppleFoldRequest(b1)).toMatch(/Request /);
   });
 
-  it('B1 gates: Apple fold on; brief collapsed behind Details; Approve only when proof exists', () => {
+  it('B1 gates: Apple fold on; brief collapsed behind Details; Approve shows with no paste', () => {
     const noProof = resolveSurfaceDrawerGates({
       shell: 'B1_creative',
       pagerIndex: 0,
@@ -331,7 +331,7 @@ describe('Surface drawer lock #2.1 — B1 Apple cut helpers', () => {
     expect(noProof.showAppleFold).toBe(true);
     expect(noProof.collapseBriefBehindDetails).toBe(true);
     expect(noProof.showBriefAndCopy).toBe(true);
-    expect(noProof.showApproveNotify).toBe(false);
+    expect(noProof.showApproveNotify).toBe(true);
     expect(noProof.showEmailFooter).toBe(false);
     expect(noProof.showUpload).toBe(true);
 
@@ -432,7 +432,7 @@ describe('Surface drawer lock #2.2 — B1 dense meta / human Done when / one-pho
     expect(g.denseAppleFold).toBe(true);
     expect(g.showOnePhotoPrimary).toBe(true);
     expect(g.collapseBriefBehindDetails).toBe(true);
-    expect(g.showApproveNotify).toBe(false);
+    expect(g.showApproveNotify).toBe(true);
 
     const a = resolveSurfaceDrawerGates({ shell: 'A_triage', pagerIndex: 0, pagerTotal: 1 });
     expect(a.denseAppleFold).toBe(false);
