@@ -167,8 +167,10 @@ class GoogleDriveServiceEngine {
     agentEmail: string;
     deliverables?: string;
     workspaceId?: string;
+    mlsNumber?: string | null;
   }): Promise<ListingDriveScaffold> {
-    const { propertyAddress, agentName, agentEmail, deliverables, workspaceId = 'nest-realty-demo' } = params;
+    const { propertyAddress, agentName, agentEmail, deliverables, workspaceId = 'nest-realty-demo', mlsNumber } = params;
+    void mlsNumber;
 
     const auth = await this.getAuthenticatedDriveClient(workspaceId);
     let driveFolderId = `folder_${Date.now()}`;
@@ -391,6 +393,89 @@ class GoogleDriveServiceEngine {
       webViewLink: `https://drive.google.com/file/d/${fallbackId}/view`,
       isLive: false
     };
+  }
+
+
+  /** Fail-closed: live folder id must open and contain ≥1 non-folder file (or files in immediate subfolders). */
+  public async verifyDriveFolder(folderId: string, workspaceId: string = 'ws_wilmington'): Promise<{ ok: boolean; url?: string; fileCount?: number; error?: string }> {
+    const id = String(folderId || '').trim();
+    if (!id || id.startsWith('folder_') || id.startsWith('1DRV_') || id.startsWith('sub_')) {
+      return { ok: false, error: 'invalid folder id' };
+    }
+    const auth = await this.getAuthenticatedDriveClient(workspaceId);
+    if (!auth?.drive) return { ok: false, error: 'no drive auth' };
+    try {
+      const meta = await auth.drive.files.get({
+        fileId: id,
+        fields: 'id, mimeType, trashed, webViewLink',
+        supportsAllDrives: true,
+      });
+      if (!meta.data?.id || meta.data.trashed || meta.data.mimeType !== 'application/vnd.google-apps.folder') {
+        return { ok: false, error: 'not a live folder' };
+      }
+      const kids = await auth.drive.files.list({
+        q: `'${id}' in parents and trashed = false`,
+        pageSize: 10,
+        fields: 'files(id, mimeType)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      const files = kids.data.files || [];
+      let fileCount = files.filter((f: any) => f.mimeType !== 'application/vnd.google-apps.folder').length;
+      if (fileCount === 0) {
+        for (const sub of files.filter((f: any) => f.mimeType === 'application/vnd.google-apps.folder').slice(0, 6)) {
+          const subKids = await auth.drive.files.list({
+            q: `'${sub.id}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+            pageSize: 5,
+            fields: 'files(id)',
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+          });
+          fileCount += (subKids.data.files || []).length;
+          if (fileCount > 0) break;
+        }
+      }
+      const url = meta.data.webViewLink || `https://drive.google.com/drive/folders/${meta.data.id}`;
+      return { ok: true, url, fileCount };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'folder verify failed' };
+    }
+  }
+
+  /** Prefer Marketing / flyer / 03_ subfolder for proof uploads. */
+  public async findMarketingUploadParentId(parentFolderId: string, workspaceId: string = 'ws_wilmington'): Promise<string> {
+    const id = String(parentFolderId || '').trim();
+    if (!id) return '';
+    const match = this.scaffolds.get(id) || [...this.scaffolds.values()].find((s) => s.driveFolderId === id);
+    const fromMem =
+      match?.subfolders.find((s) => /^marketing$/i.test(String(s.name || '').trim())) ||
+      match?.subfolders.find((s) => /marketing|flyer|social/i.test(s.name)) ||
+      match?.subfolders.find((s) => /03_/i.test(s.name));
+    if (fromMem?.id) return fromMem.id;
+
+    const auth = await this.getAuthenticatedDriveClient(workspaceId);
+    if (!auth?.drive) return id;
+    try {
+      const kids = await auth.drive.files.list({
+        q: `'${id}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'`,
+        pageSize: 20,
+        fields: 'files(id, name)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      const folders = kids.data.files || [];
+      const hit =
+        folders.find((f: any) => /^marketing$/i.test(String(f.name || '').trim())) ||
+        folders.find((f: any) => /marketing|flyer|social/i.test(String(f.name || ''))) ||
+        folders.find((f: any) => /^03_/i.test(String(f.name || '')));
+      if (hit?.id) {
+        console.log('[GoogleDriveService] resolved marketing subfolder', hit.name, hit.id);
+        return hit.id;
+      }
+    } catch (err: any) {
+      console.warn('[GoogleDriveService] findMarketingUploadParentId failed:', err?.message || err);
+    }
+    return id;
   }
 
   public getScaffolds(): ListingDriveScaffold[] {

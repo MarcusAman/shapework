@@ -114,7 +114,7 @@ describe('Nest F-02 director self-complete CTA', () => {
       />
     );
 
-    expect(html).toContain('Approve &amp; Complete');
+    expect(html).toContain('Approve &amp; Notify Agent');
     expect(html).not.toContain('Send to Manager for Approval');
   });
 

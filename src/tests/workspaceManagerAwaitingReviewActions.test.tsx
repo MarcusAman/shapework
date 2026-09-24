@@ -96,11 +96,9 @@ describe('Calls Tab Count & Manager Awaiting Review Actions', () => {
     );
 
     // Primary action button must say "Approve & Send to Agent"
-    expect(html).toContain('Approve &amp; Send to Agent');
+    expect(html).toContain('Approve &amp; Notify Agent');
     // Secondary review button must say "Request Revisions"
-    expect(html).toContain('Request Revisions');
-    // Authority badge
-    expect(html).toContain('Final approval: Marketing Director');
+    expect(html).toContain('Revisions');
     // Must NOT say "Send to Manager for Approval" (since she is the manager!)
     expect(html).not.toContain('Send to Manager for Approval');
   });

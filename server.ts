@@ -7450,6 +7450,17 @@ app.post('/api/marketing/tasks/:id/approve-proof', requireAuth, resolveWorkspace
     const task = await getOrFetchCanonicalMarketingTask(req.params.id);
     if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
 
+    // Blueprint role gate — only task.reviewerId may approve
+    const { assertActorIsTaskReviewerForApproveNotify } = await import('./src/lib/marketingApproveNotifyCapabilities.js');
+    const reviewerGate = assertActorIsTaskReviewerForApproveNotify(sessionUser, task);
+    if (!reviewerGate.allowed) {
+      return res.status(403).json({
+        success: false,
+        error: reviewerGate.errorCode || 'FORBIDDEN_NOT_TASK_REVIEWER',
+        message: reviewerGate.reason || 'Only the task reviewer may approve proof.',
+      });
+    }
+
     // Validate self-approval safety across canonical identities, submission history, and capabilities
     const { validateSelfApprovalSafety } = await import('./server/policies/canonicalMarketingLifecyclePolicy.js');
     const selfApprovalCheck = validateSelfApprovalSafety(task, sessionUser);
@@ -8175,6 +8186,17 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
 
     const sessionUser = (req as any).authUser || (req as any).user;
 
+    // 0. Blueprint role gate — only task.reviewerId may Approve & Notify (UI hide insufficient)
+    const { assertActorIsTaskReviewerForApproveNotify } = await import('./src/lib/marketingApproveNotifyCapabilities.js');
+    const reviewerGate = assertActorIsTaskReviewerForApproveNotify(sessionUser, task);
+    if (!reviewerGate.allowed) {
+      return res.status(403).json({
+        success: false,
+        error: reviewerGate.errorCode || 'FORBIDDEN_NOT_TASK_REVIEWER',
+        message: reviewerGate.reason || 'Only the task reviewer may approve and notify.',
+      });
+    }
+
     // 1. Validate Marketing Approval Authority
     const { validateSelfApprovalSafety } = await import('./server/policies/canonicalMarketingLifecyclePolicy.js');
     const selfApprovalCheck = validateSelfApprovalSafety(task, sessionUser);
@@ -8257,7 +8279,7 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     }
 
     // 2c. Ensure AskNora Drive folder + upload proofs. Link only if verified non-empty.
-    // Empty Drive is OK (attachments-only / skipAgentEmail) — never 502 after agent already notified.
+    // Fail-closed: stub/synthetic/empty Drive refuses Approve & Notify (Blueprint ADR outbound gate).
     {
       const { ensureAskNoraDeliveryDrivePack, isRealGoogleDriveUrl } = await import('./server/services/askNoraDriveDelivery.js');
       const pack = await ensureAskNoraDeliveryDrivePack(task, {
@@ -8278,7 +8300,25 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
           task.updatedAt = new Date().toISOString();
           saveCanonicalMarketingTask(task);
         }
-        console.warn('[approve-and-dispatch] Drive not linkable — continuing without Drive URL:', pack.error || 'empty/unverified');
+      }
+
+      // Fail-closed outbound: refuse Approve & Notify when Drive is stub/synthetic/empty
+      const { assertDriveReadyForApproveNotify } = await import('./server/services/askNoraDriveDelivery.js');
+      const driveGate = assertDriveReadyForApproveNotify({
+        stub: Boolean((pack as any).stub),
+        linkable: pack.linkable,
+        driveFolderUrl: pack.driveFolderUrl || task.driveFolderUrl,
+        driveFolderId: (pack as any).driveFolderId,
+        uploaded: (pack as any).uploaded,
+        fileCount: (pack as any).fileCount,
+        error: pack.error,
+      });
+      if (!driveGate.allowed) {
+        return res.status(403).json({
+          success: false,
+          error: driveGate.errorCode || 'DRIVE_NOT_READY',
+          message: driveGate.reason || 'Approve & Notify refused: Drive folder must be real and non-empty.',
+        });
       }
     }
 
