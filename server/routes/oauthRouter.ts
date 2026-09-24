@@ -17,8 +17,9 @@ import {
   saveOAuthCredentials,
   removeOAuthCredentials
 } from '../persistence/oauthTokensRepository.js';
-import { GOOGLE_WORKSPACE_SCOPES, exchangeGoogleCode } from '../integrations/google/googleOAuth.js';
-import { IntegrationStateStore } from '../integrations/shared/integrationStateStore.js';
+import { GOOGLE_WORKSPACE_SCOPES } from '../integrations/google/googleOAuth.js';
+import { handleGoogleOAuthCallback } from '../integrations/google/googleRoutes.js';
+import { requireAuth, type AuthenticatedRequest } from '../auth/auth.js';
 
 export const oauthRouter = Router();
 
@@ -597,6 +598,17 @@ oauthRouter.get('/:provider/ping', (req, res) => {
   });
 });
 
+function googleWorkspaceCallbackDeps(): {
+  dbState: any;
+  persist: (wsId?: string) => Promise<void>;
+} {
+  const dbState = (global as { __SHAPEWORK_DB_STATE?: any }).__SHAPEWORK_DB_STATE || {};
+  const persist = typeof dbState.saveStateToStorage === 'function'
+    ? (wsId?: string) => Promise.resolve(dbState.saveStateToStorage(wsId))
+    : async () => {};
+  return { dbState, persist };
+}
+
 // GET /api/auth/:provider/callback - OAuth 2.0 Redirect Callback Handler
 oauthRouter.get('/:provider/callback', async (req, res) => {
   const provider = req.params.provider as OAuthProvider;
@@ -604,101 +616,24 @@ oauthRouter.get('/:provider/callback', async (req, res) => {
     return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
   }
 
-  const { code } = req.query;
-  const codeStr = String(code || '');
-
-  let email = `${provider}_user@nestrealty.com`;
-  let providerAccountId = `${provider}_nest_ops_001`;
-  let encryptedAccess = `${provider}_token_${codeStr || 'code_exchanged_' + Date.now()}`;
-  let encryptedRefresh = `${provider}_refresh_${Date.now()}`;
-  let scopes: string[] = [provider];
-
-  if (provider === 'google' && codeStr) {
-    try {
-      const exchangeResult = await exchangeGoogleCode(codeStr, req);
-      email = exchangeResult.email || 'AskNora@nestrealty.com';
-      providerAccountId = exchangeResult.providerAccountId || 'google_ask_nora';
-      encryptedAccess = exchangeResult.encryptedAccessToken;
-      if (exchangeResult.encryptedRefreshToken) {
-        encryptedRefresh = exchangeResult.encryptedRefreshToken;
-      }
-      scopes = exchangeResult.scopes.length > 0 ? exchangeResult.scopes : GOOGLE_WORKSPACE_SCOPES;
-
-      // Persist full Google Workspace connection into IntegrationStateStore
-      const dbState = (global as any).__SHAPEWORK_DB_STATE || {};
-      const store = new IntegrationStateStore(dbState);
-      for (const ws of ['nest-realty-demo', 'ws_wilmington']) {
-        await store.upsertConnection({
-          id: `conn_gw_${ws}`,
-          workspaceId: ws,
-          provider: 'google_workspace',
-          status: 'connected',
-          connectedByUserId: 'usr_ryan',
-          connectedAt: new Date().toISOString(),
-          providerAccountId,
-          providerAccountEmail: email,
-          encryptedAccessToken: encryptedAccess,
-          encryptedRefreshToken: encryptedRefresh,
-          accessTokenExpiresAt: exchangeResult.accessTokenExpiresAt || new Date(Date.now() + 3600 * 1000).toISOString(),
-          scopes,
-          lastSyncedAt: new Date().toISOString()
-        });
-      }
-    } catch (err: any) {
-      console.warn('[OAuthRouter] Google token exchange error:', err.message);
-      if (req.accepts('html')) {
-        return res.status(400).send(`
-          <!DOCTYPE html>
-          <html>
-            <head><title>OAuth Authorization Error</title></head>
-            <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #FAFAF9; color: #1C1917;">
-              <div style="text-align: center; padding: 2rem; background: white; border-radius: 1rem; border: 1px solid #E7E5E4; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
-                <div style="width: 48px; height: 48px; background: #FEE2E2; color: #DC2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 24px;">✕</div>
-                <h2 style="margin: 0 0 0.5rem; font-size: 1.25rem;">Authorization Failed</h2>
-                <p style="margin: 0; color: #78716C; font-size: 0.875rem;">${err.message || 'Google token exchange failed. Please re-authenticate.'}</p>
-              </div>
-            </body>
-          </html>
-        `);
-      }
-      return res.status(400).json({ success: false, error: err.message });
-    }
+  // Google's registered redirect is /api/auth/google/callback. Run the integrations callback.
+  if (provider === 'google') {
+    const { dbState, persist } = googleWorkspaceCallbackDeps();
+    return requireAuth(req as AuthenticatedRequest, res, () => {
+      return handleGoogleOAuthCallback(dbState, persist)(req as AuthenticatedRequest, res);
+    });
   }
 
-  const record = saveOAuthTokenRecord({
-    provider,
-    accessToken: encryptedAccess,
-    refreshToken: encryptedRefresh,
-    expiresAt: new Date(Date.now() + 86400000 * 30).toISOString(),
-    status: 'connected',
-    updatedAt: new Date().toISOString()
+  const codeStr = String(req.query.code || '').trim();
+  if (!codeStr) {
+    return res.status(400).json({ success: false, error: 'Missing authorization code.' });
+  }
+
+  // No provider other than Google completes a token exchange on this route.
+  return res.status(400).json({
+    success: false,
+    error: 'Authorization code was not exchanged. This callback does not mark a provider connected without a completed token exchange.',
   });
-
-  // If request accepts HTML (e.g. opened in popup), post message and close window
-  if (req.accepts('html')) {
-    return res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head><title>OAuth Authorization Successful</title></head>
-        <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #FAFAF9; color: #1C1917;">
-          <div style="text-align: center; padding: 2rem; background: white; border-radius: 1rem; border: 1px solid #E7E5E4; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
-            <div style="width: 48px; height: 48px; background: #E5EFEA; color: #00635C; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 24px;">✓</div>
-            <h2 style="margin: 0 0 0.5rem; font-size: 1.25rem;">Connected to ${provider === 'google' ? 'Google Workspace & Nora AI' : provider.toUpperCase()}</h2>
-            <p style="margin: 0; color: #78716C; font-size: 0.875rem;">Authorization completed for ${email}. Closing window...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ type: 'oauth_complete', provider: '${provider}', email: '${email}' }, '*');
-              window.opener.postMessage({ type: 'SHAPEWORK_GOOGLE_OAUTH_COMPLETE', provider: 'google', email: '${email}' }, '*');
-            }
-            setTimeout(() => window.close(), 1200);
-          </script>
-        </body>
-      </html>
-    `);
-  }
-
-  return res.json({ success: true, message: `Successfully connected ${provider} via OAuth 2.0!`, record });
 });
 
 // GET /api/auth/:provider/status - Check OAuth Token Status
