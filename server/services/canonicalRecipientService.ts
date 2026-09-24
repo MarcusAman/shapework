@@ -9,6 +9,7 @@
 
 import { getDbPool, storageDriver } from '../persistence/repositories.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
+import { ALLOWED_TEST_EMAIL_RECIPIENTS } from '../email/emailProvider.js';
 
 export interface VerifiedRecipientServer {
   id: string;
@@ -211,5 +212,43 @@ export async function resolveServerCanonicalRecipient(options: {
     };
   }
 
+  // UI keeps Send enabled for a verified agentEmail that is not in the Nest directory.
+  // Server matches that only for the explicit outbound whitelist (marcus.aman@gmail.com).
+  // Does not insert a Nest roster row. Unknown non-whitelist emails still resolve to null.
+  if (options.requesterEmail && isExplicitWhitelistEmail(options.requesterEmail) && !isProhibitedEmail(options.requesterEmail)) {
+    const email = options.requesterEmail.trim().toLowerCase();
+    const rawName = (options.requesterName || '').replace(/\(.*?\)/g, '').trim() || email;
+    const phoneValid = Boolean(options.requesterPhone) && !isProhibitedPhone(options.requesterPhone);
+    return {
+      id: `whitelist:${email}`,
+      name: rawName,
+      firstName: rawName.split(' ')[0] || 'Agent',
+      email,
+      phone: phoneValid ? String(options.requesterPhone).trim() : null,
+      emailVerified: true,
+      phoneVerified: phoneValid,
+      maskedEmail: maskEmail(email),
+      maskedPhone: phoneValid ? maskPhoneNumber(options.requesterPhone) : null,
+      role: 'Requester',
+      isAgentOrBroker: false,
+      workspaceId: targetWs
+    };
+  }
+
   return null;
+}
+
+/** Explicit test whitelist only. Ignores the live/production bypass that allows every address. */
+function isExplicitWhitelistEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  const envAllowlist = (process.env.EMAIL_TEST_ALLOWLIST || '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  const allowed = new Set([
+    ...ALLOWED_TEST_EMAIL_RECIPIENTS.map((entry) => entry.toLowerCase()),
+    ...envAllowlist
+  ]);
+  return allowed.has(normalized);
 }
