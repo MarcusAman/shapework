@@ -7328,6 +7328,34 @@ app.post('/api/marketing/tasks/:id/submit-proof', requireAuth, resolveWorkspaceC
       });
     }
 
+    const existingTaskForDrive = getCanonicalMarketingTaskById(req.params.id);
+    const { resolveReviewProofUrl, isRealGoogleDriveUrl, coalesceRealDriveUrl } = await import('./server/services/askNoraDriveDelivery.js');
+    const resolvedProof = await resolveReviewProofUrl({
+      proofUrl: cleanProof,
+      stagedAssets: Array.isArray(stagedAssets) ? stagedAssets : [],
+      propertyAddress: existingTaskForDrive?.propertyAddress,
+      agentName: existingTaskForDrive?.agentName,
+      agentEmail: (existingTaskForDrive as any)?.agentEmail,
+      workspaceId: existingTaskForDrive?.workspaceId,
+      existingFolderUrl: existingTaskForDrive?.driveFolderUrl,
+    });
+    if (existingTaskForDrive && resolvedProof.driveFolderUrl && isRealGoogleDriveUrl(resolvedProof.driveFolderUrl)) {
+      const nextFolder = coalesceRealDriveUrl(resolvedProof.driveFolderUrl, existingTaskForDrive.driveFolderUrl);
+      if (nextFolder && nextFolder !== existingTaskForDrive.driveFolderUrl) {
+        existingTaskForDrive.driveFolderUrl = nextFolder;
+        existingTaskForDrive.updatedAt = new Date().toISOString();
+        saveCanonicalMarketingTask(existingTaskForDrive);
+      }
+    }
+    if (!resolvedProof.ok || !resolvedProof.proofUrl) {
+      return res.status(400).json({
+        success: false,
+        error: resolvedProof.errorCode || 'INVALID_PROOF_URL',
+        message: resolvedProof.error || 'INVALID_PROTOCOL: Proof link must use secure https:// protocol.'
+      });
+    }
+    cleanProof = resolvedProof.proofUrl;
+
     let finalProofUrl = cleanProof;
     if (cleanProof) {
       const { validateProofUrl } = await import('./src/utils/assetInspection.js');

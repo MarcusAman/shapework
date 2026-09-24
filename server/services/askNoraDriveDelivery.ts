@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { GoogleDriveService } from './googleDriveService.js';
+import { validateProofUrl } from '../../src/utils/assetInspection.js';
 
 export function isPlaceholderDriveUrl(url?: string | null): boolean {
   const u = String(url || '').trim();
@@ -32,6 +33,378 @@ export function extractRealDriveUrlsFromText(text?: string | null): string[] {
   const raw = String(text || '');
   const matches = raw.match(/https?:\/\/drive\.google\.com\/[^\s)\]>"']+/gi) || [];
   return Array.from(new Set(matches.map((m) => m.replace(/[.,;]+$/, '')).filter((u) => isRealGoogleDriveUrl(u))));
+}
+
+export function isSyntheticDriveId(id?: string | null): boolean {
+  const v = String(id || '').trim();
+  if (!v) return true;
+  return /^(1DRV_|folder_|sub_|file_|sample_)/i.test(v);
+}
+
+/** Street line used to reuse one AskNora folder per property. */
+export function listingAddressKey(address?: string | null): string {
+  const street = String(address || '').split(',')[0].trim();
+  if (!street) return '';
+  if (/address pending/i.test(street) || /address needed/i.test(street)) return '';
+  return street.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+export function coalesceRealDriveUrl(...urls: Array<string | null | undefined>): string {
+  for (const url of urls) {
+    const u = String(url || '').trim();
+    if (u && isRealGoogleDriveUrl(u) && !/1DRV_/i.test(u)) return u;
+  }
+  return '';
+}
+
+/** Durable review proof: https Drive file/folder (or other approved https host), never data:/local/stub. */
+export function isDurableHttpsProofUrl(url?: string | null): boolean {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  if (/^data:/i.test(u) || /^blob:/i.test(u) || /^file:/i.test(u) || u.startsWith('/')) return false;
+  if (isPlaceholderDriveUrl(u) || /1DRV_/i.test(u)) return false;
+  const id = u.match(/\/folders\/([a-zA-Z0-9_-]+)/)?.[1] || u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || '';
+  if (id && isSyntheticDriveId(id)) return false;
+  return validateProofUrl(u).valid === true;
+}
+
+export type AskNoraFolderRef = { id: string; url: string };
+
+export type AskNoraDriveDeps = {
+  findFolderByAddress: (address: string, workspaceId?: string) => Promise<AskNoraFolderRef | null>;
+  createFolder: (params: {
+    propertyAddress: string;
+    agentName?: string;
+    agentEmail?: string;
+    workspaceId?: string;
+  }) => Promise<{ isLive: boolean; driveFolderId: string; driveFolderUrl: string }>;
+  uploadFile: (params: {
+    folderId: string;
+    fileName: string;
+    mimeType: string;
+    content: Buffer;
+    workspaceId?: string;
+  }) => Promise<{ isLive: boolean; fileId: string; webViewLink: string }>;
+};
+
+export type PromoteAsset = { fileName: string; mimeType: string; content: Buffer };
+
+const listingFolderRegistry = new Map<string, AskNoraFolderRef>();
+let depsOverride: AskNoraDriveDeps | null = null;
+
+export function resetAskNoraListingFolderRegistry(): void {
+  listingFolderRegistry.clear();
+}
+
+export function __setAskNoraDriveDepsForTests(deps: AskNoraDriveDeps | null): void {
+  depsOverride = deps;
+  listingFolderRegistry.clear();
+}
+
+function realFolderRef(id?: string | null, url?: string | null): AskNoraFolderRef | null {
+  const folderId = String(id || '').trim();
+  const folderUrl = String(url || '').trim();
+  if (!folderUrl || isSyntheticDriveId(folderId)) return null;
+  if (!isRealGoogleDriveUrl(folderUrl) || isPlaceholderDriveUrl(folderUrl) || /1DRV_/i.test(folderUrl)) return null;
+  return { id: folderId, url: folderUrl };
+}
+
+function refFromUrl(url?: string | null): AskNoraFolderRef | null {
+  const u = String(url || '').trim();
+  const id = u.match(/\/folders\/([a-zA-Z0-9_-]+)/)?.[1] || '';
+  return realFolderRef(id, u);
+}
+
+async function defaultFindFolderByAddress(address: string, workspaceId?: string): Promise<AskNoraFolderRef | null> {
+  const key = listingAddressKey(address);
+  if (key && listingFolderRegistry.has(key)) return listingFolderRegistry.get(key) || null;
+  const found = await GoogleDriveService.findListingFolderByAddress(address, workspaceId || 'ws_wilmington');
+  const ref = found ? realFolderRef(found.id, found.url) : null;
+  if (ref && key) listingFolderRegistry.set(key, ref);
+  return ref;
+}
+
+async function defaultCreateFolder(params: {
+  propertyAddress: string;
+  agentName?: string;
+  agentEmail?: string;
+  workspaceId?: string;
+}): Promise<{ isLive: boolean; driveFolderId: string; driveFolderUrl: string }> {
+  const scaffold = await GoogleDriveService.scaffoldListingFolder({
+    propertyAddress: params.propertyAddress,
+    agentName: params.agentName || 'Nest Agent',
+    agentEmail: params.agentEmail || 'AskNora@nestrealty.com',
+    workspaceId: params.workspaceId || 'ws_wilmington',
+  });
+  const ref = scaffold.isLiveDrive ? realFolderRef(scaffold.driveFolderId, scaffold.driveFolderUrl) : null;
+  if (!ref) return { isLive: false, driveFolderId: '', driveFolderUrl: '' };
+  const key = listingAddressKey(params.propertyAddress);
+  if (key) listingFolderRegistry.set(key, ref);
+  return { isLive: true, driveFolderId: ref.id, driveFolderUrl: ref.url };
+}
+
+async function defaultUploadFile(params: {
+  folderId: string;
+  fileName: string;
+  mimeType: string;
+  content: Buffer;
+  workspaceId?: string;
+}): Promise<{ isLive: boolean; fileId: string; webViewLink: string }> {
+  const result = await GoogleDriveService.exportFileToDrive({
+    folderId: params.folderId,
+    fileName: params.fileName,
+    mimeType: params.mimeType,
+    contentBuffer: params.content,
+    workspaceId: params.workspaceId,
+  });
+  if (!result.isLive || isSyntheticDriveId(result.fileId) || !isDurableHttpsProofUrl(result.webViewLink)) {
+    return { isLive: false, fileId: '', webViewLink: '' };
+  }
+  return { isLive: true, fileId: result.fileId, webViewLink: result.webViewLink };
+}
+
+function activeDeps(): AskNoraDriveDeps {
+  if (depsOverride) return depsOverride;
+  return {
+    findFolderByAddress: defaultFindFolderByAddress,
+    createFolder: defaultCreateFolder,
+    uploadFile: defaultUploadFile,
+  };
+}
+
+const deferredFolder = {
+  ok: false,
+  deferred: true,
+  created: false,
+  reused: false,
+  driveFolderUrl: '',
+  driveFolderId: '',
+  uploaded: [] as Array<{ fileName: string; webViewLink: string; fileId: string }>,
+  fileCount: 0,
+};
+
+/**
+ * Single promote path for intake and the first durable upload.
+ * Same address reuses one live folder. Create failure stores no URL.
+ */
+export async function promoteAskNoraListingFolder(input: {
+  propertyAddress?: string | null;
+  agentName?: string | null;
+  agentEmail?: string | null;
+  workspaceId?: string | null;
+  existingFolderUrl?: string | null;
+  assets?: PromoteAsset[];
+}): Promise<{
+  ok: boolean;
+  deferred: boolean;
+  created: boolean;
+  reused: boolean;
+  driveFolderUrl: string;
+  driveFolderId: string;
+  uploaded: Array<{ fileName: string; webViewLink: string; fileId: string }>;
+  fileCount: number;
+  error?: string;
+}> {
+  const propertyAddress = String(input.propertyAddress || '').trim();
+  const key = listingAddressKey(propertyAddress);
+  const workspaceId = input.workspaceId || 'ws_wilmington';
+  const deps = activeDeps();
+
+  let folder: AskNoraFolderRef | null = refFromUrl(input.existingFolderUrl);
+  let created = false;
+  let reused = Boolean(folder);
+
+  if (folder && key) listingFolderRegistry.set(key, folder);
+  if (!folder && key && listingFolderRegistry.has(key)) {
+    folder = listingFolderRegistry.get(key) || null;
+    reused = Boolean(folder);
+  }
+  if (!folder && key) {
+    try {
+      const found = await deps.findFolderByAddress(propertyAddress, workspaceId);
+      const ref = found ? realFolderRef(found.id, found.url) : null;
+      if (ref) {
+        folder = ref;
+        reused = true;
+        listingFolderRegistry.set(key, ref);
+      }
+    } catch (err: any) {
+      console.warn('[AskNoraDrive] find folder failed:', err?.message || err);
+    }
+  }
+
+  if (!folder) {
+    if (!key) {
+      return { ...deferredFolder, uploaded: [], error: 'Drive folder deferred: property address is required.' };
+    }
+    try {
+      const createdRes = await deps.createFolder({
+        propertyAddress,
+        agentName: input.agentName || 'Nest Agent',
+        agentEmail: input.agentEmail || 'AskNora@nestrealty.com',
+        workspaceId,
+      });
+      const ref = createdRes.isLive ? realFolderRef(createdRes.driveFolderId, createdRes.driveFolderUrl) : null;
+      if (!ref) {
+        return { ...deferredFolder, uploaded: [], error: 'Drive folder create failed; no folder URL stored.' };
+      }
+      folder = ref;
+      created = true;
+      reused = false;
+      listingFolderRegistry.set(key, ref);
+    } catch (err: any) {
+      console.warn('[AskNoraDrive] create folder failed:', err?.message || err);
+      return { ...deferredFolder, uploaded: [], error: 'Drive folder create failed; no folder URL stored.' };
+    }
+  }
+
+  const uploaded: Array<{ fileName: string; webViewLink: string; fileId: string }> = [];
+  for (const asset of input.assets || []) {
+    if (!asset?.content?.length) continue;
+    try {
+      const up = await deps.uploadFile({
+        folderId: folder.id,
+        fileName: asset.fileName || 'asset',
+        mimeType: asset.mimeType || 'application/octet-stream',
+        content: asset.content,
+        workspaceId,
+      });
+      if (up.isLive && up.webViewLink && isDurableHttpsProofUrl(up.webViewLink) && !isSyntheticDriveId(up.fileId)) {
+        uploaded.push({ fileName: asset.fileName, webViewLink: up.webViewLink, fileId: up.fileId });
+      }
+    } catch (err: any) {
+      console.warn('[AskNoraDrive] upload failed:', err?.message || err);
+    }
+  }
+
+  return {
+    ok: true,
+    deferred: false,
+    created,
+    reused,
+    driveFolderUrl: folder.url,
+    driveFolderId: folder.id,
+    uploaded,
+    fileCount: uploaded.length,
+  };
+}
+
+function extensionForMime(mime: string): string {
+  if (mime.includes('png')) return '.png';
+  if (mime.includes('jpeg') || mime.includes('jpg')) return '.jpg';
+  if (mime.includes('webp')) return '.webp';
+  if (mime.includes('pdf')) return '.pdf';
+  if (mime.includes('gif')) return '.gif';
+  return '';
+}
+
+function decodeDataUrl(dataUrl: string): { mimeType: string; buffer: Buffer } | null {
+  const match = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/i.exec(String(dataUrl || '').trim());
+  if (!match) return null;
+  const mimeType = match[1] || 'application/octet-stream';
+  try {
+    const buffer = match[2]
+      ? Buffer.from(match[3] || '', 'base64')
+      : Buffer.from(decodeURIComponent(match[3] || ''), 'utf8');
+    if (!buffer.length) return null;
+    return { mimeType, buffer };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Send-for-review proof: keep durable https, otherwise promote staged/data/local bytes
+ * onto the address folder. Never returns data: or a synthetic Drive URL.
+ */
+export async function resolveReviewProofUrl(input: {
+  proofUrl?: string | null;
+  stagedAssets?: Array<{ previewUrl?: string; url?: string; downloadUrl?: string; fileName?: string; name?: string; mimeType?: string }>;
+  propertyAddress?: string | null;
+  agentName?: string | null;
+  agentEmail?: string | null;
+  workspaceId?: string | null;
+  existingFolderUrl?: string | null;
+}): Promise<{
+  ok: boolean;
+  proofUrl: string;
+  driveFolderUrl: string;
+  errorCode?: string;
+  error?: string;
+}> {
+  const candidates: string[] = [];
+  const push = (u?: string | null) => {
+    const s = String(u || '').trim();
+    if (s && !candidates.includes(s)) candidates.push(s);
+  };
+  push(input.proofUrl);
+  for (const asset of input.stagedAssets || []) push(asset?.previewUrl || asset?.downloadUrl || asset?.url);
+
+  for (const candidate of candidates) {
+    if (isDurableHttpsProofUrl(candidate)) {
+      const folder = refFromUrl(input.existingFolderUrl) || (/\/folders\//.test(candidate) ? refFromUrl(candidate) : null);
+      return { ok: true, proofUrl: candidate, driveFolderUrl: folder?.url || '' };
+    }
+  }
+
+  const assets: PromoteAsset[] = [];
+  for (const candidate of candidates) {
+    const hint = (input.stagedAssets || []).find((a) => (a.previewUrl || a.url || a.downloadUrl) === candidate);
+    const fileNameHint = hint?.fileName || hint?.name;
+    if (/^data:/i.test(candidate)) {
+      const decoded = decodeDataUrl(candidate);
+      if (!decoded) continue;
+      const ext = extensionForMime(decoded.mimeType);
+      const fileName = fileNameHint && fileNameHint.includes('.') ? fileNameHint : `proof${ext || '.bin'}`;
+      assets.push({ fileName, mimeType: hint?.mimeType || decoded.mimeType, content: decoded.buffer });
+      continue;
+    }
+    const local = resolveLocalUploadPath(candidate);
+    if (!local) continue;
+    try {
+      assets.push({
+        fileName: fileNameHint || path.basename(local),
+        mimeType: hint?.mimeType || guessMime(fileNameHint || path.basename(local)),
+        content: fs.readFileSync(local),
+      });
+    } catch {
+      /* skip unreadable local proof */
+    }
+  }
+
+  if (assets.length === 0) {
+    return {
+      ok: false,
+      proofUrl: '',
+      driveFolderUrl: '',
+      errorCode: 'INVALID_PROOF_URL',
+      error: 'INVALID_PROTOCOL: Proof link must use a durable https:// Drive file or folder URL. data:, local, and synthetic Drive links are not accepted.',
+    };
+  }
+
+  const promoted = await promoteAskNoraListingFolder({
+    propertyAddress: input.propertyAddress,
+    agentName: input.agentName,
+    agentEmail: input.agentEmail,
+    workspaceId: input.workspaceId,
+    existingFolderUrl: input.existingFolderUrl,
+    assets,
+  });
+  const fileUrl = promoted.uploaded.find((u) => isDurableHttpsProofUrl(u.webViewLink))?.webViewLink || '';
+  if (!fileUrl) {
+    return {
+      ok: false,
+      proofUrl: '',
+      driveFolderUrl: coalesceRealDriveUrl(promoted.driveFolderUrl),
+      errorCode: 'INVALID_PROOF_URL',
+      error: 'INVALID_PROTOCOL: Staged proof was not promoted to a durable https Drive file. Local and data: proofs are not accepted.',
+    };
+  }
+  return {
+    ok: true,
+    proofUrl: fileUrl,
+    driveFolderUrl: coalesceRealDriveUrl(promoted.driveFolderUrl),
+  };
 }
 
 function resolveLocalUploadPath(proofUrl: string): string | null {
@@ -159,17 +532,16 @@ export async function ensureAskNoraDeliveryDrivePack(task: DeliveryDriveTaskLike
 
   const hasProofs = proofUrls.length > 0;
 
-  // Create folder if missing
+  // Create or reuse the address folder. Same promote path as intake. Never a second folder.
   if (!driveFolderId) {
-    const scaffold = await GoogleDriveService.scaffoldListingFolder({
+    const promoted = await promoteAskNoraListingFolder({
       propertyAddress,
       agentName,
       agentEmail: agentEmail || 'AskNora@nestrealty.com',
-      deliverables: task.title || 'Marketing deliverables',
       workspaceId,
-      mlsNumber: (task as any).mlsNumber,
+      existingFolderUrl: driveFolderUrl,
     });
-    if (!scaffold.isLiveDrive || !scaffold.driveFolderUrl || isPlaceholderDriveUrl(scaffold.driveFolderUrl)) {
+    if (!promoted.ok || !promoted.driveFolderId || !promoted.driveFolderUrl || isPlaceholderDriveUrl(promoted.driveFolderUrl)) {
       return {
         success: false,
         isLive: false,
@@ -182,8 +554,8 @@ export async function ensureAskNoraDeliveryDrivePack(task: DeliveryDriveTaskLike
           : 'No Drive folder and no proofs to upload.',
       };
     }
-    driveFolderUrl = scaffold.driveFolderUrl;
-    driveFolderId = scaffold.driveFolderId;
+    driveFolderUrl = promoted.driveFolderUrl;
+    driveFolderId = promoted.driveFolderId;
   }
 
   // Prefer Marketing_Flyers subfolder (list from Drive if in-memory scaffold lost after restart)
@@ -225,50 +597,6 @@ export async function ensureAskNoraDeliveryDrivePack(task: DeliveryDriveTaskLike
   }
   if (skippedLocal.length) {
     console.warn('[AskNoraDriveDelivery] could not resolve local paths:', skippedLocal.slice(0, 5));
-  }
-
-  // If proofs exist but upload into existing (often SA-owned) folder failed, create a fresh AskNora folder and retry once
-  if (hasProofs && uploaded.length === 0) {
-    console.warn('[AskNoraDriveDelivery] uploads empty — scaffolding fresh AskNora folder and retrying');
-    const scaffold = await GoogleDriveService.scaffoldListingFolder({
-      propertyAddress: `${propertyAddress} · Assets`,
-      agentName,
-      agentEmail: agentEmail || 'AskNora@nestrealty.com',
-      deliverables: task.title || 'Marketing deliverables',
-      workspaceId,
-      mlsNumber: (task as any).mlsNumber,
-    });
-    if (scaffold.isLiveDrive && scaffold.driveFolderId && !isPlaceholderDriveUrl(scaffold.driveFolderUrl)) {
-      driveFolderId = scaffold.driveFolderId;
-      driveFolderUrl = scaffold.driveFolderUrl;
-      const freshParent =
-        scaffold.subfolders.find((s) => /^marketing$/i.test(String(s.name || '').trim()))?.id ||
-        scaffold.subfolders.find((s) => /marketing|flyer|social|03_/i.test(s.name))?.id ||
-        scaffold.driveFolderId;
-      uploadParentId = freshParent;
-      for (const proof of proofUrls) {
-        if (isRealGoogleDriveUrl(proof)) continue;
-        const localPath = resolveLocalUploadPath(proof);
-        if (!localPath) continue;
-        const fileName = buildAgentFacingFileName(task, localPath);
-        try {
-          const buf = fs.readFileSync(localPath);
-          const result = await GoogleDriveService.exportFileToDrive({
-            folderId: uploadParentId,
-            fileName,
-            mimeType: guessMime(fileName),
-            contentBuffer: buf,
-            workspaceId,
-          });
-          if (result.isLive && result.webViewLink && !isPlaceholderDriveUrl(result.webViewLink)) {
-            uploaded.push({ fileName, webViewLink: result.webViewLink });
-            console.log('[AskNoraDriveDelivery] retry uploaded', fileName, '→', uploadParentId);
-          }
-        } catch (err: any) {
-          console.warn('[AskNoraDriveDelivery] retry upload failed:', fileName, err?.message || err);
-        }
-      }
-    }
   }
 
   if (!driveFolderId || !driveFolderUrl || isPlaceholderDriveUrl(driveFolderUrl)) {

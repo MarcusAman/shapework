@@ -30,6 +30,7 @@ import {
 } from '../persistence/marketingCampaignsRepository.js';
 import { NEST_FULL_ROSTER_77, DirectorySeedPerson } from '../persistence/nestRosterSeed.js';
 import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
+import { coalesceRealDriveUrl, isRealGoogleDriveUrl, promoteAskNoraListingFolder } from './askNoraDriveDelivery.js';
 
 
 export const NORA_POLICY_VERSION = 'nora_marketing_intake_v2.1';
@@ -954,6 +955,31 @@ export class NoraMarketingIntakeOrchestrator {
     (targetRequest as any).onBehalfOf = evalResult.onBehalfOf || null;
     targetRequest.status = evalResult.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info';
 
+    // Create-at-intake: one AskNora Drive folder named by address. Fail closed — no stub URL.
+    try {
+      const promoted = await promoteAskNoraListingFolder({
+        propertyAddress: targetRequest.propertyAddress,
+        agentName: targetRequest.agentName,
+        agentEmail: targetRequest.agentEmail,
+        workspaceId: targetRequest.workspaceId,
+        existingFolderUrl: targetRequest.driveFolderUrl,
+      });
+      const nextFolder = coalesceRealDriveUrl(promoted.driveFolderUrl, targetRequest.driveFolderUrl);
+      targetRequest.driveFolderUrl = nextFolder;
+      if (nextFolder) {
+        for (const sibling of allTasks) {
+          if (sibling.requestId === targetRequest.id && !isRealGoogleDriveUrl(sibling.driveFolderUrl)) {
+            sibling.driveFolderUrl = nextFolder;
+            sibling.updatedAt = new Date().toISOString();
+            saveCanonicalMarketingTask(sibling);
+          }
+        }
+      }
+    } catch (driveErr: any) {
+      console.warn('[Intake] AskNora Drive folder deferred:', driveErr?.message || driveErr);
+      if (!isRealGoogleDriveUrl(targetRequest.driveFolderUrl)) targetRequest.driveFolderUrl = '';
+    }
+
     saveCanonicalMarketingRequest(targetRequest);
 
     // 3. Create or update tasks via Canonical Routing Authority
@@ -1019,6 +1045,7 @@ export class NoraMarketingIntakeOrchestrator {
           routingSnapshot: routingDecision.snapshot,
           status: isTriage ? 'needs_info' : (evalResult.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info'),
           dueAt: evalResult.extractedFields.neededByDate,
+          driveFolderUrl: targetRequest.driveFolderUrl || '',
           notes: `${evalResult.onBehalfOf && !evalResult.caller?.isVerified ? `[Submitted by ${evalResult.caller?.name || 'Caller'} on behalf of ${evalResult.onBehalfOf}${evalResult.caller?.phone ? ` (${evalResult.caller.phone})` : ''}]\n` : ''}Policy Version: ${evalResult.policyVersion}${isTriage ? ` • Triage: ${routingDecision.triageReason}` : ''}`,
           isArchived: false,
           approvalHistory: [],

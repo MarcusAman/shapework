@@ -32,6 +32,7 @@ import { getOAuthTokenRecord } from '../../persistence/oauthTokensRepository.js'
 import { decryptToken } from '../shared/integrationCredentialVault.js';
 import { IntegrationStateStore } from '../shared/integrationStateStore.js';
 import { buildCreativeTaskDraft } from '../../services/nora/creativeRequestTriage.js';
+import { coalesceRealDriveUrl, promoteAskNoraListingFolder } from '../../services/askNoraDriveDelivery.js';
 
 export interface InboundAgentEmail {
   id: string;
@@ -259,23 +260,6 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     agentName = `${rosterMatch.displayName} (${rosterMatch.role || 'Broker'})`;
   }
 
-  // Prefer a real AskNora Drive folder; never invent 1DRV_ placeholder URLs.
-  let driveFolderUrl = '';
-  try {
-    const { GoogleDriveService } = await import('../../services/googleDriveService.js');
-    const scaffold = await GoogleDriveService.scaffoldListingFolder({
-      propertyAddress,
-      agentName,
-      agentEmail: email.fromEmail,
-      deliverables: deliverableTitle,
-    });
-    if (scaffold.isLiveDrive && scaffold.driveFolderUrl && !/1DRV_/i.test(scaffold.driveFolderUrl)) {
-      driveFolderUrl = scaffold.driveFolderUrl;
-    }
-  } catch (driveErr: any) {
-    console.warn('[EmailIntake] Live Drive scaffold skipped:', driveErr?.message || driveErr);
-  }
-  
   // Extract photo attachments (.jpg, .jpeg, .png, .webp)
   const photoAttachments = email.attachments?.filter(a => 
     a.contentType.startsWith('image/') || 
@@ -311,7 +295,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
       agentName,
       agentEmail: email.fromEmail,
       extractedPhotosCount: photoAttachments.length,
-      driveFolderUrl,
+      driveFolderUrl: '',
       assignedLead,
       photos: structuredPhotos,
       attachments: structuredAttachments
@@ -320,6 +304,22 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
 
   // 2. Check for Matching Existing Task (Smart Property Matching)
   const existing = findMatchingExistingTask(propertyAddress);
+
+  // Create-at-intake: one real AskNora folder per address. Fail closed — no 1DRV_ stub.
+  let driveFolderUrl = '';
+  try {
+    const promoted = await promoteAskNoraListingFolder({
+      propertyAddress,
+      agentName,
+      agentEmail: email.fromEmail,
+      workspaceId: 'ws_wilmington',
+      existingFolderUrl: existing.task?.driveFolderUrl || existing.request?.driveFolderUrl,
+    });
+    driveFolderUrl = coalesceRealDriveUrl(promoted.driveFolderUrl, existing.task?.driveFolderUrl, existing.request?.driveFolderUrl);
+  } catch (driveErr: any) {
+    console.warn('[EmailIntake] AskNora Drive folder deferred:', driveErr?.message || driveErr);
+    driveFolderUrl = coalesceRealDriveUrl(existing.task?.driveFolderUrl, existing.request?.driveFolderUrl);
+  }
 
   if (existing.task) {
     const matchedTask = existing.task;
@@ -340,7 +340,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     if (structuredAttachments.length > 0) {
       matchedTask.attachments = [...(matchedTask.attachments || []), ...structuredAttachments];
     }
-    matchedTask.driveFolderUrl = matchedTask.driveFolderUrl || driveFolderUrl;
+    matchedTask.driveFolderUrl = coalesceRealDriveUrl(driveFolderUrl, matchedTask.driveFolderUrl);
 
     // Photos stage onto the task but do NOT skip Intake Received.
     // Melissa (or Ann for ops) must intentionally Start Work / route before in_progress.
@@ -357,7 +357,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
       if (structuredAttachments.length > 0) {
         existing.request.attachments = [...(existing.request.attachments || []), ...structuredAttachments];
       }
-      existing.request.driveFolderUrl = existing.request.driveFolderUrl || driveFolderUrl;
+      existing.request.driveFolderUrl = coalesceRealDriveUrl(driveFolderUrl, existing.request.driveFolderUrl);
       saveCanonicalMarketingRequest(existing.request);
     }
 
