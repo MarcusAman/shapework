@@ -11,12 +11,15 @@ import {
 } from '../../src/lib/outboundAllowlistGate.js';
 import { isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
-import { isInlineDataProof, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
+import { isInlineDataProof, pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
+import { GoogleDriveService } from './googleDriveService.js';
 
 export const DISPATCH_REASON = {
   role: 'Only the task reviewer may approve and notify.',
   proof: 'Proof link must use https.',
   file: 'No Drive folder and no file to send.',
+  emptyFolder: 'Drive folder is empty.',
+  unreadFolder: "Can't read that Drive folder.",
   recipient: 'This recipient is not allowed.',
   outbound: 'Outbound is turned off.',
 } as const;
@@ -161,6 +164,22 @@ function hasSendableFile(input: EvaluateDispatchInput, proof: string): boolean {
   return attachments.some((item) => isSendableFileUrl(attachmentFileUrl(item)));
 }
 
+/**
+ * A pasted folder is sendable only when that folder id itself lists at least one file.
+ * Task attachments, uploaded photos, and asset URLs do not count.
+ * A failed list (no credentials, 404, permission, or any other error) stays blocked.
+ */
+async function pastedFolderFileReason(folderId: string, workspaceId?: string | null): Promise<string> {
+  try {
+    const listed = await GoogleDriveService.listFilesInFolder(folderId, String(workspaceId || 'ws_wilmington'));
+    if (!listed.ok) return DISPATCH_REASON.unreadFolder;
+    if (!listed.files.length) return DISPATCH_REASON.emptyFolder;
+    return '';
+  } catch {
+    return DISPATCH_REASON.unreadFolder;
+  }
+}
+
 export function dispatchBlockStatus(reason: string): number {
   return reason === DISPATCH_REASON.role ? 403 : 400;
 }
@@ -173,6 +192,10 @@ export function dispatchBlockCode(reason: string): string {
       return 'INVALID_PROTOCOL';
     case DISPATCH_REASON.file:
       return 'NO_SENDABLE_FILE';
+    case DISPATCH_REASON.emptyFolder:
+      return 'DRIVE_FOLDER_EMPTY';
+    case DISPATCH_REASON.unreadFolder:
+      return 'DRIVE_FOLDER_UNREADABLE';
     case DISPATCH_REASON.recipient:
       return 'RECIPIENT_UNRESOLVED';
     case DISPATCH_REASON.outbound:
@@ -225,8 +248,10 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
   });
   const folderUrl = resolved.driveFolderUrl;
   const suppliedProof = resolved.proofUrl;
+  const pastedFolderId = pastedDriveFolderId(input.proofUrl);
 
   // Fixed order: role, recipient, proof, Drive folder AND a file, kill switch.
+  // A pasted folder lists its own files. Attachments and photos never satisfy that check.
   let reason = '';
   if (full && !actorIsTaskReviewer(input.actor, input.task)) {
     reason = DISPATCH_REASON.role;
@@ -234,6 +259,8 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     reason = DISPATCH_REASON.recipient;
   } else if (full && explicitBadProof(suppliedProof)) {
     reason = DISPATCH_REASON.proof;
+  } else if (full && pastedFolderId) {
+    reason = await pastedFolderFileReason(pastedFolderId, input.task?.workspaceId);
   } else if (full && !(isDriveFolderUrl(folderUrl) && hasSendableFile(input, suppliedProof))) {
     reason = DISPATCH_REASON.file;
   } else if (outboundTurnedOff(input)) {

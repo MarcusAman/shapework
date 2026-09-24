@@ -396,6 +396,48 @@ class GoogleDriveServiceEngine {
   }
 
 
+  /**
+   * Non-folder files directly inside a Drive folder.
+   * No credentials, a thrown list (404 / permission), or any other list failure is not ok.
+   * An empty successful list is ok with files: [].
+   */
+  public async listFilesInFolder(
+    folderId: string,
+    workspaceId: string = 'ws_wilmington'
+  ): Promise<{ ok: boolean; files: Array<{ id: string; name?: string; mimeType?: string }>; error?: string }> {
+    const id = String(folderId || '').trim();
+    if (!id || /^(?:1DRV_|folder_|sub_|file_|sample_)/i.test(id)) {
+      return { ok: false, files: [], error: 'invalid folder id' };
+    }
+    const listParams = {
+      q: `'${id.replace(/'/g, "\\'")}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+      pageSize: 20,
+      fields: 'files(id, name, mimeType)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    };
+    try {
+      let res: { data?: { files?: Array<{ id?: string | null; name?: string | null; mimeType?: string | null }> | null } | null };
+      if (driveFilesListForTests) {
+        res = await driveFilesListForTests(listParams);
+      } else {
+        const auth = await this.getAuthenticatedDriveClient(workspaceId);
+        if (!auth?.drive?.files?.list) return { ok: false, files: [], error: 'no drive auth' };
+        res = await auth.drive.files.list(listParams);
+      }
+      const files = (res?.data?.files || [])
+        .filter((file) => file?.id && file.mimeType !== 'application/vnd.google-apps.folder')
+        .map((file) => ({
+          id: String(file.id),
+          name: file.name || undefined,
+          mimeType: file.mimeType || undefined,
+        }));
+      return { ok: true, files };
+    } catch (err: any) {
+      return { ok: false, files: [], error: err?.message || 'list failed' };
+    }
+  }
+
   /** Fail-closed: live folder id must open and contain ≥1 non-folder file (or files in immediate subfolders). */
   public async verifyDriveFolder(folderId: string, workspaceId: string = 'ws_wilmington'): Promise<{ ok: boolean; url?: string; fileCount?: number; error?: string }> {
     const id = String(folderId || '').trim();
@@ -540,3 +582,18 @@ class GoogleDriveServiceEngine {
 }
 
 export const GoogleDriveService = new GoogleDriveServiceEngine();
+
+/** Test seam for drive.files.list. Production leaves this unset and uses the authenticated client. */
+type DriveFilesList = (args: {
+  q?: string;
+  pageSize?: number;
+  fields?: string;
+  supportsAllDrives?: boolean;
+  includeItemsFromAllDrives?: boolean;
+}) => Promise<{ data?: { files?: Array<{ id?: string | null; name?: string | null; mimeType?: string | null }> | null } | null }>;
+
+let driveFilesListForTests: DriveFilesList | null = null;
+
+export function setDriveFilesListForTests(list: DriveFilesList | null): void {
+  driveFilesListForTests = list;
+}

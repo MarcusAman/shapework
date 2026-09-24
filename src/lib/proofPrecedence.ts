@@ -25,7 +25,18 @@ export function resolveProofPrecedence(pasted?: string | null, stored?: string |
 /**
  * A pasted https://drive.google.com/drive/folders/<id> link is a Drive folder.
  * A file link (drive.google.com/file/...) is not a folder. Synthetic ids are not folders.
+ * Files inside that folder are listed by the Drive client; this helper only identifies the folder.
  */
+export function pastedDriveFolderId(url?: string | null): string {
+  const value = pastedDriveFolderUrl(url);
+  if (!value) return '';
+  try {
+    return new URL(value).pathname.match(/^\/drive\/folders\/([a-zA-Z0-9_-]+)/)?.[1] || '';
+  } catch {
+    return '';
+  }
+}
+
 export function pastedDriveFolderUrl(url?: string | null): string {
   const value = String(url || '').trim();
   if (!value) return '';

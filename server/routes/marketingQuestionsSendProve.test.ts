@@ -4,7 +4,7 @@
  * NEST_FULL_ROSTER_77). Valid https Drive proof + reviewer session must persist
  * proofUrl and leave awaiting_review without flipping outbound kill flags.
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
@@ -15,7 +15,8 @@ import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
 import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import { WorkspaceTaskDrawer } from '../../src/components/marketing/WorkspaceTaskDrawer.js';
 import { confirmRequesterWrite } from '../../src/lib/confirmRequesterWrite.js';
-import { DISPATCH_REASON, dispatchBlockCode, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
+import { DISPATCH_REASON, dispatchBlockCode, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
+import { setDriveFilesListForTests } from '../services/googleDriveService.js';
 import { resolveServerCanonicalRecipient } from '../services/canonicalRecipientService.js';
 import {
   getAllCanonicalMarketingTasks,
@@ -27,6 +28,8 @@ import type { Server } from 'http';
 const TASK_ID = 'tsk_send_questions_prove_trifold';
 const HTTPS_PROOF = 'https://drive.google.com/file/d/1AbCrealFile999xyz/view';
 const DRIVE_FOLDER = 'https://drive.google.com/drive/folders/1AbCrealFolder999xyz';
+const DRIVE_FOLDER_ID = '1AbCrealFolder999xyz';
+const UPLOAD_PHOTO = '/uploads/1789593612358_Test_marcusgmail.png';
 const STORE = path.join(process.cwd(), 'server/data/canonical_marketing_store_test.json');
 
 describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
@@ -53,6 +56,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
   });
 
   afterAll(async () => {
+    setDriveFilesListForTests(null);
     if (outboundMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
     else process.env.OUTBOUND_MASTER_MODE = outboundMaster;
     const items = getAllCanonicalMarketingTasks();
@@ -295,6 +299,8 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       reason: string;
       status: number;
       recipientStatus?: string;
+      driveList?: 'empty' | 'error' | 'one';
+      seedUploadPhoto?: boolean;
     }> = [
       {
         name: 'wrong role',
@@ -396,19 +402,6 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         status: 400,
       },
       {
-        name: 'pasted folder link with no file',
-        headers: melissa,
-        body: payload({
-          proofUrl: DRIVE_FOLDER,
-          driveFolderUrl: undefined,
-          attachments: [],
-          assetUrls: [],
-        }),
-        allowed: false,
-        reason: DISPATCH_REASON.file,
-        status: 400,
-      },
-      {
         name: 'pasted drive file link is not a folder',
         headers: melissa,
         body: payload({
@@ -422,13 +415,60 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         status: 400,
       },
       {
-        name: 'pasted folder link plus a file',
+        name: 'pasted folder link with no file',
         headers: melissa,
         body: payload({
           proofUrl: DRIVE_FOLDER,
           driveFolderUrl: undefined,
-          attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png', filename: 'Test.png' }],
+          attachments: [],
+          assetUrls: [],
         }),
+        driveList: 'empty',
+        allowed: false,
+        reason: DISPATCH_REASON.emptyFolder,
+        status: 400,
+      },
+      {
+        name: 'pasted folder empty while the task has an uploads photo',
+        headers: melissa,
+        body: payload({
+          proofUrl: DRIVE_FOLDER,
+          driveFolderUrl: undefined,
+          attachments: [{ url: UPLOAD_PHOTO, filename: 'Test.png' }],
+          assetUrls: [UPLOAD_PHOTO],
+        }),
+        driveList: 'empty',
+        seedUploadPhoto: true,
+        allowed: false,
+        reason: DISPATCH_REASON.emptyFolder,
+        status: 400,
+      },
+      {
+        name: 'pasted folder list error',
+        headers: melissa,
+        body: payload({
+          proofUrl: DRIVE_FOLDER,
+          driveFolderUrl: undefined,
+          attachments: [{ url: UPLOAD_PHOTO, filename: 'Test.png' }],
+          assetUrls: [UPLOAD_PHOTO],
+        }),
+        driveList: 'error',
+        seedUploadPhoto: true,
+        allowed: false,
+        reason: DISPATCH_REASON.unreadFolder,
+        status: 400,
+      },
+      {
+        name: 'pasted folder lists one file',
+        headers: melissa,
+        body: payload({
+          proofUrl: DRIVE_FOLDER,
+          driveFolderUrl: undefined,
+          attachments: [{ url: UPLOAD_PHOTO, filename: 'Test.png' }],
+          assetUrls: [UPLOAD_PHOTO],
+        }),
+        driveList: 'one',
+        seedUploadPhoto: true,
         allowed: true,
         reason: '',
         status: 200,
@@ -449,6 +489,17 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       if (row.mode) process.env.OUTBOUND_MASTER_MODE = row.mode;
       else process.env.OUTBOUND_MASTER_MODE = 'hold';
       setDispatchOutboundModeForTests(row.outboundMode || null);
+      const driveList = row.driveList ? stubPastedFolderList(row.driveList) : null;
+      if (!row.driveList) setDriveFilesListForTests(null);
+      if (row.seedUploadPhoto) {
+        const task = getCanonicalMarketingTaskById(TASK_ID);
+        saveCanonicalMarketingTask({
+          ...(task || {}),
+          id: TASK_ID,
+          photos: [{ id: 'photo_upload', url: UPLOAD_PHOTO, name: 'Test.png' }],
+          attachments: [{ url: UPLOAD_PHOTO, filename: 'Test.png' }],
+        } as any);
+      }
       try {
         const check = await postCheck(row.body, row.headers);
         const send = await post(row.body, row.headers);
@@ -470,12 +521,64 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           expect(check.data.effectiveTo).toEqual(['marcus.aman@gmail.com']);
           expect(check.data.effectiveCc).toEqual([]);
         }
+        if (driveList) {
+          expect(driveList.mock.calls.length, row.name).toBeGreaterThan(0);
+          for (const call of driveList.mock.calls) {
+            expect(String(call[0]?.q), row.name).toContain(DRIVE_FOLDER_ID);
+            expect(String(call[0]?.q), row.name).not.toContain('/uploads/');
+          }
+          const task = getCanonicalMarketingTaskById(TASK_ID);
+          const approve = await evaluateDispatch({
+            task: {
+              ...(task || { id: TASK_ID }),
+              id: TASK_ID,
+              workspaceId: 'ws_wilmington',
+            },
+            actor: {
+              id: 'dir_melissa_gagliardi_33',
+              name: 'Melissa Gagliardi',
+              email: 'melissa.gagliardi@nestrealty.com',
+            },
+            recipient: {
+              email: String(row.body.recipientEmail || 'marcus.aman@gmail.com'),
+              name: String(row.body.recipientName || 'Marcus Aman'),
+            },
+            channel: 'email',
+            cc: ['melissa.gagliardi@nestrealty.com'],
+            intent: 'delivery_complete',
+            proofUrl: typeof row.body.proofUrl === 'string' ? row.body.proofUrl : undefined,
+            driveFolderUrl: typeof row.body.driveFolderUrl === 'string' ? row.body.driveFolderUrl : undefined,
+          });
+          expect(approve.reason, `${row.name} approve-and-dispatch`).toBe(check.data.reason);
+          expect(approve.allowed, `${row.name} approve-and-dispatch`).toBe(check.data.allowed);
+        }
       } finally {
         process.env.OUTBOUND_MASTER_MODE = 'hold';
         setDispatchOutboundModeForTests(null);
+        setDriveFilesListForTests(null);
       }
     }
   });
+
+function stubPastedFolderList(mode: 'empty' | 'error' | 'one') {
+  const list = vi.fn(async () => {
+    if (mode === 'error') {
+      const err = new Error('File not found') as Error & { code?: number };
+      err.code = 404;
+      throw err;
+    }
+    if (mode === 'one') {
+      return {
+        data: {
+          files: [{ id: '1AbCrealFileInFolder', name: 'Tri-fold.pdf', mimeType: 'application/pdf' }],
+        },
+      };
+    }
+    return { data: { files: [] } };
+  });
+  setDriveFilesListForTests(list);
+  return list;
+}
 
   it('hold outbox to/cc deep-equal dispatch-check effectiveTo and effectiveCc', async () => {
     const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
