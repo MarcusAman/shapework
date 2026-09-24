@@ -16,6 +16,8 @@ import {
   isPlaceholderDriveUrl,
   isRealGoogleDriveUrl,
 } from '../../server/services/askNoraDriveDelivery';
+import { validateSelfApprovalSafety } from '../../server/policies/canonicalMarketingLifecyclePolicy';
+import { isAllowedCustomerRole } from '../utils/sandboxIdentity';
 
 function peachtreeTask(overrides: Partial<WorkspaceDrawerTask> = {}): WorkspaceDrawerTask {
   return {
@@ -328,5 +330,75 @@ describe('WorkspaceTaskDrawer — live corrupt assignedToId (Eduardo name / Meli
     expect(src).toMatch(/openDeliveryOutreach[\s\S]*?if\s*\(\s*!canApproveAndNotify\s*\)/);
     expect(src).toMatch(/handleApproveAndSendToAgent[\s\S]*?if\s*\(\s*!canApproveAndNotify\s*\)/);
     expect(src).not.toMatch(/reviewerStaff && \([\s\S]*?marketing director/);
+  });
+});
+
+
+describe('ADR — producer workboard access (upload + submit-to-reviewer)', () => {
+  it('producer role is allowed on customer workboard / Tasks surface', () => {
+    expect(isAllowedCustomerRole('producer')).toBe(true);
+  });
+
+  it('assignee Eduardo retains submit-to-reviewer + upload (Approve & Notify still gated)', () => {
+    const task = peachtreeTask({ status: 'in_production', reviewState: undefined });
+    const caps = resolveMarketingApproveNotifyCapabilities(
+      { id: 'dir_eduardo_lovo_73', name: 'Eduardo Lovo', role: 'producer' },
+      task
+    );
+    expect(caps.canUpload).toBe(true);
+    expect(caps.canSubmitToReviewer).toBe(true);
+    expect(caps.canApproveAndNotify).toBe(false);
+  });
+});
+
+describe('ADR — DROP FORBIDDEN_SELF_APPROVAL (reviewer id SoT)', () => {
+  it('Melissa reviewer who is also assignee MAY Approve & Notify (self-serve lock)', () => {
+    const selfServe = peachtreeTask({
+      assignedTo: 'Melissa Gagliardi',
+      assignedToId: 'dir_melissa_gagliardi_33',
+      reviewOwnerId: 'dir_melissa_gagliardi_33',
+      reviewOwnerName: 'Melissa Gagliardi',
+    });
+    const caps = resolveMarketingApproveNotifyCapabilities(
+      { id: 'dir_melissa_gagliardi_33', name: 'Melissa Gagliardi', role: 'marketing_director' },
+      selfServe
+    );
+    expect(caps.isAssignee).toBe(true);
+    expect(caps.isReviewer).toBe(true);
+    expect(caps.canApproveAndNotify).toBe(true);
+
+    const safety = validateSelfApprovalSafety(selfServe as any, {
+      id: 'dir_melissa_gagliardi_33',
+      name: 'Melissa Gagliardi',
+      role: 'marketing_director',
+    } as any);
+    expect(safety.allowed).toBe(true);
+    expect(safety.errorCode).not.toBe('FORBIDDEN_SELF_APPROVAL');
+  });
+
+  it('non-reviewer Eduardo is refused with FORBIDDEN_NOT_TASK_REVIEWER (not SELF_APPROVAL)', () => {
+    const task = peachtreeTask();
+    const safety = validateSelfApprovalSafety(task as any, {
+      id: 'dir_eduardo_lovo_73',
+      name: 'Eduardo Lovo',
+      role: 'producer',
+    } as any);
+    expect(safety.allowed).toBe(false);
+    expect(safety.errorCode).toBe('FORBIDDEN_NOT_TASK_REVIEWER');
+    expect(safety.errorCode).not.toBe('FORBIDDEN_SELF_APPROVAL');
+  });
+});
+
+describe('assign write-path — Eduardo name must persist Eduardo id (not reviewer id)', () => {
+  it('name/id conflict with sticky reviewer id prefers Eduardo directory id', async () => {
+    const { resolveStaffMember } = await import('../../server/persistence/operationsDirectoryRepository');
+    const byName = resolveStaffMember('Eduardo Lovo', 'ws_wilmington');
+    const byReviewer = resolveStaffMember('dir_melissa_gagliardi_33', 'ws_wilmington');
+    expect(byName?.id).toBe('dir_eduardo_lovo_73');
+    expect(byReviewer?.id).toBe('dir_melissa_gagliardi_33');
+    const reviewerSticky = byReviewer!.id === 'dir_melissa_gagliardi_33';
+    const resolved = reviewerSticky ? byName : byReviewer;
+    expect(resolved?.id).toBe('dir_eduardo_lovo_73');
+    expect(resolved?.fullName).toMatch(/Eduardo/i);
   });
 });

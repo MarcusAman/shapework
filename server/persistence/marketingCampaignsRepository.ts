@@ -3147,12 +3147,18 @@ export function updateCanonicalMarketingTaskStatus(
     });
   }
 
-  if (extra?.assignedTo) {
-    task.assignedTo = extra.assignedTo;
-    if (extra.assignedToRole) task.assignedToRole = extra.assignedToRole;
-  }
+  // Ids are SoT: id wins and derives name; name-only assign resolves id (avoid stale reviewer id).
   if (extra?.assignedToId) {
     task.assignedToId = extra.assignedToId;
+    const staffById = resolveStaffMember(extra.assignedToId, task.workspaceId || 'ws_wilmington');
+    if (staffById?.fullName) task.assignedTo = staffById.fullName;
+    else if (extra.assignedTo) task.assignedTo = extra.assignedTo;
+    if (extra.assignedToRole) task.assignedToRole = extra.assignedToRole;
+  } else if (extra?.assignedTo) {
+    task.assignedTo = extra.assignedTo;
+    if (extra.assignedToRole) task.assignedToRole = extra.assignedToRole;
+    const staffByName = resolveStaffMember(extra.assignedTo, task.workspaceId || 'ws_wilmington');
+    if (staffByName?.id) task.assignedToId = staffByName.id;
   }
 
   if (isStatusChange && newStatus === 'in_progress' && !task.startedAt) {

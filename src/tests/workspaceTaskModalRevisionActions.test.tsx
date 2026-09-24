@@ -33,6 +33,8 @@ import {
 describe('Workspace Task Modal Revision Actions & Delivery Suite', () => {
   const baseTask: WorkspaceDrawerTask = {
     id: 'task_revision_test_001',
+    reviewOwnerId: 'dir_melissa_gagliardi_33',
+    reviewOwnerName: 'Melissa Gagliardi',
     campaignId: 'camp_001',
     propertyAddress: '124 Market St, Wilmington, NC 28401',
     agentName: 'Matt Orr',

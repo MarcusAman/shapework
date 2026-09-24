@@ -6725,11 +6725,21 @@ app.post('/api/marketing/tasks/:id/assign', requireAuth, resolveWorkspaceContext
     });
   }
 
-  // Resolve assignee staff profile
+  // Resolve assignee staff profile (ids SoT; name-only assign must not stick reviewer id)
   const { resolveStaffMember, resolveActiveCoveringStaff } = await import('./server/persistence/operationsDirectoryRepository.js');
-  const staff = resolveStaffMember(assigneeId || assigneeName, wsId);
-  const targetAssigneeId = staff?.id || assigneeId || 'usr_eduardo';
-  const targetAssigneeName = staff?.fullName || assigneeName || 'Eduardo Lovo';
+  const byId = assigneeId ? resolveStaffMember(assigneeId, wsId) : undefined;
+  const byName = assigneeName ? resolveStaffMember(assigneeName, wsId) : undefined;
+  let staff = byId || byName;
+  // Name/id conflict: if client sent reviewer id with a different assignee name, prefer name.
+  if (byId && byName && byId.id !== byName.id) {
+    const reviewerSticky =
+      (task.reviewOwnerId && byId.id === task.reviewOwnerId) ||
+      (sessionUser?.id && byId.id === sessionUser.id);
+    staff = reviewerSticky ? byName : byId;
+  }
+  // Ids are SoT when resolved — derive display name from staff profile.
+  const targetAssigneeId = staff?.id || byName?.id || assigneeId || 'dir_eduardo_lovo_73';
+  const targetAssigneeName = staff?.fullName || byName?.fullName || assigneeName || 'Eduardo Lovo';
   const targetAssigneeRole = staff?.role || assigneeRole || staff?.title || 'Producer';
 
   // Check OOO coverage

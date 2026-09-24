@@ -33,12 +33,12 @@ export const ALLOWED_CUSTOMER_ROLES: readonly string[] = [
   'marketing_director',
   'listing_coordinator',
   'events',
+  'producer',
 ];
 
 /** Roles that must remain denied on the customer workboard. */
 export const DENIED_CUSTOMER_ROLES: readonly string[] = [
   'bic',
-  'producer',
   'shapework_operator',
   'maintenance',
 ];

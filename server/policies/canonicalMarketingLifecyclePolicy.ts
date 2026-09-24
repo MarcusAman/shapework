@@ -73,7 +73,7 @@ export function getProofAuthorIdentity(task: CanonicalMarketingTask): {
 export function validateSelfApprovalSafety(
   task: CanonicalMarketingTask,
   sessionUser?: SessionUser | null
-): { allowed: boolean; reason?: string; errorCode?: string } {
+): { allowed: boolean; reason?: string; errorCode?: string; isDirectorApproval?: boolean; authorityExplanation?: string } {
   if (!sessionUser) {
     return {
       allowed: false,
@@ -82,59 +82,33 @@ export function validateSelfApprovalSafety(
     };
   }
 
-  const wsId = task.workspaceId || 'ws_wilmington';
-  const allStaff = getAllStaffMembers();
+  // Blueprint ADR: DROP FORBIDDEN_SELF_APPROVAL.
+  // Ids are SoT — allow when actor === task.reviewerId even if also assignee.
+  // Forbid only actor !== task.reviewerId (LOCKED Melissa self-serve when she is reviewer).
+  const reviewerId = String((task as any).reviewerId || task.reviewOwnerId || '').toLowerCase().trim();
+  const actorId = String(sessionUser.id || '').toLowerCase().trim();
+  const reviewerName = String(
+    (task as any).reviewOwnerName || (task as any).reviewOwner || ''
+  ).toLowerCase().trim();
+  const actorName = String(sessionUser.name || '').toLowerCase().trim();
 
-  // 1. Resolve reviewer canonical staff profile
-  const reviewerStaff = (sessionUser.id ? resolveStaffMember(sessionUser.id, wsId, allStaff) : undefined) ||
-                        (sessionUser.email ? resolveStaffMember(sessionUser.email, wsId, allStaff) : undefined) ||
-                        (sessionUser.name ? resolveStaffMember(sessionUser.name, wsId, allStaff) : undefined);
+  const isReviewer =
+    (!!reviewerId && !!actorId && reviewerId === actorId) ||
+    (!!reviewerName && !!actorName && reviewerName === actorName);
 
-  // 2. Resolve author canonical staff profile from submission history
-  const authorInfo = getProofAuthorIdentity(task);
-  const authorStaff = (authorInfo.authorId ? resolveStaffMember(authorInfo.authorId, wsId, allStaff) : undefined) ||
-                      (authorInfo.authorName ? resolveStaffMember(authorInfo.authorName, wsId, allStaff) : undefined);
-
-  // 3. Canonical directory ID collision
-  if (reviewerStaff && authorStaff && reviewerStaff.id === authorStaff.id) {
+  if (isReviewer) {
     return {
-      allowed: false,
-      errorCode: 'FORBIDDEN_SELF_APPROVAL',
-      reason: `Self-approval rejected: Staff member "${reviewerStaff.fullName}" (${reviewerStaff.id}) produced or submitted this proof and cannot approve their own work.`
+      allowed: true,
+      isDirectorApproval: true,
+      authorityExplanation: 'Final marketing approval authorized for task reviewer (ids SoT; self-serve allowed when actor is reviewer).',
     };
   }
 
-  // 4. Raw user ID collision
-  if (sessionUser.id && authorInfo.authorId && sessionUser.id.toLowerCase() === authorInfo.authorId.toLowerCase()) {
-    return {
-      allowed: false,
-      errorCode: 'FORBIDDEN_SELF_APPROVAL',
-      reason: `Self-approval rejected: User ID "${sessionUser.id}" submitted this proof and cannot approve their own work.`
-    };
-  }
-
-  // 5. Name collision
-  if (sessionUser.name && authorInfo.authorName && sessionUser.name.toLowerCase().trim() === authorInfo.authorName.toLowerCase().trim()) {
-    return {
-      allowed: false,
-      errorCode: 'FORBIDDEN_SELF_APPROVAL',
-      reason: `Self-approval rejected: "${sessionUser.name}" submitted this proof and cannot approve their own work.`
-    };
-  }
-
-  // 6. Check assigned producer if task is awaiting review
-  const assignedStaff = (task.assignedToId ? resolveStaffMember(task.assignedToId, wsId, allStaff) : undefined) ||
-                        (task.assignedTo ? resolveStaffMember(task.assignedTo, wsId, allStaff) : undefined);
-
-  if (reviewerStaff && assignedStaff && reviewerStaff.id === assignedStaff.id && task.reviewState === 'awaiting_review') {
-    return {
-      allowed: false,
-      errorCode: 'FORBIDDEN_SELF_APPROVAL',
-      reason: `Self-approval rejected: Assigned producer "${reviewerStaff.fullName}" cannot approve their own assigned deliverables.`
-    };
-  }
-
-  return { allowed: true };
+  return {
+    allowed: false,
+    errorCode: 'FORBIDDEN_NOT_TASK_REVIEWER',
+    reason: 'Approve & Notify refused: only the task reviewer may approve and notify the agent.',
+  };
 }
 
 export interface TransitionValidationResult {
