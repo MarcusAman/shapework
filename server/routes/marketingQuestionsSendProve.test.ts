@@ -13,6 +13,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { marketingQuestionsRouter } from './marketingQuestionsRoute.js';
 import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
 import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
+import { WorkspaceTaskDrawer } from '../../src/components/marketing/WorkspaceTaskDrawer.js';
+import { confirmRequesterWrite } from '../../src/lib/confirmRequesterWrite.js';
+import { DISPATCH_REASON } from '../services/evaluateDispatch.js';
+import { resolveServerCanonicalRecipient } from '../services/canonicalRecipientService.js';
 import {
   getAllCanonicalMarketingTasks,
   getCanonicalMarketingTaskById,
@@ -115,7 +119,8 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     }), { 'x-user-email': 'melissa.gagliardi@nestrealty.com' });
     expect(res.status).toBe(400);
     expect(res.data.code).toBe('RECIPIENT_UNRESOLVED');
-    expect(res.data.error).toContain('Could not resolve a canonical directory record');
+    expect(res.data.reason).toBe(DISPATCH_REASON.recipient);
+    expect(res.data.error).toBe(DISPATCH_REASON.recipient);
     const task = getCanonicalMarketingTaskById(TASK_ID);
     expect(task?.proofUrl || null).toBeFalsy();
     expect(task?.reviewState).toBe('awaiting_review');
@@ -166,16 +171,17 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     expect(created[0][1].recipient).toBe('marcus.aman@gmail.com');
   });
 
-  it('does not 400 when Drive is empty, and a pasted https proof stays valid', async () => {
+  it('blocks an empty Drive with no file, and a pasted https proof stays valid', async () => {
     const beforeKeys = new Set(memoryOutbox.keys());
     const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), {
       'x-user-email': 'melissa.gagliardi@nestrealty.com',
     });
-    expect(empty.status, JSON.stringify(empty.data)).toBe(200);
-    expect(empty.data.code).not.toBe('INVALID_PROTOCOL');
-    expect(getCanonicalMarketingTaskById(TASK_ID)?.reviewState).not.toBe('awaiting_review');
+    expect(empty.status, JSON.stringify(empty.data)).toBe(400);
+    expect(empty.data.reason).toBe(DISPATCH_REASON.file);
+    expect(empty.data.code).toBe('NO_SENDABLE_FILE');
+    expect(getCanonicalMarketingTaskById(TASK_ID)?.reviewState).toBe('awaiting_review');
     const emptyRows = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
-    expect(emptyRows.every(([, row]) => row.recipient === 'marcus.aman@gmail.com')).toBe(true);
+    expect(emptyRows.length).toBe(0);
 
     saveCanonicalMarketingTask({
       id: TASK_ID,
@@ -203,6 +209,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       const res = await post(payload(), { 'x-user-email': 'melissa.gagliardi@nestrealty.com' });
       expect(res.status).toBe(400);
       expect(res.data.code).toBe('RECIPIENT_UNRESOLVED');
+      expect(res.data.reason).toBe(DISPATCH_REASON.recipient);
     } finally {
       process.env.OUTBOUND_MASTER_MODE = 'hold';
     }
@@ -213,6 +220,13 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       React.createElement(AskRequesterQuestionsModal, {
         isOpen: true,
         onClose: () => {},
+        dispatchVerdict: {
+          allowed: true,
+          reason: '',
+          recipientStatus: 'allowlisted_prove',
+          recipientId: null,
+          effectiveCc: [],
+        },
         campaign: {
           id: TASK_ID,
           agentName: 'Marcus Aman',
@@ -224,11 +238,20 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     );
     expect(proveHtml).toContain('Allowlisted (prove)');
     expect(proveHtml).not.toContain('Verified Contact');
+    expect(proveHtml).toContain('data-send-ready="true"');
+    expect(proveHtml).toContain('data-recipient-status="allowlisted_prove"');
 
     const directoryHtml = renderToStaticMarkup(
       React.createElement(AskRequesterQuestionsModal, {
         isOpen: true,
         onClose: () => {},
+        dispatchVerdict: {
+          allowed: true,
+          reason: '',
+          recipientStatus: 'directory',
+          recipientId: 'dir_matt_orr',
+          effectiveCc: ['melissa.gagliardi@nestrealty.com'],
+        },
         campaign: {
           id: 'camp_matt',
           agentName: 'Matt Orr',
@@ -240,5 +263,237 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     );
     expect(directoryHtml).toContain('Verified Contact');
     expect(directoryHtml).not.toContain('Allowlisted (prove)');
+  });
+
+  async function postCheck(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+    const res = await fetch(`${baseUrl}/api/marketing/requests/${TASK_ID}/dispatch-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { status: res.status, data };
+  }
+
+  it('dispatch-check matches send-questions on the five blocks and the allowed prove', async () => {
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const cases: Array<{
+      name: string;
+      headers: Record<string, string>;
+      body: Record<string, unknown>;
+      mode?: string;
+      allowed: boolean;
+      reason: string;
+      status: number;
+      recipientStatus?: string;
+    }> = [
+      {
+        name: 'wrong role',
+        headers: { 'x-user-email': 'eduardo.lovo@nestrealty.com' },
+        body: payload(),
+        allowed: false,
+        reason: DISPATCH_REASON.role,
+        status: 403,
+      },
+      {
+        name: 'proof not https',
+        headers: melissa,
+        body: payload({ proofUrl: 'data:image/png;base64,iVBORw0KGgo=' }),
+        allowed: false,
+        reason: DISPATCH_REASON.proof,
+        status: 400,
+      },
+      {
+        name: 'no drive and no file',
+        headers: melissa,
+        body: payload({ proofUrl: undefined, driveFolderUrl: undefined }),
+        allowed: false,
+        reason: DISPATCH_REASON.file,
+        status: 400,
+      },
+      {
+        name: 'recipient not allowed',
+        headers: melissa,
+        body: payload({
+          recipientName: 'Random Person',
+          recipientEmail: 'random.person@gmail.com',
+          recipientPhone: undefined,
+          channels: ['email'],
+        }),
+        allowed: false,
+        reason: DISPATCH_REASON.recipient,
+        status: 400,
+      },
+      {
+        name: 'outbound off',
+        headers: melissa,
+        body: payload({
+          recipientName: 'Eduardo Lovo',
+          recipientEmail: 'eduardo.lovo@nestrealty.com',
+          recipientPhone: undefined,
+          channels: ['email'],
+        }),
+        mode: 'disabled',
+        allowed: false,
+        reason: DISPATCH_REASON.outbound,
+        status: 400,
+      },
+      {
+        name: 'allowlisted marcus',
+        headers: melissa,
+        body: payload(),
+        allowed: true,
+        reason: '',
+        status: 200,
+        recipientStatus: 'allowlisted_prove',
+      },
+    ];
+
+    for (const row of cases) {
+      if (row.mode) process.env.OUTBOUND_MASTER_MODE = row.mode;
+      else process.env.OUTBOUND_MASTER_MODE = 'hold';
+      try {
+        const check = await postCheck(row.body, row.headers);
+        const send = await post(row.body, row.headers);
+        expect(check.data.allowed, row.name).toBe(row.allowed);
+        expect(check.data.reason, row.name).toBe(row.reason);
+        expect(send.status, `${row.name} ${JSON.stringify(send.data)}`).toBe(row.status);
+        expect(send.data.allowed, row.name).toBe(row.allowed);
+        expect(send.data.gateReason ?? send.data.reason, row.name).toBe(check.data.reason);
+        expect(send.data.reason === check.data.reason || send.data.gateReason === check.data.reason, row.name).toBe(true);
+        if (row.recipientStatus) {
+          expect(check.data.recipientStatus).toBe(row.recipientStatus);
+          expect(check.data.effectiveCc).not.toContain('melissa.gagliardi@nestrealty.com');
+        }
+      } finally {
+        process.env.OUTBOUND_MASTER_MODE = 'hold';
+      }
+    }
+  });
+
+  it('drops Melissa CC while the allowlist is active and keeps it for a directory recipient in prod', async () => {
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const held = await postCheck(payload(), melissa);
+    expect(held.data.allowed).toBe(true);
+    expect(held.data.recipientStatus).toBe('allowlisted_prove');
+    expect(held.data.effectiveCc).not.toContain('melissa.gagliardi@nestrealty.com');
+
+    const appMode = process.env.APP_MODE;
+    process.env.APP_MODE = 'production';
+    try {
+      const prod = await postCheck(payload({
+        recipientName: 'Eduardo Lovo',
+        recipientEmail: 'eduardo.lovo@nestrealty.com',
+        recipientPhone: undefined,
+        channels: ['email'],
+      }), melissa);
+      expect(prod.data.recipientStatus, JSON.stringify(prod.data)).toBe('directory');
+      expect(prod.data.effectiveCc).toContain('melissa.gagliardi@nestrealty.com');
+      expect(prod.data.allowed).toBe(true);
+    } finally {
+      if (appMode === undefined) delete process.env.APP_MODE;
+      else process.env.APP_MODE = appMode;
+    }
+  });
+
+  it('keeps a Nest roster person on the directory and does not mint Marcus', async () => {
+    const eduardo = await resolveServerCanonicalRecipient({ requesterEmail: 'eduardo.lovo@nestrealty.com' });
+    expect(eduardo?.id).toBe('dir_eduardo_lovo_73');
+    const marcus = await resolveServerCanonicalRecipient({
+      requesterEmail: 'marcus.aman@gmail.com',
+      requesterName: 'Marcus Aman',
+      requesterId: 'dir_marcus_aman',
+    });
+    expect(marcus).toBeNull();
+  });
+});
+
+describe('Approve & Notify drawer reads the server verdict', () => {
+  const task = {
+    id: 'tsk_drawer_marcus',
+    campaignId: 'tsk_drawer_marcus',
+    propertyAddress: '7174 Peachtree Way, Wilmington, NC 28403',
+    agentName: 'Marcus Aman',
+    agentPhone: '(252) 717-0595',
+    agentEmail: 'marcus.aman@gmail.com',
+    agentRole: 'Requester',
+    packageType: 'Tri-fold brochure',
+    priority: 'normal',
+    status: 'in_production',
+    proofVersion: 1,
+    targetSla: 'Deadline not specified',
+    receivedAt: 'Today',
+    assignedTo: 'Eduardo Lovo',
+    assignedToId: 'dir_eduardo_lovo_73',
+    reviewOwnerId: 'dir_melissa_gagliardi_33',
+    reviewOwnerName: 'Melissa Gagliardi',
+    proofUrl: 'https://drive.google.com/file/d/1AbCrealFile999xyz/view',
+    category: 'print',
+    requestedAssets: [{ name: 'Tri-fold brochure', format: 'PDF', dimensions: 'tri-fold' }],
+    photos: [],
+  };
+
+  const melissa = {
+    id: 'dir_melissa_gagliardi_33',
+    name: 'Melissa Gagliardi',
+    role: 'marketing_director',
+    email: 'melissa.gagliardi@nestrealty.com',
+    permissions: ['marketing.final_approval', 'marketing.approve'],
+  };
+
+  it('enables Approve & Notify when dispatch-check says allowlisted_prove', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(WorkspaceTaskDrawer, {
+        isOpen: true,
+        activeTask: task,
+        onClose: () => {},
+        currentUser: melissa,
+        dispatchVerdict: {
+          allowed: true,
+          reason: '',
+          recipientStatus: 'allowlisted_prove',
+          recipientId: null,
+          effectiveCc: [],
+        },
+      })
+    );
+    expect(html).toContain('Approve &amp; Notify Agent');
+    expect(html).toContain('data-recipient-status="allowlisted_prove"');
+    const button = html.match(/<button[^>]*data-action="Approve &amp; send to agent"[^>]*>/);
+    expect(button, html.slice(html.indexOf('Approve &amp; Notify'))).toBeTruthy();
+    expect(button?.[0]).not.toContain('disabled');
+    expect(html).not.toContain('Requester needs confirmation');
+  });
+
+  it('leaves Approve & Notify disabled until a server verdict arrives', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(WorkspaceTaskDrawer, {
+        isOpen: true,
+        activeTask: task,
+        onClose: () => {},
+        currentUser: melissa,
+      })
+    );
+    const button = html.match(/<button[^>]*data-action="Approve &amp; send to agent"[^>]*>/);
+    expect(button?.[0]).toContain('disabled');
+  });
+});
+
+describe('Confirm Requester persist', () => {
+  it('writes no dir_* id for allowlisted Marcus', () => {
+    const patch = confirmRequesterWrite(
+      {
+        id: 'dir_marcus_aman',
+        name: 'Marcus Aman',
+        email: 'marcus.aman@gmail.com',
+        phone: '(252) 717-0595',
+      },
+      { recipientStatus: 'allowlisted_prove', recipientId: null }
+    );
+    expect(JSON.stringify(patch)).not.toContain('dir_');
+    expect(patch.agentEmail).toBe('marcus.aman@gmail.com');
+    expect(patch.requesterEmail).toBe('marcus.aman@gmail.com');
+    expect(patch.requesterId).toBeNull();
+    expect(patch.recipientKind).toBe('allowlisted_prove');
   });
 });

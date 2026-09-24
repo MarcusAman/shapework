@@ -34,6 +34,12 @@ import {
   dealTriageClientOutboundBlockReason,
 } from '../services/nora/dealTriage.js';
 import { canSendAgentOutbound } from '../persistence/notificationPreferencesRepository.js';
+import {
+  DISPATCH_REASON,
+  dispatchRejectBody,
+  evaluateDispatch,
+  type DispatchVerdict,
+} from '../services/evaluateDispatch.js';
 
 export const marketingQuestionsRouter = Router();
 
@@ -55,6 +61,10 @@ async function persistApproveNotifyProof(
     resolvedRecipient: { id?: string; email?: string | null; name?: string };
     /** Exact prove To. Not a directory person. Empty Drive is not a failure. */
     proveAllowlist?: boolean;
+    /** Shared evaluateDispatch already accepted this send. */
+    dispatchCleared?: boolean;
+    recipientStatus?: DispatchVerdict['recipientStatus'];
+    effectiveCc?: string[];
   }
 ): Promise<{ handled: boolean }> {
   const { requireAuth } = await import('../auth/auth.js');
@@ -105,9 +115,8 @@ async function persistApproveNotifyProof(
   }
 
   const pastedProof = String(args.proofUrl || '').trim();
-  // Allowlist prove: a pasted https link is valid. An empty Drive folder (yellow) is not a failure.
-  // A non-https paste (data:, blob:) is still rejected. Nest directory sends still require https.
-  if (args.proveAllowlist) {
+  // evaluateDispatch already decided proof / file / recipient. Do not invent a second reason.
+  if (!args.dispatchCleared && args.proveAllowlist) {
     if (pastedProof && !isDurableHttpsProofUrl(pastedProof)) {
       res.status(400).json({
         success: false,
@@ -121,7 +130,7 @@ async function persistApproveNotifyProof(
   const proofCandidate = [pastedProof, args.driveFolderUrl, task.proofUrl]
     .map((u) => String(u || '').trim())
     .find((u) => isDurableHttpsProofUrl(u)) || '';
-  if (!args.proveAllowlist && !proofCandidate) {
+  if (!args.dispatchCleared && !args.proveAllowlist && !proofCandidate) {
     res.status(400).json({
       success: false,
       code: 'INVALID_PROTOCOL',
@@ -228,6 +237,10 @@ async function persistApproveNotifyProof(
       campaignId: args.campaignId,
       task: saved,
       reason: outboundHeld ? 'outbound_not_live' : prefsReason,
+      allowed: true,
+      gateReason: '',
+      recipientStatus: args.recipientStatus,
+      effectiveCc: args.effectiveCc || [],
       outboxId,
       message: outboxId
         ? 'Proof approved. Queued to outbound hold.'
@@ -267,6 +280,65 @@ export interface SendQuestionsPayload {
   assetUrls?: string[];
   attachments?: Array<{ filename?: string; url: string }>;
 }
+
+marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', async (req: Request, res: Response) => {
+  try {
+    const { requireAuth } = await import('../auth/auth.js');
+    if (!(req as any).authUser && !(req as any).user) {
+      await new Promise<void>((resolve, reject) => {
+        requireAuth(req as any, res as any, (err?: any) => (err ? reject(err) : resolve()));
+      });
+      if (res.headersSent) return;
+    }
+    const actor = (req as any).authUser || (req as any).user || null;
+    const taskId = String(req.params.id || '').trim();
+    const task = getCanonicalMarketingTaskById(taskId);
+    const body = (req.body || {}) as SendQuestionsPayload;
+    const melissaCc = 'melissa.gagliardi@nestrealty.com';
+    const intent = body.intent || 'delivery_complete';
+    const proposedCc = Array.from(new Set([
+      ...(Array.isArray(body.ccEmails) ? body.ccEmails : []),
+      ...(intent === 'delivery_complete' && body.domain !== 'operational' ? [melissaCc] : []),
+    ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
+    const verdict = await evaluateDispatch({
+      task: {
+        ...(task || { id: taskId }),
+        proofUrl: body.proofUrl ?? task?.proofUrl,
+        driveFolderUrl: body.driveFolderUrl ?? task?.driveFolderUrl,
+      },
+      actor,
+      recipient: {
+        email: body.recipientEmail || task?.agentEmail,
+        name: body.recipientName || task?.agentName,
+      },
+      channel: (body.channels || ['email']).includes('sms') && (body.channels || ['email']).includes('email')
+        ? 'both'
+        : (body.channels || ['email']).includes('sms')
+          ? 'sms'
+          : 'email',
+      cc: proposedCc,
+      intent,
+      proofUrl: body.proofUrl ?? task?.proofUrl,
+      driveFolderUrl: body.driveFolderUrl ?? task?.driveFolderUrl,
+      assetUrls: body.assetUrls,
+      attachments: body.attachments,
+    });
+    const status = verdict.allowed ? 200 : (verdict.reason === DISPATCH_REASON.role ? 403 : 400);
+    return res.status(status).json({
+      ...verdict,
+      success: verdict.allowed,
+      gateReason: verdict.reason,
+      code: verdict.allowed ? undefined : dispatchRejectBody(verdict).code,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      allowed: false,
+      reason: err?.message || 'Dispatch check failed.',
+      error: err?.message || 'Dispatch check failed.',
+    });
+  }
+});
 
 marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (req: Request, res: Response) => {
   try {
@@ -321,6 +393,50 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     // Strip hotline from phone before directory resolve so it cannot poison email-only sends
     const safeRecipientPhone =
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
+
+    const taskRecord = getCanonicalMarketingTaskById(String(taskId || campaignId));
+    const melissaCc = 'melissa.gagliardi@nestrealty.com';
+    const isDeliveryComplete = intent === 'delivery_complete';
+    const proposedCc = Array.from(new Set([
+      ...(Array.isArray(ccEmails) ? ccEmails : []),
+      ...(isDeliveryComplete && domain !== 'operational' ? [melissaCc] : []),
+    ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
+
+    let actor = (req as any).authUser || (req as any).user || null;
+    if (!actor && isDeliveryComplete) {
+      const { requireAuth } = await import('../auth/auth.js');
+      await new Promise<void>((resolve, reject) => {
+        requireAuth(req as any, res as any, (err?: any) => (err ? reject(err) : resolve()));
+      });
+      if (res.headersSent) return;
+      actor = (req as any).authUser || (req as any).user || null;
+    }
+
+    const verdict = await evaluateDispatch({
+      task: taskRecord || { id: String(taskId || campaignId), workspaceId },
+      actor,
+      recipient: {
+        email: recipientEmail,
+        name: recipientName,
+        phone: safeRecipientPhone,
+      },
+      channel: wantsSms && wantsEmail ? 'both' : wantsSms ? 'sms' : 'email',
+      cc: proposedCc,
+      intent,
+      proofUrl,
+      driveFolderUrl,
+      assetUrls,
+      attachments,
+    });
+
+    if (
+      !verdict.allowed &&
+      (isDeliveryComplete ||
+        verdict.reason === DISPATCH_REASON.recipient ||
+        verdict.reason === DISPATCH_REASON.outbound)
+    ) {
+      return res.status(verdict.reason === DISPATCH_REASON.role ? 403 : 400).json(dispatchRejectBody(verdict));
+    }
 
     // Directory first. Prove Gmail is not a directory person.
     const directoryRecipient = await resolveServerCanonicalRecipient({
@@ -391,7 +507,10 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         workspaceId,
         propertyAddress,
         resolvedRecipient,
-        proveAllowlist: Boolean(proveAllowlistTo),
+        proveAllowlist: verdict.recipientStatus === 'allowlisted_prove',
+        dispatchCleared: true,
+        recipientStatus: verdict.recipientStatus,
+        effectiveCc: verdict.effectiveCc,
       });
       if (deliveryResult.handled) return;
     }
@@ -432,14 +551,9 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       console.warn('[send-questions] pref gate error', err);
     }
 
-    // 2b. Delivery outreach: always from AskNora; marketing completes CC Melissa
-    const melissaCc = 'melissa.gagliardi@nestrealty.com';
-    const isDeliveryComplete = intent === 'delivery_complete';
-    const shouldCcMelissa = isDeliveryComplete && domain !== 'operational';
-    const resolvedCc = Array.from(new Set([
-      ...(Array.isArray(ccEmails) ? ccEmails : []),
-      ...(shouldCcMelissa ? [melissaCc] : [])
-    ].map((e) => String(e || '').trim().toLowerCase()).filter(Boolean)));
+    // CC already passed through evaluateDispatch. Non-allowlist addresses are dropped
+    // unless this is a directory recipient in production.
+    const resolvedCc = verdict.effectiveCc;
     const emailSubject = (subject && String(subject).trim())
       || (isDeliveryComplete
         ? `Your marketing materials are ready — ${propertyAddress}`
@@ -956,6 +1070,10 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
 
     return res.status(200).json({
       success: true,
+      allowed: true,
+      gateReason: '',
+      recipientStatus: verdict.recipientStatus,
+      effectiveCc: verdict.effectiveCc,
       partial: warnings.length > 0,
       campaignId,
       dispatchedAt: new Date().toISOString(),

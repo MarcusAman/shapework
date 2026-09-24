@@ -87,7 +87,9 @@ import type { TaskRequirementItem, TaskInternalFlag } from '../../../server/pers
 import { ActivityAndContactTimeline } from './ActivityAndContactTimeline';
 import type { CanonicalActivityEvent } from '../../../server/services/activityHistoryService.js';
 import { resolveCanonicalStaffMember, getCanonicalMarketingDirector } from '../../services/canonicalRoster';
-import { getRequesterActionLabel, resolveCanonicalRecipient, isProhibitedEmail, CANONICAL_AGENT_DIRECTORY } from '../../services/canonicalRecipientService';
+import { getRequesterActionLabel, resolveCanonicalRecipient, CANONICAL_AGENT_DIRECTORY } from '../../services/canonicalRecipientService';
+import { dispatchRecipientConfirmed, type DispatchVerdictView } from '../../lib/dispatchVerdict';
+import { confirmRequesterWrite } from '../../lib/confirmRequesterWrite';
 import { resolveTaskAssets } from '../../utils/assetResolver';
 import {
   canSendCreativeOutbound,
@@ -292,6 +294,8 @@ interface WorkspaceTaskDrawerProps {
   currentUserName?: string;
   currentUserId?: string;
   initialTab?: 'brief' | 'source' | 'work' | 'history' | 'assignment' | 'photos' | 'requirements' | 'proofs' | 'overview' | 'files' | 'proof';
+  /** Server evaluateDispatch verdict. Tests pass this; the live drawer also fetches it. */
+  dispatchVerdict?: DispatchVerdictView | null;
 }
 
 export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
@@ -314,10 +318,12 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   currentUserRole,
   currentUserName,
   currentUserId,
-  initialTab
+  initialTab,
+  dispatchVerdict
 }) => {
   const rawActiveTask = propActiveTask || propTask || null;
-  const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string } | null>(null);
+  const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string | null } | null>(null);
+  const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
   const [isConfirmRequesterOpen, setIsConfirmRequesterOpen] = useState(false);
 
   const activeTask = useMemo(() => {
@@ -328,7 +334,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       agentName: confirmedRequesterOverride.agentName,
       agentEmail: confirmedRequesterOverride.agentEmail,
       agentPhone: confirmedRequesterOverride.agentPhone || rawActiveTask.agentPhone,
-      requesterId: confirmedRequesterOverride.requesterId || rawActiveTask.requesterId
+      requesterId: confirmedRequesterOverride.requesterId !== undefined && confirmedRequesterOverride.requesterId !== null
+        ? confirmedRequesterOverride.requesterId
+        : (confirmedRequesterOverride.requesterId === null ? undefined : rawActiveTask.requesterId)
     };
   }, [rawActiveTask, confirmedRequesterOverride]);
 
@@ -753,6 +761,36 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, lightboxItem, isUploadWizardOpen, isRevisionModalOpen, showChecklistSoftWarning, isDirty]);
 
+  const activeDispatchVerdict = dispatchVerdict || fetchedDispatchVerdict;
+
+  useEffect(() => {
+    if (dispatchVerdict || !isOpen || !activeTask?.id) return;
+    let cancelled = false;
+    const taskId = activeTask.id;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/requests/${encodeURIComponent(taskId)}/dispatch-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientEmail: activeTask.agentEmail,
+            recipientName: activeTask.agentName,
+            channels: ['email'],
+            intent: 'delivery_complete',
+            proofUrl: activeTask.proofUrl,
+            driveFolderUrl: (activeTask as { driveFolderUrl?: string }).driveFolderUrl,
+            domain: 'marketing',
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data?.recipientStatus) setFetchedDispatchVerdict(data);
+      } catch {
+        if (!cancelled) setFetchedDispatchVerdict(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [dispatchVerdict, isOpen, activeTask?.id, activeTask?.agentEmail, activeTask?.agentName, activeTask?.proofUrl]);
+
   if (!isOpen || !activeTask) return null;
 
   // Derive Roles and Capabilities
@@ -832,11 +870,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     requesterId: activeTask.requesterId
   });
 
-  const isRecipientConfirmed = Boolean(
-    verifiedRecipient.email &&
-    !isProhibitedEmail(verifiedRecipient.email) &&
-    verifiedRecipient.status !== 'unverified'
-  );
+  const isRecipientConfirmed = dispatchRecipientConfirmed(activeDispatchVerdict?.recipientStatus);
 
   // Revision and Proof state derivation
   const isRevision = Boolean(
@@ -1415,19 +1449,47 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   };
 
   const handleConfirmRequester = async (agent: { id: string; name: string; email: string; phone?: string }) => {
+    let verdict: DispatchVerdictView | null = null;
+    if (activeTask) {
+      try {
+        const res = await fetch(`/api/marketing/requests/${encodeURIComponent(activeTask.id)}/dispatch-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientEmail: agent.email,
+            recipientName: agent.name,
+            channels: ['email'],
+            intent: 'delivery_complete',
+            proofUrl: activeTask.proofUrl,
+            domain: 'marketing',
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (data?.recipientStatus) {
+          verdict = data;
+          setFetchedDispatchVerdict(data);
+        }
+      } catch {
+        verdict = null;
+      }
+    }
+    const patch = confirmRequesterWrite(agent, {
+      recipientStatus: verdict?.recipientStatus || 'unresolved',
+      recipientId: verdict?.recipientId || null,
+    });
     setConfirmedRequesterOverride({
-      agentName: agent.name,
-      agentEmail: agent.email,
-      agentPhone: agent.phone,
-      requesterId: agent.id
+      agentName: patch.agentName,
+      agentEmail: patch.agentEmail,
+      agentPhone: patch.agentPhone || undefined,
+      requesterId: patch.requesterId,
     });
     if (activeTask) {
       const updated = {
         ...activeTask,
-        agentName: agent.name,
-        agentEmail: agent.email,
-        agentPhone: agent.phone || activeTask.agentPhone,
-        requesterId: agent.id
+        agentName: patch.agentName,
+        agentEmail: patch.agentEmail,
+        agentPhone: patch.agentPhone || activeTask.agentPhone,
+        requesterId: patch.requesterId || undefined,
       };
       if (onSave) {
         onSave(updated);
@@ -1436,12 +1498,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         await fetch(`/api/marketing/tasks/${activeTask.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            agentName: agent.name,
-            agentEmail: agent.email,
-            agentPhone: agent.phone,
-            requesterId: agent.id
-          })
+          body: JSON.stringify(patch)
         });
       } catch {}
     }
@@ -3974,6 +4031,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     onClick={openDeliveryOutreach}
                     disabled={isSubmitting || !hasAnyProof || !isRecipientConfirmed}
                     data-action="Approve & send to agent"
+                    data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
                     aria-label="Approve for Delivery (Approve & Send to Agent)"
                     className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
                       !hasAnyProof || !isRecipientConfirmed || isSubmitting

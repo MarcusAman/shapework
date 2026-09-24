@@ -706,8 +706,10 @@ export async function sendTaskCompletionEmail(options: {
   driveFolderUrl?: string;
   heroImageUrl?: string;
   completedByName?: string;
+  /** Already filtered by evaluateDispatch.effectiveCc. */
+  cc?: string[];
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi' } = options;
+  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
 
   if (!isAllowedEmailRecipient(toEmail)) {
     return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
@@ -742,6 +744,7 @@ export async function sendTaskCompletionEmail(options: {
 
   return sendEmail({
     to: toEmail,
+    cc: cc && cc.length ? cc : undefined,
     subject: `Ready: ${taskTitle} for ${propertyAddress} has been Delivered`,
     text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been completed and quality-checked by ${completedByName}.\n\nAccess your files in Google Drive: ${driveFolderUrl}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent

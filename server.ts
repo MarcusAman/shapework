@@ -8355,13 +8355,8 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
         fileCount: (pack as any).fileCount,
         error: pack.error,
       });
-      if (!driveGate.allowed) {
-        return res.status(403).json({
-          success: false,
-          error: driveGate.errorCode || 'DRIVE_NOT_READY',
-          message: driveGate.reason || 'Approve & Notify refused: Drive folder must be real and non-empty.',
-        });
-      }
+      // File / folder refusal is evaluateDispatch, shared with send-questions.
+      void driveGate;
     }
 
     // 3. Resolve Intended Recipient from Task & Canonical Request
@@ -8375,9 +8370,34 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
       ? (parentReq?.driveFolderUrl && !String(parentReq.driveFolderUrl).includes('1DRV_') ? parentReq.driveFolderUrl : '')
       : task.driveFolderUrl;
 
+    const { evaluateDispatch, dispatchBlockStatus, dispatchRejectBody } = await import('./server/services/evaluateDispatch.js');
+    const dispatchVerdict = await evaluateDispatch({
+      task: {
+        ...task,
+        proofUrl: task.proofUrl || incomingProofUrl,
+        driveFolderUrl: driveUrl || task.driveFolderUrl,
+      },
+      actor: sessionUser,
+      recipient: {
+        email: agentEmail,
+        name: agentName,
+        phone: agentPhone,
+      },
+      channel: 'email',
+      cc: ['melissa.gagliardi@nestrealty.com'],
+      intent: 'delivery_complete',
+      proofUrl: task.proofUrl || incomingProofUrl,
+      driveFolderUrl: driveUrl || task.driveFolderUrl,
+    });
+    if (!dispatchVerdict.allowed) {
+      return res.status(dispatchBlockStatus(dispatchVerdict.reason)).json(dispatchRejectBody(dispatchVerdict));
+    }
     if (!agentEmail || isProhibitedEmail(agentEmail)) {
       return res.status(400).json({
         success: false,
+        allowed: false,
+        reason: dispatchVerdict.reason || 'This recipient is not allowed.',
+        gateReason: dispatchVerdict.reason || 'This recipient is not allowed.',
         error: 'RECIPIENT_UNCONFIRMED',
         message: 'Intended requester email is missing or unconfirmed. Please confirm requester before dispatching collateral.'
       });
@@ -8410,7 +8430,8 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
         vendorName: task.vendorName || 'CopyCat',
         isPrintOrderSubmitted: Boolean(task.isPrintOrderSubmitted),
         quantity: task.quantity || 50,
-        neededByDate: task.neededByDate || 'Friday, September 11, 2026'
+        neededByDate: task.neededByDate || 'Friday, September 11, 2026',
+        cc: dispatchVerdict.effectiveCc,
       });
     }
 

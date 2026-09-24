@@ -36,7 +36,7 @@ function readEnv(name: string): string {
   }
 }
 
-function isProductionApp(): boolean {
+export function isProductionApp(): boolean {
   const appMode = (readEnv('APP_MODE') || readEnv('APP_ENV')).toLowerCase();
   if (appMode === 'production' || readEnv('IS_PRODUCTION') === 'true') return true;
   return readEnv('NODE_ENV').toLowerCase() === 'production';

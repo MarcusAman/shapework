@@ -29,9 +29,13 @@ import {
 } from 'lucide-react';
 import {
   resolveCanonicalRecipient,
-  contactAssuranceLabel,
   VerifiedRecipient
 } from '../../services/canonicalRecipientService';
+import {
+  dispatchAssuranceLabel,
+  dispatchRecipientConfirmed,
+  type DispatchVerdictView,
+} from '../../lib/dispatchVerdict';
 
 export interface AskRequesterQuestionsModalProps {
   isOpen: boolean;
@@ -61,6 +65,8 @@ export interface AskRequesterQuestionsModalProps {
     channel: 'email' | 'sms' | 'both';
     relativeTime: string;
   } | null;
+  /** Server evaluateDispatch verdict. The live modal also fetches dispatch-check. */
+  dispatchVerdict?: DispatchVerdictView | null;
 }
 
 interface QuestionItem {
@@ -154,7 +160,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   onSendQuestions,
   intent: intentProp,
   isOutboundEnabled = false,
-  recentOutreach = null
+  recentOutreach = null,
+  dispatchVerdict = null
 }) => {
   const intent: 'ask_missing' | 'delivery_complete' =
     intentProp ||
@@ -192,6 +199,39 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [duplicateConfirmed, setDuplicateConfirmed] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [ensuredDriveUrl, setEnsuredDriveUrl] = useState<string>('');
+  const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
+  const activeDispatchVerdict = dispatchVerdict || fetchedDispatchVerdict;
+  const assuranceLabel = dispatchAssuranceLabel(activeDispatchVerdict?.recipientStatus);
+  const recipientConfirmed = dispatchRecipientConfirmed(activeDispatchVerdict?.recipientStatus);
+
+  useEffect(() => {
+    if (dispatchVerdict || !isOpen || !campaign) return;
+    const taskId = campaign.taskId || campaign.id;
+    if (!taskId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/requests/${encodeURIComponent(taskId)}/dispatch-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientEmail: campaign.agentEmail || campaign.email,
+            recipientName: campaign.agentName,
+            channels: ['email'],
+            intent,
+            proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl,
+            driveFolderUrl: campaign.driveFolderUrl,
+            domain,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && data?.recipientStatus) setFetchedDispatchVerdict(data);
+      } catch {
+        if (!cancelled) setFetchedDispatchVerdict(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [dispatchVerdict, isOpen, campaign, intent, domain]);
 
   useEffect(() => {
     if (recipient.emailVerified && recipient.phoneVerified) {
@@ -394,7 +434,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     }
   };
 
-  const isEmailAvailable = recipient.emailVerified;
+  const isEmailAvailable = recipientConfirmed;
   const isTextAvailable = recipient.phoneVerified;
   const channelReady =
     selectedChannel === 'email'
@@ -442,7 +482,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     ? `Notify agent — assets ready · ${recipient.name}`
                     : `Send Questions to Requester · Ask ${recipient.name}`}
                 </h3>
-                {contactAssuranceLabel(recipient) === 'Verified Contact' && (
+                {assuranceLabel === 'Verified Contact' && (
                   <span
                     data-testid="verified-contact-badge"
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30"
@@ -451,7 +491,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     Verified Contact
                   </span>
                 )}
-                {contactAssuranceLabel(recipient) === 'Allowlisted (prove)' && (
+                {assuranceLabel === 'Allowlisted (prove)' && (
                   <span
                     data-testid="allowlisted-prove-badge"
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-medium border border-white/30"
@@ -761,6 +801,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate || !channelReady}
             onClick={handleAction}
             data-testid="ask-agent-submit-btn"
+            data-send-ready={recipientConfirmed ? 'true' : 'false'}
+            data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
             className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
