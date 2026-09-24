@@ -2,13 +2,15 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Surface Tasks table lock v2 (supersedes v1)
+ * Surface Tasks table lock v2 + v3 (supersedes v1)
  * Asserts MarketingHomeInbox /app/tasks table (all-tasks-table-view):
  * - Kill: status group bands, multi-status chrome, category domain pills, task-cell dump
  * - Parent by requestId: address + N subtasks + expand; children title-only
  * - Cols L→R: Task · Status · Owner · Due · Blocker · Where · Lane · Activity
  * - Toolbar one row: Mine · Open · Blocked · Address · Board|Table
  * - One filtered-set count everywhere
+ * v3: # on parent only · type chips on child · Activity relative+tooltip ·
+ *     Received column · requester muted under Task (group-by-Lane #2.1 preserved)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -27,6 +29,15 @@ import {
   SURFACE_TABLE_GROUP_BY_LANE_LABEL,
 } from '../components/marketing/MarketingHomeInbox';
 import type { CanonicalMarketingTask } from '../types/marketing';
+import {
+  assignSurfaceTableParentRowNumbers,
+  formatSurfaceTableActivityRelative,
+  formatSurfaceTableActivityTooltip,
+  formatSurfaceTableReceived,
+  resolveSurfaceTableRequesterName,
+  resolveSurfaceTableTypeChip,
+  surfaceTableParentNumberKey,
+} from '../lib/surfaceTasksTableLock';
 
 const root = join(__dirname, '..');
 const inboxSrc = readFileSync(join(root, 'components/marketing/MarketingHomeInbox.tsx'), 'utf8');
@@ -307,5 +318,110 @@ describe('Surface Tasks table lock #2.1 — optional group-by-Lane', () => {
     expect(inboxSrc).toContain('list-lane-section-');
     // Default remains address (parent-by-address)
     expect(inboxSrc).toMatch(/useState<SurfaceTableGroupMode>\(['"]address['"]\)/);
+  });
+});
+
+describe('Surface Tasks table lock v3 — parent #, type chips, Activity, Received, requester', () => {
+  const tableSrc = tableViewSlice(inboxSrc);
+  const helperSrc = readFileSync(
+    join(root, 'lib/surfaceTasksTableLock.ts'),
+    'utf8'
+  );
+
+  it('# on parent only — row number on address/standalone parents, never on child subtasks', () => {
+    expect(helperSrc).toContain('assignSurfaceTableParentRowNumbers');
+    expect(inboxSrc).toContain('assignSurfaceTableParentRowNumbers');
+    expect(tableSrc).toContain('data-testid="tasks-col-num"');
+    expect(tableSrc).toContain('data-testid="tasks-parent-row-num"');
+
+    const siblings = [
+      task({ id: 'a', requestId: 'req_1', title: 'Flyer', category: 'direct_mail' }),
+      task({ id: 'b', requestId: 'req_1', title: 'Social', category: 'social' }),
+      task({ id: 'solo', title: 'Solo task', category: 'print' }),
+    ];
+    const items = buildSurfaceTableListItems(siblings, { req_1: true }, 'address');
+    const nums = assignSurfaceTableParentRowNumbers(items);
+    // Parent request + standalone get numbers; children do not
+    expect(nums.get('request:req_1')).toBe(1);
+    expect(nums.get('task:solo')).toBe(2);
+    expect(nums.has('task:a')).toBe(false);
+    expect(nums.has('task:b')).toBe(false);
+    for (const item of items) {
+      if (item.kind === 'task' && item.indent > 0) {
+        expect(surfaceTableParentNumberKey(item)).toBeNull();
+      }
+    }
+    // Child rows must not render parent-num testid in the subtask path
+    expect(tableSrc).toMatch(/isSubtask[\s\S]{0,80}\?[\s\S]{0,40}null/);
+  });
+
+  it('Type chips on child — task-type chip on child rows, not bloating parent accordion', () => {
+    expect(inboxSrc).toContain('resolveSurfaceTableTypeChip');
+    expect(tableSrc).toContain('data-testid="task-type-chip"');
+    // Chip gated to children
+    expect(tableSrc).toMatch(/isSubtask[\s\S]{0,500}task-type-chip|task-type-chip[\s\S]{0,500}isSubtask/);
+    expect(resolveSurfaceTableTypeChip('social')?.label).toBe('Social');
+    expect(resolveSurfaceTableTypeChip('direct_mail')?.label).toBe('Direct Mailer');
+    expect(resolveSurfaceTableTypeChip(null)).toBeNull();
+    // Parent accordion block must not dump type chips
+    const reqIdx = tableSrc.indexOf('list-request-accordion-');
+    expect(reqIdx).toBeGreaterThan(-1);
+    const reqChunk = tableSrc.slice(reqIdx, reqIdx + 900);
+    expect(reqChunk).not.toContain('task-type-chip');
+  });
+
+  it('Activity relative + tooltip — relative display; full timestamp on hover', () => {
+    expect(inboxSrc).toContain('formatSurfaceTableActivityRelative');
+    expect(inboxSrc).toContain('formatSurfaceTableActivityTooltip');
+    expect(tableSrc).toContain('task-activity-cell');
+    expect(tableSrc).toMatch(
+      /formatSurfaceTableActivityTooltip|timestampTooltip/
+    );
+    const now = Date.parse('2026-09-24T14:00:00Z');
+    expect(
+      formatSurfaceTableActivityRelative('2026-09-24T13:46:00Z', now)
+    ).toBe('14m ago');
+    const tip = formatSurfaceTableActivityTooltip('2026-09-24T13:46:00Z');
+    expect(tip.length).toBeGreaterThan(8);
+    expect(tip).toMatch(/2026|Sep|AM|PM/i);
+  });
+
+  it('Received column present', () => {
+    expect(tableSrc).toContain('data-testid="tasks-col-received"');
+    expect(tableSrc).toContain('data-testid="task-received-cell"');
+    expect(inboxSrc).toContain('formatSurfaceTableReceived');
+    // Received sits after Lane, before Activity (L→R)
+    const lane = tableSrc.indexOf('data-testid="tasks-col-lane"');
+    const received = tableSrc.indexOf('data-testid="tasks-col-received"');
+    const activity = tableSrc.indexOf('data-testid="tasks-col-activity"');
+    expect(received).toBeGreaterThan(lane);
+    expect(activity).toBeGreaterThan(received);
+    expect(formatSurfaceTableReceived('2026-09-23T12:00:00Z')).not.toBe('—');
+    expect(formatSurfaceTableReceived(undefined)).toBe('—');
+  });
+
+  it('Requester muted under Task — secondary line under title', () => {
+    expect(inboxSrc).toContain('resolveSurfaceTableRequesterName');
+    expect(tableSrc).toContain('data-testid="task-requester-muted"');
+    expect(resolveSurfaceTableRequesterName({ agentName: 'Ryan Crecelius' })).toBe(
+      'Ryan Crecelius'
+    );
+    expect(resolveSurfaceTableRequesterName({ agentName: 'Agent' })).toBeNull();
+    // Must sit under Task title (not parent-only dump)
+    expect(tableSrc).toMatch(/task\.title[\s\S]{0,800}task-requester-muted|resolveSurfaceTableRequesterName[\s\S]{0,400}task-requester-muted/);
+  });
+
+  it('does not regress group-by-Lane default parent-by-address (#2.1)', () => {
+    expect(inboxSrc).toMatch(/useState<SurfaceTableGroupMode>\(['"]address['"]\)/);
+    expect(inboxSrc).toContain('buildSurfaceTableListItems');
+    const siblings = [
+      task({ id: 'a', requestId: 'req_1', title: 'Flyer', category: 'direct_mail' }),
+      task({ id: 'b', requestId: 'req_1', title: 'Social', category: 'social' }),
+    ];
+    expect(
+      buildSurfaceTableListItems(siblings, { req_1: false }, 'address').every(
+        (i) => i.kind !== 'lane'
+      )
+    ).toBe(true);
   });
 });

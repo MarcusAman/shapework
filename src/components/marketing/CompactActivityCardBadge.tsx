@@ -26,6 +26,8 @@ export interface CompactActivityCardBadgeProps {
   compactActivity?: CompactActivityInfo | null;
   fallbackSummary?: string;
   fallbackTime?: string;
+  /** Full timestamp shown on hover (Surface table lock v3). */
+  timestampTooltip?: string;
   onClick?: (e: React.MouseEvent) => void;
   className?: string;
 }
@@ -35,6 +37,7 @@ export const CompactActivityCardBadge: React.FC<CompactActivityCardBadgeProps> =
   compactActivity: initialActivity,
   fallbackSummary,
   fallbackTime,
+  timestampTooltip,
   onClick,
   className = ''
 }) => {
@@ -110,7 +113,7 @@ export const CompactActivityCardBadge: React.FC<CompactActivityCardBadgeProps> =
     <div
       onClick={onClick}
       className={`group/badge flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-[#E5EFEA]/60 border border-slate-200/80 hover:border-[#00635C]/30 text-xs transition-colors cursor-pointer ${className}`}
-      title="Click to view Activity & Contact History"
+      title={timestampTooltip || 'Click to view Activity & Contact History'}
       data-testid="compact-activity-badge"
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-1">

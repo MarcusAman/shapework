@@ -91,6 +91,15 @@ import { TaskRequestDetailModal } from './TaskRequestDetailModal';
 import { WorkspaceTaskDrawer, type WorkspaceDrawerTask } from './WorkspaceTaskDrawer';
 import { resolveCanonicalStaffMember } from '../../services/canonicalRoster';
 import { CompactActivityCardBadge } from './CompactActivityCardBadge';
+import {
+  assignSurfaceTableParentRowNumbers,
+  formatSurfaceTableActivityRelative,
+  formatSurfaceTableActivityTooltip,
+  formatSurfaceTableReceived,
+  resolveSurfaceTableRequesterName,
+  resolveSurfaceTableTypeChip,
+  surfaceTableParentNumberKey,
+} from '../../lib/surfaceTasksTableLock';
 import { TaskQuickActionsModal } from './TaskQuickActionsModal';
 import { getTeamMemberSops, getCampaignGoverningSop, MarketingSopDefinition, MARKETING_SOPS } from './marketingSopRegistry';
 import { SOPQuickViewDrawer } from './SOPQuickViewDrawer';
@@ -1950,9 +1959,14 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     />
                   </th>
 
-                  {/* 2. Task */}
+                  {/* 2. # — parent row number only (table lock v3) */}
+                  <th className="py-3.5 px-2 w-10 text-center font-bold text-slate-700" data-testid="tasks-col-num">
+                    #
+                  </th>
+
+                  {/* 3. Task */}
                   <th 
-                    className="py-3.5 px-3 w-[28%] min-w-[220px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none text-left"
+                    className="py-3.5 px-3 w-[24%] min-w-[200px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none text-left"
                     onClick={() => {
                       if (sortField === 'title') {
                         setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -2015,8 +2029,28 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     Lane
                   </th>
 
-                  {/* 9. Activity */}
-                  <th className="py-3.5 px-3 w-[14%] min-w-[140px] font-bold text-slate-700 text-left" data-testid="tasks-col-activity">
+                  {/* 9. Received (table lock v3) */}
+                  <th
+                    className="py-3.5 px-3 w-[11%] min-w-[100px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none text-left"
+                    onClick={() => {
+                      if (sortField === 'receivedAt') {
+                        setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField('receivedAt');
+                        setSortOrder('desc');
+                      }
+                    }}
+                    title="Click to sort by Received"
+                    data-testid="tasks-col-received"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Received</span>
+                      <ArrowUpDown className={`w-3 h-3 ${sortField === 'receivedAt' ? 'text-[#00635C]' : 'text-slate-400'}`} />
+                    </div>
+                  </th>
+
+                  {/* 10. Activity */}
+                  <th className="py-3.5 px-3 w-[12%] min-w-[120px] font-bold text-slate-700 text-left" data-testid="tasks-col-activity">
                     Activity
                   </th>
                 </tr>
@@ -2024,7 +2058,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {filteredTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-16 text-center" data-testid="tasks-empty-quiet">
+                    <td colSpan={11} className="py-16 text-center" data-testid="tasks-empty-quiet">
                       <div className="flex flex-col items-center gap-3 max-w-sm mx-auto">
                         <NestOrbVisualizer size="sm" customSize={40} className="shadow-sm" />
                         <div className="space-y-1">
@@ -2037,7 +2071,10 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode).map((listItem) => {
+                  (() => {
+                  const surfaceTableItems = buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode);
+                  const parentRowNums = assignSurfaceTableParentRowNumbers(surfaceTableItems);
+                  return surfaceTableItems.map((listItem) => {
                     if (listItem.kind === 'lane') {
                       return (
                         <tr
@@ -2045,7 +2082,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                           data-testid={`list-lane-section-${listItem.lane.replace(/\s+/g, '-').toLowerCase()}`}
                           className="bg-slate-100/90 border-t border-slate-200"
                         >
-                          <td colSpan={9} className="py-2 px-3">
+                          <td colSpan={11} className="py-2 px-3">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
                                 {listItem.lane}
@@ -2099,7 +2136,10 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                               className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer"
                             />
                           </td>
-                          <td colSpan={8} className="py-0 px-0 bg-[#F3F8F5]">
+                          <td className="py-2.5 px-2 text-center align-middle bg-[#F3F8F5] text-[11px] font-mono font-bold text-slate-500 tabular-nums">
+                            <span data-testid="tasks-parent-row-num">{parentRowNums.get(`request:${listItem.requestId}`) ?? ''}</span>
+                          </td>
+                          <td colSpan={9} className="py-0 px-0 bg-[#F3F8F5]">
                             <div
                               data-testid={`list-request-accordion-${listItem.requestId}`}
                               role="button"
@@ -2142,6 +2182,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     const stage = getStageForTask(task);
                     const isSelected = selectedTaskIds.includes(task.id);
                     const neededInfo = formatNeededByDate(task.neededByDate, task.dueAt);
+                    const typeChip = isSubtask ? resolveSurfaceTableTypeChip(task.category) : null;
+                    const requesterMuted = resolveSurfaceTableRequesterName(task);
+                    const activityIso = task.updatedAt || task.createdAt;
 
                     const matchedCamp = campaigns.find((c: any) => c.id === task.requestId || c.propertyAddress?.includes(task.requestTitle)) || {
                       id: task.requestId || task.id,
@@ -2187,20 +2230,44 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                             />
                           </td>
 
-                          {/* Task — children: title only */}
+                          {/* # — parent only (v3); children render null */}
+                          <td className={`py-2 px-2 text-center align-top text-[11px] font-mono font-bold text-slate-500 tabular-nums ${isSubtask ? 'bg-[#F9FBFA]' : ''}`}>
+                            {isSubtask ? null : (
+                              <span data-testid="tasks-parent-row-num">
+                                {parentRowNums.get(surfaceTableParentNumberKey(listItem) || '') ?? ''}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Task — children: type chip + title; requester muted under title (v3) */}
                           <td className={`py-2 px-3 align-top ${isSubtask ? 'pl-4 sm:pl-6' : ''}`}>
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenTaskDetail(task);
                               }}
-                              className="font-bold text-slate-900 text-xs sm:text-[13px] hover:text-[#00635C] transition cursor-pointer flex items-center gap-1.5 group leading-snug"
+                              className="cursor-pointer group"
                             >
-                              {isSubtask && (
-                                <CornerDownRight className="w-3.5 h-3.5 text-[#00635C] shrink-0" />
+                              <div className="font-bold text-slate-900 text-xs sm:text-[13px] hover:text-[#00635C] transition flex items-center gap-1.5 leading-snug flex-wrap">
+                                {isSubtask && (
+                                  <CornerDownRight className="w-3.5 h-3.5 text-[#00635C] shrink-0" />
+                                )}
+                                {isSubtask && typeChip && (
+                                  <span
+                                    data-testid="task-type-chip"
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-black/5 shrink-0 ${typeChip.bg} ${typeChip.text}`}
+                                  >
+                                    {typeChip.label}
+                                  </span>
+                                )}
+                                <span className="line-clamp-2">{task.title}</span>
+                                <Eye className="w-3 h-3 text-slate-300 group-hover:text-[#00635C] opacity-0 group-hover:opacity-100 transition shrink-0" />
+                              </div>
+                              {requesterMuted && (
+                                <div data-testid="task-requester-muted" className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
+                                  {requesterMuted}
+                                </div>
                               )}
-                              <span className="line-clamp-2">{task.title}</span>
-                              <Eye className="w-3 h-3 text-slate-300 group-hover:text-[#00635C] opacity-0 group-hover:opacity-100 transition shrink-0" />
                             </div>
                           </td>
 
@@ -2281,12 +2348,18 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                             <span className="text-[11px] font-semibold text-slate-700">{getSurfaceDomainLane(task)}</span>
                           </td>
 
-                          {/* Activity */}
+                          {/* Received (v3) */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap text-[11px] text-slate-600" data-testid="task-received-cell">
+                            {formatSurfaceTableReceived(getTaskReceivedIso(task))}
+                          </td>
+
+                          {/* Activity — relative + full timestamp tooltip (v3) */}
                           <td className="py-2 px-3 align-top" data-testid="task-activity-cell" onClick={(e) => e.stopPropagation()}>
                             <CompactActivityCardBadge
                               taskId={task.id}
                               fallbackSummary={task.notes || task.title || 'Intake recorded'}
-                              fallbackTime={task.updatedAt || task.createdAt}
+                              fallbackTime={formatSurfaceTableActivityRelative(activityIso)}
+                              timestampTooltip={formatSurfaceTableActivityTooltip(activityIso)}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenTaskDetail(task, 'activity');
@@ -2296,12 +2369,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                         </tr>
                         {isSubtask && isLastSubtask && (
                           <tr key={`spacer-end-${task.id}`} className="h-2.5 bg-slate-50/70 border-b border-slate-200" aria-hidden="true">
-                            <td colSpan={9} className="py-0 px-0" />
+                            <td colSpan={11} className="py-0 px-0" />
                           </tr>
                         )}
                       </React.Fragment>
                     );
-                  })
+                  });
+                  })()
                 )}
               </tbody>
             </table>
