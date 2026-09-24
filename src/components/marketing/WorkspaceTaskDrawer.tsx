@@ -1526,13 +1526,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
     if (onAskRequester) {
-      const primaryProofUrl = firstNonInlineProof(
-        manualProofUrl.trim(),
-        stagedAssets[0]?.previewUrl,
-        activeTask.proofUrl,
-        activeTask.photos && activeTask.photos[0]?.url,
-        activeTask.attachments && activeTask.attachments[0]?.url
-      );
+      const primaryProofUrl = userPastedProofUrl(activeTask, manualProofUrl);
       const assetMeta = stagedAssets[0] ? {
         assetId: stagedAssets[0].id,
         deliverableName: stagedAssets[0].deliverableName,

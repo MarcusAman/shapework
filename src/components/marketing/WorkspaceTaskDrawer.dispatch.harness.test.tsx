@@ -92,7 +92,7 @@ describe('WorkspaceTaskDrawer dispatch-check', () => {
     container = null;
   });
 
-  async function renderDrawer(activeTask: ReturnType<typeof task>) {
+  async function renderDrawer(activeTask: ReturnType<typeof task>, extra: Record<string, unknown> = {}) {
     if (!container) {
       container = document.createElement('div');
       document.body.appendChild(container);
@@ -105,6 +105,7 @@ describe('WorkspaceTaskDrawer dispatch-check', () => {
           onClose: () => {},
           activeTask,
           currentUser: melissa,
+          ...extra,
         })
       );
     });
@@ -168,6 +169,51 @@ describe('WorkspaceTaskDrawer dispatch-check', () => {
     for (const call of outbound) {
       expect(String(call.proofUrl || ''), call.url).not.toContain('/uploads/');
       expect(String(call.proofUrl || '')).not.toBe(UPLOAD);
+    }
+  });
+
+  it('passes no photo or attachment proof to the notify modal when nothing was pasted', async () => {
+    const photo = 'https://cdn.example/listing-photo.jpg';
+    const attachment = '/uploads/1789593612358_brochure.pdf';
+    const calls: Array<{ url: string; proofUrl?: string }> = [];
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body || '{}'));
+      calls.push({ url, proofUrl: body.proofUrl });
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as typeof fetch;
+
+    let received: { intent?: string; approvePayload?: { proofUrl?: string } } | null = null;
+    await renderDrawer(task({
+      agentEmail: 'marcus.aman@gmail.com',
+      proofUrl: '',
+      photos: [{ id: 'photo_1', url: photo, name: 'front.jpg' }],
+      attachments: [{ url: attachment, name: 'brochure.pdf' }],
+    }), {
+      dispatchVerdict: {
+        allowed: true,
+        reason: '',
+        recipientStatus: 'allowlisted_prove',
+        recipientId: null,
+        effectiveTo: ['marcus.aman@gmail.com'],
+        effectiveCc: [],
+      },
+      onAskRequester: (_task: unknown, opts?: { intent?: string; approvePayload?: { proofUrl?: string } }) => {
+        received = opts || null;
+      },
+    });
+
+    const button = document.querySelector('[data-action="Approve & send to agent"]') as HTMLButtonElement | null;
+    expect(button, 'Approve & Notify is available without a pasted link').toBeTruthy();
+    await act(async () => {
+      button?.click();
+    });
+
+    expect(received?.intent).toBe('delivery_complete');
+    expect(received?.approvePayload?.proofUrl).toBeFalsy();
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(call.proofUrl, call.url).toBeFalsy();
     }
   });
 });
