@@ -106,6 +106,7 @@ import {
 import {
   SURFACE_DRAWER_CONFIRM_ROUTING_LABEL,
   SURFACE_DRAWER_NEEDS_TRIAGE_CHIP,
+  resolveSurfaceAppleFold,
   resolveSurfaceDrawerGates,
   resolveSurfaceDrawerH1,
   resolveSurfaceDrawerLaneChip,
@@ -978,17 +979,6 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     () => resolveSurfaceDrawerNext(activeTask, surfaceShell),
     [activeTask, surfaceShell]
   );
-  const surfaceGates = useMemo(
-    () =>
-      resolveSurfaceDrawerGates({
-        shell: surfaceShell,
-        pagerIndex: taskIndex,
-        pagerTotal: tasksList.length,
-        task: activeTask,
-        nextVerb: surfaceNext.verb,
-      }),
-    [surfaceShell, taskIndex, tasksList.length, activeTask, surfaceNext.verb]
-  );
   const surfaceH1 = useMemo(
     () => resolveSurfaceDrawerH1(activeTask, surfaceShell),
     [activeTask, surfaceShell]
@@ -1002,9 +992,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     () => resolveSurfaceDrawerTriageBody(activeTask),
     [activeTask]
   );
-  const dealRiskAlert = useMemo(
-    () => (surfaceGates.showDealRiskShell ? getDealTriageFromTask(activeTask) : null),
-    [surfaceGates.showDealRiskShell, activeTask]
+  const surfaceAppleFold = useMemo(
+    () => resolveSurfaceAppleFold(activeTask, surfaceShell),
+    [activeTask, surfaceShell]
   );
 
   // Check if proof exists
@@ -1022,6 +1012,23 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     Boolean(activeTask.proofUrl && activeTask.proofUrl.trim().length > 0) ||
     Boolean((activeTask as any).proofAsset) ||
     Boolean((activeTask as any).stagedAssets && (activeTask as any).stagedAssets.length > 0);
+
+  const surfaceGates = useMemo(
+    () =>
+      resolveSurfaceDrawerGates({
+        shell: surfaceShell,
+        pagerIndex: taskIndex,
+        pagerTotal: tasksList.length,
+        task: activeTask,
+        nextVerb: surfaceNext.verb,
+        hasProof: hasAnyProof,
+      }),
+    [surfaceShell, taskIndex, tasksList.length, activeTask, surfaceNext.verb, hasAnyProof]
+  );
+  const dealRiskAlert = useMemo(
+    () => (surfaceGates.showDealRiskShell ? getDealTriageFromTask(activeTask) : null),
+    [surfaceGates.showDealRiskShell, activeTask]
+  );
 
   // Checklist verification validation
   const hasUnreviewedRequirements = requirements.some(r => r.status === 'not_reviewed');
@@ -1968,9 +1975,11 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     </div>
                   </div>
                 )}
-                <p className="text-[11px] text-slate-500 mt-1 font-medium" data-testid="surface-drawer-next">
-                  {surfaceNext.sentence}
-                </p>
+                {!surfaceGates.showAppleFold && (
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium" data-testid="surface-drawer-next">
+                    {surfaceNext.sentence}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -2767,9 +2776,57 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   </div>
                 )}
 
-                {/* CARD 2: Operational brief + creative copy (Maxa at bottom) — B1 only */}
-                {surfaceGates.showBriefAndCopy && (
-                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3.5" data-testid="brief-and-copy-card">
+                {/* Lock #2.1 B1 Apple fold — Request · Next · Done when · Blocker */}
+                {surfaceGates.showAppleFold && (
+                  <div
+                    className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2.5"
+                    data-testid="surface-apple-fold"
+                  >
+                    <p
+                      className="text-sm text-slate-900 font-semibold leading-snug m-0"
+                      data-testid="surface-apple-request"
+                    >
+                      {surfaceAppleFold.request}
+                    </p>
+                    <p
+                      className="text-[12px] text-slate-700 font-medium m-0"
+                      data-testid="surface-drawer-next"
+                    >
+                      Next: {surfaceAppleFold.next}
+                    </p>
+                    <p
+                      className="text-[11px] text-slate-400 font-medium m-0"
+                      data-testid="surface-apple-done-when"
+                    >
+                      {surfaceAppleFold.doneWhen}
+                    </p>
+                    {surfaceAppleFold.blocker && (
+                      <div
+                        className="space-y-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2"
+                        data-testid="surface-apple-blocker"
+                      >
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                          Blocker
+                        </span>
+                        <p className="text-sm text-rose-950 leading-relaxed font-medium m-0">
+                          {surfaceAppleFold.blocker}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* CARD 2: Operational brief + creative copy — B1; Lock #2.1 collapse behind Details ▸ */}
+                {surfaceGates.showBriefAndCopy && surfaceGates.collapseBriefBehindDetails && (
+                  <details
+                    className="bg-white border border-slate-200 rounded-2xl shadow-xs group"
+                    data-testid="surface-details-disclosure"
+                  >
+                    <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-3 text-sm font-bold text-slate-800 select-none">
+                      <span className="text-slate-400 group-open:rotate-90 transition-transform inline-block">▸</span>
+                      Details
+                    </summary>
+                    <div className="px-4 pb-4 space-y-3.5 border-t border-slate-100" data-testid="brief-and-copy-card">
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                     <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#00635C] flex items-center justify-center font-bold shrink-0">
                       <FileText className="w-4 h-4" />
@@ -2936,6 +2993,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     </button>
                   </div>
                 </div>
+                  </details>
                 )}
 
                 </div>

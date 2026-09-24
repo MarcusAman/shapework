@@ -503,6 +503,55 @@ export function buildLaneListItems(
   return items;
 }
 
+/** Lock #2.1 — optional table group mode (default parent-by-address). */
+export type SurfaceTableGroupMode = 'address' | 'lane';
+export const SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL = 'Group by address';
+export const SURFACE_TABLE_GROUP_BY_LANE_LABEL = 'Group by Lane';
+/** Lane section order — domain helpers, NOT pipeline stages. */
+export const SURFACE_DOMAIN_LANE_ORDER: Exclude<SurfaceDomainLane, '—'>[] = [
+  'Marketing',
+  'Listing',
+  'Offer',
+  'Deal risk',
+];
+
+export type SurfaceTableListItem =
+  | { kind: 'lane'; lane: Exclude<SurfaceDomainLane, '—'>; count: number }
+  | LaneListItem;
+
+/**
+ * Table list builder for Surface lock #2.1.
+ * Default `address`: parent-by-address (buildLaneListItems).
+ * `lane`: section headers Marketing / Listing / Offer / Deal risk; inside each, still parent-by-address.
+ */
+export function buildSurfaceTableListItems(
+  tasks: CanonicalMarketingTask[],
+  expandedRequestIds: Record<string, boolean> = {},
+  groupMode: SurfaceTableGroupMode = 'address'
+): SurfaceTableListItem[] {
+  if (groupMode !== 'lane') {
+    return buildLaneListItems(tasks, expandedRequestIds);
+  }
+  const buckets = new Map<Exclude<SurfaceDomainLane, '—'>, CanonicalMarketingTask[]>();
+  for (const lane of SURFACE_DOMAIN_LANE_ORDER) buckets.set(lane, []);
+  for (const t of tasks) {
+    const lane = getSurfaceDomainLane(t);
+    const key: Exclude<SurfaceDomainLane, '—'> =
+      lane === '—' ? 'Marketing' : lane;
+    const arr = buckets.get(key) || [];
+    arr.push(t);
+    buckets.set(key, arr);
+  }
+  const items: SurfaceTableListItem[] = [];
+  for (const lane of SURFACE_DOMAIN_LANE_ORDER) {
+    const laneTasks = buckets.get(lane) || [];
+    if (laneTasks.length === 0) continue;
+    items.push({ kind: 'lane', lane, count: laneTasks.length });
+    items.push(...buildLaneListItems(laneTasks, expandedRequestIds));
+  }
+  return items;
+}
+
 export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   campaigns = [],
   activeJob,
@@ -606,6 +655,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   const [selectedTimeframe, setSelectedTimeframe] = useState<'all' | '30d' | 'quarter' | 'future_2027'>('all');
   /** Parent intake request accordion: requestId → expanded (default collapsed when 2+ subtasks) */
   const [expandedRequestIds, setExpandedRequestIds] = useState<Record<string, boolean>>({});
+  const [tableGroupMode, setTableGroupMode] = useState<SurfaceTableGroupMode>('address');
   const [showArchived, setShowArchived] = useState<boolean>(false);
   const [sortField, setSortField] = useState<'dueAt' | 'createdAt' | 'title' | 'receivedAt'>('dueAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -1814,6 +1864,41 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             </div>
           </div>
 
+          {/* Lock #2.1 — Group by Lane | Group by address (Table only) */}
+          {viewMode === 'table' && (
+            <div
+              className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/70 shrink-0"
+              data-testid="tasks-group-by-toggle"
+            >
+              <button
+                type="button"
+                data-testid="tasks-group-by-address"
+                aria-pressed={tableGroupMode === 'address'}
+                onClick={() => setTableGroupMode('address')}
+                className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                  tableGroupMode === 'address'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL}
+              </button>
+              <button
+                type="button"
+                data-testid="tasks-group-by-lane"
+                aria-pressed={tableGroupMode === 'lane'}
+                onClick={() => setTableGroupMode('lane')}
+                className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                  tableGroupMode === 'lane'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {SURFACE_TABLE_GROUP_BY_LANE_LABEL}
+              </button>
+            </div>
+          )}
+
           {/* View Switcher Aligned Right */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/70 shrink-0 ml-auto" data-testid="all-tasks-view-switcher">
             <button
@@ -1952,7 +2037,27 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  buildLaneListItems(filteredTasks, expandedRequestIds).map((listItem) => {
+                  buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode).map((listItem) => {
+                    if (listItem.kind === 'lane') {
+                      return (
+                        <tr
+                          key={`lane-section-${listItem.lane}`}
+                          data-testid={`list-lane-section-${listItem.lane.replace(/\s+/g, '-').toLowerCase()}`}
+                          className="bg-slate-100/90 border-t border-slate-200"
+                        >
+                          <td colSpan={9} className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                                {listItem.lane}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                                {listItem.count}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
                     if (listItem.kind === 'request') {
                       const reqTasks = listItem.tasks;
                       const parentReq = requests.find(r => r.id === listItem.requestId);

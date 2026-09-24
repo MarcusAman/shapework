@@ -213,11 +213,16 @@ export type SurfaceDrawerGates = {
   showHeadlineRemarksCopy: boolean;
   showDealRiskShell: boolean;
   hideCapsPlaybookDump: boolean;
+  /** Lock #2.1 B1 Apple cut — Request / Next / Done when / Blocker above fold */
+  showAppleFold: boolean;
+  /** Lock #2.1 — Brief & copy / Headline / Remarks / NCREC behind Details ▸ */
+  collapseBriefBehindDetails: boolean;
 };
 
 /**
  * Visibility gates for one drawer / two modes.
  * pagerIndex is 0-based; pager shows only when 0 ≤ index < total and total > 1.
+ * Lock #2.1: B1 Apple cut — Approve gated on proof; brief collapsed behind Details.
  */
 export function resolveSurfaceDrawerGates(opts: {
   shell: SurfaceDrawerShell;
@@ -225,9 +230,12 @@ export function resolveSurfaceDrawerGates(opts: {
   pagerTotal: number;
   task?: SurfaceDrawerTaskLike;
   nextVerb?: string;
+  /** Lock #2.1 — hide Approve & Notify until proof exists (no disabled hero). */
+  hasProof?: boolean;
 }): SurfaceDrawerGates {
-  const { shell, pagerIndex, pagerTotal, task, nextVerb } = opts;
+  const { shell, pagerIndex, pagerTotal, task, nextVerb, hasProof } = opts;
   const chase = isChasePhotosNext(task || {}, nextVerb);
+  const proof = Boolean(hasProof);
   const pagerOk =
     pagerTotal > 1 && Number.isFinite(pagerIndex) && pagerIndex >= 0 && pagerIndex < pagerTotal;
 
@@ -243,6 +251,8 @@ export function resolveSurfaceDrawerGates(opts: {
       showHeadlineRemarksCopy: false,
       showDealRiskShell: false,
       hideCapsPlaybookDump: true,
+      showAppleFold: false,
+      collapseBriefBehindDetails: false,
     };
   }
 
@@ -258,22 +268,79 @@ export function resolveSurfaceDrawerGates(opts: {
       showHeadlineRemarksCopy: false,
       showDealRiskShell: true,
       hideCapsPlaybookDump: true,
+      showAppleFold: false,
+      collapseBriefBehindDetails: false,
     };
   }
 
-  // B1 Marketing / Listing / Offer
+  // B1 Marketing / Listing / Offer — Apple cut (#2.1)
   return {
     showPager: pagerOk,
     showUpload: !chase,
     showMaps: true,
     showWorkstationTabs: true,
-    // Never Upload + Approve/Send competing when next is chase photos
-    showApproveNotify: !chase,
-    showEmailFooter: !chase,
+    // Never Upload + Approve competing when chase photos; hide Approve until proof
+    showApproveNotify: !chase && proof,
+    showEmailFooter: !chase && proof,
     showBriefAndCopy: true,
     showHeadlineRemarksCopy: true,
     showDealRiskShell: false,
     hideCapsPlaybookDump: true,
+    showAppleFold: true,
+    collapseBriefBehindDetails: true,
+  };
+}
+
+
+/** Lock #2.1 B1 Apple fold — above-fold contract. */
+export type SurfaceAppleFold = {
+  request: string;
+  next: string;
+  doneWhen: string;
+  blocker: string | null;
+};
+
+export function resolveSurfaceAppleFoldRequest(task: SurfaceDrawerTaskLike): string {
+  const deliverable = resolveSurfaceDrawerDeliverableTitle(task);
+  const addr = String(task.propertyAddress || '').trim();
+  if (addr && !isPlaceholderDrawerAddress(addr)) {
+    return `Request ${deliverable} for ${addr}.`;
+  }
+  return `Request ${deliverable}.`;
+}
+
+export function resolveSurfaceAppleFoldDoneWhen(task: SurfaceDrawerTaskLike): string {
+  const due = String(task.dueAt || task.neededByDate || task.targetSla || '').trim();
+  if (due && !/^deadline not specified$/i.test(due) && !/^not provided$/i.test(due)) {
+    return `Done when proof approved · needed by ${due}`;
+  }
+  return 'Done when finished proof is approved and delivered';
+}
+
+export function resolveSurfaceAppleFoldBlocker(task: SurfaceDrawerTaskLike): string | null {
+  if (isChasePhotosNext(task)) return 'Waiting on photos';
+  const facts = Array.isArray(task.missingFacts) ? task.missingFacts : [];
+  for (const raw of facts) {
+    const f = String(raw || '').trim();
+    if (!f) continue;
+    if (/photo/i.test(f)) return 'Waiting on photos';
+    if (/mls/i.test(f)) return 'MLS number needed';
+    if (/address/i.test(f)) return 'Address needed';
+    return f.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  return null;
+}
+
+export function resolveSurfaceAppleFold(
+  task: SurfaceDrawerTaskLike,
+  shell: SurfaceDrawerShell = resolveSurfaceDrawerShell(task)
+): SurfaceAppleFold {
+  const next = resolveSurfaceDrawerNext(task, shell);
+  return {
+    request: resolveSurfaceAppleFoldRequest(task),
+    next: next.sentence,
+    doneWhen: resolveSurfaceAppleFoldDoneWhen(task),
+    blocker: resolveSurfaceAppleFoldBlocker(task),
   };
 }
 

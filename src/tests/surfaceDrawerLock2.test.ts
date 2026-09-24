@@ -15,6 +15,10 @@ import {
   isChasePhotosNext,
   isPlaceholderDrawerAddress,
   isSurfaceDrawerTriageTask,
+  resolveSurfaceAppleFold,
+  resolveSurfaceAppleFoldBlocker,
+  resolveSurfaceAppleFoldDoneWhen,
+  resolveSurfaceAppleFoldRequest,
   resolveSurfaceDrawerDeliverableTitle,
   resolveSurfaceDrawerGates,
   resolveSurfaceDrawerH1,
@@ -275,5 +279,110 @@ describe('Surface drawer lock #2 — WorkspaceTaskDrawer source wiring', () => {
     expect(helperSrc).toContain('B1_creative');
     expect(helperSrc).toContain('B2_deal_risk');
     expect(helperSrc).toContain('B3_ops');
+  });
+});
+
+describe('Surface drawer lock #2.1 — B1 Apple cut helpers', () => {
+  const b1 = task({
+    propertyAddress: '742 Lumina Ave, Wrightsville Beach, NC',
+    packageType: 'Luxury Collateral',
+    status: 'in_progress',
+    category: 'marketing_collateral',
+    dueAt: '2026-09-26T17:00:00Z',
+  });
+
+  it('Apple fold: Request (1 sentence) · Next · Done when (muted) · Blocker rose if any', () => {
+    const fold = resolveSurfaceAppleFold(b1, 'B1_creative');
+    expect(fold.request).toMatch(/^Request /);
+    expect(fold.request).toContain('Luxury Collateral');
+    expect(fold.request).toContain('742 Lumina Ave');
+    expect(fold.next).toBeTruthy();
+    expect(fold.doneWhen.toLowerCase()).toContain('done when');
+    expect(fold.blocker).toBeNull();
+
+    const blocked = resolveSurfaceAppleFold(
+      task({
+        ...b1,
+        title: 'Chase photos from agent',
+        missingFacts: ['photos_needed'],
+      }),
+      'B1_creative'
+    );
+    expect(blocked.blocker).toMatch(/photos/i);
+    expect(resolveSurfaceAppleFoldBlocker(task({ missingFacts: ['mls_number'] }))).toMatch(/MLS/i);
+    expect(resolveSurfaceAppleFoldDoneWhen(b1).toLowerCase()).toContain('done when');
+    expect(resolveSurfaceAppleFoldRequest(b1)).toMatch(/Request /);
+  });
+
+  it('B1 gates: Apple fold on; brief collapsed behind Details; Approve only when proof exists', () => {
+    const noProof = resolveSurfaceDrawerGates({
+      shell: 'B1_creative',
+      pagerIndex: 0,
+      pagerTotal: 2,
+      task: b1,
+      hasProof: false,
+    });
+    expect(noProof.showAppleFold).toBe(true);
+    expect(noProof.collapseBriefBehindDetails).toBe(true);
+    expect(noProof.showBriefAndCopy).toBe(true);
+    expect(noProof.showApproveNotify).toBe(false);
+    expect(noProof.showEmailFooter).toBe(false);
+    expect(noProof.showUpload).toBe(true);
+
+    const withProof = resolveSurfaceDrawerGates({
+      shell: 'B1_creative',
+      pagerIndex: 0,
+      pagerTotal: 2,
+      task: b1,
+      hasProof: true,
+    });
+    expect(withProof.showApproveNotify).toBe(true);
+    expect(withProof.showEmailFooter).toBe(true);
+    expect(withProof.showAppleFold).toBe(true);
+    expect(withProof.collapseBriefBehindDetails).toBe(true);
+  });
+
+  it('B1 chase photos still hides Upload + Approve even with proof flag', () => {
+    const t = task({
+      propertyAddress: '100 Main St',
+      title: 'Chase photos from agent',
+      missingFacts: ['photos_needed'],
+      status: 'in_progress',
+      category: 'marketing',
+    });
+    const g = resolveSurfaceDrawerGates({
+      shell: 'B1_creative',
+      pagerIndex: 0,
+      pagerTotal: 2,
+      task: t,
+      nextVerb: 'Chase photos',
+      hasProof: true,
+    });
+    expect(g.showUpload).toBe(false);
+    expect(g.showApproveNotify).toBe(false);
+    expect(g.showAppleFold).toBe(true);
+  });
+
+  it('Mode A / B2 do not show Apple fold or Details collapse', () => {
+    const a = resolveSurfaceDrawerGates({ shell: 'A_triage', pagerIndex: 0, pagerTotal: 1 });
+    expect(a.showAppleFold).toBe(false);
+    expect(a.collapseBriefBehindDetails).toBe(false);
+    const b2 = resolveSurfaceDrawerGates({ shell: 'B2_deal_risk', pagerIndex: 0, pagerTotal: 2 });
+    expect(b2.showAppleFold).toBe(false);
+    expect(b2.collapseBriefBehindDetails).toBe(false);
+  });
+});
+
+describe('Surface drawer lock #2.1 — WorkspaceTaskDrawer Apple wiring', () => {
+  it('passes hasProof into gates; wires Apple fold + Details disclosure', () => {
+    expect(drawerSrc).toContain('hasProof:');
+    expect(drawerSrc).toContain('resolveSurfaceAppleFold');
+    expect(drawerSrc).toContain('surfaceGates.showAppleFold');
+    expect(drawerSrc).toContain('surfaceGates.collapseBriefBehindDetails');
+    expect(drawerSrc).toContain('data-testid="surface-apple-fold"');
+    expect(drawerSrc).toContain('data-testid="surface-apple-request"');
+    expect(drawerSrc).toContain('data-testid="surface-apple-done-when"');
+    expect(drawerSrc).toContain('data-testid="surface-apple-blocker"');
+    expect(drawerSrc).toContain('data-testid="surface-details-disclosure"');
   });
 });

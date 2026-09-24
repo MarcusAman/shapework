@@ -16,11 +16,15 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   buildLaneListItems,
+  buildSurfaceTableListItems,
   getSurfaceDomainLane,
   isListingLaunchBoardTask,
   isOffer2TBoardTask,
   isMarketingTask,
   isOperationalTask,
+  SURFACE_DOMAIN_LANE_ORDER,
+  SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL,
+  SURFACE_TABLE_GROUP_BY_LANE_LABEL,
 } from '../components/marketing/MarketingHomeInbox';
 import type { CanonicalMarketingTask } from '../types/marketing';
 
@@ -64,8 +68,10 @@ describe('Surface Tasks table lock v2 — MarketingHomeInbox', () => {
     expect(tableSrc).not.toMatch(/list-lane-header-/);
     expect(tableSrc).not.toMatch(/tableLaneGroups\.map/);
     expect(tableSrc).not.toMatch(/INTAKE RECEIVED|Request Received/i);
-    // Flat list over filteredTasks (not pipeline stage groups)
-    expect(inboxSrc).toMatch(/buildLaneListItems\(\s*filteredTasks\s*,\s*expandedRequestIds\s*\)/);
+    // Flat list over filteredTasks via Surface table builder (default address = parent-by-requestId)
+    expect(inboxSrc).toMatch(
+      /buildSurfaceTableListItems\(\s*filteredTasks\s*,\s*expandedRequestIds\s*,\s*tableGroupMode\s*\)/
+    );
 
     const siblings = [
       task({ id: 'a', requestId: 'req_1', title: 'Flyer' }),
@@ -216,5 +222,90 @@ describe('Surface Tasks table lock v2 — MarketingHomeInbox', () => {
     // Footer must not mix allTasksCombined / lane-group counts
     expect(tableSrc).not.toMatch(/Showing \{filteredTasks\.length\} of \{allTasksCombined\.length\}/);
     expect(tableSrc).not.toMatch(/tableLaneGroups\.length/);
+  });
+});
+
+describe('Surface Tasks table lock #2.1 — optional group-by-Lane', () => {
+  it('default group mode is parent-by-address (no lane section headers)', () => {
+    const siblings = [
+      task({ id: 'a', requestId: 'req_1', title: 'Flyer', category: 'direct_mail' }),
+      task({ id: 'b', requestId: 'req_1', title: 'Social', category: 'social' }),
+      task({
+        id: 'op1',
+        title: 'Sign Post Installation & Lockbox',
+        category: 'operations',
+      }),
+    ];
+    const addressMode = buildSurfaceTableListItems(siblings, { req_1: false }, 'address');
+    expect(addressMode.every((i) => i.kind !== 'lane')).toBe(true);
+    expect(addressMode.map((i) => i.kind)).toEqual(['request', 'task']);
+    // Same shape as buildLaneListItems default
+    expect(addressMode.map((i) => i.kind)).toEqual(
+      buildLaneListItems(siblings, { req_1: false }).map((i) => i.kind)
+    );
+  });
+
+  it('Group by Lane sections = Marketing / Listing / Offer / Deal risk (domain helpers)', () => {
+    expect(SURFACE_DOMAIN_LANE_ORDER).toEqual([
+      'Marketing',
+      'Listing',
+      'Offer',
+      'Deal risk',
+    ]);
+    expect(SURFACE_TABLE_GROUP_BY_LANE_LABEL).toBe('Group by Lane');
+    expect(SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL).toBe('Group by address');
+
+    const mix = [
+      task({ id: 'm1', requestId: 'req_m', title: 'Just Listed Postcard', category: 'direct_mail' }),
+      task({ id: 'm2', requestId: 'req_m', title: 'Social carousel', category: 'social' }),
+      task({
+        id: 'l1',
+        title: 'Listing Launch Package',
+        category: 'listing_launch',
+        governingSopId: 'sop_listing_launch',
+      } as any),
+      task({
+        id: 'o1',
+        title: 'Offer / 2-T Packet',
+        category: 'offer_2t',
+        governingSopId: 'sop_offer_2t',
+      } as any),
+      task({
+        id: 'op1',
+        title: 'Sign Post Installation & Lockbox',
+        category: 'operations',
+      }),
+    ];
+    const laneMode = buildSurfaceTableListItems(mix, { req_m: true }, 'lane');
+    const laneHeaders = laneMode.filter((i) => i.kind === 'lane') as Array<{
+      kind: 'lane';
+      lane: string;
+      count: number;
+    }>;
+    expect(laneHeaders.map((h) => h.lane)).toEqual(
+      expect.arrayContaining(['Marketing', 'Deal risk'])
+    );
+    // Inside Marketing lane: still parent-by-address + expandable children
+    const mIdx = laneMode.findIndex(
+      (i) => i.kind === 'lane' && (i as any).lane === 'Marketing'
+    );
+    expect(mIdx).toBeGreaterThanOrEqual(0);
+    expect(laneMode[mIdx + 1].kind).toBe('request');
+    expect(laneMode[mIdx + 2].kind).toBe('task');
+    expect(laneMode[mIdx + 3].kind).toBe('task');
+    // No pipeline stage band names
+    expect(laneHeaders.every((h) => !/intake|received|in progress/i.test(h.lane))).toBe(true);
+  });
+
+  it('MarketingHomeInbox wires Group by Lane | Group by address toggle', () => {
+    expect(inboxSrc).toContain('buildSurfaceTableListItems');
+    expect(inboxSrc).toContain('tableGroupMode');
+    expect(inboxSrc).toContain('SURFACE_TABLE_GROUP_BY_LANE_LABEL');
+    expect(inboxSrc).toContain('SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL');
+    expect(inboxSrc).toContain('data-testid="tasks-group-by-lane"');
+    expect(inboxSrc).toContain('data-testid="tasks-group-by-address"');
+    expect(inboxSrc).toContain('list-lane-section-');
+    // Default remains address (parent-by-address)
+    expect(inboxSrc).toMatch(/useState<SurfaceTableGroupMode>\(['"]address['"]\)/);
   });
 });
