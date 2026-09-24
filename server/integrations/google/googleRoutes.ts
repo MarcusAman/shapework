@@ -147,8 +147,30 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function isGoogleOAuthCallback(req: { path?: string; originalUrl?: string }): boolean {
+  const path = req.path || '';
+  const original = (req.originalUrl || '').split('?')[0];
+  return /(?:^|\/)callback\/?$/.test(path) || /(?:^|\/)callback\/?$/.test(original);
+}
+
 export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: string) => Promise<void>): Router {
   const router = Router();
+
+  // Session plus manage_integrations for every route on this router.
+  // The OAuth callback is the only exception; it keeps its state checks.
+  router.use((req, res, next) => {
+    if (isGoogleOAuthCallback(req)) return next();
+    const authed = req as AuthenticatedRequest;
+    requireAuth(authed, res, () => {
+      void resolveWorkspaceContext(authed, res, () => {
+        requireWorkspaceMembership(authed, res, () => {
+          requirePermission('manage_integrations')(authed, res, () => {
+            csrfProtection(req, res, next);
+          });
+        });
+      });
+    });
+  });
 
   /**
    * GET /api/integrations/google/connect (or /api/oauth/google/start)
