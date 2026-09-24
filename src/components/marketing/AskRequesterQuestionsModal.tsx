@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import {
   resolveCanonicalRecipient,
+  contactAssuranceLabel,
   VerifiedRecipient
 } from '../../services/canonicalRecipientService';
 
@@ -211,9 +212,15 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     setDuplicateConfirmed(false);
     setStatusMessage(null);
     setEnsuredDriveUrl('');
-    // Materials-ready: default email+text so SMS fires with the locked copy
-    setSelectedChannel(isDelivery ? 'both' : 'email');
-  }, [isOpen, campaign?.id, intent, isDelivery]);
+    // Materials-ready defaults to email+text only when both destinations are verified.
+    setSelectedChannel(
+      isDelivery && recipient.emailVerified && recipient.phoneVerified
+        ? 'both'
+        : recipient.phoneVerified && !recipient.emailVerified
+          ? 'text'
+          : 'email'
+    );
+  }, [isOpen, campaign?.id, intent, isDelivery, recipient.emailVerified, recipient.phoneVerified]);
 
   // Delivery: create/reuse real AskNora Drive folder so the assets strip is not empty
   useEffect(() => {
@@ -389,6 +396,12 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
   const isEmailAvailable = recipient.emailVerified;
   const isTextAvailable = recipient.phoneVerified;
+  const channelReady =
+    selectedChannel === 'email'
+      ? isEmailAvailable
+      : selectedChannel === 'text'
+        ? isTextAvailable
+        : isEmailAvailable && isTextAvailable;
   const isOutboundBlocked = !isOutboundEnabled;
   let actionButtonLabel = 'Save Outreach Draft';
   if (!isOutboundBlocked) {
@@ -429,10 +442,21 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     ? `Notify agent — assets ready · ${recipient.name}`
                     : `Send Questions to Requester · Ask ${recipient.name}`}
                 </h3>
-                {recipient.status === 'verified' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30">
+                {contactAssuranceLabel(recipient) === 'Verified Contact' && (
+                  <span
+                    data-testid="verified-contact-badge"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30"
+                  >
                     <ShieldCheck className="w-3 h-3" />
                     Verified Contact
+                  </span>
+                )}
+                {contactAssuranceLabel(recipient) === 'Allowlisted (prove)' && (
+                  <span
+                    data-testid="allowlisted-prove-badge"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-medium border border-white/30"
+                  >
+                    Allowlisted (prove)
                   </span>
                 )}
               </div>
@@ -734,7 +758,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
           <button
             type="button"
-            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate}
+            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate || !channelReady}
             onClick={handleAction}
             data-testid="ask-agent-submit-btn"
             className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -756,5 +780,6 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     </div>
   );
 
+  if (typeof document === 'undefined') return dialog;
   return createPortal(dialog, document.body);
 };

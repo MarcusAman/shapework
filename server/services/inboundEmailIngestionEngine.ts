@@ -847,12 +847,14 @@ export async function enqueueOutboundEmail(params: {
   subject: string;
   payload: any;
   executor?: any;
+  /** Allowlist hold enqueue has no directory person. Dispatch guard still runs. */
+  skipMemberPrefs?: boolean;
 }): Promise<{ enqueued: boolean; outboxId?: string }> {
-  const { workspaceId, messageType, idempotencyKey, recipient, subject, payload, executor } = params;
+  const { workspaceId, messageType, idempotencyKey, recipient, subject, payload, executor, skipMemberPrefs } = params;
 
 
   // Member notification prefs (default-off). Master OUTBOUND_MASTER_MODE still checked at send time.
-  try {
+  if (!skipMemberPrefs) try {
     const { canSendAgentOutbound } = await import('../persistence/notificationPreferencesRepository.js');
     // Resolve userId from recipient email when possible
     let userId: string | undefined;

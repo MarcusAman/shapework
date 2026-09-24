@@ -7,6 +7,8 @@
 
 import { Router, Request, Response } from 'express';
 import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
+import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
+import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
 import {
   resolveServerCanonicalRecipient,
@@ -51,6 +53,8 @@ async function persistApproveNotifyProof(
     workspaceId: string;
     propertyAddress: string;
     resolvedRecipient: { id?: string; email?: string | null; name?: string };
+    /** Exact prove To. Not a directory person. Empty Drive is not a failure. */
+    proveAllowlist?: boolean;
   }
 ): Promise<{ handled: boolean }> {
   const { requireAuth } = await import('../auth/auth.js');
@@ -100,10 +104,24 @@ async function persistApproveNotifyProof(
     return { handled: true };
   }
 
-  const proofCandidate = [args.proofUrl, args.driveFolderUrl, task.proofUrl]
+  const pastedProof = String(args.proofUrl || '').trim();
+  // Allowlist prove: a pasted https link is valid. An empty Drive folder (yellow) is not a failure.
+  // A non-https paste (data:, blob:) is still rejected. Nest directory sends still require https.
+  if (args.proveAllowlist) {
+    if (pastedProof && !isDurableHttpsProofUrl(pastedProof)) {
+      res.status(400).json({
+        success: false,
+        code: 'INVALID_PROTOCOL',
+        error: 'INVALID_PROTOCOL',
+        message: 'INVALID_PROTOCOL: Proof link must use secure https:// protocol.',
+      });
+      return { handled: true };
+    }
+  }
+  const proofCandidate = [pastedProof, args.driveFolderUrl, task.proofUrl]
     .map((u) => String(u || '').trim())
     .find((u) => isDurableHttpsProofUrl(u)) || '';
-  if (!proofCandidate) {
+  if (!args.proveAllowlist && !proofCandidate) {
     res.status(400).json({
       success: false,
       code: 'INVALID_PROTOCOL',
@@ -113,7 +131,7 @@ async function persistApproveNotifyProof(
     return { handled: true };
   }
 
-  task.proofUrl = proofCandidate;
+  if (proofCandidate) task.proofUrl = proofCandidate;
   if (!task.agentEmail && args.resolvedRecipient.email) {
     task.agentEmail = args.resolvedRecipient.email;
   }
@@ -133,15 +151,48 @@ async function persistApproveNotifyProof(
 
   let prefsHeld = false;
   let prefsReason = '';
-  try {
-    const userId = args.resolvedRecipient.id || `email:${String(args.resolvedRecipient.email || '').toLowerCase()}`;
-    const gate = await canSendAgentOutbound({ userId, messageType: 'materials_ready', channel: 'email' });
-    if (!gate.allowed) {
-      prefsHeld = true;
-      prefsReason = gate.reason || 'member_pref_disabled:materials_ready';
+  if (!args.proveAllowlist) {
+    try {
+      const userId = args.resolvedRecipient.id || `email:${String(args.resolvedRecipient.email || '').toLowerCase()}`;
+      const gate = await canSendAgentOutbound({ userId, messageType: 'materials_ready', channel: 'email' });
+      if (!gate.allowed) {
+        prefsHeld = true;
+        prefsReason = gate.reason || 'member_pref_disabled:materials_ready';
+      }
+    } catch {
+      prefsHeld = false;
     }
-  } catch {
-    prefsHeld = false;
+  }
+
+  let outboxId: string | undefined;
+  if (args.proveAllowlist && outboundHeld && args.resolvedRecipient.email && masterMode === 'hold') {
+    const queued = await enqueueOutboundEmail({
+      workspaceId: args.workspaceId,
+      messageType: 'materials_ready',
+      idempotencyKey: `allowlist_hold_${saved.id}_${proofCandidate || 'no-proof'}`,
+      recipient: args.resolvedRecipient.email,
+      subject: String((req.body as any)?.subject || `Your marketing materials are ready — ${args.propertyAddress}`),
+      payload: {
+        body: String((req.body as any)?.message || ''),
+        propertyAddress: args.propertyAddress,
+        requestId: args.campaignId,
+        campaignId: args.campaignId,
+        taskId: saved.id,
+        intent: 'delivery_complete',
+        hold: true,
+        proofUrl: proofCandidate || undefined,
+      },
+      skipMemberPrefs: true,
+    });
+    if (!queued.enqueued && (queued as { suppressed?: boolean }).suppressed) {
+      res.status(503).json({
+        success: false,
+        error: 'Outbound hold did not accept this allowlist recipient.',
+        reason: (queued as { reason?: string }).reason,
+      });
+      return { handled: true };
+    }
+    outboxId = queued.outboxId;
   }
 
   if (outboundHeld || prefsHeld) {
@@ -177,9 +228,12 @@ async function persistApproveNotifyProof(
       campaignId: args.campaignId,
       task: saved,
       reason: outboundHeld ? 'outbound_not_live' : prefsReason,
-      message: outboundHeld
-        ? 'Proof approved. Outbound is not live — email/text was not sent.'
-        : 'Proof approved. Notifications are disabled for this teammate — email/text was not sent.',
+      outboxId,
+      message: outboxId
+        ? 'Proof approved. Queued to outbound hold.'
+        : outboundHeld
+          ? 'Proof approved. Outbound is not live — email/text was not sent.'
+          : 'Proof approved. Notifications are disabled for this teammate — email/text was not sent.',
     });
     return { handled: true };
   }
@@ -268,22 +322,41 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     const safeRecipientPhone =
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
 
-    // 2. Server-side Canonical Recipient Re-resolution
-    const resolvedRecipient = await resolveServerCanonicalRecipient({
+    // Directory first. Prove Gmail is not a directory person.
+    const directoryRecipient = await resolveServerCanonicalRecipient({
       requesterId,
       requesterName: recipientName,
       requesterEmail: recipientEmail,
       requesterPhone: safeRecipientPhone,
       workspaceId
     });
+    const proveAllowlistTo =
+      !directoryRecipient && isLocalProveAllowlistTo(recipientEmail)
+        ? String(recipientEmail).trim().toLowerCase()
+        : null;
 
-    if (!resolvedRecipient) {
+    if (!directoryRecipient && !proveAllowlistTo) {
       return res.status(400).json({
         success: false,
         code: 'RECIPIENT_UNRESOLVED',
         error: 'Could not resolve a canonical directory record for this recipient in the current workspace.'
       });
     }
+
+    const resolvedRecipient = directoryRecipient ?? {
+      id: proveAllowlistTo as string,
+      name: String(recipientName || proveAllowlistTo).replace(/\(.*?\)/g, '').trim() || (proveAllowlistTo as string),
+      firstName: String(recipientName || 'Agent').split(' ')[0],
+      email: proveAllowlistTo,
+      phone: null,
+      emailVerified: true,
+      phoneVerified: false,
+      maskedEmail: null,
+      maskedPhone: null,
+      role: '',
+      isAgentOrBroker: false,
+      workspaceId,
+    };
 
     // Validate destinations for requested channels
     if (channels.includes('email') && (!resolvedRecipient.email || !resolvedRecipient.emailVerified)) {
@@ -318,6 +391,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         workspaceId,
         propertyAddress,
         resolvedRecipient,
+        proveAllowlist: Boolean(proveAllowlistTo),
       });
       if (deliveryResult.handled) return;
     }

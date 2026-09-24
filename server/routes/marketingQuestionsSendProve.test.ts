@@ -8,7 +8,11 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { marketingQuestionsRouter } from './marketingQuestionsRoute.js';
+import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
+import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import {
   getAllCanonicalMarketingTasks,
   getCanonicalMarketingTaskById,
@@ -29,6 +33,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
   const allowDispatch = process.env.ALLOW_EXTERNAL_DISPATCH;
 
   beforeAll(async () => {
+    process.env.OUTBOUND_MASTER_MODE = 'hold';
     storeSnapshot = fs.existsSync(STORE) ? fs.readFileSync(STORE, 'utf8') : '';
     const app = express();
     app.use(express.json({ limit: '2mb' }));
@@ -43,6 +48,8 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
   });
 
   afterAll(async () => {
+    if (outboundMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
+    else process.env.OUTBOUND_MASTER_MODE = outboundMaster;
     const items = getAllCanonicalMarketingTasks();
     const idx = items.findIndex((t) => t.id === TASK_ID);
     if (idx >= 0) items.splice(idx, 1);
@@ -136,6 +143,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
   });
 
   it('succeeds for https Drive proof + Melissa reviewer without flipping outbound kill flags', async () => {
+    const beforeKeys = new Set(memoryOutbox.keys());
     const res = await post(payload(), { 'x-user-email': 'melissa.gagliardi@nestrealty.com' });
     expect(res.status, JSON.stringify(res.data)).toBe(200);
     expect(res.data.success).toBe(true);
@@ -149,9 +157,88 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     expect(task?.proofUrl).toBe(HTTPS_PROOF);
     expect(task?.reviewState).toBe('approved');
 
-    expect(process.env.OUTBOUND_MASTER_MODE).toBe(outboundMaster);
+    expect(process.env.OUTBOUND_MASTER_MODE).toBe('hold');
     expect(process.env.OUTBOUND_MODE).toBe(outboundMode);
     expect(process.env.ALLOW_EXTERNAL_DISPATCH).toBe(allowDispatch);
     expect(res.data.dispatchHeld).toBe(true);
+    const created = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
+    expect(created.length).toBe(1);
+    expect(created[0][1].recipient).toBe('marcus.aman@gmail.com');
+  });
+
+  it('does not 400 when Drive is empty, and a pasted https proof stays valid', async () => {
+    const beforeKeys = new Set(memoryOutbox.keys());
+    const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), {
+      'x-user-email': 'melissa.gagliardi@nestrealty.com',
+    });
+    expect(empty.status, JSON.stringify(empty.data)).toBe(200);
+    expect(empty.data.code).not.toBe('INVALID_PROTOCOL');
+    expect(getCanonicalMarketingTaskById(TASK_ID)?.reviewState).not.toBe('awaiting_review');
+    const emptyRows = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
+    expect(emptyRows.every(([, row]) => row.recipient === 'marcus.aman@gmail.com')).toBe(true);
+
+    saveCanonicalMarketingTask({
+      id: TASK_ID,
+      title: 'Tri-fold brochure',
+      status: 'in_progress',
+      reviewState: 'awaiting_review',
+      proofUrl: undefined,
+      propertyAddress: '7174 Peachtree Way, Wilmington, NC 28403',
+      agentName: 'Marcus Aman',
+      agentEmail: 'marcus.aman@gmail.com',
+      workspaceId: 'ws_wilmington',
+      reviewOwnerId: 'dir_melissa_gagliardi_33',
+      reviewOwnerName: 'Melissa Gagliardi',
+    } as any);
+    const pasted = await post(payload({ driveFolderUrl: undefined, proofUrl: HTTPS_PROOF }), {
+      'x-user-email': 'melissa.gagliardi@nestrealty.com',
+    });
+    expect(pasted.status, JSON.stringify(pasted.data)).toBe(200);
+    expect(pasted.data.task?.proofUrl).toBe(HTTPS_PROOF);
+  });
+
+  it('drops the prove Gmail when outbound kill-off is restored to live', async () => {
+    process.env.OUTBOUND_MASTER_MODE = 'live';
+    try {
+      const res = await post(payload(), { 'x-user-email': 'melissa.gagliardi@nestrealty.com' });
+      expect(res.status).toBe(400);
+      expect(res.data.code).toBe('RECIPIENT_UNRESOLVED');
+    } finally {
+      process.env.OUTBOUND_MASTER_MODE = 'hold';
+    }
+  });
+
+  it('shows Allowlisted (prove) and never Verified Contact for the directory-miss To', () => {
+    const proveHtml = renderToStaticMarkup(
+      React.createElement(AskRequesterQuestionsModal, {
+        isOpen: true,
+        onClose: () => {},
+        campaign: {
+          id: TASK_ID,
+          agentName: 'Marcus Aman',
+          agentEmail: 'marcus.aman@gmail.com',
+          phone: '(252) 717-0595',
+          propertyAddress: '7174 Peachtree Way',
+        },
+      })
+    );
+    expect(proveHtml).toContain('Allowlisted (prove)');
+    expect(proveHtml).not.toContain('Verified Contact');
+
+    const directoryHtml = renderToStaticMarkup(
+      React.createElement(AskRequesterQuestionsModal, {
+        isOpen: true,
+        onClose: () => {},
+        campaign: {
+          id: 'camp_matt',
+          agentName: 'Matt Orr',
+          agentEmail: 'matt.orr@nestrealty.com',
+          phone: '(910) 612-8283',
+          propertyAddress: '100 Matt Way',
+        },
+      })
+    );
+    expect(directoryHtml).toContain('Verified Contact');
+    expect(directoryHtml).not.toContain('Allowlisted (prove)');
   });
 });
