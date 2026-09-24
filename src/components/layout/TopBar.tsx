@@ -3,6 +3,10 @@ import { Search, Bell, Plus, Calendar, ChevronDown, Check, Menu, X, LogOut, Zap,
 import { Profile } from '../../types/shapework';
 import LocationSelectorDropdown from '../ui/LocationSelectorDropdown';
 import { GlobalEvidenceDrawer, GlobalEvidenceCardData } from '../brokerage-ops/GlobalEvidenceDrawer';
+import {
+  DIRECTORY_BANNER_COUNTS_EVENT,
+  type DirectoryBannerCountsDetail,
+} from '../../utils/directoryWave1Fixes';
 
 interface TopBarProps {
   activeProfile: Profile;
@@ -92,6 +96,23 @@ export default function TopBar({
   const isNewsPage = currentTab === 'News' || currentTab === 'news' || currentTab === 'Real Estate News' || currentTab === 'Industry News' || (typeof window !== 'undefined' && window.location.pathname.includes('/news'));
 
   const [newsSyncState, setNewsSyncState] = useState<'idle' | 'syncing' | 'synced'>('idle');
+  const [directoryBannerCounts, setDirectoryBannerCounts] = useState<DirectoryBannerCountsDetail | null>(null);
+
+  useEffect(() => {
+    if (!isDirectoryPage) {
+      setDirectoryBannerCounts(null);
+      return;
+    }
+    const onCounts = (event: Event) => {
+      const detail = (event as CustomEvent<DirectoryBannerCountsDetail>).detail;
+      if (detail && typeof detail.totalActive === 'number') {
+        setDirectoryBannerCounts(detail);
+      }
+    };
+    window.addEventListener(DIRECTORY_BANNER_COUNTS_EVENT, onCounts as EventListener);
+    return () => window.removeEventListener(DIRECTORY_BANNER_COUNTS_EVENT, onCounts as EventListener);
+  }, [isDirectoryPage]);
+
 
   useEffect(() => {
     const handleSyncStarted = () => setNewsSyncState('syncing');
@@ -175,20 +196,38 @@ export default function TopBar({
                 </p>
               </div>
 
-              {/* Integrated KPIs in TopBar */}
-              <div className="hidden sm:flex items-center gap-1.5 pl-2.5 border-l border-[var(--sw-border)] font-sans text-xs">
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">74</strong> Total Active
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">22</strong> Carolina Beach
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">2</strong> Brokers-in-Charge
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">7</strong> Leadership & Staff
-                </span>
+              {/* Integrated KPIs in TopBar — live from Directory page (never hardcoded 74) */}
+              <div className="hidden sm:flex items-center gap-1.5 pl-2.5 border-l border-[var(--sw-border)] font-sans text-xs" data-testid="directory-topbar-counts">
+                {directoryBannerCounts ? (
+                  <>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.totalActive}</strong> Total Active
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.carolinaBeachAgents}</strong> Carolina Beach
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.bic}</strong> Brokers-in-Charge
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.leadership + directoryBannerCounts.staff}</strong> Leadership & Staff
+                    </span>
+                    {directoryBannerCounts.source === 'error' && (
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 font-medium text-amber-800 text-[11px]">
+                        Live roster unavailable
+                      </span>
+                    )}
+                    {directoryBannerCounts.source === 'demo' && (
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-medium text-slate-600 text-[11px]">
+                        Local demo roster
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-200/80 font-medium text-stone-500 text-[11px]">
+                    Loading roster…
+                  </span>
+                )}
               </div>
             </div>
           ) : isMarketIntelligencePage ? (

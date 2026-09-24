@@ -162,12 +162,26 @@ const TITLE_ABBREV: Record<string, string> = {
 /**
  * Prefer `Broker - {Group} - Leader`. Expand bare abbreviations like PB.
  */
+/** True for numeric IDs, date strings, and digit-only junk that must never render as a title. */
+export function isJunkProfileTitle(title: string | null | undefined): boolean {
+  const v = (title || '').trim();
+  if (!v) return false;
+  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(v)) return true;
+  if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(v)) return true;
+  if (/^\d+$/.test(v)) return true;
+  const digits = v.replace(/\D/g, '');
+  const letters = v.replace(/[^a-zA-Z]/g, '');
+  // e.g. "234325", long numeric IDs with separators, no real words
+  if (digits.length >= 5 && letters.length < 2) return true;
+  return false;
+}
+
 export function formatProfileTitle(
   title: string | null | undefined,
   opts?: { group?: string | null; isLeader?: boolean },
 ): string {
   let raw = (title || '').trim();
-  if (!raw) {
+  if (!raw || isJunkProfileTitle(raw)) {
     if (opts?.group && opts?.isLeader) {
       return `Broker - ${opts.group.trim()} - Leader`;
     }
@@ -233,11 +247,11 @@ export function sanitizeDirectoryPhone(phone: string | null | undefined): Saniti
     core = core.slice(1);
   }
   if (core.length !== 10) {
-    // Keep original if it had some digits but isn't formattable — still flag review when clearly bad
-    if (digits.length > 0 && digits.length < 10) {
+    // Never render short junk or long numeric IDs as phones
+    if (digits.length > 0) {
       return { phone: '', needsReview: true, reason: 'invalid' };
     }
-    return { phone: raw, needsReview: false };
+    return { phone: '', needsReview: true, reason: 'invalid' };
   }
   const formatted = `(${core.slice(0, 3)}) ${core.slice(3, 6)}-${core.slice(6)}`;
   return { phone: formatted, needsReview: false };
@@ -259,4 +273,70 @@ export function matchesTypeFilter(
   if (filterType === 'all') return true;
   if (filterType === 'bic') return isBicPerson(person);
   return normalizePersonType(person.personType) === filterType;
+}
+
+export const DIRECTORY_BANNER_COUNTS_EVENT = 'directory-banner-counts';
+
+export type DirectoryBannerCountsDetail = DirectoryBannerCounts & {
+  source: 'live' | 'demo' | 'error' | 'empty';
+  errorMessage?: string | null;
+};
+
+/** Localhost / *.local only — production must never present the seeded demo roster as truth. */
+export function allowDirectoryDemoFallback(hostname?: string | null): boolean {
+  if (typeof hostname === 'string') {
+    const host = hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+  }
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return allowDirectoryDemoFallback(window.location.hostname);
+  }
+  // Node/vitest default: treat as local so unit tests can exercise the demo path.
+  return process.env.NODE_ENV !== 'production';
+}
+
+export type DirectoryLoadFailurePlan =
+  | { action: 'use_demo'; showError: false }
+  | { action: 'keep_last_or_empty'; showError: true; message: string };
+
+/**
+ * Gate for /api/directory failures. Auth/server errors never silently become a fake
+ * "74 active" roster in production.
+ */
+export function planDirectoryLoadFailure(opts: {
+  status?: number | null;
+  message?: string | null;
+  hostname?: string | null;
+}): DirectoryLoadFailurePlan {
+  const status = opts.status ?? 0;
+  const authOrServer =
+    status === 401 ||
+    status === 403 ||
+    status >= 500 ||
+    status === 0;
+  const message =
+    opts.message ||
+    (status === 401 || status === 403
+      ? 'Directory requires a signed-in session. Sign in again to load the live roster.'
+      : status >= 500
+        ? 'Directory service is temporarily unavailable.'
+        : 'The Directory could not be loaded.');
+
+  if (authOrServer && allowDirectoryDemoFallback(opts.hostname)) {
+    return { action: 'use_demo', showError: false };
+  }
+  return { action: 'keep_last_or_empty', showError: true, message };
+}
+
+/** Display phone only — never fall back to raw junk. */
+export function displayDirectoryPhone(phone: string | null | undefined): string {
+  return sanitizeDirectoryPhone(phone).phone;
+}
+
+/** Display title only — junk becomes empty (callers may substitute a safe default). */
+export function displayDirectoryTitle(
+  title: string | null | undefined,
+  opts?: { group?: string | null; isLeader?: boolean },
+): string {
+  return formatProfileTitle(title, opts);
 }

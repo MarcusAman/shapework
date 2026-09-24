@@ -35,6 +35,9 @@ import { orgChartService } from '../../services/orgChartService';
 import { invalidateWorkspaceDirectoryCache } from '../../utils/directoryCache';
 import {
   aggregateDirectoryBannerCounts,
+  DIRECTORY_BANNER_COUNTS_EVENT,
+  displayDirectoryPhone,
+  displayDirectoryTitle,
   formatProfileTitle,
   getDirectoryOfficeFilterOptions,
   getDirectoryTypeFilterOptions,
@@ -43,9 +46,11 @@ import {
   matchesTypeFilter,
   normalizeOfficeLabel,
   normalizePersonType,
+  planDirectoryLoadFailure,
   sanitizeDirectoryPhone,
   typeFilterLabel,
 } from '../../utils/directoryWave1Fixes';
+import { apiClient } from '../../utils/apiClient';
 import { NEST_FULL_ROSTER_72 } from '../../../server/persistence/nestRosterSeed';
 import RoleProfileModal from './RoleProfileModal';
 import AgentRetentionHub from './AgentRetentionHub';
@@ -203,7 +208,8 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
   }, [currentUser, state.workspaceId]);
 
   // Component States
-  const [people, setPeople] = useState<DirectoryPerson[]>(() => NEST_FULL_ROSTER_72 as any);
+  const [people, setPeople] = useState<DirectoryPerson[]>([]);
+  const [rosterSource, setRosterSource] = useState<'live' | 'demo' | 'error' | 'empty'>('empty');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiResponseError | null>(null);
   
@@ -504,23 +510,47 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
     }
   };
 
-  // Load People
+  // Load People — always send session cookie + Bearer via apiClient (never silent fake 74 in prod)
   const loadPeople = async () => {
     try {
-      const res = await fetch(`/api/directory?workspaceId=${workspaceId}`, {
-        headers: { 'x-workspace-id': workspaceId }
-      });
+      const res = await apiClient.get(
+        `/api/directory?workspaceId=${encodeURIComponent(workspaceId)}`,
+        { workspaceId },
+      );
       const data = await readJsonResponse<{ directoryPeople: DirectoryPerson[] }>(res);
       if (data && data.directoryPeople && data.directoryPeople.length > 0) {
         setPeople(data.directoryPeople);
+        setRosterSource('live');
+        setError(null);
       } else {
-        setPeople(NEST_FULL_ROSTER_72 as any);
+        const plan = planDirectoryLoadFailure({ status: 200, message: 'Directory returned an empty roster.' });
+        if (plan.action === 'use_demo') {
+          setPeople(NEST_FULL_ROSTER_72 as any);
+          setRosterSource('demo');
+          setError(null);
+        } else {
+          setPeople([]);
+          setRosterSource('empty');
+          setError(plan.showError ? plan.message : null);
+        }
       }
-      setError(null);
     } catch (err: any) {
-      console.warn('[Directory] Using approved Nest Realty roster fallback (76 people):', err);
-      setPeople(NEST_FULL_ROSTER_72 as any);
-      setError(null);
+      const status = typeof err?.status === 'number' ? err.status : 0;
+      const plan = planDirectoryLoadFailure({
+        status,
+        message: err?.message,
+      });
+      console.warn('[Directory] load failed:', status, err?.message || err);
+      if (plan.action === 'use_demo') {
+        setPeople(NEST_FULL_ROSTER_72 as any);
+        setRosterSource('demo');
+        setError(null);
+      } else {
+        // Keep last-known if any; otherwise honest empty. Never invent hardcoded 74.
+        setPeople((prev) => prev);
+        setRosterSource('error');
+        setError(plan.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -542,6 +572,22 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       window.removeEventListener('open-add-person', handleOpenAddPerson);
     };
   }, []);
+
+
+  // Publish live banner counts to TopBar directory chrome (kills hardcoded 74)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const banner = aggregateDirectoryBannerCounts(people);
+    window.dispatchEvent(
+      new CustomEvent(DIRECTORY_BANNER_COUNTS_EVENT, {
+        detail: {
+          ...banner,
+          source: rosterSource,
+          errorMessage: error,
+        },
+      }),
+    );
+  }, [people, rosterSource, error]);
 
   // Persist View Mode
   useEffect(() => {
@@ -899,23 +945,17 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
     try {
       let res;
       if (isEditing && formPersonId) {
-        res = await fetch(`/api/directory/people/${formPersonId}?workspaceId=${workspaceId}`, {
-          method: 'PUT',
-          headers: { 
-            'x-workspace-id': workspaceId,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
+        res = await apiClient.put(
+          `/api/directory/people/${formPersonId}?workspaceId=${encodeURIComponent(workspaceId)}`,
+          payload,
+          { workspaceId },
+        );
       } else {
-        res = await fetch(`/api/directory/people?workspaceId=${workspaceId}`, {
-          method: 'POST',
-          headers: { 
-            'x-workspace-id': workspaceId,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
+        res = await apiClient.post(
+          `/api/directory/people?workspaceId=${encodeURIComponent(workspaceId)}`,
+          payload,
+          { workspaceId },
+        );
       }
 
       const data = await readJsonResponse<any>(res);
@@ -960,10 +1000,10 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
       return;
     }
     try {
-      const res = await fetch(`/api/directory/people/${id}?workspaceId=${workspaceId}`, {
-        method: 'DELETE',
-        headers: { 'x-workspace-id': workspaceId }
-      });
+      const res = await apiClient.delete(
+        `/api/directory/people/${id}?workspaceId=${encodeURIComponent(workspaceId)}`,
+        { workspaceId },
+      );
       await readJsonResponse<any>(res);
       setNotification({ message: 'Person deactivated successfully.', type: 'success' });
       setIsDrawerOpen(false);
@@ -1370,7 +1410,7 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                         {person.displayName}
                       </h3>
                       <p className="text-xs directory-text-secondary font-medium mt-0.5 truncate">
-                        {formatProfileTitle(person.title, { group: person.team, isLeader: !!person.isTeamLeader }) || 'Agent'}
+                        {displayDirectoryTitle(person.title, { group: person.team, isLeader: !!person.isTeamLeader }) || 'Agent'}
                       </p>
                     </div>
 
@@ -1385,10 +1425,10 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                           <span className="truncate">{person.email}</span>
                         </div>
                       )}
-                      {person.phone && (
+                      {displayDirectoryPhone(person.phone) && (
                         <div className="flex items-center gap-2">
                           <Phone className="w-3.5 h-3.5 directory-text-secondary shrink-0" />
-                          <span>{sanitizeDirectoryPhone(person.phone).phone || person.phone}</span>
+                          <span>{displayDirectoryPhone(person.phone)}</span>
                         </div>
                       )}
                     </div>
@@ -1405,9 +1445,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                         <Mail className="w-4 h-4" />
                       </a>
                     )}
-                    {person.phone && (
+                    {displayDirectoryPhone(person.phone) && (
                       <a 
-                        href={`tel:${person.phone}`} 
+                        href={`tel:${displayDirectoryPhone(person.phone)}`} 
                         onClick={(e) => e.stopPropagation()} 
                         className="p-1.5 hover:bg-white/10 rounded-lg transition-colors hover:text-white"
                         title="Call"
@@ -1484,9 +1524,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                           </div>
                         </td>
                         <td className="p-4 font-medium directory-text-secondary">{person.primaryOfficeName}</td>
-                        <td className="p-4 text-xs font-medium directory-text-secondary">{formatProfileTitle(person.title, { group: person.team, isLeader: !!person.isTeamLeader }) || 'Agent'}</td>
+                        <td className="p-4 text-xs font-medium directory-text-secondary">{displayDirectoryTitle(person.title, { group: person.team, isLeader: !!person.isTeamLeader }) || 'Agent'}</td>
                         <td className="p-4 font-mono text-xs directory-text-secondary">{person.email || '-'}</td>
-                        <td className="p-4 text-xs directory-text-secondary">{sanitizeDirectoryPhone(person.phone).phone || person.phone || '-'}</td>
+                        <td className="p-4 text-xs directory-text-secondary">{displayDirectoryPhone(person.phone) || '-'}</td>
                         <td className="p-4">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
@@ -1525,9 +1565,9 @@ export default function WorkspaceDirectoryPage({ state }: WorkspaceDirectoryPage
                                 <Mail className="w-4 h-4" />
                               </a>
                             )}
-                            {person.phone && (
+                            {displayDirectoryPhone(person.phone) && (
                               <a 
-                                href={`tel:${person.phone}`} 
+                                href={`tel:${displayDirectoryPhone(person.phone)}`} 
                                 className="p-1 hover:bg-white/10 rounded directory-text-secondary hover:text-white"
                                 title="Call"
                               >

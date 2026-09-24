@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   aggregateDirectoryBannerCounts,
+  allowDirectoryDemoFallback,
+  displayDirectoryPhone,
+  displayDirectoryTitle,
   formatProfileTitle,
   getDirectoryOfficeFilterOptions,
   getDirectoryTypeFilterOptions,
+  isJunkProfileTitle,
   matchesOfficeFilter,
   matchesTypeFilter,
   normalizeOfficeLabel,
   normalizePersonType,
+  planDirectoryLoadFailure,
   sanitizeDirectoryPhone,
   typeFilterLabel,
   type DirectoryWave1Person,
@@ -141,6 +146,14 @@ describe('directoryWave1Fixes — profile titles', () => {
       'Broker - Urti Real Estate - Leader',
     );
   });
+
+  it('rejects numeric IDs / date strings as titles on every render path', () => {
+    for (const junk of ['234325', '4/22/2026', '2026-03-30', '991005814705']) {
+      expect(isJunkProfileTitle(junk)).toBe(true);
+      expect(formatProfileTitle(junk)).toBe('');
+      expect(displayDirectoryTitle(junk)).toBe('');
+    }
+  });
 });
 
 describe('directoryWave1Fixes — phones', () => {
@@ -155,6 +168,15 @@ describe('directoryWave1Fixes — phones', () => {
       const r = sanitizeDirectoryPhone(junk);
       expect(r.phone).toBe('');
       expect(r.needsReview).toBe(true);
+    }
+  });
+
+  it('short junk and long numeric IDs never render as phones', () => {
+    for (const junk of ['234325', '12345', '910581470512345', '000000000000']) {
+      const r = sanitizeDirectoryPhone(junk);
+      expect(r.phone).toBe('');
+      expect(r.needsReview).toBe(true);
+      expect(displayDirectoryPhone(junk)).toBe('');
     }
   });
 });
@@ -188,5 +210,68 @@ describe('directoryWave1Fixes — WorkspaceDirectoryPage wiring regression', () 
     // Office filter must not offer a Wilmington option value
     expect(page).not.toMatch(/value=\"Wilmington\"/);
     expect(page).not.toMatch(/value=\{?'Wilmington'\}?/);
+  });
+});
+
+
+describe('directoryWave1Fixes — demo fallback gate (prod must not fake 74)', () => {
+  it('allows demo fallback only on localhost / *.local', () => {
+    expect(allowDirectoryDemoFallback('localhost')).toBe(true);
+    expect(allowDirectoryDemoFallback('127.0.0.1')).toBe(true);
+    expect(allowDirectoryDemoFallback('Marcus.local')).toBe(true);
+    expect(allowDirectoryDemoFallback('shapework.co')).toBe(false);
+    expect(allowDirectoryDemoFallback('shapework-xxxxx-uc.a.run.app')).toBe(false);
+  });
+
+  it('401/403/5xx in production → keep_last_or_empty with error (never silent demo)', () => {
+    for (const status of [401, 403, 500, 503, 0]) {
+      const plan = planDirectoryLoadFailure({
+        status,
+        hostname: 'shapework.co',
+      });
+      expect(plan.action).toBe('keep_last_or_empty');
+      if (plan.action === 'keep_last_or_empty') {
+        expect(plan.showError).toBe(true);
+        expect(plan.message.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('401 on localhost may use demo roster (gated)', () => {
+    const plan = planDirectoryLoadFailure({ status: 401, hostname: 'localhost' });
+    expect(plan.action).toBe('use_demo');
+  });
+});
+
+describe('directoryWave1Fixes — TopBar directory chrome must not hardcode 74', () => {
+  it('TopBar Directory KPIs are live-wired (no hardcoded 74 Total Active)', async () => {
+    const fs = await import('node:fs');
+    const topbar = fs.readFileSync(
+      new URL('../components/layout/TopBar.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(topbar).not.toMatch(/<strong[^>]*>74<\/strong>\s*Total Active/);
+    expect(topbar).not.toMatch(/>\s*74\s*<\/strong>\s*Total Active/);
+    expect(topbar).toMatch(/DIRECTORY_BANNER_COUNTS_EVENT/);
+    expect(topbar).toMatch(/directoryBannerCounts\.totalActive/);
+    expect(topbar).toMatch(/data-testid="directory-topbar-counts"/);
+  });
+});
+
+describe('directoryWave1Fixes — fallback/render path uses sanitize helpers', () => {
+  it('WorkspaceDirectoryPage uses apiClient + planDirectoryLoadFailure + display helpers', async () => {
+    const fs = await import('node:fs');
+    const page = fs.readFileSync(
+      new URL('../components/people/WorkspaceDirectoryPage.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(page).toMatch(/apiClient\.get/);
+    expect(page).toMatch(/planDirectoryLoadFailure/);
+    expect(page).toMatch(/displayDirectoryPhone/);
+    expect(page).toMatch(/displayDirectoryTitle/);
+    expect(page).toMatch(/DIRECTORY_BANNER_COUNTS_EVENT/);
+    // Must not re-show raw junk after sanitize empties a phone
+    expect(page).not.toMatch(/sanitizeDirectoryPhone\([^)]+\)\.phone \|\| person\.phone/);
+    expect(page).not.toMatch(/Using approved Nest Realty roster fallback \(76 people\)/);
   });
 });
