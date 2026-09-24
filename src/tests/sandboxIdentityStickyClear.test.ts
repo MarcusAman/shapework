@@ -10,8 +10,8 @@ import {
   clearSandboxIdentityForPasswordLogin,
   isAllowedCustomerRole,
   uniqueProfilesByEmail,
-  isAllowedCustomerRole,
   ALLOWED_CUSTOMER_ROLES,
+  DENIED_CUSTOMER_ROLES,
   SANDBOX_IDENTITY_STORAGE_KEYS,
 } from '../utils/sandboxIdentity';
 
@@ -193,5 +193,10 @@ describe("workboard role allowlist", () => {
   });
   it("denies bic", () => {
     expect(isAllowedCustomerRole("bic")).toBe(false);
+  });
+  it("allows producer (Eduardo) on marketing tasks workboard — drawer/upload/submit", () => {
+    expect(isAllowedCustomerRole("producer")).toBe(true);
+    expect(ALLOWED_CUSTOMER_ROLES).toContain("producer");
+    expect(DENIED_CUSTOMER_ROLES).not.toContain("producer");
   });
 });

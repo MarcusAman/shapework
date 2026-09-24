@@ -25,12 +25,17 @@ describe('workboard customer role allowlist (Melissa / marketing)', () => {
     expect(isAllowedCustomerWorkboardRole(null)).toBe(false);
   });
 
-  it('WorkspaceConsole gate uses isAllowedCustomerWorkboardRole (no stale inline list)', () => {
+  it('allows producer so Eduardo can open Tasks/workboard marketing drawer', () => {
+    expect(ALLOWED_CUSTOMER_WORKBOARD_ROLES).toContain('producer');
+    expect(isAllowedCustomerWorkboardRole('producer')).toBe(true);
+  });
+
+  it('WorkspaceConsole gate uses isAllowedCustomerRole / isAllowedCustomerWorkboardRole (no stale inline list)', () => {
     const src = readFileSync(
       resolve(__dirname, '../components/demo/WorkspaceConsole.tsx'),
       'utf8',
     );
-    expect(src).toMatch(/isAllowedCustomerWorkboardRole/);
+    expect(src).toMatch(/isAllowedCustomer(Role|WorkboardRole)/);
     expect(src).not.toMatch(/const allowedCustomerRoles\s*=/);
   });
 });

@@ -117,6 +117,9 @@ import {
   resolveSurfaceMetaRowSplitClasses,
   type SurfaceDrawerShell,
 } from '../../lib/surfaceDrawerLock2';
+import {
+  resolveMarketingApproveNotifyCapabilities,
+} from '../../lib/marketingApproveNotifyCapabilities';
 
 export interface WorkspaceDrawerTask {
   id: string;
@@ -898,14 +901,12 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       userRole === 'operations_manager' ||
       currentUser.name === 'Ann Gunn' ||
       currentUser.id === 'dir_ann_gunn_28' ||
-      (currentUser.email && currentUser.email.toLowerCase().includes('ann')) ||
-      (reviewerStaff && (
-        reviewerStaff.role?.toLowerCase().includes('operations') ||
-        reviewerStaff.title?.toLowerCase().includes('operations')
-      ))
+      (currentUser.email && currentUser.email.toLowerCase().includes('ann'))
     )
   );
 
+  // Actor-only authority — never inherit caps from task.reviewerStaff (that fall-open
+  // previously granted Approve to every viewer of a Melissa-reviewed task).
   const hasMarketingFinalApproval = Boolean(
     isMarketingTask && (
       userPermissions.includes('marketing.final_approval') ||
@@ -914,12 +915,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       currentUser.name === 'Melissa Gagliardi' ||
       currentUser.id === 'dir_melissa_gagliardi_33' ||
       currentUser.id === 'usr_melissa' ||
-      (currentUser.email && currentUser.email.toLowerCase().includes('melissa')) ||
-      (reviewerStaff && (
-        reviewerStaff.role?.toLowerCase() === 'marketing director' ||
-        reviewerStaff.title?.toLowerCase().includes('marketing director') ||
-        (reviewerStaff as any).capabilities?.includes('marketing.final_approval')
-      ))
+      (currentUser.email && currentUser.email.toLowerCase().includes('melissa'))
     )
   );
 
@@ -935,8 +931,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Path B: director completing agent-requested work she owns — Approve & Complete (no Send to Manager self-loop).
   const assigneeLooksLikeMarketingDirector = Boolean(
     (activeTask.assignedTo || '').toLowerCase().includes('melissa') ||
-    activeTask.assignedToId === 'dir_melissa_gagliardi_33' ||
-    activeTask.assignedToId === 'usr_melissa'
+    (
+      !(activeTask.assignedTo || '').trim() &&
+      (activeTask.assignedToId === 'dir_melissa_gagliardi_33' || activeTask.assignedToId === 'usr_melissa')
+    )
   );
   // Path C: producer already submitted for director review — Melissa must Approve & Complete (not Send to Manager).
   const isDirectorReviewingSubmittedProof = Boolean(
@@ -967,6 +965,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     (Array.isArray(userPermissions) && userPermissions.length === 1 && userPermissions[0] === 'marketing.view')
   );
   const isProducer = !hasDepartmentFinalApproval && !isGuestOrViewer;
+
+  // Blueprint role gate: Approve & Notify only for task.reviewerId (not global director title).
+  const roleGateCaps = resolveMarketingApproveNotifyCapabilities(currentUser, activeTask);
+  const canApproveAndNotify = roleGateCaps.canApproveAndNotify;
+  const canSubmitToReviewer = roleGateCaps.canSubmitToReviewer;
+  const canRequestRevisions = roleGateCaps.canRequestRevisions;
+
 
   // Task Index & Navigation
   const taskIndex = tasksList.findIndex(t => t.id === activeTask.id);
@@ -1446,6 +1451,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Melissa: open Ask Requester (delivery) instead of auto-emailing approved assets
   const openDeliveryOutreach = () => {
     if (!activeTask) return;
+    if (!canApproveAndNotify) {
+      setUrlValidationError('Approve & Notify refused: only the task reviewer may approve and notify the agent.');
+      return;
+    }
     if (onAskRequester) {
       const primaryProofUrl = manualProofUrl.trim() || stagedAssets[0]?.previewUrl || activeTask.proofUrl || (activeTask.photos && activeTask.photos[0]?.url) || (activeTask.attachments && activeTask.attachments[0]?.url) || '';
       const assetMeta = stagedAssets[0] ? {
@@ -1497,8 +1506,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
 
-    if (!hasDepartmentFinalApproval) {
-      setUrlValidationError('Forbidden: User lacks final approval authority for this department.');
+    if (!canApproveAndNotify) {
+      setUrlValidationError('Approve & Notify refused: only the task reviewer may approve and notify the agent.');
       return;
     }
 
@@ -3807,8 +3816,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
               </button>
             )}
             
-            {/* PRODUCER VIEW — hide Send to Manager once proof is already awaiting director review (show amber status instead) */}
-            {surfaceGates.showApproveNotify && isProducer && !(isAwaitingReviewLane && hasAnyProof && !isRevision) && (
+            {/* PRODUCER VIEW — hide Send for review once proof is already awaiting director review (show amber status instead) */}
+            {surfaceGates.showApproveNotify && canSubmitToReviewer && !(isAwaitingReviewLane && hasAnyProof && !isRevision) && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 {/* Explain why disabled if requirements unmet */}
                 {!canSendForApproval && (
@@ -3820,25 +3829,25 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   </div>
                 )}
 
-                {/* Primary Action Button: Send to Melissa for review / Send to Manager for Approval */}
+                {/* Primary Action Button: Send for review (producer / assignee ≠ reviewer) */}
                 <button
                   type="button"
                   onClick={handleAttemptSendForApproval}
                   disabled={!canSendForApproval || isSubmitting}
+                  data-action="Send for review"
+                  data-testid="producer-send-for-review"
                   className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
                     canSendForApproval && !isSubmitting
                       ? 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
-                  title={canSendForApproval ? (isRevision ? `Send revised proof to ${directorFirstName} for review` : `Send finished proofs to ${directorFirstName} for approval`) : blockingReasons.join(' • ')}
+                  title={canSendForApproval ? 'Send for review' : blockingReasons.join(' • ')}
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>
                     {isSubmitting
                       ? 'Submitting...'
-                      : isRevision
-                        ? `Send to ${directorFirstName} for review`
-                        : 'Send to Manager for Approval'}
+                      : 'Send for review'}
                   </span>
                 </button>
               </div>
@@ -3846,13 +3855,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
             {/* NON-MANAGER IN REVIEW LANE (Informative state for non-directors viewing an in-review task) */}
             {/* Producers waiting on Melissa — never show this self-loop when the director is completing her own agent-requested work */}
-            {surfaceGates.showApproveNotify && !hasMarketingFinalApproval && !isDirectorSelfComplete && isAwaitingReviewLane && hasAnyProof && (
+            {surfaceGates.showApproveNotify && !canApproveAndNotify && isAwaitingReviewLane && hasAnyProof && (
               <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-semibold">
                 <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>Submitted • Awaiting Manager Approval ({activeTask.reviewOwnerName || directorFirstName || 'Melissa'})</span>
               </div>
             )}
-            {surfaceGates.showApproveNotify && !hasMarketingFinalApproval && !isDirectorSelfComplete && isAwaitingReviewLane && !hasAnyProof && (
+            {surfaceGates.showApproveNotify && !canApproveAndNotify && canSubmitToReviewer && isAwaitingReviewLane && !hasAnyProof && (
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 text-xs font-semibold">
                 <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span>In Production • Proof Staging Pending</span>
@@ -3860,7 +3869,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             )}
 
             {/* DEPARTMENT DIRECTOR REVIEW / SELF-COMPLETE VIEW */}
-            {surfaceGates.showApproveNotify && hasDepartmentFinalApproval && (
+            {surfaceGates.showApproveNotify && canApproveAndNotify && (
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap sm:flex-nowrap">
                 {/* Intended Recipient & Proof Attribution */}
                 {surfaceGates.showEmailFooter && (
@@ -3902,7 +3911,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 )}
 
                 {/* Request Revisions (if task is awaiting review and not self-submitted) */}
-                {(activeTask.reviewState === 'awaiting_review' || activeTask.status === 'awaiting_review' || activeTask.status === 'ready_for_review' || activeTask.status === 'agent_review') && !isSelfApprovalBlocked && (
+                {canRequestRevisions && (activeTask.reviewState === 'awaiting_review' || activeTask.status === 'awaiting_review' || activeTask.status === 'ready_for_review' || activeTask.status === 'agent_review') && !isSelfApprovalBlocked && (
                   <button
                     type="button"
                     onClick={() => setIsRevisionModalOpen(true)}

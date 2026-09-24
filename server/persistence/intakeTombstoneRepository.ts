@@ -294,6 +294,28 @@ export async function tombstoneIntakeScope(input: {
   return tomb;
 }
 
+export async function removeTombstone(input: {
+  workspaceId?: string;
+  requestId?: string | null;
+  propertyAddress?: string | null;
+  threadId?: string | null;
+}): Promise<void> {
+  const workspaceId = input.workspaceId || 'ws_wilmington';
+  const pool = getDbPool();
+  try {
+    const scopeKey = buildTombstoneScopeKey({
+      workspaceId,
+      requestId: input.requestId,
+      propertyAddress: input.propertyAddress,
+      threadId: input.threadId
+    });
+    memoryTombstones.delete(scopeKey);
+    if (pool) {
+      await pool.query(`DELETE FROM intake_tombstones WHERE scope_key = $1`, [scopeKey]);
+    }
+  } catch {}
+}
+
 /** Test helper */
 export function _resetTombstonesForTests() {
   memoryTombstones.clear();

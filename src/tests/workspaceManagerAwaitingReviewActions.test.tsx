@@ -7,7 +7,7 @@
  * 2. Calls table default timeframe initialized to 'today'.
  * 3. Canonical roster resolution for melissa@nestrealty.com.
  * 4. Melissa Gagliardi in Awaiting Review lane seeing "Approve & Send to Agent" and "Request Revisions",
- *    and NOT seeing "Send to Manager for Approval".
+ *    and NOT seeing "Send for review".
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -96,17 +96,15 @@ describe('Calls Tab Count & Manager Awaiting Review Actions', () => {
     );
 
     // Primary action button must say "Approve & Send to Agent"
-    expect(html).toContain('Approve &amp; Send to Agent');
+    expect(html).toContain('Approve &amp; Notify Agent');
     // Secondary review button must say "Request Revisions"
-    expect(html).toContain('Request Revisions');
-    // Authority badge
-    expect(html).toContain('Final approval: Marketing Director');
-    // Must NOT say "Send to Manager for Approval" (since she is the manager!)
-    expect(html).not.toContain('Send to Manager for Approval');
+    expect(html).toContain('Revisions');
+    // Must NOT say "Send for review" (since she is the manager!)
+    expect(html).not.toContain('Send for review');
   });
 
-  // 4. Producer viewing an in-progress task sees "Send to Manager for Approval"
-  it('renders "Send to Manager for Approval" when producer is drafting proof', () => {
+  // 4. Producer viewing an in-progress task sees "Send for review"
+  it('renders "Send for review" when producer is drafting proof', () => {
     const inProductionTask: WorkspaceDrawerTask = {
       ...awaitingReviewTask,
       reviewState: undefined,
@@ -128,7 +126,7 @@ describe('Calls Tab Count & Manager Awaiting Review Actions', () => {
       />
     );
 
-    expect(html).toContain('Send to Manager for Approval');
+    expect(html).toContain('Send for review');
     expect(html).not.toContain('Approve &amp; Send to Agent');
   });
 

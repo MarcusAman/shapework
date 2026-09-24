@@ -393,8 +393,15 @@ export function toWorkspaceDrawerTask(
     eventTime: task.eventTime || parent?.eventTime,
     receivedAt: parent?.receivedAt || parent?.createdAt || task.createdAt || '',
     assignedTo: task.assignedTo,
-    assignedToId: task.assignedToId,
-    assignedToRole: task.assignedToRole,
+    assignedToId: (() => {
+      const fromName = task.assignedTo ? resolveCanonicalStaffMember(task.assignedTo) : null;
+      const nameId = fromName?.id;
+      const rawId = task.assignedToId;
+      // Name-only reassign left Melissa's id on Eduardo tasks — trust canonical name.
+      if (nameId && rawId && nameId !== rawId) return nameId;
+      return rawId || nameId || undefined;
+    })(),
+    assignedToRole: task.assignedToRole || (task.assignedTo ? resolveCanonicalStaffMember(task.assignedTo)?.role : undefined),
     reviewOwnerId: task.reviewOwnerId && !String(task.reviewOwnerId).includes('_test_')
       ? task.reviewOwnerId
       : ((task.category === 'signage' || task.category === 'operations') ? 'dir_ann_gunn_28' : 'dir_melissa_gagliardi_33'),
@@ -932,10 +939,10 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       }));
       showToast(`✓ Restored ${targetIds.length} task(s) to active queue`);
     } else if (action === 'assign_eduardo') {
-      setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: 'assigned', assignedTo: 'Eduardo Lovo', assignedToRole: 'Virtual Assistant' } : t));
+      setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: 'assigned', assignedTo: 'Eduardo Lovo', assignedToId: 'dir_eduardo_lovo_73', assignedToRole: 'Virtual Assistant' } : t));
       showToast(`✓ Assigned ${targetIds.length} task(s) to Eduardo Lovo`);
     } else if (action === 'assign_melissa') {
-      setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: 'assigned', assignedTo: 'Melissa Gagliardi', assignedToRole: 'Marketing Director' } : t));
+      setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: 'assigned', assignedTo: 'Melissa Gagliardi', assignedToId: 'dir_melissa_gagliardi_33', assignedToRole: 'Marketing Director' } : t));
       showToast(`✓ Assigned ${targetIds.length} task(s) to Melissa Gagliardi`);
     } else if (action === 'approve') {
       setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: 'approved' } : t));
@@ -1305,11 +1312,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         })
       });
       if (res.ok) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: assignee, assignedToRole: role } : t));
+        const staff = resolveCanonicalStaffMember(assignee);
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: assignee, assignedToId: staff?.id || t.assignedToId, assignedToRole: role } : t));
         showToast(`✓ Assigned to ${assignee} (${role})`);
       }
     } catch {
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: assignee, assignedToRole: role } : t));
+      const staff = resolveCanonicalStaffMember(assignee);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignedTo: assignee, assignedToId: staff?.id || t.assignedToId, assignedToRole: role } : t));
     }
   };
 

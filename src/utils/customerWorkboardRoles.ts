@@ -15,6 +15,7 @@ export const ALLOWED_CUSTOMER_WORKBOARD_ROLES: readonly string[] = [
   'guest',
   'marketing_coordinator',
   'marketing_director',
+  'producer',
 ] as const;
 
 export function isAllowedCustomerWorkboardRole(role: string | undefined | null): boolean {

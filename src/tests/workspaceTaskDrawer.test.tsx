@@ -13,7 +13,7 @@
  * 7. Unsafe file and URL inputs are rejected
  * 8. Valid uploaded asset previews and expands
  * 9. Keyboard and focus behavior works in the viewer
- * 10. "Send to Manager for Approval" requires a proof
+ * 10. "Send for review" requires a proof
  * 11. Submission remains in_progress and becomes awaiting_review
  * 12. Duplicate submission is idempotent
  * 13. Revision feedback returns work to producer without changing intake to needs_info
@@ -112,7 +112,7 @@ describe('WorkspaceTaskDrawer Redesign — 17 Verified Acceptance Criteria', () 
 
     expect(html).not.toContain('Approve & Deliver to Agent');
     expect(html).not.toContain('Autonomous Maxa Staged Package');
-    expect(html).toContain('Send to Manager for Approval');
+    expect(html).toContain('Send for review');
   });
 
   // 2. Producer cannot invoke manager approval through the API
@@ -258,8 +258,8 @@ describe('WorkspaceTaskDrawer Redesign — 17 Verified Acceptance Criteria', () 
     expect(html).toContain('Close Preview (Esc)');
   });
 
-  // 10. "Send to Manager for Approval" requires a proof
-  it('10. "Send to Manager for Approval" requires a proof (disabled when no proof provided)', () => {
+  // 10. "Send for review" requires a proof
+  it('10. "Send for review" requires a proof (disabled when no proof provided)', () => {
     const taskWithoutProof: WorkspaceDrawerTask = {
       ...sampleTask,
       proofUrl: undefined,
@@ -414,7 +414,7 @@ describe('WorkspaceTaskDrawer Redesign — 17 Verified Acceptance Criteria', () 
         currentUser={{ id: 'staff_eduardo_lovo', name: 'Eduardo Lovo', role: 'producer' }}
       />
     );
-    expect(eduardoHtml).toContain('Send to Manager for Approval');
+    expect(eduardoHtml).toContain('Send for review');
     expect(eduardoHtml).not.toContain('Approve for Delivery');
     expect(eduardoHtml).not.toContain('Approve & Deliver to Agent');
 
@@ -430,7 +430,7 @@ describe('WorkspaceTaskDrawer Redesign — 17 Verified Acceptance Criteria', () 
     );
     expect(melissaHtml).toContain('Approve for Delivery');
     expect(melissaHtml).toContain('Request Revisions');
-    expect(melissaHtml).not.toContain('Send to Manager for Approval');
+    expect(melissaHtml).not.toContain('Send for review');
   });
 
   // 18. Triage card rendering & resolution controls

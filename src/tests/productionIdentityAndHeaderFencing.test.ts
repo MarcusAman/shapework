@@ -117,6 +117,8 @@ describe('Production Identity & Header Fencing Security Suite', () => {
       workspaceId: 'ws_wilmington',
       assignedTo: 'Eduardo Lovo',
       assignedToId: 'dir_eduardo_lovo_73',
+      reviewOwnerId: 'dir_melissa_gagliardi_33',
+      reviewOwnerName: 'Melissa Gagliardi',
       status: 'in_progress',
       reviewState: 'awaiting_review',
       proofs: [{ id: 'prf_1', url: 'https://example.com/p.pdf', uploadedBy: 'Eduardo Lovo', uploadedById: 'dir_eduardo_lovo_73' }]
@@ -124,7 +126,7 @@ describe('Production Identity & Header Fencing Security Suite', () => {
 
     const safetyCheck = validateSelfApprovalSafety(task, req.authUser);
     expect(safetyCheck.allowed).toBe(false);
-    expect(safetyCheck.errorCode).toBe('FORBIDDEN_SELF_APPROVAL');
+    expect(safetyCheck.errorCode).toBe('FORBIDDEN_NOT_TASK_REVIEWER');
 
     const authorityCheck = hasMarketingFinalApprovalAuthority(req.authUser, task, 'ws_wilmington');
     expect(authorityCheck.authorized).toBe(false);

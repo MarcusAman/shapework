@@ -18,7 +18,7 @@
  * 12. Assignee drawer requirements checklist supports 4 states (not_reviewed, verified, needs_correction, not_applicable)
  * 13. Assignee drawer checklist state changes persist to server
  * 14. Assignee drawer missing photos empty state offers 'Notify Manager' action
- * 15. Assignee drawer 'Send to Manager for Approval' disabled when proof missing or checklist incomplete
+ * 15. Assignee drawer 'Send for review' disabled when proof missing or checklist incomplete
  * 16. Assignee drawer displays clear explanation of why submission is disabled
  * 17. Producer cannot invoke approval API directly (403 forbidden)
  * 18. Proof submission preserves version history
@@ -543,8 +543,8 @@ describe('Task Detail Refinement & Role Separation — 20 Acceptance Criteria', 
     expect(html).toContain('Proceed without photos (Override)');
   });
 
-  // 15. Assignee drawer 'Send to Manager for Approval' disabled when proof missing or checklist incomplete
-  it('15. "Send to Manager for Approval" disabled when proof missing or checklist incomplete', () => {
+  // 15. Assignee drawer 'Send for review' disabled when proof missing or checklist incomplete
+  it('15. "Send for review" disabled when proof missing or checklist incomplete', () => {
     // Case A: Missing proof
     const noProofTask: WorkspaceDrawerTask = {
       ...sampleAssigneeTask,

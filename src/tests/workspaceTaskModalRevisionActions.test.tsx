@@ -33,6 +33,8 @@ import {
 describe('Workspace Task Modal Revision Actions & Delivery Suite', () => {
   const baseTask: WorkspaceDrawerTask = {
     id: 'task_revision_test_001',
+    reviewOwnerId: 'dir_melissa_gagliardi_33',
+    reviewOwnerName: 'Melissa Gagliardi',
     campaignId: 'camp_001',
     propertyAddress: '124 Market St, Wilmington, NC 28401',
     agentName: 'Matt Orr',
@@ -182,7 +184,7 @@ describe('Workspace Task Modal Revision Actions & Delivery Suite', () => {
     expect(updatedLane).toBe('awaiting_review');
   });
 
-  it('3. Producer fresh task (not revision) displays "Send to Manager for Approval"', () => {
+  it('3. Producer fresh task (not revision) displays "Send for review"', () => {
     const freshTask: WorkspaceDrawerTask = {
       ...baseTask,
       status: 'in_production',
@@ -200,7 +202,7 @@ describe('Workspace Task Modal Revision Actions & Delivery Suite', () => {
       />
     );
 
-    expect(markup).toContain('Send to Manager for Approval');
+    expect(markup).toContain('Send for review');
     expect(markup).not.toContain('Send to Melissa for review');
   });
 

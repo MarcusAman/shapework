@@ -114,11 +114,11 @@ describe('Nest F-02 director self-complete CTA', () => {
       />
     );
 
-    expect(html).toContain('Approve &amp; Complete');
-    expect(html).not.toContain('Send to Manager for Approval');
+    expect(html).toContain('Approve &amp; Notify Agent');
+    expect(html).not.toContain('Send for review');
   });
 
-  it('keeps Send to Manager for Approval for Eduardo producer', () => {
+  it('keeps Send for review for Eduardo producer', () => {
     const task = baseTask({
       proofUrl: 'https://drive.google.com/drive/folders/eduardo_proof',
       proofVersion: 1,
@@ -146,7 +146,7 @@ describe('Nest F-02 director self-complete CTA', () => {
       />
     );
 
-    expect(html).toContain('Send to Manager for Approval');
+    expect(html).toContain('Send for review');
     expect(html).not.toContain('Approve and Send to Agent');
   });
 
@@ -163,6 +163,6 @@ describe('Nest F-02 director self-complete CTA', () => {
     );
 
     // Guest / viewer fallback must not present producer submit CTA as if Eduardo.
-    expect(html).not.toContain('Send to Manager for Approval');
+    expect(html).not.toContain('Send for review');
   });
 });
