@@ -2205,7 +2205,8 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         routing_reasons, routing_snapshot, routing_policy_id, fulfillment_role_id,
         original_review_owner_id, review_covering_staff_id, original_assignee_id,
         assignee_covering_staff_id, classification_confidence, routed_at,
-        created_at, updated_at
+        created_at, updated_at, photos, attachments, mls_number, channel,
+        proof_url, deliverable_type
       FROM canonical_marketing_tasks
       ORDER BY created_at DESC
     `);
@@ -2289,7 +2290,13 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         completedAt: t.completed_at?.toISOString ? t.completed_at.toISOString() : t.completed_at,
         approvalHistory: t.approval_history || [],
         createdAt: t.created_at?.toISOString ? t.created_at.toISOString() : t.created_at,
-        updatedAt: t.updated_at?.toISOString ? t.updated_at.toISOString() : t.updated_at
+        updatedAt: t.updated_at?.toISOString ? t.updated_at.toISOString() : t.updated_at,
+        photos: Array.isArray(t.photos) ? t.photos : (t.photos ? t.photos : []),
+        attachments: Array.isArray(t.attachments) ? t.attachments : (t.attachments ? t.attachments : []),
+        mlsNumber: t.mls_number || undefined,
+        channel: t.channel || undefined,
+        proofUrl: t.proof_url || undefined,
+        deliverableType: t.deliverable_type || undefined
       }));
 
       console.log(`[syncCanonicalStoreFromDatabase] Synced ${canonicalRequestsStore.length} requests and ${canonicalTasksStore.length} tasks from PostgreSQL.`);
@@ -2603,6 +2610,20 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
           task.routedAt ? new Date(task.routedAt) : (task.routingSnapshot?.routedAt ? new Date(task.routingSnapshot.routedAt) : null),
           task.createdAt ? new Date(task.createdAt) : new Date(),
           new Date()
+        ]
+      );
+
+      // Keep source photos / attachments durable in DB (drawer one-photo-primary gate).
+      await db.query(
+        `UPDATE canonical_marketing_tasks
+         SET photos = $2::jsonb,
+             attachments = $3::jsonb,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [
+          task.id,
+          JSON.stringify(task.photos || []),
+          JSON.stringify(task.attachments || [])
         ]
       );
     }

@@ -6429,7 +6429,13 @@ export async function getOrFetchCanonicalMarketingTask(taskId: string): Promise<
           completedAt: t.completed_at,
           approvalHistory: t.approval_history || [],
           createdAt: t.created_at?.toISOString ? t.created_at.toISOString() : t.created_at,
-          updatedAt: t.updated_at?.toISOString ? t.updated_at.toISOString() : t.updated_at
+          updatedAt: t.updated_at?.toISOString ? t.updated_at.toISOString() : t.updated_at,
+          photos: Array.isArray(t.photos) ? t.photos : (t.photos ? t.photos : []),
+          attachments: Array.isArray(t.attachments) ? t.attachments : (t.attachments ? t.attachments : []),
+          mlsNumber: t.mls_number || undefined,
+          channel: t.channel || undefined,
+          proofUrl: t.proof_url || undefined,
+          deliverableType: t.deliverable_type || undefined
         } as CanonicalMarketingTask;
         saveCanonicalMarketingTask(task);
         return task;
