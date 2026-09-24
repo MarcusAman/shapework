@@ -3,15 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { evaluateOutboundDispatchGuard } from './outboundDispatchGuards.js';
 import { EXPLICIT_OUTBOUND_ALLOWLIST } from '../../src/lib/outboundAllowlistGate.js';
 import { checkOutbound } from './outboundGate.js';
 import { deliverNodemailer } from './gatedTransport.js';
-
-dotenv.config();
 
 function readConfiguredSmtpSecret(): string {
   return String(

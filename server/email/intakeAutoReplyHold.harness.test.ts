@@ -19,6 +19,11 @@ vi.hoisted(() => {
   vi.stubEnv('IS_PRODUCTION', 'false');
   vi.stubEnv('ALLOW_EXTERNAL_DISPATCH', 'false');
   vi.stubEnv('DISABLE_EMAIL_WHITELIST', 'true');
+  vi.stubEnv('DATABASE_URL', '');
+  vi.stubEnv('LOCAL_DATABASE_URL', '');
+  vi.stubEnv('TEST_DATABASE_URL', '');
+  vi.stubEnv('UAT_DATABASE_URL', '');
+  vi.stubEnv('POSTGRES_URL', '');
 });
 
 import { ingestInboundEmailToTask, memoryOutbox } from '../services/inboundEmailIngestionEngine.js';

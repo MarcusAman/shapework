@@ -30,8 +30,8 @@ function isProduction(): boolean {
 async function getDbPool() {
   if (typeof window !== 'undefined') return null;
   try {
-    const { dbPool, storageDriver } = await import('./repositories.js');
-    if (storageDriver === 'database' && dbPool) return dbPool;
+    const { getDbPool: openPool, getStorageDriver } = await import('./repositories.js');
+    if (getStorageDriver() === 'database') return openPool();
     return null;
   } catch {
     return null;

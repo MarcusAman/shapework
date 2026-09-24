@@ -672,10 +672,10 @@ export async function claimInboundEmail(params: {
   const claimId = `claim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   try {
-    const { dbPool, storageDriver } = await import('../persistence/repositories.js');
+    const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((storageDriver === 'database' || executor) && db) {
+    if (getStorageDriver() === 'database' && db) {
       // Step 1: Attempt atomic insert with ON CONFLICT DO NOTHING
       const insertRes = await db.query(
         `INSERT INTO inbound_email_idempotency_log (
@@ -752,10 +752,10 @@ export async function completeInboundEmailProcessing(params: {
   const { workspaceId, provider, mailboxId, messageId, taskId, requestId, executor } = params;
 
   try {
-    const { dbPool, storageDriver } = await import('../persistence/repositories.js');
+    const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((storageDriver === 'database' || executor) && db) {
+    if (getStorageDriver() === 'database' && db) {
       await db.query(
         `UPDATE inbound_email_idempotency_log
          SET processing_status = 'completed',
@@ -793,10 +793,10 @@ export async function failInboundEmailProcessing(params: {
   const { workspaceId, provider, mailboxId, messageId, errorCode, executor } = params;
 
   try {
-    const { dbPool, storageDriver } = await import('../persistence/repositories.js');
+    const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((storageDriver === 'database' || executor) && db) {
+    if (getStorageDriver() === 'database' && db) {
       await db.query(
         `UPDATE inbound_email_idempotency_log
          SET processing_status = 'failed',
@@ -942,7 +942,7 @@ export async function enqueueOutboundEmail(params: {
     const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((getStorageDriver() === 'database' || executor) && db) {
+    if (getStorageDriver() === 'database' && db) {
       const res = await db.query(
         `INSERT INTO outbound_email_outbox (
           id, workspace_id, message_type, idempotency_key, recipient, subject, payload,
@@ -1007,7 +1007,7 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
     const { dbPool, getStorageDriver } = await import('../persistence/repositories.js');
     const db = executor || dbPool;
 
-    if ((getStorageDriver() === 'database' || executor) && db) {
+    if (getStorageDriver() === 'database' && db) {
       // Claim up to 10 pending or retryable failed outbox entries safely with lease
       // Heal stale 'sending' rows that already have a provider message id (sent but not marked).
       await db.query(
@@ -1404,7 +1404,10 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   let ownsDbClient = false;
   try {
     if (!dbClient) {
-      const activePool = payload.pool || (await import('../persistence/repositories.js')).getDbPool();
+      const repos = await import('../persistence/repositories.js');
+      const activePool = repos.getStorageDriver() === 'database'
+        ? (payload.pool || repos.getDbPool())
+        : null;
       if (activePool) {
         dbClient = await activePool.connect();
         await dbClient.query('BEGIN');

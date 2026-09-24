@@ -66,7 +66,8 @@ if (isProductionOrStaging && !isTestEnv && (strictPersistence || APP_ENV === 'st
 export let dbPool: pg.Pool | null = null;
 
 export function initDbPool(connectionString?: string): pg.Pool | null {
-  const conn = connectionString || process.env.DATABASE_URL;
+  if (getStorageDriver() !== 'database') return null;
+  const conn = connectionString || process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL || '';
   if (!conn) return null;
   if (dbPool) return dbPool;
 
@@ -100,12 +101,8 @@ export function initDbPool(connectionString?: string): pg.Pool | null {
 }
 
 export function getDbPool(): pg.Pool | null {
-  if (!dbPool && (process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL)) {
-    const driver = getStorageDriver();
-    if (driver === 'database' || process.env.DATABASE_URL) {
-      return initDbPool(process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL);
-    }
-  }
+  if (getStorageDriver() !== 'database') return null;
+  if (!dbPool) return initDbPool();
   return dbPool;
 }
 
