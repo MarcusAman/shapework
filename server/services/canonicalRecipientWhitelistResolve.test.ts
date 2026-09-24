@@ -24,8 +24,19 @@ describe('resolveServerCanonicalRecipient whitelist fallback', () => {
     expect(resolved!.email).toBe('marcus.aman@gmail.com');
     expect(resolved!.emailVerified).toBe(true);
     expect(resolved!.name).toBe('Marcus Aman');
-    expect(resolved!.id.startsWith('dir_')).toBe(false);
-    expect(resolved!.id).toBe('whitelist:marcus.aman@gmail.com');
+    expect(resolved!.id).toBe('dir_marcus_aman');
+    expect(
+      NEST_FULL_ROSTER_77.some((m) => m.id === 'dir_marcus_aman')
+    ).toBe(false);
+  });
+
+  it('does not resolve a client-directory Nest email that is not on the whitelist', async () => {
+    const resolved = await resolveServerCanonicalRecipient({
+      requesterName: 'Dawn',
+      requesterEmail: 'dawn@nestrealty.com',
+      workspaceId: 'ws_wilmington',
+    });
+    expect(resolved).toBeNull();
   });
 
   it('still returns null for a random gmail (route 400 RECIPIENT_UNRESOLVED)', async () => {

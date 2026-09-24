@@ -10,6 +10,7 @@
 import { getDbPool, storageDriver } from '../persistence/repositories.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
 import { ALLOWED_TEST_EMAIL_RECIPIENTS } from '../email/emailProvider.js';
+import { CANONICAL_AGENT_DIRECTORY } from '../../src/services/canonicalRecipientService.js';
 
 export interface VerifiedRecipientServer {
   id: string;
@@ -212,25 +213,36 @@ export async function resolveServerCanonicalRecipient(options: {
     };
   }
 
-  // UI keeps Send enabled for a verified agentEmail that is not in the Nest directory.
-  // Server matches that only for the explicit outbound whitelist (marcus.aman@gmail.com).
-  // Does not insert a Nest roster row. Unknown non-whitelist emails still resolve to null.
-  if (options.requesterEmail && isExplicitWhitelistEmail(options.requesterEmail) && !isProhibitedEmail(options.requesterEmail)) {
-    const email = options.requesterEmail.trim().toLowerCase();
-    const rawName = (options.requesterName || '').replace(/\(.*?\)/g, '').trim() || email;
-    const phoneValid = Boolean(options.requesterPhone) && !isProhibitedPhone(options.requesterPhone);
+  // Same list the UI uses (CANONICAL_AGENT_DIRECTORY), and only when that email is on the
+  // explicit outbound whitelist. Does not insert a NEST_FULL_ROSTER_77 row.
+  // Unknown non-whitelist emails still return null → send-questions 400.
+  const directoryAgent = CANONICAL_AGENT_DIRECTORY.find((agent) => {
+    const email = String(agent.email || '').trim().toLowerCase();
+    const requestedEmail = String(options.requesterEmail || '').trim().toLowerCase();
+    if (requestedEmail && email === requestedEmail) return true;
+    if (options.requesterId && agent.id.toLowerCase() === options.requesterId.toLowerCase()) return true;
+    return false;
+  });
+  if (
+    directoryAgent &&
+    isExplicitWhitelistEmail(directoryAgent.email) &&
+    !isProhibitedEmail(directoryAgent.email)
+  ) {
+    const email = directoryAgent.email.trim().toLowerCase();
+    const phoneValid = !isProhibitedPhone(directoryAgent.phone);
+    const roleLower = String(directoryAgent.role || '').toLowerCase();
     return {
-      id: `whitelist:${email}`,
-      name: rawName,
-      firstName: rawName.split(' ')[0] || 'Agent',
+      id: directoryAgent.id,
+      name: directoryAgent.name,
+      firstName: directoryAgent.firstName || directoryAgent.name.split(' ')[0] || 'Agent',
       email,
-      phone: phoneValid ? String(options.requesterPhone).trim() : null,
+      phone: phoneValid ? directoryAgent.phone : null,
       emailVerified: true,
       phoneVerified: phoneValid,
       maskedEmail: maskEmail(email),
-      maskedPhone: phoneValid ? maskPhoneNumber(options.requesterPhone) : null,
-      role: 'Requester',
-      isAgentOrBroker: false,
+      maskedPhone: phoneValid ? maskPhoneNumber(directoryAgent.phone) : null,
+      role: directoryAgent.role,
+      isAgentOrBroker: roleLower.includes('broker') || roleLower.includes('agent') || directoryAgent.personType === 'agent',
       workspaceId: targetWs
     };
   }
