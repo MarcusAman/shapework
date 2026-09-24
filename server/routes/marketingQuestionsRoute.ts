@@ -8,14 +8,15 @@
 import { Router, Request, Response } from 'express';
 import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
 import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
-import { isExactOutboundAllowlistHit } from '../../src/lib/outboundAllowlistGate.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
 import {
   resolveServerCanonicalRecipient,
   isProhibitedPhone,
   isProhibitedEmail,
-  isHotlineNumber
+  isHotlineNumber,
+  maskEmail,
 } from '../services/canonicalRecipientService.js';
+import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
 import { recordActivityEvent, getActivityHistoryForTask } from '../services/activityHistoryService.js';
 import {
   ensureAskNoraDeliveryDrivePack,
@@ -115,8 +116,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     const safeRecipientPhone =
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
 
-    // 2. Server-side Canonical Recipient Re-resolution
-    const resolvedRecipient = await resolveServerCanonicalRecipient({
+    // 2. Directory first. Prove Gmail is not a directory person.
+    const directoryRecipient = await resolveServerCanonicalRecipient({
       requesterId,
       requesterName: recipientName,
       requesterEmail: recipientEmail,
@@ -124,12 +125,33 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       workspaceId
     });
 
-    if (!resolvedRecipient) {
+    // Local kill-off only. Drops when outbound is live. Not an identity.
+    const proveAllowlistTo =
+      !directoryRecipient && isLocalProveAllowlistTo(recipientEmail)
+        ? String(recipientEmail).trim().toLowerCase()
+        : null;
+
+    if (!directoryRecipient && !proveAllowlistTo) {
       return res.status(400).json({
         success: false,
         error: 'Could not resolve a canonical directory record for this recipient in the current workspace.'
       });
     }
+
+    const resolvedRecipient = directoryRecipient ?? {
+      id: proveAllowlistTo as string,
+      name: String(recipientName || proveAllowlistTo).replace(/\(.*?\)/g, '').trim() || (proveAllowlistTo as string),
+      firstName: String(recipientName || proveAllowlistTo).replace(/\(.*?\)/g, '').trim().split(' ')[0] || 'Agent',
+      email: proveAllowlistTo,
+      phone: null,
+      emailVerified: true,
+      phoneVerified: false,
+      maskedEmail: maskEmail(proveAllowlistTo),
+      maskedPhone: null,
+      role: '',
+      isAgentOrBroker: false,
+      workspaceId
+    };
 
     // Validate destinations for requested channels
     if (channels.includes('email') && (!resolvedRecipient.email || !resolvedRecipient.emailVerified)) {
@@ -147,10 +169,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     }
 
 
-    // Allowlist prove addresses are not directory people. Member prefs stay on the Nest path.
-    const viaAllowlist =
-      String(resolvedRecipient.id || '').startsWith('allowlist:') &&
-      isExactOutboundAllowlistHit(resolvedRecipient.email);
+    // Prove To is not a directory person. Member prefs stay on the Nest path.
+    const viaAllowlist = Boolean(proveAllowlistTo);
 
     // Member notification prefs (materials ready / missing info / SMS)
     if (!viaAllowlist) try {
@@ -295,8 +315,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       const holdQueue =
         viaAllowlist &&
         wantsEmail &&
-        masterMode !== 'live' &&
-        masterMode !== 'disabled' &&
+        masterMode === 'hold' &&
         Boolean(resolvedRecipient.email);
 
       if (holdQueue && resolvedRecipient.email) {

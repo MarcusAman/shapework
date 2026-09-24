@@ -9,7 +9,6 @@
 
 import { getDbPool, storageDriver } from '../persistence/repositories.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
-import { isExactOutboundAllowlistHit } from '../../src/lib/outboundAllowlistGate.js';
 
 export interface VerifiedRecipientServer {
   id: string;
@@ -212,29 +211,6 @@ export async function resolveServerCanonicalRecipient(options: {
     };
   }
 
-  // Directory miss. Allow the send only for an exact outbound-allowlist To.
-  // Does not insert directory_people or a NEST_FULL_ROSTER_77 row.
-  // Prod / kill: allowlist is empty, so this returns null and directory is required.
-  const allowEmail = String(options.requesterEmail || '').trim().toLowerCase();
-  if (allowEmail && isExactOutboundAllowlistHit(allowEmail) && !isProhibitedEmail(allowEmail)) {
-    const suppliedPhone = options.requesterPhone;
-    const phoneValid = Boolean(suppliedPhone) && !isProhibitedPhone(suppliedPhone);
-    const name = String(options.requesterName || allowEmail).replace(/\(.*?\)/g, '').trim() || allowEmail;
-    return {
-      id: `allowlist:${allowEmail}`,
-      name,
-      firstName: name.split(' ')[0] || 'Agent',
-      email: allowEmail,
-      phone: phoneValid ? String(suppliedPhone) : null,
-      emailVerified: true,
-      phoneVerified: phoneValid,
-      maskedEmail: maskEmail(allowEmail),
-      maskedPhone: phoneValid ? maskPhoneNumber(suppliedPhone) : null,
-      role: 'Allowlist',
-      isAgentOrBroker: false,
-      workspaceId: targetWs
-    };
-  }
-
+  // Directory miss. Prove Gmail is not a Nest agent and is not inserted here.
   return null;
 }

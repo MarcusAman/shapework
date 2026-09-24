@@ -211,9 +211,15 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     setDuplicateConfirmed(false);
     setStatusMessage(null);
     setEnsuredDriveUrl('');
-    // Materials-ready: default email+text so SMS fires with the locked copy
-    setSelectedChannel(isDelivery ? 'both' : 'email');
-  }, [isOpen, campaign?.id, intent, isDelivery]);
+    // Materials-ready defaults to email+text only when both destinations are verified.
+    setSelectedChannel(
+      isDelivery && recipient.emailVerified && recipient.phoneVerified
+        ? 'both'
+        : recipient.phoneVerified && !recipient.emailVerified
+          ? 'text'
+          : 'email'
+    );
+  }, [isOpen, campaign?.id, intent, isDelivery, recipient.emailVerified, recipient.phoneVerified]);
 
   // Delivery: create/reuse real AskNora Drive folder so the assets strip is not empty
   useEffect(() => {

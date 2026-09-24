@@ -11,6 +11,7 @@ import type { Server } from 'http';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
 import { resolveCanonicalRecipient } from '../../src/services/canonicalRecipientService.js';
+import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
 import { marketingQuestionsRouter } from '../routes/marketingQuestionsRoute.js';
 import { memoryOutbox } from './inboundEmailIngestionEngine.js';
 import {
@@ -21,27 +22,29 @@ import {
 const storePath = path.join(process.cwd(), 'server', 'data', 'canonical_marketing_store_test.json');
 
 describe('directory then exact outbound allowlist', () => {
-  it('resolves whitelist marcus.aman@gmail.com with no directory or roster row', async () => {
+  it('does not invent a directory person for the prove Gmail', async () => {
     const rosterBefore = NEST_FULL_ROSTER_77.length;
     expect(
       NEST_FULL_ROSTER_77.some((m) => String(m.email || '').toLowerCase() === 'marcus.aman@gmail.com')
     ).toBe(false);
 
-    const resolved = await resolveServerCanonicalRecipient({
-      requesterName: 'Marcus Aman',
-      requesterEmail: 'marcus.aman@gmail.com',
-      requesterPhone: '(252) 717-0595',
-      workspaceId: 'ws_wilmington',
-    });
-
-    expect(resolved).not.toBeNull();
-    expect(resolved!.email).toBe('marcus.aman@gmail.com');
-    expect(resolved!.emailVerified).toBe(true);
-    expect(resolved!.name).toBe('Marcus Aman');
-    expect(resolved!.id).toBe('allowlist:marcus.aman@gmail.com');
-    expect(resolved!.id.startsWith('dir_')).toBe(false);
+    const prevMaster = process.env.OUTBOUND_MASTER_MODE;
+    process.env.OUTBOUND_MASTER_MODE = 'hold';
+    try {
+      const resolved = await resolveServerCanonicalRecipient({
+        requesterName: 'Marcus Aman',
+        requesterEmail: 'marcus.aman@gmail.com',
+        requesterPhone: '(252) 717-0595',
+        workspaceId: 'ws_wilmington',
+      });
+      expect(resolved).toBeNull();
+      expect(isLocalProveAllowlistTo('marcus.aman@gmail.com')).toBe(true);
+      expect(isLocalProveAllowlistTo('marcus@shapework.co')).toBe(false);
+    } finally {
+      if (prevMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
+      else process.env.OUTBOUND_MASTER_MODE = prevMaster;
+    }
     expect(NEST_FULL_ROSTER_77.length).toBe(rosterBefore);
-    expect(NEST_FULL_ROSTER_77.some((m) => m.id === resolved!.id)).toBe(false);
   });
 
   it('does not resolve a client-directory Nest email that is not on the whitelist', async () => {
@@ -73,24 +76,20 @@ describe('directory then exact outbound allowlist', () => {
     expect(resolved!.email).toBe('eduardo.lovo@nestrealty.com');
   });
 
-  it('fail-closes with an empty allowlist in production and on outbound kill', async () => {
+  it('drops the prove allowlist in production, on hard kill, and when outbound is live', async () => {
     const prevApp = process.env.APP_MODE;
     const prevMaster = process.env.OUTBOUND_MASTER_MODE;
     try {
       process.env.APP_MODE = 'production';
-      const prod = await resolveServerCanonicalRecipient({
-        requesterName: 'Marcus Aman',
-        requesterEmail: 'marcus.aman@gmail.com',
-      });
-      expect(prod).toBeNull();
+      process.env.OUTBOUND_MASTER_MODE = 'hold';
+      expect(isLocalProveAllowlistTo('marcus.aman@gmail.com')).toBe(false);
 
       delete process.env.APP_MODE;
       process.env.OUTBOUND_MASTER_MODE = 'disabled';
-      const killed = await resolveServerCanonicalRecipient({
-        requesterName: 'Marcus Aman',
-        requesterEmail: 'marcus.aman@gmail.com',
-      });
-      expect(killed).toBeNull();
+      expect(isLocalProveAllowlistTo('marcus.aman@gmail.com')).toBe(false);
+
+      process.env.OUTBOUND_MASTER_MODE = 'live';
+      expect(isLocalProveAllowlistTo('marcus.aman@gmail.com')).toBe(false);
 
       const eduardo = await resolveServerCanonicalRecipient({
         requesterName: 'Eduardo Lovo',
@@ -107,14 +106,19 @@ describe('directory then exact outbound allowlist', () => {
 
   it('uses the same allowlist predicate on the UI resolver', () => {
     const prevApp = process.env.APP_MODE;
+    const prevMaster = process.env.OUTBOUND_MASTER_MODE;
     try {
       delete process.env.APP_MODE;
+      process.env.OUTBOUND_MASTER_MODE = 'hold';
       const marcus = resolveCanonicalRecipient({
         agentName: 'Marcus Aman',
         agentEmail: 'marcus.aman@gmail.com',
       });
       expect(marcus.emailVerified).toBe(true);
       expect(marcus.email).toBe('marcus.aman@gmail.com');
+      expect(marcus.isAgentOrBroker).toBe(false);
+      expect(marcus.requesterId).toBeUndefined();
+      expect(marcus.phoneVerified).toBe(false);
 
       const random = resolveCanonicalRecipient({
         agentName: 'Random Person',
@@ -133,7 +137,16 @@ describe('directory then exact outbound allowlist', () => {
       expect(matt.emailVerified).toBe(true);
       expect(matt.email).toBe('matt.orr@nestrealty.com');
 
+      process.env.OUTBOUND_MASTER_MODE = 'live';
+      const marcusLive = resolveCanonicalRecipient({
+        agentName: 'Marcus Aman',
+        agentEmail: 'marcus.aman@gmail.com',
+      });
+      expect(marcusLive.emailVerified).toBe(false);
+
+      delete process.env.APP_MODE;
       process.env.APP_MODE = 'production';
+      process.env.OUTBOUND_MASTER_MODE = 'hold';
       const marcusProd = resolveCanonicalRecipient({
         agentName: 'Marcus Aman',
         agentEmail: 'marcus.aman@gmail.com',
@@ -144,6 +157,8 @@ describe('directory then exact outbound allowlist', () => {
     } finally {
       if (prevApp === undefined) delete process.env.APP_MODE;
       else process.env.APP_MODE = prevApp;
+      if (prevMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
+      else process.env.OUTBOUND_MASTER_MODE = prevMaster;
     }
   });
 });
@@ -253,5 +268,30 @@ describe('send-questions allowlist hold writes the existing outbox', () => {
     const body = await res.json();
     expect(body.success).toBe(false);
     expect(String(body.error)).toContain('Could not resolve a canonical directory record');
+  });
+
+  it('400s the prove Gmail once outbound kill-off is restored to live', async () => {
+    process.env.OUTBOUND_MASTER_MODE = 'live';
+    try {
+      const res = await fetch(`${baseUrl}/api/marketing/requests/send-questions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: 'tsk_trifold_live_restore',
+          taskId: 'tsk_trifold_live_restore',
+          recipientName: 'Marcus Aman',
+          recipientEmail: 'marcus.aman@gmail.com',
+          channels: ['email'],
+          message: 'Kill-off is restored. Directory is required.',
+          propertyAddress: '1 Prove Lane, Wilmington, NC',
+          intent: 'delivery_complete',
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(String(body.error)).toContain('Could not resolve a canonical directory record');
+    } finally {
+      process.env.OUTBOUND_MASTER_MODE = 'hold';
+    }
   });
 });

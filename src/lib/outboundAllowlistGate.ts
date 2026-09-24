@@ -1,16 +1,18 @@
 /**
- * Outbound allowlist gate (temporary kill-off).
+ * Temporary local-prove send gate. Not an identity.
  *
- * Who may receive SMTP when they are not a Nest directory person.
- * Production and hard kill (OUTBOUND_MASTER_MODE=disabled) fail closed:
- * the effective allowlist is empty and a directory record is required.
- * Hold keeps the explicit list. This is not a second mailer.
+ * Prod: allowlist is empty. Nest To must directory-resolve.
+ * Local kill-off (OUTBOUND_MASTER_MODE=hold): one exact To may send.
+ * Live / IMAP restore drops this gate. Hard kill (disabled) does too.
  */
 
 export const EXPLICIT_OUTBOUND_ALLOWLIST = [
   'marcus.aman@gmail.com',
   'marcus@shapework.co',
 ];
+
+/** Prove To while outbound is held. Not a directory person and not a Nest agent. */
+export const LOCAL_PROVE_ALLOWLIST_TO = 'marcus.aman@gmail.com';
 
 function readEnv(name: string): string {
   if (typeof process === 'undefined' || !process.env) return '';
@@ -34,29 +36,24 @@ function readEnv(name: string): string {
   }
 }
 
-/** Prod or outbound kill: no allowlist bypass. Directory is required. */
-export function isOutboundAllowlistFailClosed(): boolean {
+function isProductionApp(): boolean {
   const appMode = (readEnv('APP_MODE') || readEnv('APP_ENV')).toLowerCase();
   if (appMode === 'production' || readEnv('IS_PRODUCTION') === 'true') return true;
-  if (readEnv('NODE_ENV').toLowerCase() === 'production') return true;
-  const outbound = (readEnv('OUTBOUND_MASTER_MODE') || readEnv('OUTBOUND_MODE')).toLowerCase().trim();
-  return outbound === 'disabled';
+  return readEnv('NODE_ENV').toLowerCase() === 'production';
 }
 
-/** Exact addresses that may pass the allowlist gate. Empty when fail-closed. */
-export function explicitOutboundAllowlist(): string[] {
-  if (isOutboundAllowlistFailClosed()) return [];
-  const envAllowlist = readEnv('EMAIL_TEST_ALLOWLIST')
-    .split(',')
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
-  return [...EXPLICIT_OUTBOUND_ALLOWLIST.map((entry) => entry.toLowerCase()), ...envAllowlist];
+/** Hold is the temporary kill-off. Live restore and hard kill close the prove gate. */
+export function isLocalProveKillOff(): boolean {
+  if (isProductionApp()) return false;
+  const outbound = (readEnv('OUTBOUND_MASTER_MODE') || readEnv('OUTBOUND_MODE') || 'hold').toLowerCase().trim();
+  return outbound === 'hold';
 }
 
-/** Exact To match. Does not allow every address when live/production bypasses SMTP whitelist. */
-export function isExactOutboundAllowlistHit(email?: string | null): boolean {
-  if (!email) return false;
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) return false;
-  return explicitOutboundAllowlist().includes(normalized);
+/**
+ * Exact prove To during local kill-off only.
+ * Does not resolve a person and does not apply in prod, live, or disabled.
+ */
+export function isLocalProveAllowlistTo(email?: string | null): boolean {
+  if (!email || !isLocalProveKillOff()) return false;
+  return email.trim().toLowerCase() === LOCAL_PROVE_ALLOWLIST_TO;
 }
