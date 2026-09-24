@@ -14,6 +14,7 @@ import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js'
 import { pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
 import { saveCanonicalMarketingTask } from '../persistence/marketingCampaignsRepository.js';
 import { GoogleDriveService } from './googleDriveService.js';
+import { checkOutbound } from '../email/outboundGate.js';
 
 export function driveCreateFailureReason(detail?: string | null): string {
   const why = String(detail || 'Drive folder create failed').trim().replace(/\.+$/, '');
@@ -122,13 +123,9 @@ function readOutboundMode(input: EvaluateDispatchInput): string {
   if (injected != null && String(injected).trim() !== '') {
     return String(injected).toLowerCase().trim();
   }
-  return String(process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold')
-    .toLowerCase()
-    .trim();
-}
-
-function outboundTurnedOff(input: EvaluateDispatchInput): boolean {
-  return readOutboundMode(input) === 'disabled';
+  const master = process.env.OUTBOUND_MASTER_MODE;
+  if (master == null || String(master).trim() === '') return 'disabled';
+  return String(master).toLowerCase().trim();
 }
 
 function explicitBadProof(url?: string | null): boolean {
@@ -249,6 +246,23 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
 
   const effectiveTo = filterDispatchRecipients(email ? [email] : [], recipientStatus);
   const effectiveCc = filterDispatchRecipients(input.cc, recipientStatus);
+  const outboundMode = readOutboundMode(input);
+  const outboundGate = checkOutbound({
+    to: effectiveTo.length ? effectiveTo : (email ? [email] : []),
+    cc: effectiveCc,
+    channel: input.channel || 'email',
+    source: 'evaluateDispatch',
+    mode: outboundMode,
+  });
+  // Kill (disabled/unset) always blocks. Hold blocks a send that checkOutbound would
+  // not queue for the allowlist. A production directory verdict stays allowed so
+  // Approve & Notify can record a held row; the transport still will not deliver it.
+  const outboundBlocked = (() => {
+    if (outboundMode === 'disabled' || outboundGate.reason === 'outbound_disabled') return true;
+    if (outboundMode !== 'hold' || outboundGate.allowed || outboundGate.effectiveTo.length > 0) return false;
+    if (isProductionApp() && recipientStatus === 'directory') return false;
+    return true;
+  })();
   const resolved = resolveDispatchProofAndFolder({
     pastedProof: input.proofUrl,
     storedProof: input.task?.proofUrl,
@@ -275,11 +289,11 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     reason = await folderContentsReason(explicitFolderId, input.task?.workspaceId);
   } else if (full) {
     reason = await ensureFolderThenCount(input);
-  } else if (outboundTurnedOff(input)) {
+  } else if (outboundBlocked) {
     reason = DISPATCH_REASON.outbound;
   }
 
-  if (!reason && outboundTurnedOff(input)) {
+  if (!reason && outboundBlocked) {
     reason = DISPATCH_REASON.outbound;
   }
 

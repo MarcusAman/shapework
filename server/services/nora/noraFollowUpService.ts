@@ -28,6 +28,8 @@ import { updateTelephonyCallFollowUpAsync } from '../../persistence/telephonyCal
 import { CallerGatekeeperService, DirectoryCaller } from '../../integrations/telephony/callerGatekeeperService.js';
 import { getGoogleServiceAccountJWTClient } from '../../integrations/google/googleOAuth.js';
 import { isProhibitedEmail } from '../canonicalRecipientService.js';
+import { checkOutbound } from '../../email/outboundGate.js';
+import { deliverGmailMessage } from '../../email/gatedTransport.js';
 import { NEST_FULL_ROSTER_72 } from '../../persistence/nestRosterSeed.js';
 import { BROKERAGE_KEY_STAFF } from '../../knowledge/unifiedContextRetriever.js';
 
@@ -555,6 +557,10 @@ export class NoraFollowUpService {
     if (!to || isProhibitedEmail(to)) {
       throw new Error(`DISPATCH_REJECTED: Recipient "${to}" is prohibited or invalid.`);
     }
+    const gate = checkOutbound({ to, channel: 'gmail', source: 'noraFollowUpService' });
+    if (!gate.allowed) {
+      throw new Error(`DISPATCH_REJECTED: outbound ${gate.reason}`);
+    }
 
     // Check test / mock environments
     const isTestMode = process.env.NODE_ENV === 'test';
@@ -591,12 +597,16 @@ export class NoraFollowUpService {
         .replace(/\//g, '_')
         .replace(/=+$/, '');
 
-      const res = await gmail.users.messages.send({
-        userId: 'me',
-        requestBody: { raw }
+      const res = await deliverGmailMessage(gmail, {
+        requestBody: { raw },
+        to: gate.effectiveTo,
+        source: 'noraFollowUpService',
       });
+      if (!res.sent) {
+        throw new Error(`DISPATCH_REJECTED: outbound ${res.gate.reason}`);
+      }
 
-      return res.data.id || `gmail_msg_${Date.now()}`;
+      return res.messageId || res.response?.data?.id || `gmail_msg_${Date.now()}`;
     } catch (err: any) {
       console.error('[AskNora Gmail API Error]:', err.message);
       throw new Error(`Google Workspace Gmail API error: ${err.message}`);

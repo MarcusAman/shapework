@@ -500,22 +500,37 @@ export async function syncGmailIntake(
 
       // Send the email acknowledgment
       try {
-        if (isTest) {
+        const { checkOutbound } = await import('../../email/outboundGate.js');
+        const ackGate = checkOutbound({
+          to: aiResult.requesterEmail,
+          channel: 'gmail',
+          source: 'googleIntake',
+        });
+        if (!ackGate.allowed) {
+          console.log(`[Gmail Intake] acknowledgment ${ackGate.reason} for ${aiResult.requesterEmail}`);
+        } else if (isTest) {
           if (!dbState.sentReplies) dbState.sentReplies = [];
           dbState.sentReplies.push({ to: aiResult.requesterEmail, subject: `Re: ${subject}`, body: ackBody });
           console.log(`[Gmail Test Intake] Mock email response dispatched to ${aiResult.requesterEmail}`);
+          logIntegrationAudit(
+            dbState,
+            workspaceId,
+            'System Autopilot',
+            'System',
+            `Sent automated confirmation reply to ${aiResult.requesterEmail}`,
+            'Google Workspace'
+          );
         } else {
           await sendGmailEmail(accessToken, aiResult.requesterEmail, `Re: ${subject}`, ackBody);
+          logIntegrationAudit(
+            dbState,
+            workspaceId,
+            'System Autopilot',
+            'System',
+            `Sent automated confirmation reply to ${aiResult.requesterEmail}`,
+            'Google Workspace'
+          );
         }
-        
-        logIntegrationAudit(
-          dbState,
-          workspaceId,
-          'System Autopilot',
-          'System',
-          `Sent automated confirmation reply to ${aiResult.requesterEmail}`,
-          'Google Workspace'
-        );
       } catch (mailErr: any) {
         console.error('[Gmail Intake] Failed to send thread reply:', mailErr.message);
       }

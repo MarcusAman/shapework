@@ -1,3 +1,6 @@
+import { deliverResendEmail } from '../email/gatedTransport.js';
+import { checkOutbound } from '../email/outboundGate.js';
+
 export interface EmailNotificationInput {
   to: string;
   subject: string;
@@ -25,6 +28,10 @@ export interface NotificationProvider {
 // Development Log Provider: writes safely to node console and audit log
 export class DevLogProvider implements NotificationProvider {
   async sendEmail(input: EmailNotificationInput): Promise<NotificationSendResult> {
+    const gate = checkOutbound({ to: input.to, channel: 'email', source: 'DevLogProvider' });
+    if (!gate.allowed) {
+      return { success: false, provider: 'dev_log_provider', error: `Outbound ${gate.reason}: email was not sent.` };
+    }
     console.log(`[DevLogProvider] EMAIL to ${input.to} - Subject: ${input.subject}`);
     // Do not log the sensitive link or HTML contents in the raw logs to protect privacy
     return {
@@ -35,6 +42,10 @@ export class DevLogProvider implements NotificationProvider {
   }
 
   async sendSms(input: SmsNotificationInput): Promise<NotificationSendResult> {
+    const gate = checkOutbound({ to: input.to, channel: 'sms', source: 'DevLogProvider' });
+    if (!gate.allowed) {
+      return { success: false, provider: 'dev_log_provider', error: `Outbound ${gate.reason}: SMS was not sent.` };
+    }
     console.log(`[DevLogProvider] SMS to ${input.to} - Length: ${input.message.length} chars`);
     return {
       success: true,
@@ -59,6 +70,10 @@ export class SmsProviderStub implements NotificationProvider {
         provider: 'sms_provider_stub',
         error: 'SMS channel not configured. Configure TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN first.'
       };
+    }
+    const gate = checkOutbound({ to: input.to, channel: 'sms', source: 'SmsProviderStub' });
+    if (!gate.allowed) {
+      return { success: false, provider: 'sms_provider_stub', error: `Outbound ${gate.reason}: SMS was not sent.` };
     }
     // Simulate real SMS send if config is present
     return {
@@ -87,19 +102,27 @@ export class ResendEmailProvider implements NotificationProvider {
     }
 
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
+      const delivered = await deliverResendEmail({
+        apiKey: this.apiKey,
+        to: input.to,
+        source: 'ResendEmailProvider',
+        payload: {
           from: 'shapework <notifications@shapework.co>',
           to: input.to,
           subject: input.subject,
           html: input.html
-        })
+        }
       });
+      if (!delivered.sent || !delivered.response) {
+        return {
+          success: false,
+          provider: 'resend_email_provider',
+          error: delivered.gate.reason === 'resend_unconfigured'
+            ? 'Resend API Key not configured. Configure RESEND_API_KEY first.'
+            : `Outbound ${delivered.gate.reason}: email was not sent.`
+        };
+      }
+      const response = delivered.response;
 
       if (response.ok) {
         const data = await response.json();

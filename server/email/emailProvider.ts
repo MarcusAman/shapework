@@ -8,12 +8,27 @@ import nodemailer from 'nodemailer';
 import path from 'path';
 import { evaluateOutboundDispatchGuard } from './outboundDispatchGuards.js';
 import { EXPLICIT_OUTBOUND_ALLOWLIST } from '../../src/lib/outboundAllowlistGate.js';
+import { checkOutbound } from './outboundGate.js';
+import { deliverNodemailer } from './gatedTransport.js';
 
 dotenv.config();
 
+function readConfiguredSmtpSecret(): string {
+  return String(
+    process.env.NORA_EMAIL_PASSWORD ||
+    process.env.SMTP_PASSWORD ||
+    process.env.GOOGLE_SMTP_PASS ||
+    ''
+  ).trim();
+}
+
+export const SMTP_SECRET_MISSING = 'Outbound email transport is fail-closed: NORA_EMAIL_PASSWORD is not set.';
+
 export const NORA_EMAIL_CONFIG = {
   user: process.env.NORA_EMAIL || 'asknora@nestrealty.com',
-  password: process.env.NORA_EMAIL_PASSWORD || 'uhuk xenp kxdy aviu',
+  get password() {
+    return readConfiguredSmtpSecret();
+  },
   fromName: 'Nora (Nest Realty Operations)',
   host: 'smtp.gmail.com',
   port: 465,
@@ -24,13 +39,17 @@ export const NORA_EMAIL_CONFIG = {
  * Creates the nodemailer transporter for Nora's Gmail account.
  */
 export function getNoraTransporter() {
+  const pass = readConfiguredSmtpSecret();
+  if (!pass) {
+    throw new Error(SMTP_SECRET_MISSING);
+  }
   return nodemailer.createTransport({
     host: NORA_EMAIL_CONFIG.host,
     port: NORA_EMAIL_CONFIG.port,
     secure: NORA_EMAIL_CONFIG.secure,
     auth: {
       user: NORA_EMAIL_CONFIG.user,
-      pass: NORA_EMAIL_CONFIG.password
+      pass
     },
     connectionTimeout: 10000,
     greetingTimeout: 5000,
@@ -54,23 +73,27 @@ export interface EmailDispatchResult {
  */
 export const ALLOWED_TEST_EMAIL_RECIPIENTS = EXPLICIT_OUTBOUND_ALLOWLIST;
 
+/**
+ * Explicit allowlist membership. APP_MODE, live mode, and DISABLE_EMAIL_WHITELIST do not widen it.
+ * Whether a message may leave the process is checkOutbound, enforced in the transport.
+ */
 export function isAllowedEmailRecipient(email?: string): boolean {
   if (!email) return false;
-  // If in live outbound mode, production mode, or if whitelist is explicitly disabled, allow all valid email recipients
-  if (
-    process.env.OUTBOUND_MASTER_MODE === 'live' ||
-    process.env.APP_MODE === 'production' ||
-    process.env.DISABLE_EMAIL_WHITELIST === 'true'
-  ) {
-    return true;
-  }
   const normalized = email.toLowerCase().trim();
-  const envAllowlist = (process.env.EMAIL_TEST_ALLOWLIST || '')
-    .split(',')
-    .map(e => e.trim().toLowerCase())
-    .filter(Boolean);
-  const combined = [...ALLOWED_TEST_EMAIL_RECIPIENTS.map(e => e.toLowerCase()), ...envAllowlist];
-  return combined.some(allowed => normalized === allowed);
+  if (!normalized) return false;
+  return ALLOWED_TEST_EMAIL_RECIPIENTS.some((allowed) => allowed.toLowerCase() === normalized);
+}
+
+function suppressedByOutboundGate(to?: string | string[], cc?: string | string[], source = 'emailProvider'): EmailDispatchResult | null {
+  const gate = checkOutbound({ to, cc, channel: 'email', source });
+  if (gate.allowed) return null;
+  return {
+    success: true,
+    suppressed: true,
+    held: gate.reason === 'held',
+    reason: gate.reason,
+    messageId: `suppressed_safe_mode_${Date.now()}`,
+  } as EmailDispatchResult;
 }
 
 /**
@@ -281,10 +304,8 @@ export function renderNestEditorialEmailTemplate(options: {
 export async function sendSystemVerificationEmail(toEmail: string = 'marcus.aman@gmail.com'): Promise<EmailDispatchResult> {
   console.log(`[Email] Dispatching live system verification email to: ${toEmail}`);
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    console.log(`[Email Safety Gate] Outgoing verification email to ${toEmail} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
-    return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
-  }
+  const verificationHeld = suppressedByOutboundGate(toEmail, undefined, 'sendVerificationEmail');
+  if (verificationHeld) return verificationHeld;
 
   const htmlContent = renderNestEditorialEmailTemplate({
     title: 'Nest Realty • Systems Active',
@@ -334,10 +355,8 @@ export async function sendWelcomeInvitationEmail(
 ): Promise<EmailDispatchResult> {
   console.log(`[Email] Nora dispatching welcome invitation to: ${recipientEmail} (${recipientName})`);
 
-  if (!isAllowedEmailRecipient(recipientEmail)) {
-    console.log(`[Email Safety Gate] Outgoing welcome email to ${recipientEmail} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
-    return { success: true, messageId: `suppressed_safe_mode_${Date.now()}`, setupUrl };
-  }
+  const welcomeHeld = suppressedByOutboundGate(recipientEmail, undefined, 'sendWelcomeInvitationEmail');
+  if (welcomeHeld) return { ...welcomeHeld, setupUrl };
 
   if (process.env.NODE_ENV === 'test') {
     return {
@@ -380,10 +399,8 @@ export async function sendWelcomeInvitationEmail(
 export async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<boolean> {
   console.log(`[Email] Dispatching password reset request for: ${email}`);
 
-  if (!isAllowedEmailRecipient(email)) {
-    console.log(`[Email Safety Gate] Outgoing password reset email to ${email} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
-    return true;
-  }
+  const resetHeld = suppressedByOutboundGate(email, undefined, 'sendPasswordResetEmail');
+  if (resetHeld) return true;
 
   const htmlContent = renderNestEditorialEmailTemplate({
     title: 'Reset Your Shapework Password',
@@ -428,13 +445,8 @@ export async function sendPhotoUploadRequestEmail(options: {
 
   console.log(`[Email] Nora dispatching Google Drive photo upload request to ${toEmail} for ${propertyAddress}`);
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    console.log(`[Email Safety Gate] Outgoing photo request email to ${toEmail} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
-    return {
-      success: true,
-      messageId: `suppressed_safe_mode_${Date.now()}`
-    };
-  }
+  const photoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendPhotoUploadRequestEmail');
+  if (photoHeld) return photoHeld;
 
   if (process.env.NODE_ENV === 'test') {
     return {
@@ -489,13 +501,8 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, deliverables, assignedLead, heroImageUrl, cc } = options;
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    console.log(`[Email Safety Gate] Outgoing intake confirmation email to ${toEmail} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
-    return {
-      success: true,
-      messageId: `suppressed_safe_mode_${Date.now()}`
-    };
-  }
+  const intakeHeld = suppressedByOutboundGate(toEmail, undefined, 'sendMarketingIntakeConfirmationEmail');
+  if (intakeHeld) return intakeHeld;
 
   if (process.env.NODE_ENV === 'test') {
     return {
@@ -547,10 +554,8 @@ export async function sendAddressRequestEmail(options: {
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, subjectTitle = 'Marketing Request', heroImageUrl } = options;
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    console.log(`[Email Safety Gate] Address request email to ${toEmail} SUPPRESSED (not in test whitelist).`);
-    return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
-  }
+  const addressHeld = suppressedByOutboundGate(toEmail, undefined, 'sendAddressRequestEmail');
+  if (addressHeld) return addressHeld;
 
   const now = new Date();
   const dateFormatted = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
@@ -602,9 +607,8 @@ export async function sendTaskInProgressNotificationEmail(options: {
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, taskTitle, assignedTo, assignedToRole = 'Lead', heroImageUrl, ccManagerEmail } = options;
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
-  }
+  const progressHeld = suppressedByOutboundGate(toEmail, ccManagerEmail, 'sendTaskInProgressNotificationEmail');
+  if (progressHeld) return progressHeld;
 
   if (process.env.NODE_ENV === 'test') {
     return { success: true, messageId: `test_inprogress_${Date.now()}` };
@@ -635,7 +639,7 @@ export async function sendTaskInProgressNotificationEmail(options: {
 
   return sendEmail({
     to: toEmail,
-    cc: ccManagerEmail && isAllowedEmailRecipient(ccManagerEmail) ? ccManagerEmail : undefined,
+    cc: ccManagerEmail || undefined,
     subject: `Update: ${taskTitle} for ${propertyAddress} is In Progress with ${assignedTo.split(' ')[0]}`,
     text: `Hi ${agentName},\n\nYour request for ${propertyAddress} (${taskTitle}) is now actively in progress with ${assignedTo} (${assignedToRole}).\n\nTrack progress anytime at https://shapework.co/app\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent
@@ -658,9 +662,8 @@ export async function sendTaskNeedMoreInfoEmail(options: {
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, taskTitle, requestedItems, staffNotes, driveUploadUrl = 'https://drive.google.com', heroImageUrl, requesterStaffName = 'Melissa' } = options;
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
-  }
+  const needInfoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendTaskNeedMoreInfoEmail');
+  if (needInfoHeld) return needInfoHeld;
 
   if (process.env.NODE_ENV === 'test') {
     return { success: true, messageId: `test_needinfo_${Date.now()}` };
@@ -711,9 +714,8 @@ export async function sendTaskCompletionEmail(options: {
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
 
-  if (!isAllowedEmailRecipient(toEmail)) {
-    return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
-  }
+  const completeHeld = suppressedByOutboundGate(toEmail, cc, 'sendTaskCompletionEmail');
+  if (completeHeld) return completeHeld;
 
   if (process.env.NODE_ENV === 'test') {
     return { success: true, messageId: `test_complete_${Date.now()}` };
@@ -778,13 +780,8 @@ export async function sendEmail(options: {
     } as any;
   }
 
-  if (!isAllowedEmailRecipient(options.to)) {
-    console.log(`[Email Safety Gate] Outgoing email to ${options.to} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
-    return {
-      success: true,
-      messageId: `suppressed_safe_mode_${Date.now()}`
-    };
-  }
+  const sendHeld = suppressedByOutboundGate(options.to, options.cc, 'sendEmail');
+  if (sendHeld) return sendHeld;
 
   if (process.env.NODE_ENV === 'test') {
     return {
@@ -794,19 +791,35 @@ export async function sendEmail(options: {
   }
 
   try {
+    if (!readConfiguredSmtpSecret()) {
+      return { success: false, error: SMTP_SECRET_MISSING };
+    }
     const transporter = getNoraTransporter();
-    const info = await transporter.sendMail({
-      from: options.from || `"${NORA_EMAIL_CONFIG.fromName}" <${NORA_EMAIL_CONFIG.user}>`,
-      to: options.to,
-      cc: options.cc,
-      subject: options.subject,
-      text: options.text || '',
-      html: options.html || options.text || ''
+    const delivered = await deliverNodemailer({
+      transporter,
+      source: 'sendEmail',
+      mail: {
+        from: options.from || `"${NORA_EMAIL_CONFIG.fromName}" <${NORA_EMAIL_CONFIG.user}>`,
+        to: options.to,
+        cc: options.cc,
+        subject: options.subject,
+        text: options.text || '',
+        html: options.html || options.text || ''
+      }
     });
+    if (!delivered.sent) {
+      return {
+        success: true,
+        suppressed: true,
+        held: delivered.held,
+        reason: delivered.gate.reason,
+        messageId: `suppressed_safe_mode_${Date.now()}`
+      } as EmailDispatchResult;
+    }
 
     return {
       success: true,
-      messageId: info.messageId
+      messageId: delivered.messageId
     };
   } catch (err: any) {
     console.warn(`[Email] Custom send notice to ${options.to}:`, err?.message || err);

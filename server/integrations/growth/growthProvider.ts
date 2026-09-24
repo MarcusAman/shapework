@@ -4,6 +4,8 @@
  */
 
 import crypto from 'crypto';
+import { deliverResendBatch, deliverResendEmail } from '../../email/gatedTransport.js';
+import { checkOutbound } from '../../email/outboundGate.js';
 
 export interface DomainSetup {
   id: string;
@@ -137,6 +139,10 @@ export class ResendProvider implements EmailProvider {
   }
 
   async sendEmail(payload: EmailPayload): Promise<SendResult> {
+    const gate = checkOutbound({ to: payload.to, channel: 'resend', source: 'integrations.growth.ResendProvider' });
+    if (!gate.allowed) {
+      return { messageId: '', status: 'failed' };
+    }
     if (this.isMock()) {
       console.log(`[Simulated resend] Email sent successfully to ${payload.to}. Subject: "${payload.subject}"`);
       return {
@@ -146,19 +152,21 @@ export class ResendProvider implements EmailProvider {
     }
 
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const delivered = await deliverResendEmail({
+        apiKey: this.apiKey,
+        to: gate.effectiveTo,
+        source: 'integrations.growth.ResendProvider',
+        payload: {
           from: payload.from,
-          to: payload.to,
+          to: gate.effectiveTo,
           subject: payload.subject,
           html: payload.body
-        })
+        }
       });
+      if (!delivered.response) {
+        return { messageId: '', status: 'failed' };
+      }
+      const response = delivered.response;
       if (!response.ok) {
         throw new Error(`Resend API Error: ${response.statusText}`);
       }
@@ -177,6 +185,10 @@ export class ResendProvider implements EmailProvider {
   }
 
   async sendBatch(payloads: EmailPayload[]): Promise<BatchSendResult> {
+    const anyAllowed = payloads.some((payload) => checkOutbound({ to: payload.to, channel: 'resend', source: 'integrations.growth.ResendProvider.batch' }).allowed);
+    if (!anyAllowed) {
+      return { results: payloads.map(() => ({ messageId: '', status: 'failed' as const })) };
+    }
     if (this.isMock()) {
       const results = payloads.map(() => ({
         messageId: `msg_${Math.random().toString(36).substring(2, 11)}`,
@@ -186,21 +198,20 @@ export class ResendProvider implements EmailProvider {
     }
 
     try {
-      const response = await fetch('https://api.resend.com/emails/batch', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(
-          payloads.map(p => ({
-            from: p.from,
-            to: p.to,
-            subject: p.subject,
-            html: p.body
-          }))
-        )
+      const delivered = await deliverResendBatch({
+        apiKey: this.apiKey,
+        source: 'integrations.growth.ResendProvider.batch',
+        payloads: payloads.map(p => ({
+          from: p.from,
+          to: p.to,
+          subject: p.subject,
+          html: p.body
+        }))
       });
+      if (!delivered.response) {
+        return { results: payloads.map(() => ({ messageId: '', status: 'failed' as const })) };
+      }
+      const response = delivered.response;
       if (!response.ok) {
         throw new Error(`Resend API Error: ${response.statusText}`);
       }

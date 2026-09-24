@@ -7842,7 +7842,10 @@ app.post('/api/marketing/requests/:id/inquire-agent', requireAuth, resolveWorksp
       }
     }
 
-    const agentEmail = request.agentEmail || 'matt.orr@nestrealty.com';
+    const agentEmail = String(request.agentEmail || '').trim();
+    if (!agentEmail) {
+      return res.status(400).json({ success: false, error: 'No recipient email on this request.' });
+    }
     const agentName = request.agentName || 'Agent';
     const agentPhone = request.agentPhone || '+12527170595';
     const propertyAddress = request.propertyAddress || request.title || 'Listing Property';
@@ -8006,7 +8009,10 @@ app.post('/api/marketing/requests/:id/resend-photo-request', requireAuth, resolv
     const request = getCanonicalMarketingRequestById(req.params.id);
     if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
 
-    const agentEmail = request.agentEmail || 'matt.orr@nestrealty.com';
+    const agentEmail = String(request.agentEmail || '').trim();
+    if (!agentEmail) {
+      return res.status(400).json({ success: false, error: 'No recipient email on this request.' });
+    }
     const agentName = request.agentName || 'Listing Broker';
     const propertyAddress = request.propertyAddress || request.title || 'Listing Property';
     const mlsNumber = request.mlsNumber || request.metadata?.mlsNumber;

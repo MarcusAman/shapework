@@ -9,6 +9,8 @@
 
 import { google } from 'googleapis';
 import { getOAuthClient, getGoogleAccessToken } from '../integrations/google/googleOAuth.js';
+import { checkOutbound } from '../email/outboundGate.js';
+import { deliverGmailMessage } from '../email/gatedTransport.js';
 import { IntegrationStateStore } from '../integrations/shared/integrationStateStore.js';
 import { vendorOrderRepository } from '../persistence/vendorOrderRepository.js';
 
@@ -198,16 +200,33 @@ class GoogleGmailServiceEngine {
       throw new Error(`Draft with ID ${draftId} not found.`);
     }
 
+    const gate = checkOutbound({ to: draft.recipient, channel: 'gmail', source: 'googleGmailService.sendDraft' });
+    if (!gate.allowed) {
+      return {
+        success: false,
+        draft,
+        message: `Outbound ${gate.reason}: email was not sent to ${draft.recipient}.`,
+      };
+    }
+
     const auth = await this.getAuthenticatedGmailClient(workspaceId);
     let sentLive = false;
 
     if (auth && auth.gmail) {
       try {
-        const raw = this.makeRawEmail(draft.recipient, auth.userEmail, draft.subject, draft.body);
-        await auth.gmail.users.messages.send({
-          userId: 'me',
-          requestBody: { raw }
+        const raw = this.makeRawEmail(gate.effectiveTo[0] || draft.recipient, auth.userEmail, draft.subject, draft.body);
+        const delivered = await deliverGmailMessage(auth.gmail, {
+          requestBody: { raw },
+          to: gate.effectiveTo,
+          source: 'googleGmailService.sendDraft',
         });
+        if (!delivered.sent) {
+          return {
+            success: false,
+            draft,
+            message: `Outbound ${delivered.gate.reason}: email was not sent to ${draft.recipient}.`,
+          };
+        }
         sentLive = true;
       } catch (err: any) {
         console.warn('[GoogleGmailService] Gmail send error, falling back to local dispatch receipt:', err.message);

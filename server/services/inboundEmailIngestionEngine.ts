@@ -859,7 +859,7 @@ export async function enqueueOutboundEmail(params: {
   const ccList = Array.isArray(cc) ? cc : [];
 
 
-  // Member notification prefs (default-off). Master OUTBOUND_MASTER_MODE still checked at send time.
+  // Member notification prefs (default-off). Kill/hold is enforced by checkOutbound inside the send transport, not by this enqueue.
   if (!skipMemberPrefs) try {
     const { canSendAgentOutbound } = await import('../persistence/notificationPreferencesRepository.js');
     // Resolve userId from recipient email when possible
@@ -965,6 +965,20 @@ export async function enqueueOutboundEmail(params: {
   return { enqueued: true, outboxId };
 }
 
+function outboundAttemptStatus(result: any): 'sent' | 'held' | 'suppressed' {
+  if (result?.held || result?.reason === 'held') return 'held';
+  const messageId = String(result?.messageId || '');
+  if (
+    result?.suppressed ||
+    result?.reason === 'outbound_disabled' ||
+    result?.sent === false ||
+    messageId.startsWith('suppressed_')
+  ) {
+    return 'suppressed';
+  }
+  return 'sent';
+}
+
 /**
  * Dispatches pending outbound emails from the durable transactional outbox
  */
@@ -1030,13 +1044,20 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
             dispatchResult = await sendIntakeMissingInfoAcknowledgmentEmail(payload);
           }
 
-          const providerMessageId = dispatchResult?.messageId || dispatchResult?.id || null;
+          const disposition = outboundAttemptStatus(dispatchResult);
+          const providerMessageId = disposition === 'sent'
+            ? (dispatchResult?.messageId || dispatchResult?.id || null)
+            : null;
           await db.query(
             `UPDATE outbound_email_outbox
-             SET status = 'sent', sent_at = NOW(), lease_expires_at = NULL, updated_at = NOW(),
-                 provider_message_id = COALESCE($2, provider_message_id)
+             SET status = $2,
+                 sent_at = CASE WHEN $2 = 'sent' THEN NOW() ELSE sent_at END,
+                 lease_expires_at = NULL,
+                 updated_at = NOW(),
+                 provider_message_id = COALESCE($3, provider_message_id),
+                 last_error_code = CASE WHEN $2 = 'sent' THEN last_error_code ELSE $4 END
              WHERE id = $1`,
-            [row.id, providerMessageId]
+            [row.id, disposition, providerMessageId, disposition === 'sent' ? null : (dispatchResult?.reason || disposition)]
           );
           dispatchedCount++;
         } catch (dispatchErr: any) {
@@ -1067,17 +1088,26 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
     if (item.status === 'pending') {
       item.status = 'sending';
       try {
+        let dispatchResult: any = null;
         if (item.messageType === 'address_request') {
-          await sendAddressRequestEmail(item.payload);
+          dispatchResult = await sendAddressRequestEmail(item.payload);
         } else if (item.messageType === 'intake_confirmed') {
-          await sendMarketingIntakeConfirmationEmail(item.payload);
+          dispatchResult = await sendMarketingIntakeConfirmationEmail(item.payload);
         } else if (item.messageType === 'photo_request') {
-          await sendPhotoUploadRequestEmail(item.payload);
+          dispatchResult = await sendPhotoUploadRequestEmail(item.payload);
         } else if (item.messageType === 'intake_missing_info_acknowledgment') {
-          await sendIntakeMissingInfoAcknowledgmentEmail(item.payload);
+          dispatchResult = await sendIntakeMissingInfoAcknowledgmentEmail(item.payload);
         }
-        item.status = 'sent';
-        item.sentAt = new Date().toISOString();
+        const disposition = outboundAttemptStatus(dispatchResult);
+        item.status = disposition;
+        item.reason = dispatchResult?.reason || disposition;
+        if (disposition === 'sent') {
+          item.sentAt = new Date().toISOString();
+          item.messageId = dispatchResult?.messageId;
+        } else {
+          item.suppressed = true;
+          item.held = disposition === 'held';
+        }
         dispatchedCount++;
       } catch (err) {
         item.status = 'failed';
