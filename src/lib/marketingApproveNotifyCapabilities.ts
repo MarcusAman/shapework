@@ -61,13 +61,20 @@ export function actorIsTaskReviewer(actor: MarketingGateActor, task: MarketingGa
   return false;
 }
 
+/**
+ * Prefer assignedTo name when it conflicts with assignedToId (corrupt id after name-only reassign).
+ * Name match is authoritative for assignee; id match only when names are absent or agree.
+ */
 export function actorIsTaskAssignee(actor: MarketingGateActor, task: MarketingGateTask): boolean {
-  const assigneeId = norm(task.assignedToId);
-  const actorId = norm(actor.id);
-  if (assigneeId && actorId && assigneeId === actorId) return true;
   const assigneeName = norm(task.assignedTo);
   const actorName = norm(actor.name);
   if (assigneeName && actorName && assigneeName === actorName) return true;
+  const assigneeId = norm(task.assignedToId);
+  const actorId = norm(actor.id);
+  // Id-only match when names missing OR names also agree (avoid corrupt id claiming assignee).
+  if (assigneeId && actorId && assigneeId === actorId) {
+    if (!assigneeName || !actorName || assigneeName === actorName) return true;
+  }
   return false;
 }
 

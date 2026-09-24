@@ -901,14 +901,12 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       userRole === 'operations_manager' ||
       currentUser.name === 'Ann Gunn' ||
       currentUser.id === 'dir_ann_gunn_28' ||
-      (currentUser.email && currentUser.email.toLowerCase().includes('ann')) ||
-      (reviewerStaff && (
-        reviewerStaff.role?.toLowerCase().includes('operations') ||
-        reviewerStaff.title?.toLowerCase().includes('operations')
-      ))
+      (currentUser.email && currentUser.email.toLowerCase().includes('ann'))
     )
   );
 
+  // Actor-only authority — never inherit caps from task.reviewerStaff (that fall-open
+  // previously granted Approve to every viewer of a Melissa-reviewed task).
   const hasMarketingFinalApproval = Boolean(
     isMarketingTask && (
       userPermissions.includes('marketing.final_approval') ||
@@ -917,12 +915,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       currentUser.name === 'Melissa Gagliardi' ||
       currentUser.id === 'dir_melissa_gagliardi_33' ||
       currentUser.id === 'usr_melissa' ||
-      (currentUser.email && currentUser.email.toLowerCase().includes('melissa')) ||
-      (reviewerStaff && (
-        reviewerStaff.role?.toLowerCase() === 'marketing director' ||
-        reviewerStaff.title?.toLowerCase().includes('marketing director') ||
-        (reviewerStaff as any).capabilities?.includes('marketing.final_approval')
-      ))
+      (currentUser.email && currentUser.email.toLowerCase().includes('melissa'))
     )
   );
 
@@ -938,8 +931,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Path B: director completing agent-requested work she owns — Approve & Complete (no Send to Manager self-loop).
   const assigneeLooksLikeMarketingDirector = Boolean(
     (activeTask.assignedTo || '').toLowerCase().includes('melissa') ||
-    activeTask.assignedToId === 'dir_melissa_gagliardi_33' ||
-    activeTask.assignedToId === 'usr_melissa'
+    (
+      !(activeTask.assignedTo || '').trim() &&
+      (activeTask.assignedToId === 'dir_melissa_gagliardi_33' || activeTask.assignedToId === 'usr_melissa')
+    )
   );
   // Path C: producer already submitted for director review — Melissa must Approve & Complete (not Send to Manager).
   const isDirectorReviewingSubmittedProof = Boolean(
@@ -1456,6 +1451,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Melissa: open Ask Requester (delivery) instead of auto-emailing approved assets
   const openDeliveryOutreach = () => {
     if (!activeTask) return;
+    if (!canApproveAndNotify) {
+      setUrlValidationError('Approve & Notify refused: only the task reviewer may approve and notify the agent.');
+      return;
+    }
     if (onAskRequester) {
       const primaryProofUrl = manualProofUrl.trim() || stagedAssets[0]?.previewUrl || activeTask.proofUrl || (activeTask.photos && activeTask.photos[0]?.url) || (activeTask.attachments && activeTask.attachments[0]?.url) || '';
       const assetMeta = stagedAssets[0] ? {
@@ -1507,8 +1506,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
 
-    if (!hasDepartmentFinalApproval) {
-      setUrlValidationError('Forbidden: User lacks final approval authority for this department.');
+    if (!canApproveAndNotify) {
+      setUrlValidationError('Approve & Notify refused: only the task reviewer may approve and notify the agent.');
       return;
     }
 

@@ -8,7 +8,7 @@ import path from 'path';
 import { getAllStaffMembers, resolveStaffMember } from './operationsDirectoryRepository.js';
 import { canonicalTaskRoutingService } from '../services/canonicalTaskRoutingService.js';
 import { OfficeSupplyDeduplicationService } from '../services/officeSupplyDeduplicationService.js';
-import { tombstoneIntakeScope } from './intakeTombstoneRepository.js';
+import { tombstoneIntakeScope, removeTombstone } from './intakeTombstoneRepository.js';
 
 const isProduction = () => typeof process !== 'undefined' && (process.env?.NODE_ENV === 'production' || process.env?.APP_ENV === 'production') && process.env?.ALLOW_FILE_STORAGE_UAT !== 'true';
 
@@ -3039,6 +3039,7 @@ export function updateCanonicalMarketingTaskStatus(
     vendorName?: string;
     vendorNotes?: string;
     assignedTo?: string;
+    assignedToId?: string;
     assignedToRole?: string;
     reviewState?: 'awaiting_review' | 'revisions_requested' | 'approved';
     proofUrl?: string;
@@ -3150,6 +3151,9 @@ export function updateCanonicalMarketingTaskStatus(
     task.assignedTo = extra.assignedTo;
     if (extra.assignedToRole) task.assignedToRole = extra.assignedToRole;
   }
+  if (extra?.assignedToId) {
+    task.assignedToId = extra.assignedToId;
+  }
 
   if (isStatusChange && newStatus === 'in_progress' && !task.startedAt) {
     task.startedAt = new Date().toISOString();
@@ -3168,6 +3172,9 @@ export function updateCanonicalMarketingTaskStatus(
   if (isStatusChange && newStatus === 'archived') {
     task.isArchived = true;
     task.archivedAt = new Date().toISOString();
+  } else if (isStatusChange && previousStatus === 'archived' && newStatus !== 'archived') {
+    task.isArchived = false;
+    delete task.archivedAt;
   }
 
   if (!task.approvalHistory) task.approvalHistory = [];
@@ -3397,6 +3404,18 @@ export function approveCanonicalMarketingTaskProof(
 export function archiveCanonicalMarketingTask(taskId: string): CanonicalMarketingTask | null {
   const updated = updateCanonicalMarketingTaskStatus(taskId, 'archived', { performedBy: 'User' });
   if (updated) {
+    if (updated.requestId) {
+      const parentReq = getCanonicalMarketingRequestById(updated.requestId);
+      if (parentReq && !parentReq.isArchived) {
+        const siblingTasks = getAllCanonicalMarketingTasks().filter(t => t.requestId === parentReq.id || parentReq.taskIds?.includes(t.id));
+        const allArchived = siblingTasks.every(t => t.isArchived || t.status === 'archived' || t.id === updated.id);
+        if (allArchived) {
+          parentReq.isArchived = true;
+          parentReq.updatedAt = new Date().toISOString();
+          saveCanonicalMarketingRequest(parentReq);
+        }
+      }
+    }
     void tombstoneIntakeScope({
       workspaceId: (updated as any).workspaceId || 'ws_wilmington',
       requestId: updated.requestId,
@@ -3405,6 +3424,39 @@ export function archiveCanonicalMarketingTask(taskId: string): CanonicalMarketin
     }).catch((err) => console.warn('[archive] tombstone failed:', err?.message || err));
   }
   return updated;
+}
+
+export function restoreCanonicalMarketingTask(taskId: string): CanonicalMarketingTask | null {
+  const task = getCanonicalMarketingTaskById(taskId);
+  if (!task) return null;
+  task.isArchived = false;
+  delete task.archivedAt;
+  if (task.status === 'archived') {
+    task.status = task.proofUrl ? 'in_progress' : 'request_received';
+  }
+  task.updatedAt = new Date().toISOString();
+  if (!task.approvalHistory) task.approvalHistory = [];
+  task.approvalHistory.push({
+    action: 'Restored from archive',
+    performedBy: 'User',
+    timestamp: new Date().toISOString(),
+    note: 'Restored to active queue'
+  });
+  const saved = saveCanonicalMarketingTask(task);
+  if (saved && saved.requestId) {
+    const parentReq = getCanonicalMarketingRequestById(saved.requestId);
+    if (parentReq && parentReq.isArchived) {
+      parentReq.isArchived = false;
+      parentReq.updatedAt = new Date().toISOString();
+      saveCanonicalMarketingRequest(parentReq);
+    }
+  }
+  void removeTombstone({
+    workspaceId: (task as any).workspaceId || 'ws_wilmington',
+    requestId: task.requestId,
+    propertyAddress: task.propertyAddress
+  }).catch((err) => console.warn('[restore] remove tombstone failed:', err?.message || err));
+  return saved;
 }
 
 export function getAllCanonicalMarketingRequests(): CanonicalMarketingRequest[] {
@@ -3581,6 +3633,11 @@ export function shouldCreateRequestFromCall(call: any): { shouldCreate: boolean;
   const duration = call.durationSeconds ?? (call.duration_ms ? Math.round(call.duration_ms / 1000) : (call.duration ? Number(call.duration) : 45));
   const rawText = (call.transcript || call.requestSummary || call.notes || call.summary || '').trim();
   const lower = rawText.toLowerCase();
+
+  // 0. Idempotency Gate: If call was already converted previously, suppress re-creation
+  if (call.canonicalRequestId || call.canonicalTaskId) {
+    return { shouldCreate: false, reason: `CALL_ALREADY_CONVERTED: Call ${call.id || call.callId} already converted to ${call.canonicalRequestId || call.canonicalTaskId}` };
+  }
 
   // 1. Explicit Analysis Gate
   if (call.call_analysis?.custom_analysis_data?.should_create_ticket === false) {
@@ -4681,7 +4738,7 @@ export function addCustomDeliverableToRequest(
 
 export function performBulkTaskAction(
   taskIds: string[],
-  action: 'assign_eduardo' | 'assign_melissa' | 'vendor_dispatch' | 'approve' | 'archive',
+  action: 'assign_eduardo' | 'assign_melissa' | 'vendor_dispatch' | 'approve' | 'archive' | 'restore',
   payload?: { vendorName?: string; performedBy?: string; note?: string }
 ): { success: boolean; affectedCount: number; updatedTasks: CanonicalMarketingTask[] } {
   const allTasks = getAllCanonicalMarketingTasks();
@@ -4692,6 +4749,7 @@ export function performBulkTaskAction(
     if (action === 'assign_eduardo') {
       const updated = updateCanonicalMarketingTaskStatus(task.id, 'assigned', {
         assignedTo: 'Eduardo Lovo',
+        assignedToId: 'dir_eduardo_lovo_73',
         assignedToRole: 'Virtual Assistant',
         performedBy: payload?.performedBy || 'Melissa Gagliardi'
       });
@@ -4699,6 +4757,7 @@ export function performBulkTaskAction(
     } else if (action === 'assign_melissa') {
       const updated = updateCanonicalMarketingTaskStatus(task.id, 'assigned', {
         assignedTo: 'Melissa Gagliardi',
+        assignedToId: 'dir_melissa_gagliardi_33',
         assignedToRole: 'Marketing Director',
         performedBy: payload?.performedBy || 'Melissa Gagliardi'
       });
@@ -4738,6 +4797,9 @@ export function performBulkTaskAction(
           }
         }
       }
+    } else if (action === 'restore') {
+      const restored = restoreCanonicalMarketingTask(task.id);
+      if (restored) updatedTasks.push(restored);
     }
   }
 
@@ -4834,17 +4896,96 @@ export function findExistingChildTask(_parentId: string, _key: string): any | nu
 export function extractCanonicalDeliverableIdentity(input: any): any {
   return { key: computeCanonicalDeliverableKey(input), input };
 }
-export function getCanonicalMarketingTasksLive(): any[] {
-  return (typeof getAllCanonicalMarketingTasks === 'function' ? getAllCanonicalMarketingTasks() : []).filter((t: any) => !t?.isArchived);
+export function getCanonicalMarketingTasksLive(workspaceId?: string, _forceFresh?: boolean, includeArchived: boolean = true): any[] {
+  const all = (typeof getAllCanonicalMarketingTasks === 'function' ? getAllCanonicalMarketingTasks() : []);
+  const filtered = includeArchived ? all : all.filter((t: any) => !t?.isArchived && t?.status !== 'archived');
+  if (workspaceId) {
+    return filtered.filter((t: any) => !t.workspaceId || t.workspaceId === workspaceId);
+  }
+  return filtered;
 }
-export function getCanonicalMarketingRequestsLive(): any[] {
-  return (typeof getAllCanonicalMarketingRequests === 'function' ? getAllCanonicalMarketingRequests() : []).filter((r: any) => !r?.isArchived);
+
+export function getCanonicalMarketingRequestsLive(workspaceId?: string, _forceFresh?: boolean, includeArchived: boolean = true): any[] {
+  const all = (typeof getAllCanonicalMarketingRequests === 'function' ? getAllCanonicalMarketingRequests() : []);
+  const filtered = includeArchived ? all : all.filter((r: any) => !r?.isArchived && r?.status !== 'archived');
+  if (workspaceId) {
+    return filtered.filter((r: any) => !r.workspaceId || r.workspaceId === workspaceId);
+  }
+  return filtered;
 }
-export async function performBulkTaskActionAsync(_action: string, _ids: string[]): Promise<{ ok: boolean }> {
-  return { ok: false };
+
+export async function performBulkTaskActionAsync(
+  arg1: string[] | string,
+  arg2: string | string[],
+  arg3?: { vendorName?: string; performedBy?: string; note?: string; workspaceId?: string }
+): Promise<{ success: boolean; affectedCount: number; updatedTasks: CanonicalMarketingTask[]; ok: boolean }> {
+  let taskIds: string[];
+  let action: any;
+  let payload = arg3;
+
+  if (Array.isArray(arg1)) {
+    taskIds = arg1;
+    action = arg2 as any;
+  } else {
+    action = arg1 as any;
+    taskIds = Array.isArray(arg2) ? arg2 : [String(arg2)];
+  }
+
+  const syncResult = performBulkTaskAction(taskIds, action, payload);
+
+  if (action === 'archive' && syncResult.updatedTasks.length > 0) {
+    for (const t of syncResult.updatedTasks) {
+      void tombstoneIntakeScope({
+        workspaceId: (t as any).workspaceId || payload?.workspaceId || 'ws_wilmington',
+        requestId: t.requestId,
+        propertyAddress: t.propertyAddress,
+        reason: 'bulk_archived_task',
+      }).catch((err) => console.warn('[performBulkTaskActionAsync] tombstone failed:', err?.message || err));
+    }
+  }
+
+  if (action === 'restore' && syncResult.updatedTasks.length > 0) {
+    for (const t of syncResult.updatedTasks) {
+      void removeTombstone({
+        workspaceId: (t as any).workspaceId || payload?.workspaceId || 'ws_wilmington',
+        requestId: t.requestId,
+        propertyAddress: t.propertyAddress
+      }).catch((err) => console.warn('[performBulkTaskActionAsync] remove tombstone failed:', err?.message || err));
+    }
+  }
+
+  if (isServer && syncResult.updatedTasks.length > 0) {
+    for (const t of syncResult.updatedTasks) {
+      await persistTaskToDatabase(t).catch((err) => console.warn('[performBulkTaskActionAsync] persistTask error:', err?.message || err));
+      if (t.requestId) {
+        const parentReq = getCanonicalMarketingRequestById(t.requestId);
+        if (parentReq) await persistRequestToDatabase(parentReq).catch((err) => console.warn('[performBulkTaskActionAsync] persistRequest error:', err?.message || err));
+      }
+    }
+  }
+
+  return { ...syncResult, ok: syncResult.success };
 }
-export async function purgeAllArchivedCanonicalTasksAsync(): Promise<{ purged: number }> {
-  return { purged: 0 };
+
+export async function purgeAllArchivedCanonicalTasksAsync(): Promise<{ purged: number; purgedTasks: number; purgedRequests: number }> {
+  const syncResult = purgeAllArchivedCanonicalTasks();
+  if (isServer) {
+    try {
+      const { dbPool, getDbPool } = await import('./repositories.js');
+      const db = getDbPool ? getDbPool() : dbPool;
+      if (db) {
+        await db.query(`DELETE FROM canonical_marketing_tasks WHERE is_archived = TRUE OR status = 'archived'`).catch(() => {});
+        await db.query(`DELETE FROM canonical_marketing_requests WHERE is_archived = TRUE OR status = 'archived'`).catch(() => {});
+      }
+    } catch (err: any) {
+      console.warn('[purgeAllArchivedCanonicalTasksAsync] DB purge warning:', err?.message || err);
+    }
+  }
+  return {
+    purged: syncResult.purgedTasks + syncResult.purgedRequests,
+    purgedTasks: syncResult.purgedTasks,
+    purgedRequests: syncResult.purgedRequests
+  };
 }
 export function recoverInvisibleAwaitingReviewSubmissions(): { recovered: number } {
   return { recovered: 0 };

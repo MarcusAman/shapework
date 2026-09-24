@@ -245,3 +245,88 @@ describe('WorkspaceTaskDrawer — Approve & Notify visibility by task role', () 
     expect(html).toContain('Approve &amp; Notify Agent');
   });
 });
+
+
+describe('WorkspaceTaskDrawer — live corrupt assignedToId (Eduardo name / Melissa id)', () => {
+  /** Mirrors Peachtree after name-only reassign left Melissa's id on Eduardo's task. */
+  const liveCorrupt = peachtreeTask({
+    status: 'in_production',
+    assignedTo: 'Eduardo Lovo',
+    assignedToId: 'dir_melissa_gagliardi_33',
+    reviewOwnerId: 'dir_melissa_gagliardi_33',
+    reviewOwnerName: 'Melissa Gagliardi',
+    proofUrl: '/uploads/Test_marcusgmail.png',
+    proofVersion: 1,
+  });
+
+  it('Eduardo-as-actor never sees Approve & Notify (name wins over corrupt id)', () => {
+    const caps = resolveMarketingApproveNotifyCapabilities(
+      { id: 'dir_eduardo_lovo_73', name: 'Eduardo Lovo', role: 'producer' },
+      liveCorrupt
+    );
+    expect(caps.isAssignee).toBe(true);
+    expect(caps.isReviewer).toBe(false);
+    expect(caps.canApproveAndNotify).toBe(false);
+    expect(caps.canSubmitToReviewer).toBe(true);
+
+    const html = renderToStaticMarkup(
+      <WorkspaceTaskDrawer
+        isOpen={true}
+        activeTask={liveCorrupt}
+        onClose={() => {}}
+        currentUser={{
+          id: 'dir_eduardo_lovo_73',
+          name: 'Eduardo Lovo',
+          role: 'producer',
+          email: 'eduardo.lovo@nestrealty.com',
+          permissions: ['marketing.create', 'marketing.edit'],
+        }}
+      />
+    );
+    expect(html).not.toContain('Approve &amp; Notify Agent');
+    expect(html).toContain('Send to Manager for Approval');
+  });
+
+  it('Melissa-as-reviewer still sees Approve (corrupt assignee id must not steal reviewer CTA)', () => {
+    const caps = resolveMarketingApproveNotifyCapabilities(
+      {
+        id: 'dir_melissa_gagliardi_33',
+        name: 'Melissa Gagliardi',
+        role: 'marketing_director',
+      },
+      liveCorrupt
+    );
+    // Name says Eduardo — Melissa is reviewer only, not false same-person assignee.
+    expect(caps.isAssignee).toBe(false);
+    expect(caps.isReviewer).toBe(true);
+    expect(caps.canApproveAndNotify).toBe(true);
+
+    const html = renderToStaticMarkup(
+      <WorkspaceTaskDrawer
+        isOpen={true}
+        activeTask={liveCorrupt}
+        onClose={() => {}}
+        currentUser={{
+          id: 'dir_melissa_gagliardi_33',
+          name: 'Melissa Gagliardi',
+          role: 'marketing_director',
+          email: 'melissa@nestrealty.com',
+          permissions: ['marketing.final_approval', 'marketing.approve'],
+        }}
+      />
+    );
+    expect(html).toContain('Approve &amp; Notify Agent');
+  });
+
+  it('drawer source: openDeliveryOutreach + approve handler fail-closed on canApproveAndNotify', async () => {
+    const fs = await import('fs');
+    const pathMod = await import('path');
+    const src = fs.readFileSync(
+      pathMod.resolve(__dirname, '../components/marketing/WorkspaceTaskDrawer.tsx'),
+      'utf8'
+    );
+    expect(src).toMatch(/openDeliveryOutreach[\s\S]*?if\s*\(\s*!canApproveAndNotify\s*\)/);
+    expect(src).toMatch(/handleApproveAndSendToAgent[\s\S]*?if\s*\(\s*!canApproveAndNotify\s*\)/);
+    expect(src).not.toMatch(/reviewerStaff && \([\s\S]*?marketing director/);
+  });
+});
