@@ -73,6 +73,7 @@ import { NoraTrainingAcademyService } from './server/services/noraTrainingAcadem
 import { NoraVideoStudioService } from './server/services/noraVideoStudioService.js';
 import { NoraBrowserAgentService } from './server/services/noraBrowserAgentService.js';
 import { getGoogleChatRouter } from './server/integrations/google/googleChatRoutes.js';
+import { selectListenHost } from './server/http/listenHost.js';
 import { googleChatMcpClient } from './server/integrations/google/googleChatMcpClient.js';
 import { NoraCapabilitiesAuditService } from './server/services/noraCapabilitiesAuditService.js';
 import { ShowingTimeLockboxService } from './server/services/showingTimeLockboxService.js';
@@ -22416,9 +22417,10 @@ if (isProduction) {
   process.env.RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || 'whsec_mock_secret_prod';
 }
 
-// Start application
-const server = app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`[Shapework] Master full-stack server running on http://0.0.0.0:${PORT}`);
+// Start application. Loopback unless production or an explicit HOST.
+const listenHost = selectListenHost(process.env);
+const server = app.listen(Number(PORT), listenHost, () => {
+  console.log(`[Shapework] Master full-stack server running on http://${listenHost}:${PORT}`);
   // Initialize automated hourly backup snapshot engine & integrity validator
   BackupSnapshotService.initAutomatedSnapshots(60);
 

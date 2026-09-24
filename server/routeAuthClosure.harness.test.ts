@@ -25,6 +25,8 @@ import { generateMicrosoftOAuthState, microsoftActiveStates, validateMicrosoftOA
 import { generateOAuthState as generateBasecampOAuthState, basecampActiveStates, validateOAuthState as validateBasecampOAuthState } from './integrations/basecamp/basecampOAuth.js';
 import { generateOAuthState as generateQuickBooksOAuthState, activeStates as quickbooksActiveStates, validateOAuthState as validateQuickBooksOAuthState } from './integrations/quickbooks/quickbooksOAuth.js';
 import { rechatAuth, rechatActiveStates } from './integrations/rechat/rechatAuth.js';
+import { GoogleChatService } from './services/googleChatService.js';
+import { resolveSessionActor } from './integrations/google/googleChatRoutes.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SERVER_TS = path.join(ROOT, 'server.ts');
@@ -454,6 +456,16 @@ describe('route auth closure', () => {
     );
   }
 
+  async function postJson(urlPath: string, headers: Record<string, string>, body: unknown) {
+    const response = await fetch(`${baseUrl}${urlPath}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+    const text = await response.text();
+    return { status: response.status, text };
+  }
+
   async function probe(method: string, urlPath: string, headers: Record<string, string> = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2000);
@@ -540,6 +552,75 @@ describe('route auth closure', () => {
     }
     expect(sendEmail).not.toHaveBeenCalled();
     expect(chatApi).not.toHaveBeenCalled();
+  });
+
+  it('sends Google Chat as the session user and rejects a different person', async () => {
+    const sendMessage = vi.spyOn(GoogleChatService, 'sendMessage').mockResolvedValue({
+      userMessage: {
+        id: 'msg_probe',
+        spaceId: 'spaces/probe',
+        senderName: managerUser.name,
+        senderEmail: managerUser.email,
+        text: 'hello',
+        timestamp: '2026-01-01T00:00:00.000Z',
+      },
+    } as never);
+    const createDm = vi.spyOn(GoogleChatService, 'createOrGetDirectMessage').mockReturnValue({ id: 'dm_probe' } as never);
+    const headers = { 'x-session-token': sessionToken(managerUser), 'x-shapework-csrf': 'probe' };
+    try {
+      const omitted = await postJson('/api/google-chat/send', headers, { spaceId: 'spaces/probe', text: 'hello' });
+      expect(omitted.status).toBe(200);
+      expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        senderName: 'Platform Admin',
+        senderEmail: 'admin@shapework.co',
+        text: 'hello',
+      }));
+
+      sendMessage.mockClear();
+      const echoed = await postJson('/api/google-chat/send', headers, {
+        spaceId: 'spaces/probe',
+        text: 'hello',
+        senderName: 'Platform Admin',
+        senderEmail: 'ADMIN@shapework.co',
+      });
+      expect(echoed.status).toBe(200);
+      expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        senderEmail: 'admin@shapework.co',
+      }));
+
+      sendMessage.mockClear();
+      const impersonated = await postJson('/api/google-chat/send', headers, {
+        spaceId: 'spaces/probe',
+        text: 'hello',
+        senderName: 'Ryan Crecelius',
+        senderEmail: 'ryan@nestrealty.com',
+      });
+      expect(impersonated.status).toBe(400);
+      expect(impersonated.text).toMatch(/session user/i);
+      expect(sendMessage).not.toHaveBeenCalled();
+
+      const dm = await postJson('/api/google-chat/create-dm', headers, { recipientEmail: 'ann.gunn@nestrealty.com' });
+      expect(dm.status).toBe(200);
+      expect(createDm).toHaveBeenCalledWith('ann.gunn@nestrealty.com', 'Platform Admin', 'admin@shapework.co');
+
+      createDm.mockClear();
+      const dmImpersonated = await postJson('/api/google-chat/create-dm', headers, {
+        recipientEmail: 'ann.gunn@nestrealty.com',
+        currentUserName: 'Ryan Crecelius',
+        currentUserEmail: 'ryan@nestrealty.com',
+      });
+      expect(dmImpersonated.status).toBe(400);
+      expect(createDm).not.toHaveBeenCalled();
+
+      expect(resolveSessionActor(undefined, undefined, undefined).ok).toBe(false);
+      expect(resolveSessionActor({ name: '', email: 'admin@shapework.co' }, undefined, undefined).ok).toBe(false);
+      expect(resolveSessionActor({ name: 'Platform Admin', email: '' }, undefined, undefined).ok).toBe(false);
+      const chatSource = fs.readFileSync(path.join(ROOT, 'server/integrations/google/googleChatRoutes.ts'), 'utf8');
+      expect(chatSource).not.toMatch(/Ryan Crecelius|ryan@nestrealty\.com/);
+    } finally {
+      sendMessage.mockRestore();
+      createDm.mockRestore();
+    }
   });
 
   it('requires a session and manage_integrations for on-demand SLA and notification trigger', async () => {

@@ -11,6 +11,36 @@ import { GoogleChatService } from '../../services/googleChatService.js';
 import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, AuthenticatedRequest } from '../../auth/auth.js';
 import { csrfProtection } from '../../auth/csrf.js';
 
+export type SessionActorResult =
+  | { ok: true; name: string; email: string }
+  | { ok: false; status: number; error: string };
+
+/**
+ * The Chat sender is the authenticated session user.
+ * A missing session identity is rejected. A body that names someone else is rejected.
+ * There is no default person.
+ */
+export function resolveSessionActor(
+  authUser: { name?: string | null; email?: string | null } | null | undefined,
+  requestedName?: unknown,
+  requestedEmail?: unknown,
+): SessionActorResult {
+  const name = typeof authUser?.name === 'string' ? authUser.name.trim() : '';
+  const email = typeof authUser?.email === 'string' ? authUser.email.trim() : '';
+  if (!name || !email || !email.includes('@')) {
+    return { ok: false, status: 400, error: 'Session user name and email are required' };
+  }
+  const askedName = typeof requestedName === 'string' ? requestedName.trim() : '';
+  const askedEmail = typeof requestedEmail === 'string' ? requestedEmail.trim() : '';
+  if (askedEmail && askedEmail.toLowerCase() !== email.toLowerCase()) {
+    return { ok: false, status: 400, error: 'Sender must be the session user' };
+  }
+  if (askedName && askedName.toLowerCase() !== name.toLowerCase()) {
+    return { ok: false, status: 400, error: 'Sender must be the session user' };
+  }
+  return { ok: true, name, email };
+}
+
 export function getGoogleChatRouter(): Router {
   const router = Router();
 
@@ -49,15 +79,19 @@ export function getGoogleChatRouter(): Router {
 
   router.post('/send', async (req: any, res) => {
     try {
+      const actor = resolveSessionActor(req.authUser, req.body?.senderName, req.body?.senderEmail);
+      if (!actor.ok) {
+        return res.status(actor.status).json({ success: false, error: actor.error });
+      }
       const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-      const { spaceId, senderName = 'Ryan Crecelius', senderEmail = 'ryan@nestrealty.com', text, attachments } = req.body || {};
+      const { spaceId, text, attachments } = req.body || {};
       if (!spaceId || !text) {
         return res.status(400).json({ success: false, error: 'spaceId and text are required' });
       }
       const result = await GoogleChatService.sendMessage({
         spaceId,
-        senderName,
-        senderEmail,
+        senderName: actor.name,
+        senderEmail: actor.email,
         text,
         attachments,
         workspaceId: wsId
@@ -86,13 +120,17 @@ export function getGoogleChatRouter(): Router {
     }
   });
 
-  router.post('/create-dm', async (req, res) => {
+  router.post('/create-dm', async (req: any, res) => {
     try {
-      const { recipientEmail, currentUserName = 'Ryan Crecelius', currentUserEmail = 'ryan@nestrealty.com' } = req.body || {};
+      const actor = resolveSessionActor(req.authUser, req.body?.currentUserName, req.body?.currentUserEmail);
+      if (!actor.ok) {
+        return res.status(actor.status).json({ success: false, error: actor.error });
+      }
+      const { recipientEmail } = req.body || {};
       if (!recipientEmail) {
         return res.status(400).json({ success: false, error: 'recipientEmail is required' });
       }
-      const space = GoogleChatService.createOrGetDirectMessage(recipientEmail, currentUserName, currentUserEmail);
+      const space = GoogleChatService.createOrGetDirectMessage(recipientEmail, actor.name, actor.email);
       return res.json({ success: true, space });
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
