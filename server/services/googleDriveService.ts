@@ -396,6 +396,81 @@ class GoogleDriveServiceEngine {
   }
 
 
+  /** Copy an existing Drive file into a listing folder. Owned by the authenticated AskNora user. */
+  public async copyFileToFolder(params: {
+    folderId: string;
+    fileId: string;
+    fileName: string;
+    workspaceId?: string;
+  }): Promise<{ isLive: boolean; fileId: string; webViewLink: string }> {
+    const folderId = String(params.folderId || '').trim();
+    const fileId = String(params.fileId || '').trim();
+    const fileName = String(params.fileName || '').trim() || fileId;
+    if (!folderId || !fileId) return { isLive: false, fileId: '', webViewLink: '' };
+    const auth = await this.getAuthenticatedDriveClient(params.workspaceId || 'ws_wilmington');
+    if (!auth?.drive?.files?.copy) return { isLive: false, fileId: '', webViewLink: '' };
+    try {
+      const res = await auth.drive.files.copy({
+        fileId,
+        requestBody: { name: fileName, parents: [folderId] },
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true,
+      });
+      const copiedId = String(res?.data?.id || '');
+      if (!copiedId) return { isLive: false, fileId: '', webViewLink: '' };
+      return {
+        isLive: true,
+        fileId: copiedId,
+        webViewLink: res.data.webViewLink || `https://drive.google.com/file/d/${copiedId}/view`,
+      };
+    } catch (err: any) {
+      console.warn('[GoogleDriveService] copy into folder failed:', err?.message || err);
+      return { isLive: false, fileId: '', webViewLink: '' };
+    }
+  }
+
+  /**
+   * Non-folder files directly inside a Drive folder.
+   * No credentials, a thrown list (404 / permission), or any other list failure is not ok.
+   * An empty successful list is ok with files: [].
+   */
+  public async listFilesInFolder(
+    folderId: string,
+    workspaceId: string = 'ws_wilmington'
+  ): Promise<{ ok: boolean; files: Array<{ id: string; name?: string; mimeType?: string }>; error?: string }> {
+    const id = String(folderId || '').trim();
+    if (!id || /^(?:1DRV_|folder_|sub_|file_|sample_)/i.test(id)) {
+      return { ok: false, files: [], error: 'invalid folder id' };
+    }
+    const listParams = {
+      q: `'${id.replace(/'/g, "\\'")}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+      pageSize: 20,
+      fields: 'files(id, name, mimeType)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    };
+    try {
+      let res: { data?: { files?: Array<{ id?: string | null; name?: string | null; mimeType?: string | null }> | null } | null };
+      if (driveFilesListForTests) {
+        res = await driveFilesListForTests(listParams);
+      } else {
+        const auth = await this.getAuthenticatedDriveClient(workspaceId);
+        if (!auth?.drive?.files?.list) return { ok: false, files: [], error: 'no drive auth' };
+        res = await auth.drive.files.list(listParams);
+      }
+      const files = (res?.data?.files || [])
+        .filter((file) => file?.id && file.mimeType !== 'application/vnd.google-apps.folder')
+        .map((file) => ({
+          id: String(file.id),
+          name: file.name || undefined,
+          mimeType: file.mimeType || undefined,
+        }));
+      return { ok: true, files };
+    } catch (err: any) {
+      return { ok: false, files: [], error: err?.message || 'list failed' };
+    }
+  }
+
   /** Fail-closed: live folder id must open and contain ≥1 non-folder file (or files in immediate subfolders). */
   public async verifyDriveFolder(folderId: string, workspaceId: string = 'ws_wilmington'): Promise<{ ok: boolean; url?: string; fileCount?: number; error?: string }> {
     const id = String(folderId || '').trim();
@@ -540,3 +615,18 @@ class GoogleDriveServiceEngine {
 }
 
 export const GoogleDriveService = new GoogleDriveServiceEngine();
+
+/** Test seam for drive.files.list. Production leaves this unset and uses the authenticated client. */
+type DriveFilesList = (args: {
+  q?: string;
+  pageSize?: number;
+  fields?: string;
+  supportsAllDrives?: boolean;
+  includeItemsFromAllDrives?: boolean;
+}) => Promise<{ data?: { files?: Array<{ id?: string | null; name?: string | null; mimeType?: string | null }> | null } | null }>;
+
+let driveFilesListForTests: DriveFilesList | null = null;
+
+export function setDriveFilesListForTests(list: DriveFilesList | null): void {
+  driveFilesListForTests = list;
+}

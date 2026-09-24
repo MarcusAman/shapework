@@ -302,15 +302,16 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
           })
         });
         const uploadData = await uploadRes.json();
-        if (uploadData.success && uploadData.url) {
+        if (uploadData.success && uploadData.url && !String(uploadData.url).startsWith('data:')) {
           finalPreviewUrl = uploadData.url;
         }
       }
     } catch (e) {
-      // Graceful fallback to local data/blob URL
+      // Leave the local preview in component state. Do not confirm a data: URL as the proof.
     } finally {
       setIsProcessing(false);
     }
+    if (/^(?:data|blob|file):/i.test(finalPreviewUrl)) finalPreviewUrl = '';
 
     const confirmedAsset: UploadedProofAsset = {
       id: `asset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,

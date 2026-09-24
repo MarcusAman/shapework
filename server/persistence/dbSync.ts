@@ -288,6 +288,7 @@ export async function initDatabaseSchema(pool: pg.Pool) {
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_state VARCHAR(50);
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_version INTEGER;
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_url TEXT;
+      ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS drive_folder_url TEXT;
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_notes TEXT;
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS proof_history JSONB DEFAULT '[]'::jsonb;
       ALTER TABLE canonical_marketing_tasks ADD COLUMN IF NOT EXISTS review_history JSONB DEFAULT '[]'::jsonb;

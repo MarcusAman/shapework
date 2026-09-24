@@ -6434,7 +6434,8 @@ export async function getOrFetchCanonicalMarketingTask(taskId: string): Promise<
           attachments: Array.isArray(t.attachments) ? t.attachments : (t.attachments ? t.attachments : []),
           mlsNumber: t.mls_number || undefined,
           channel: t.channel || undefined,
-          proofUrl: t.proof_url || undefined,
+          proofUrl: t.proof_url && !/^data:|^blob:|^file:/i.test(String(t.proof_url).trim()) ? t.proof_url : undefined,
+          driveFolderUrl: t.drive_folder_url || undefined,
           deliverableType: t.deliverable_type || undefined
         } as CanonicalMarketingTask;
         saveCanonicalMarketingTask(task);
@@ -7307,15 +7308,20 @@ app.post('/api/marketing/tasks/:id/submit-proof', requireAuth, resolveWorkspaceC
       if (!cleanProof && s0?.id) cleanProof = `/uploads/${s0.id}`;
     }
     // Fallback to task's existing proofUrl or attached photo if frontend did not send one
+    const inlineProof = (value: string) => /^(?:data|blob|file):/i.test(value);
+    if (inlineProof(cleanProof)) cleanProof = '';
     if (!cleanProof) {
       const existingTask = getCanonicalMarketingTaskById(req.params.id);
-      if (existingTask?.proofUrl) {
-        cleanProof = existingTask.proofUrl.trim();
+      const existingProof = String(existingTask?.proofUrl || '').trim();
+      if (existingProof && !inlineProof(existingProof)) {
+        cleanProof = existingProof;
       } else if (existingTask?.photos && existingTask.photos.length > 0) {
-        cleanProof = existingTask.photos[0].trim();
+        const photo = String(existingTask.photos[0] || '').trim();
+        if (photo && !inlineProof(photo)) cleanProof = photo;
       } else if ((existingTask as any)?.attachments && (existingTask as any).attachments.length > 0) {
         const att = (existingTask as any).attachments[0];
-        cleanProof = typeof att === 'string' ? att.trim() : (att.url || att.previewUrl || '').trim();
+        const attUrl = typeof att === 'string' ? att.trim() : String(att.url || att.previewUrl || '').trim();
+        if (attUrl && !inlineProof(attUrl)) cleanProof = attUrl;
       } else if (assetMetadata?.assetId) {
         cleanProof = `/uploads/${assetMetadata.assetId}`;
       }
@@ -8159,24 +8165,20 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
     const taskId = req.params.id;
     const task = await getOrFetchCanonicalMarketingTask(taskId);
     if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
-    const { ensureAskNoraDeliveryDrivePack, isRealGoogleDriveUrl } = await import('./server/services/askNoraDriveDelivery.js');
+    const { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack } = await import('./server/services/askNoraDriveDelivery.js');
+    const { driveCreateFailureReason } = await import('./server/services/evaluateDispatch.js');
     // Hydrate proofs from request body when task record is thin (common on first open)
     if (!task.proofUrl && req.body?.proofUrl) task.proofUrl = String(req.body.proofUrl);
     if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {
       task.attachments = req.body.attachments;
     }
+    if ((!task.photos || !task.photos.length) && Array.isArray(req.body?.photos)) {
+      task.photos = req.body.photos;
+    }
     const pack = await ensureAskNoraDeliveryDrivePack(task, {
       stagedAssets: Array.isArray(req.body?.stagedAssets) ? req.body.stagedAssets : [],
     });
-    // Only persist/return a Drive URL when folder verifies openable with ≥1 file.
-    // Empty/404 folders must never ship to the agent (attachments-only is OK at send).
-    if (pack.linkable && pack.driveFolderUrl && isRealGoogleDriveUrl(pack.driveFolderUrl)) {
-      task.driveFolderUrl = pack.driveFolderUrl;
-      // Stamp durable Drive URL into notes (tasks table has no drive_folder_url column)
-      const stamp = `AskNora Drive folder: ${pack.driveFolderUrl}`;
-      if (!String(task.notes || '').includes(pack.driveFolderUrl)) {
-        task.notes = `${task.notes || ''}\n${stamp}`.trim();
-      }
+    if (applyEnsuredFolder(task, pack.driveFolderUrl)) {
       if (pack.uploaded?.length) {
         const uploadNote = pack.uploaded.map((u: any) => `${u.fileName}: ${u.webViewLink}`).join('\n');
         task.notes = `${task.notes || ''}\n[AskNora Drive proofs]:\n${uploadNote}`.trim();
@@ -8184,29 +8186,39 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
       if (task.notes && /1DRV_/i.test(String(task.notes))) {
         task.notes = String(task.notes).replace(/https?:\/\/drive\.google\.com\/drive\/folders\/1DRV_[^\s]+/gi, pack.driveFolderUrl);
       }
-      task.updatedAt = new Date().toISOString();
       saveCanonicalMarketingTask(task);
-      return res.json({
-        success: true,
-        linkable: true,
-        driveFolderUrl: pack.driveFolderUrl,
-        uploaded: pack.uploaded || [],
-        warning: null,
-        task,
+    }
+    if (!pack.driveFolderId || !pack.driveFolderUrl) {
+      const reason = driveCreateFailureReason(pack.error);
+      return res.status(400).json({
+        success: false,
+        allowed: false,
+        linkable: false,
+        driveFolderUrl: '',
+        reason,
+        error: reason,
+        code: 'DRIVE_FOLDER_CREATE_FAILED',
       });
     }
+    const reason = pack.linkable ? '' : (pack.error || 'Drive folder is empty.');
     return res.json({
-      success: true,
-      linkable: false,
-      driveFolderUrl: '',
+      success: pack.linkable,
+      allowed: pack.linkable,
+      linkable: pack.linkable,
+      driveFolderUrl: pack.driveFolderUrl,
+      driveFolderId: pack.driveFolderId,
       uploaded: pack.uploaded || [],
-      error: pack.error || 'Drive folder empty or unverified — send will attach files only',
-      warning: pack.error || 'Drive folder empty or unverified',
+      reason,
+      error: reason || undefined,
       task,
     });
   } catch (err: any) {
     console.error('ensure-drive error:', err);
-    return res.status(500).json({ success: false, error: err?.message || 'ensure-drive failed' });
+    return res.status(500).json({
+      success: false,
+      code: 'ENSURE_DRIVE_FAILED',
+      error: err?.message || 'ensure-drive failed',
+    });
   }
 });
 
@@ -8254,9 +8266,10 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     const metaAssetPath = assetMetadata?.assetId
       ? (String(assetMetadata.assetId).startsWith('/') ? String(assetMetadata.assetId) : `/uploads/${assetMetadata.assetId}`)
       : '';
-    const incomingProofUrl = (typeof proofUrl === 'string' && proofUrl.trim())
-      ? proofUrl.trim()
-      : (stagedUrl || metaAssetPath || '');
+    const pastedBody = typeof proofUrl === 'string' ? proofUrl.trim() : '';
+    const stagedFile = /^(?:data|blob|file):/i.test(stagedUrl) ? '' : stagedUrl;
+    const rawIncomingProofUrl = pastedBody || stagedFile || metaAssetPath;
+    const incomingProofUrl = /^(?:data|blob|file):/i.test(rawIncomingProofUrl) ? '' : rawIncomingProofUrl;
     if (!deliverOnly && incomingProofUrl) {
       const urlChanged = !task.proofUrl || task.proofUrl !== incomingProofUrl;
       const missingHistory = !Array.isArray(task.proofHistory) || task.proofHistory.length === 0;
@@ -8351,32 +8364,43 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
         fileCount: (pack as any).fileCount,
         error: pack.error,
       });
-      if (!driveGate.allowed) {
-        return res.status(403).json({
-          success: false,
-          error: driveGate.errorCode || 'DRIVE_NOT_READY',
-          message: driveGate.reason || 'Approve & Notify refused: Drive folder must be real and non-empty.',
-        });
-      }
+      // File / folder refusal is evaluateDispatch, shared with send-questions.
+      void driveGate;
     }
 
     // 3. Resolve Intended Recipient from Task & Canonical Request
-    const { isProhibitedEmail } = await import('./server/services/canonicalRecipientService.js');
     const parentReq = task.requestId ? getCanonicalMarketingRequestById(task.requestId) : null;
     const propertyAddress = task.propertyAddress || parentReq?.propertyAddress || task.title || 'Listing Property';
     const agentEmail = task.agentEmail || parentReq?.agentEmail || (parentReq as any)?.requesterEmail || null;
     const agentName = task.agentName || parentReq?.agentName || (parentReq as any)?.requesterName || 'Agent';
     const agentPhone = task.agentPhone || parentReq?.agentPhone || null;
-    const driveUrl = (!task.driveFolderUrl || String(task.driveFolderUrl).includes('1DRV_'))
+    let driveUrl = (!task.driveFolderUrl || String(task.driveFolderUrl).includes('1DRV_'))
       ? (parentReq?.driveFolderUrl && !String(parentReq.driveFolderUrl).includes('1DRV_') ? parentReq.driveFolderUrl : '')
       : task.driveFolderUrl;
 
-    if (!agentEmail || isProhibitedEmail(agentEmail)) {
-      return res.status(400).json({
-        success: false,
-        error: 'RECIPIENT_UNCONFIRMED',
-        message: 'Intended requester email is missing or unconfirmed. Please confirm requester before dispatching collateral.'
-      });
+    const { evaluateDispatch, dispatchBlockStatus, dispatchRejectBody } = await import('./server/services/evaluateDispatch.js');
+    const { pastedDriveFolderUrl } = await import('./src/lib/proofPrecedence.js');
+    const pastedFolder = pastedDriveFolderUrl(pastedBody);
+    if (pastedFolder) driveUrl = pastedFolder;
+    const dispatchVerdict = await evaluateDispatch({
+      task: {
+        ...task,
+        driveFolderUrl: driveUrl || task.driveFolderUrl,
+      },
+      actor: sessionUser,
+      recipient: {
+        email: agentEmail,
+        name: agentName,
+        phone: agentPhone,
+      },
+      channel: 'email',
+      cc: ['melissa.gagliardi@nestrealty.com'],
+      intent: 'delivery_complete',
+      proofUrl: pastedBody || undefined,
+      driveFolderUrl: driveUrl || task.driveFolderUrl,
+    });
+    if (!dispatchVerdict.allowed) {
+      return res.status(dispatchBlockStatus(dispatchVerdict.reason)).json(dispatchRejectBody(dispatchVerdict));
     }
 
     // 4. Dispatch Approved Collateral Email to Agent
@@ -8390,10 +8414,15 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
         smtpResponse: '250 skipped — agent notified via Ask Requester outreach modal',
         skippedAutoEmail: true
       };
+    } else if (!dispatchVerdict.effectiveTo.length) {
+      emailResult = {
+        smtpAccepted: false,
+        smtpResponse: 'No effective recipients after dispatch-check',
+      };
     } else {
       const { sendTaskCompletionEmail } = await import('./server/email/emailProvider.js');
       emailResult = await sendTaskCompletionEmail({
-        toEmail: agentEmail,
+        toEmail: dispatchVerdict.effectiveTo[0],
         agentName,
         propertyAddress,
         taskTitle: task.title,
@@ -8406,7 +8435,8 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
         vendorName: task.vendorName || 'CopyCat',
         isPrintOrderSubmitted: Boolean(task.isPrintOrderSubmitted),
         quantity: task.quantity || 50,
-        neededByDate: task.neededByDate || 'Friday, September 11, 2026'
+        neededByDate: task.neededByDate || 'Friday, September 11, 2026',
+        cc: dispatchVerdict.effectiveCc,
       });
     }
 

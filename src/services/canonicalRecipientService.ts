@@ -7,6 +7,9 @@
  * Strictly blocks hotline numbers, placeholder emails, and client-side fabricated destinations.
  */
 
+import { isLocalProveAllowlistTo } from '../lib/outboundAllowlistGate';
+import { NEST_FULL_ROSTER_77 } from '../../server/persistence/nestRosterSeed';
+
 export interface VerifiedRecipient {
   requesterId?: string;
   name: string;
@@ -24,6 +27,8 @@ export interface VerifiedRecipient {
   avatar: string;
   office?: string;
   status: 'verified' | 'partial' | 'unverified';
+  /** directory = Nest person. allowlist = prove To only. none = do not send. */
+  contactGate: 'directory' | 'allowlist' | 'none';
 }
 
 /**
@@ -278,37 +283,57 @@ export function resolveCanonicalRecipient(options: ResolveRecipientOptions): Ver
     }
   }
 
-  const rawName = matched ? matched.name : (agentName ? agentName.replace(/\(.*?\)/g, '').trim() : 'Agent');
-  const firstName = matched ? matched.firstName : rawName.split(' ')[0] || 'Agent';
-  const rawRole = matched ? matched.role : (agentRole || 'Broker');
+  // Client-directory rows that are not on the Nest roster (prove Gmail, dawn@) are not agents.
+  const matchedEmail = String(matched?.email || '').trim();
+  const nestDirectoryMatch = Boolean(
+    matched &&
+    matchedEmail &&
+    !isProhibitedEmail(matchedEmail) &&
+    NEST_FULL_ROSTER_77.some(
+      (member) => String(member.email || '').trim().toLowerCase() === matchedEmail.toLowerCase()
+    )
+  );
+  const directoryPerson = nestDirectoryMatch ? matched : null;
+  const proveTo = [agentEmail, matched?.email].find(
+    (candidate) => isLocalProveAllowlistTo(candidate) && !isProhibitedEmail(candidate)
+  );
+
+  const rawName = directoryPerson
+    ? directoryPerson.name
+    : (agentName ? agentName.replace(/\(.*?\)/g, '').trim() : 'Agent');
+  const firstName = directoryPerson ? directoryPerson.firstName : rawName.split(' ')[0] || 'Agent';
+  const rawRole = directoryPerson ? directoryPerson.role : (proveTo ? '' : (agentRole || 'Broker'));
   const roleLower = rawRole.toLowerCase();
 
-  const isAgentOrBroker = 
-    roleLower.includes('broker') ||
-    roleLower.includes('agent') ||
-    roleLower.includes('realtor') ||
-    roleLower.includes('listing specialist') ||
-    (matched ? matched.personType === 'agent' : false);
+  const isAgentOrBroker = directoryPerson
+    ? (
+      roleLower.includes('broker') ||
+      roleLower.includes('agent') ||
+      roleLower.includes('realtor') ||
+      roleLower.includes('listing specialist') ||
+      directoryPerson.personType === 'agent'
+    )
+    : false;
 
-  // Evaluate Email
   let resolvedEmail: string | null = null;
-  if (matched && matched.email && !isProhibitedEmail(matched.email)) {
-    resolvedEmail = matched.email;
-  } else if (agentEmail && !isProhibitedEmail(agentEmail)) {
-    resolvedEmail = agentEmail.trim().toLowerCase();
+  if (directoryPerson?.email) {
+    resolvedEmail = directoryPerson.email;
+  } else if (proveTo) {
+    resolvedEmail = String(proveTo).trim().toLowerCase();
   }
 
-  const emailVerified = Boolean(resolvedEmail && !isProhibitedEmail(resolvedEmail));
+  const recipientSendable = Boolean(resolvedEmail);
+  const emailVerified = recipientSendable && Boolean(resolvedEmail && !isProhibitedEmail(resolvedEmail));
   const maskedEmail = emailVerified ? maskEmail(resolvedEmail) : null;
   const emailExplanation = !emailVerified
     ? 'No verified email address is available for this agent.'
     : undefined;
 
-  // Evaluate Phone
+  // Evaluate Phone — only after the same directory-or-allowlist predicate.
   let resolvedPhone: string | null = null;
-  if (matched && matched.phone && !isProhibitedPhone(matched.phone)) {
-    resolvedPhone = matched.phone;
-  } else if (agentPhone && !isProhibitedPhone(agentPhone)) {
+  if (directoryPerson && directoryPerson.phone && !isProhibitedPhone(directoryPerson.phone)) {
+    resolvedPhone = directoryPerson.phone;
+  } else if (directoryPerson && agentPhone && !isProhibitedPhone(agentPhone)) {
     resolvedPhone = agentPhone.trim();
   }
 
@@ -318,12 +343,12 @@ export function resolveCanonicalRecipient(options: ResolveRecipientOptions): Ver
     ? 'No verified mobile number is available for this agent.'
     : undefined;
 
-  const status: 'verified' | 'partial' | 'unverified' =
-    emailVerified && phoneVerified ? 'verified' :
-    emailVerified || phoneVerified ? 'partial' : 'unverified';
+  const status: 'verified' | 'partial' | 'unverified' = directoryPerson
+    ? (emailVerified && phoneVerified ? 'verified' : emailVerified || phoneVerified ? 'partial' : 'unverified')
+    : 'unverified';
 
   return {
-    requesterId: matched?.id || requesterId || undefined,
+    requesterId: directoryPerson?.id,
     name: rawName,
     firstName,
     role: rawRole,
@@ -337,9 +362,20 @@ export function resolveCanonicalRecipient(options: ResolveRecipientOptions): Ver
     emailExplanation,
     phoneExplanation,
     avatar: rawName.charAt(0).toUpperCase(),
-    office: matched?.office,
-    status
+    office: directoryPerson?.office,
+    status,
+    contactGate: directoryPerson ? 'directory' : proveTo ? 'allowlist' : 'none',
   };
+}
+
+/** Header seam: green Verified Contact is directory-only. Prove To is a separate label. */
+export function contactAssuranceLabel(recipient: {
+  contactGate?: 'directory' | 'allowlist' | 'none';
+  status?: 'verified' | 'partial' | 'unverified';
+}): 'Verified Contact' | 'Allowlisted (prove)' | null {
+  if (recipient.contactGate === 'directory' && recipient.status === 'verified') return 'Verified Contact';
+  if (recipient.contactGate === 'allowlist') return 'Allowlisted (prove)';
+  return null;
 }
 
 /**

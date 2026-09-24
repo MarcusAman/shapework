@@ -9,6 +9,7 @@ import { getAllStaffMembers, resolveStaffMember } from './operationsDirectoryRep
 import { canonicalTaskRoutingService } from '../services/canonicalTaskRoutingService.js';
 import { OfficeSupplyDeduplicationService } from '../services/officeSupplyDeduplicationService.js';
 import { tombstoneIntakeScope, removeTombstone } from './intakeTombstoneRepository.js';
+import { isInlineDataProof, scrubInlineProof } from '../../src/lib/proofPrecedence.js';
 
 const isProduction = () => typeof process !== 'undefined' && (process.env?.NODE_ENV === 'production' || process.env?.APP_ENV === 'production') && process.env?.ALLOW_FILE_STORAGE_UAT !== 'true';
 
@@ -2206,7 +2207,7 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         original_review_owner_id, review_covering_staff_id, original_assignee_id,
         assignee_covering_staff_id, classification_confidence, routed_at,
         created_at, updated_at, photos, attachments, mls_number, channel,
-        proof_url, deliverable_type
+        proof_url, drive_folder_url, deliverable_type
       FROM canonical_marketing_tasks
       ORDER BY created_at DESC
     `);
@@ -2295,9 +2296,11 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         attachments: Array.isArray(t.attachments) ? t.attachments : (t.attachments ? t.attachments : []),
         mlsNumber: t.mls_number || undefined,
         channel: t.channel || undefined,
-        proofUrl: t.proof_url || undefined,
+        proofUrl: isInlineDataProof(t.proof_url) ? undefined : (t.proof_url || undefined),
+        driveFolderUrl: t.drive_folder_url || undefined,
         deliverableType: t.deliverable_type || undefined
       }));
+      for (const task of canonicalTasksStore) scrubInlineProof(task);
 
       console.log(`[syncCanonicalStoreFromDatabase] Synced ${canonicalRequestsStore.length} requests and ${canonicalTasksStore.length} tasks from PostgreSQL.`);
       try {
@@ -2347,6 +2350,12 @@ function loadCanonicalStoreFromDisk(): boolean {
           canonicalRequestsStore.filter(r => r.isArchived).map(r => r.id)
         );
         for (const t of canonicalTasksStore) {
+          const hadInlineProof = isInlineDataProof(t.proofUrl)
+            || (t.proofHistory || []).some((entry) => entry && isInlineDataProof(entry.proofUrl));
+          if (hadInlineProof) {
+            scrubInlineProof(t);
+            changed = true;
+          }
           if (t.requestId && archivedRequestIds.has(t.requestId) && (!t.isArchived || t.status !== 'archived')) {
             t.isArchived = true;
             t.status = 'archived';
@@ -2614,16 +2623,22 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
       );
 
       // Keep source photos / attachments durable in DB (drawer one-photo-primary gate).
+      // proof_url is written here so a data: value cannot live only in memory while the column stays NULL.
+      const durableProof = isInlineDataProof(task.proofUrl) ? null : (task.proofUrl || null);
       await db.query(
         `UPDATE canonical_marketing_tasks
          SET photos = $2::jsonb,
              attachments = $3::jsonb,
+             proof_url = $4,
+             drive_folder_url = $5,
              updated_at = NOW()
          WHERE id = $1`,
         [
           task.id,
           JSON.stringify(task.photos || []),
-          JSON.stringify(task.attachments || [])
+          JSON.stringify(task.attachments || []),
+          durableProof,
+          task.driveFolderUrl || null
         ]
       );
     }
@@ -3007,6 +3022,7 @@ export function saveCanonicalMarketingTask(task: CanonicalMarketingTask): Canoni
     // Graceful fallback
   }
 
+  scrubInlineProof(task);
   const items = getAllCanonicalMarketingTasks();
   task.updatedAt = new Date().toISOString();
   const index = items.findIndex(t => t.id === task.id);
@@ -3106,7 +3122,7 @@ export function updateCanonicalMarketingTaskStatus(
   }
   task.updatedAt = new Date().toISOString();
 
-  if (extra?.proofUrl) {
+  if (extra?.proofUrl && !isInlineDataProof(extra.proofUrl)) {
     task.proofUrl = extra.proofUrl;
     if (!task.proofHistory) task.proofHistory = [];
     task.proofHistory.push({
@@ -3262,6 +3278,9 @@ export function submitCanonicalMarketingTaskProof(
   }
 
   const cleanProof = (proofUrl || '').trim();
+  if (isInlineDataProof(cleanProof)) {
+    throw new Error('INVALID_PROTOCOL: Proof link must use secure https:// protocol.');
+  }
   if (!cleanProof && !assetMetadata?.assetId) {
     throw new Error('PROOF_REQUIRED: A valid proof URL or managed asset is required to submit for approval. Notes alone are not sufficient.');
   }

@@ -85,6 +85,15 @@ export type AskNoraDriveDeps = {
     content: Buffer;
     workspaceId?: string;
   }) => Promise<{ isLive: boolean; fileId: string; webViewLink: string }>;
+  /** Names already in the folder. Re-copy skips these so files are not duplicated. */
+  listFolderFileNames?: (folderId: string, workspaceId?: string) => Promise<string[]>;
+  /** Copy a Drive file that is already linked on the task into the listing folder. */
+  copyDriveFile?: (params: {
+    folderId: string;
+    fileId: string;
+    fileName: string;
+    workspaceId?: string;
+  }) => Promise<{ isLive: boolean; fileId: string; webViewLink: string }>;
 };
 
 export type PromoteAsset = { fileName: string; mimeType: string; content: Buffer };
@@ -163,12 +172,29 @@ async function defaultUploadFile(params: {
   return { isLive: true, fileId: result.fileId, webViewLink: result.webViewLink };
 }
 
+async function defaultListFolderFileNames(folderId: string, workspaceId?: string): Promise<string[]> {
+  const listed = await GoogleDriveService.listFilesInFolder(folderId, workspaceId || 'ws_wilmington');
+  if (!listed.ok) return [];
+  return listed.files.map((file) => String(file.name || '').trim()).filter(Boolean);
+}
+
+async function defaultCopyDriveFile(params: {
+  folderId: string;
+  fileId: string;
+  fileName: string;
+  workspaceId?: string;
+}): Promise<{ isLive: boolean; fileId: string; webViewLink: string }> {
+  return GoogleDriveService.copyFileToFolder(params);
+}
+
 function activeDeps(): AskNoraDriveDeps {
-  if (depsOverride) return depsOverride;
   return {
     findFolderByAddress: defaultFindFolderByAddress,
     createFolder: defaultCreateFolder,
     uploadFile: defaultUploadFile,
+    listFolderFileNames: defaultListFolderFileNames,
+    copyDriveFile: defaultCopyDriveFile,
+    ...(depsOverride || {}),
   };
 }
 
@@ -194,6 +220,7 @@ export async function promoteAskNoraListingFolder(input: {
   workspaceId?: string | null;
   existingFolderUrl?: string | null;
   assets?: PromoteAsset[];
+  driveFiles?: Array<{ fileId: string; fileName: string }>;
 }): Promise<{
   ok: boolean;
   deferred: boolean;
@@ -259,21 +286,55 @@ export async function promoteAskNoraListingFolder(input: {
   }
 
   const uploaded: Array<{ fileName: string; webViewLink: string; fileId: string }> = [];
+  const existingNames = new Set<string>();
+  try {
+    const names = await deps.listFolderFileNames?.(folder.id, workspaceId);
+    for (const name of names || []) {
+      const key = String(name || '').trim().toLowerCase();
+      if (key) existingNames.add(key);
+    }
+  } catch (err: any) {
+    console.warn('[AskNoraDrive] list folder names failed:', err?.message || err);
+  }
+  const remember = (fileName: string) => {
+    const key = String(fileName || '').trim().toLowerCase();
+    if (key) existingNames.add(key);
+  };
   for (const asset of input.assets || []) {
-    if (!asset?.content?.length) continue;
+    const fileName = asset.fileName || 'asset';
+    if (!asset?.content?.length || existingNames.has(fileName.toLowerCase())) continue;
     try {
       const up = await deps.uploadFile({
         folderId: folder.id,
-        fileName: asset.fileName || 'asset',
+        fileName,
         mimeType: asset.mimeType || 'application/octet-stream',
         content: asset.content,
         workspaceId,
       });
       if (up.isLive && up.webViewLink && isDurableHttpsProofUrl(up.webViewLink) && !isSyntheticDriveId(up.fileId)) {
-        uploaded.push({ fileName: asset.fileName, webViewLink: up.webViewLink, fileId: up.fileId });
+        uploaded.push({ fileName, webViewLink: up.webViewLink, fileId: up.fileId });
+        remember(fileName);
       }
     } catch (err: any) {
       console.warn('[AskNoraDrive] upload failed:', err?.message || err);
+    }
+  }
+  for (const driveFile of input.driveFiles || []) {
+    const fileName = driveFile.fileName || driveFile.fileId;
+    if (!driveFile.fileId || existingNames.has(fileName.toLowerCase())) continue;
+    try {
+      const copied = await deps.copyDriveFile?.({
+        folderId: folder.id,
+        fileId: driveFile.fileId,
+        fileName,
+        workspaceId,
+      });
+      if (copied?.isLive && copied.webViewLink && isDurableHttpsProofUrl(copied.webViewLink) && !isSyntheticDriveId(copied.fileId)) {
+        uploaded.push({ fileName, webViewLink: copied.webViewLink, fileId: copied.fileId });
+        remember(fileName);
+      }
+    } catch (err: any) {
+      console.warn('[AskNoraDrive] copy failed:', err?.message || err);
     }
   }
 
@@ -439,39 +500,6 @@ function guessMime(fileName: string): string {
   return 'application/octet-stream';
 }
 
-/** e.g. "414 Help Me Street, Wilmington, NC 28412" → "414 Help Me St" */
-function shortAddressLabel(address?: string | null): string {
-  const raw = String(address || '').trim();
-  if (!raw) return 'Listing';
-  const street = raw.split(',')[0].trim();
-  return street
-    .replace(/\bStreet\b/gi, 'St')
-    .replace(/\bAvenue\b/gi, 'Ave')
-    .replace(/\bBoulevard\b/gi, 'Blvd')
-    .replace(/\bDrive\b/gi, 'Dr')
-    .replace(/\bRoad\b/gi, 'Rd')
-    .replace(/\bLane\b/gi, 'Ln')
-    .replace(/\s+/g, ' ')
-    .trim() || 'Listing';
-}
-
-function deliverableLabel(task: DeliveryDriveTaskLike): string {
-  const raw = String(task.title || (task as any).packageType || 'Marketing asset').trim();
-  return raw
-    .replace(/\(.*?\)/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 60) || 'Marketing asset';
-}
-
-function buildAgentFacingFileName(task: DeliveryDriveTaskLike, localPath: string): string {
-  const ext = path.extname(localPath) || '.png';
-  const day = new Date().toISOString().slice(0, 10);
-  const base = `${shortAddressLabel(task.propertyAddress || task.title)} — ${deliverableLabel(task)} — ${day}${ext}`;
-  // Drive-safe: strip characters Drive rejects in names
-  return base.replace(/[\/\?\*:"<>|]/g, '').trim();
-}
-
 export type DeliveryDriveTaskLike = {
   id: string;
   title?: string;
@@ -507,144 +535,115 @@ export async function ensureAskNoraDeliveryDrivePack(task: DeliveryDriveTaskLike
   const agentEmail = String(task.agentEmail || '').trim();
   const workspaceId = task.workspaceId || 'ws_wilmington';
 
-  // Reuse existing real folder if present
+  // Reuse the task folder. A second ensure must not create another one.
   let driveFolderUrl = isRealGoogleDriveUrl(task.driveFolderUrl) ? String(task.driveFolderUrl) : '';
-  const fromNotes = extractRealDriveUrlsFromText(task.notes);
-  if (!driveFolderUrl && fromNotes[0]) driveFolderUrl = fromNotes[0];
+  const fromNotes = extractRealDriveUrlsFromText(task.notes).find((url) => /\/folders\//i.test(url));
+  if (!driveFolderUrl && fromNotes) driveFolderUrl = fromNotes;
 
-  let driveFolderId = '';
-  if (driveFolderUrl) {
-    const m = driveFolderUrl.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-    if (m) driveFolderId = m[1];
-  }
-
-  // Collect proof URLs (local uploads + remote)
-  const proofUrls: string[] = [];
-  const push = (u?: string | null) => {
-    const s = String(u || '').trim();
-    if (s && !proofUrls.includes(s)) proofUrls.push(s);
-  };
-  push(task.proofUrl);
-  for (const p of task.proofHistory || []) push(p?.proofUrl);
-  for (const p of task.proofs || []) push(p?.url);
-  for (const a of task.attachments || []) push(a?.url);
-  for (const a of opts?.stagedAssets || []) push(a?.previewUrl || a?.downloadUrl || a?.url);
-
-  const hasProofs = proofUrls.length > 0;
-
-  // Create or reuse the address folder. Same promote path as intake. Never a second folder.
-  if (!driveFolderId) {
-    const promoted = await promoteAskNoraListingFolder({
-      propertyAddress,
-      agentName,
-      agentEmail: agentEmail || 'AskNora@nestrealty.com',
-      workspaceId,
-      existingFolderUrl: driveFolderUrl,
-    });
-    if (!promoted.ok || !promoted.driveFolderId || !promoted.driveFolderUrl || isPlaceholderDriveUrl(promoted.driveFolderUrl)) {
-      return {
-        success: false,
-        isLive: false,
-        driveFolderUrl: '',
-        driveFolderId: '',
-        uploaded: [],
-        linkable: false,
-        error: hasProofs
-          ? 'Could not create a real AskNora Google Drive folder for this task. Check Google Workspace / service-account Drive access.'
-          : 'No Drive folder and no proofs to upload.',
-      };
-    }
-    driveFolderUrl = promoted.driveFolderUrl;
-    driveFolderId = promoted.driveFolderId;
-  }
-
-  // Prefer Marketing_Flyers subfolder (list from Drive if in-memory scaffold lost after restart)
-  let uploadParentId = driveFolderId;
-  try {
-    uploadParentId = await GoogleDriveService.findMarketingUploadParentId(driveFolderId, workspaceId);
-  } catch (e: any) {
-    console.warn('[AskNoraDriveDelivery] subfolder resolve failed:', e?.message || e);
-  }
-
-  const uploaded: Array<{ fileName: string; webViewLink: string }> = [];
-  const skippedLocal: string[] = [];
-  for (const proof of proofUrls) {
-    if (isRealGoogleDriveUrl(proof)) continue; // already on Drive
-    const localPath = resolveLocalUploadPath(proof);
-    if (!localPath) {
-      skippedLocal.push(proof);
-      continue;
-    }
-    const fileName = buildAgentFacingFileName(task, localPath);
-    try {
-      const buf = fs.readFileSync(localPath);
-      const result = await GoogleDriveService.exportFileToDrive({
-        folderId: uploadParentId,
-        fileName,
-        mimeType: guessMime(fileName),
-        contentBuffer: buf,
-        workspaceId,
-      });
-      if (result.isLive && result.webViewLink && !isPlaceholderDriveUrl(result.webViewLink)) {
-        uploaded.push({ fileName, webViewLink: result.webViewLink });
-        console.log('[AskNoraDriveDelivery] uploaded', fileName, '→', uploadParentId);
-      } else {
-        console.warn('[AskNoraDriveDelivery] upload returned non-live for', fileName);
-      }
-    } catch (err: any) {
-      console.warn('[AskNoraDriveDelivery] upload failed:', fileName, err?.message || err);
-    }
-  }
-  if (skippedLocal.length) {
-    console.warn('[AskNoraDriveDelivery] could not resolve local paths:', skippedLocal.slice(0, 5));
-  }
-
-  if (!driveFolderId || !driveFolderUrl || isPlaceholderDriveUrl(driveFolderUrl)) {
+  const { assets, driveFiles } = collectIntakeCopies(task, opts?.stagedAssets);
+  const promoted = await promoteAskNoraListingFolder({
+    propertyAddress,
+    agentName,
+    agentEmail: agentEmail || 'AskNora@nestrealty.com',
+    workspaceId,
+    existingFolderUrl: driveFolderUrl,
+    assets,
+    driveFiles,
+  });
+  if (!promoted.ok || !promoted.driveFolderId || !promoted.driveFolderUrl || isPlaceholderDriveUrl(promoted.driveFolderUrl)) {
     return {
       success: false,
       isLive: false,
       driveFolderUrl: '',
       driveFolderId: '',
-      uploaded,
+      uploaded: [],
       linkable: false,
-      error: 'Could not create a real AskNora Google Drive folder.',
+      error: promoted.error || 'Drive folder create failed; no folder URL stored.',
     };
   }
 
-  // Verify the exact folder id is openable and has ≥1 file (never ship empty/404 ids).
-  const verified = await GoogleDriveService.verifyDriveFolder(driveFolderId, workspaceId);
-  const hasUploaded = uploaded.length > 0;
-  const hasFiles = hasUploaded || (verified.ok && (verified.fileCount || 0) > 0);
-  const linkable = Boolean(verified.ok && hasFiles && verified.url && isRealGoogleDriveUrl(verified.url));
-
-  // Agent-facing link: Marketing subfolder (where proofs live), not the empty parent shell
-  let agentFacingUrl = linkable ? String(verified.url) : '';
-  let agentFacingId = linkable ? driveFolderId : '';
-  if (linkable && uploadParentId && uploadParentId !== driveFolderId) {
-    const marketingVerified = await GoogleDriveService.verifyDriveFolder(uploadParentId, workspaceId);
-    if (marketingVerified.ok && marketingVerified.url && isRealGoogleDriveUrl(marketingVerified.url)) {
-      agentFacingUrl = String(marketingVerified.url);
-      agentFacingId = uploadParentId;
-    }
-  } else if (linkable && uploaded[0]?.webViewLink && isRealGoogleDriveUrl(uploaded[0].webViewLink)) {
-    // Fallback: first uploaded file link if Marketing folder id unknown
-    agentFacingUrl = uploaded[0].webViewLink;
-  }
-
+  const listed = await GoogleDriveService.listFilesInFolder(promoted.driveFolderId, workspaceId);
+  const fileCount = listed.ok ? listed.files.length : 0;
+  const linkable = Boolean(listed.ok && fileCount > 0 && isRealGoogleDriveUrl(promoted.driveFolderUrl));
   return {
     success: true,
     isLive: true,
-    // Only expose URL when linkable — otherwise callers must use email attachments only.
-    driveFolderUrl: agentFacingUrl,
-    driveFolderId: agentFacingId,
-    uploaded,
+    driveFolderUrl: promoted.driveFolderUrl,
+    driveFolderId: promoted.driveFolderId,
+    uploaded: promoted.uploaded.map((file) => ({ fileName: file.fileName, webViewLink: file.webViewLink })),
     linkable,
-    error: !linkable
-      ? (hasProofs
-          ? 'Proofs attached to email only — Drive folder empty or not verifiable (upload may need AskNora OAuth Drive quota).'
-          : 'Drive folder not linkable (empty or unverified).')
-      : undefined,
+    error: !listed.ok
+      ? "Can't read that Drive folder."
+      : fileCount === 0
+        ? 'Drive folder is empty.'
+        : undefined,
   };
+}
+
+function driveFileIdFromUrl(url?: string | null): string {
+  const value = String(url || '').trim();
+  if (!value || /\/folders\//i.test(value)) return '';
+  const fromPath = value.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)?.[1] || '';
+  if (fromPath && !isSyntheticDriveId(fromPath)) return fromPath;
+  try {
+    const parsed = new URL(value);
+    if (!/drive\.google\.com$/i.test(parsed.hostname)) return '';
+    const id = parsed.searchParams.get('id') || '';
+    if (id && !isSyntheticDriveId(id)) return id;
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+/** Intake photos and /uploads attachments are copied in. Drive files already linked on attachments are copied too. */
+function collectIntakeCopies(
+  task: DeliveryDriveTaskLike,
+  stagedAssets?: Array<{ previewUrl?: string; url?: string; downloadUrl?: string; fileName?: string; name?: string }>
+): { assets: PromoteAsset[]; driveFiles: Array<{ fileId: string; fileName: string }> } {
+  const assets: PromoteAsset[] = [];
+  const driveFiles: Array<{ fileId: string; fileName: string }> = [];
+  const seen = new Set<string>();
+  const take = (url?: string | null, name?: string | null) => {
+    const value = String(url || '').trim();
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    const driveId = driveFileIdFromUrl(value);
+    if (driveId) {
+      driveFiles.push({ fileId: driveId, fileName: String(name || '').trim() || `drive-${driveId}` });
+      return;
+    }
+    const localPath = resolveLocalUploadPath(value);
+    if (!localPath) return;
+    try {
+      const fileName = String(name || '').trim() || path.basename(localPath);
+      assets.push({ fileName, mimeType: guessMime(fileName), content: fs.readFileSync(localPath) });
+    } catch {
+      /* unreadable local upload is skipped */
+    }
+  };
+  for (const photo of task.photos || []) take(photo?.url || (photo as { driveUrl?: string })?.driveUrl, photo?.name);
+  for (const attachment of task.attachments || []) {
+    const record = attachment as { url?: string; driveUrl?: string; filename?: string; name?: string };
+    take(record.driveUrl || record.url, record.filename || record.name);
+  }
+  for (const staged of stagedAssets || []) take(staged?.previewUrl || staged?.downloadUrl || staged?.url, staged?.fileName || staged?.name);
+  return { assets, driveFiles };
+}
+
+export function applyEnsuredFolder<T extends { driveFolderUrl?: string | null; notes?: string | null; updatedAt?: string }>(
+  task: T,
+  folderUrl?: string | null
+): boolean {
+  const url = String(folderUrl || '').trim();
+  if (!url || !isRealGoogleDriveUrl(url)) return false;
+  task.driveFolderUrl = url;
+  const stamp = `AskNora Drive folder: ${url}`;
+  if (!String(task.notes || '').includes(url)) {
+    task.notes = `${task.notes || ''}\n${stamp}`.trim();
+  }
+  task.updatedAt = new Date().toISOString();
+  return true;
 }
 
 export function loadLocalProofAttachments(task: DeliveryDriveTaskLike, stagedAssets?: Array<{ previewUrl?: string; url?: string; downloadUrl?: string; fileName?: string; name?: string }>): Array<{ filename: string; content: Buffer; contentType: string }> {

@@ -7,21 +7,26 @@
 
 import { Router, Request, Response } from 'express';
 import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
+import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
+import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
 import {
   resolveServerCanonicalRecipient,
-  isProhibitedPhone,
-  isProhibitedEmail,
   isHotlineNumber
 } from '../services/canonicalRecipientService.js';
+import { resolveProofPrecedence } from '../../src/lib/proofPrecedence.js';
 import { recordActivityEvent, getActivityHistoryForTask } from '../services/activityHistoryService.js';
 import {
+  applyEnsuredFolder,
   ensureAskNoraDeliveryDrivePack,
+  isDurableHttpsProofUrl,
   isRealGoogleDriveUrl,
   loadLocalProofAttachments,
 } from '../services/askNoraDriveDelivery.js';
 import {
+  approveCanonicalMarketingTaskProof,
   getAllCanonicalMarketingTasks,
+  getCanonicalMarketingTaskById,
   saveCanonicalMarketingTask,
 } from '../persistence/marketingCampaignsRepository.js';
 import {
@@ -29,8 +34,235 @@ import {
   dealTriageClientOutboundBlockReason,
 } from '../services/nora/dealTriage.js';
 import { canSendAgentOutbound } from '../persistence/notificationPreferencesRepository.js';
+import {
+  DISPATCH_REASON,
+  dispatchRejectBody,
+  driveCreateFailureReason,
+  evaluateDispatch,
+  type DispatchVerdict,
+} from '../services/evaluateDispatch.js';
 
 export const marketingQuestionsRouter = Router();
+
+/**
+ * Approve & Notify send: require the task reviewer, accept only a durable https proof,
+ * and write proofUrl + reviewState before outbound/prefs can refuse the click.
+ * Returns handled:true when the response was already sent (held or rejected).
+ */
+async function persistApproveNotifyProof(
+  req: Request,
+  res: Response,
+  args: {
+    taskId: string;
+    campaignId: string;
+    proofUrl?: string;
+    driveFolderUrl?: string;
+    workspaceId: string;
+    propertyAddress: string;
+    resolvedRecipient: { id?: string; email?: string | null; name?: string };
+    /** Exact prove To. Not a directory person. Empty Drive is not a failure. */
+    proveAllowlist?: boolean;
+    /** Shared evaluateDispatch already accepted this send. */
+    dispatchCleared?: boolean;
+    recipientStatus?: DispatchVerdict['recipientStatus'];
+    effectiveTo?: string[];
+    effectiveCc?: string[];
+  }
+): Promise<{ handled: boolean }> {
+  const { requireAuth } = await import('../auth/auth.js');
+  if (!(req as any).authUser && !(req as any).user) {
+    await new Promise<void>((resolve, reject) => {
+      requireAuth(req as any, res as any, (err?: any) => (err ? reject(err) : resolve()));
+    });
+    if (res.headersSent) return { handled: true };
+  }
+  const sessionUser = (req as any).authUser || (req as any).user;
+  const task = getCanonicalMarketingTaskById(args.taskId);
+  if (!task) {
+    res.status(404).json({ success: false, code: 'TASK_NOT_FOUND', error: 'Task not found' });
+    return { handled: true };
+  }
+
+  const { assertActorIsTaskReviewerForApproveNotify } = await import('../../src/lib/marketingApproveNotifyCapabilities.js');
+  const reviewerGate = assertActorIsTaskReviewerForApproveNotify(sessionUser, task);
+  if (!reviewerGate.allowed) {
+    res.status(reviewerGate.errorCode === 'UNAUTHENTICATED' ? 401 : 403).json({
+      success: false,
+      code: reviewerGate.errorCode || 'FORBIDDEN_NOT_TASK_REVIEWER',
+      error: reviewerGate.errorCode || 'FORBIDDEN_NOT_TASK_REVIEWER',
+      message: reviewerGate.reason || 'Only the task reviewer may approve and notify.',
+    });
+    return { handled: true };
+  }
+
+  if (shouldBlockClientOutbound(task)) {
+    res.status(403).json({
+      success: false,
+      code: 'OUTBOUND_BLOCKED',
+      error: dealTriageClientOutboundBlockReason(task) ||
+        'Deal triage active — BIC/owner negotiates; no client auto-outbound.',
+      outbound: 'blocked_no_client_send',
+    });
+    return { handled: true };
+  }
+
+  const smokeHay = `${String((req.body as any)?.subject || '')}\n${String((req.body as any)?.message || '')}`.toLowerCase();
+  if (/partial[- ]success|smtp smoke|asknora smtp smoke|\bsmoke:/.test(smokeHay) && process.env.OUTREACH_ALLOW_SMOKE !== 'true') {
+    res.status(400).json({
+      success: false,
+      code: 'SMOKE_BLOCKED',
+      error: 'Blocked smoke/debug outreach copy. Use the materials-ready template, or set OUTREACH_ALLOW_SMOKE=true for ops-only tests.',
+    });
+    return { handled: true };
+  }
+
+  const pastedProof = String(args.proofUrl || '').trim();
+  // evaluateDispatch already decided proof / file / recipient. Do not invent a second reason.
+  if (!args.dispatchCleared && args.proveAllowlist) {
+    if (pastedProof && !isDurableHttpsProofUrl(pastedProof)) {
+      res.status(400).json({
+        success: false,
+        code: 'INVALID_PROTOCOL',
+        error: 'INVALID_PROTOCOL',
+        message: 'INVALID_PROTOCOL: Proof link must use secure https:// protocol.',
+      });
+      return { handled: true };
+    }
+  }
+  const proofCandidate = [pastedProof, args.driveFolderUrl, task.proofUrl]
+    .map((u) => String(u || '').trim())
+    .find((u) => isDurableHttpsProofUrl(u)) || '';
+  if (!args.dispatchCleared && !args.proveAllowlist && !proofCandidate) {
+    res.status(400).json({
+      success: false,
+      code: 'INVALID_PROTOCOL',
+      error: 'INVALID_PROTOCOL',
+      message: 'INVALID_PROTOCOL: Proof link must use secure https:// protocol.',
+    });
+    return { handled: true };
+  }
+
+  if (proofCandidate) task.proofUrl = proofCandidate;
+  if (!task.agentEmail && args.resolvedRecipient.email) {
+    task.agentEmail = args.resolvedRecipient.email;
+  }
+  task.updatedAt = new Date().toISOString();
+  saveCanonicalMarketingTask(task);
+  const approved = approveCanonicalMarketingTaskProof(task.id, 'Approved — Approve & Notify', {
+    id: sessionUser?.id,
+    name: sessionUser?.name || sessionUser?.email || 'Reviewer',
+  });
+  const saved = approved || getCanonicalMarketingTaskById(task.id) || task;
+
+  const masterMode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
+  const outboundHeld =
+    masterMode === 'disabled' ||
+    process.env.NODE_ENV === 'test' ||
+    (masterMode !== 'live' && process.env.ALLOW_EXTERNAL_DISPATCH !== 'true');
+
+  let prefsHeld = false;
+  let prefsReason = '';
+  if (!args.proveAllowlist) {
+    try {
+      const userId = args.resolvedRecipient.id || `email:${String(args.resolvedRecipient.email || '').toLowerCase()}`;
+      const gate = await canSendAgentOutbound({ userId, messageType: 'materials_ready', channel: 'email' });
+      if (!gate.allowed) {
+        prefsHeld = true;
+        prefsReason = gate.reason || 'member_pref_disabled:materials_ready';
+      }
+    } catch {
+      prefsHeld = false;
+    }
+  }
+
+  let outboxId: string | undefined;
+  const effectiveTo = args.effectiveTo || [];
+  const effectiveCc = args.effectiveCc || [];
+  if (args.proveAllowlist && outboundHeld && effectiveTo.length && masterMode === 'hold') {
+    const queued = await enqueueOutboundEmail({
+      workspaceId: args.workspaceId,
+      messageType: 'materials_ready',
+      idempotencyKey: `allowlist_hold_${saved.id}_${proofCandidate || 'no-proof'}`,
+      recipient: effectiveTo[0],
+      to: effectiveTo,
+      cc: effectiveCc,
+      subject: String((req.body as any)?.subject || `Your marketing materials are ready — ${args.propertyAddress}`),
+      payload: {
+        body: String((req.body as any)?.message || ''),
+        propertyAddress: args.propertyAddress,
+        requestId: args.campaignId,
+        campaignId: args.campaignId,
+        taskId: saved.id,
+        intent: 'delivery_complete',
+        hold: true,
+        proofUrl: proofCandidate || undefined,
+        to: effectiveTo,
+        cc: effectiveCc,
+      },
+      skipMemberPrefs: true,
+    });
+    if (!queued.enqueued && (queued as { suppressed?: boolean }).suppressed) {
+      res.status(503).json({
+        success: false,
+        error: 'Outbound hold did not accept this allowlist recipient.',
+        reason: (queued as { reason?: string }).reason,
+      });
+      return { handled: true };
+    }
+    outboxId = queued.outboxId;
+  }
+
+  if (outboundHeld || prefsHeld) {
+    await recordActivityEvent({
+      workspaceId: args.workspaceId,
+      requestId: args.campaignId,
+      taskId: saved.id,
+      eventType: 'outreach.blocked',
+      actorType: 'staff',
+      actorId: sessionUser?.id,
+      actorDisplayName: sessionUser?.name || 'Reviewer',
+      channel: 'email',
+      direction: 'internal',
+      communicationStatus: 'blocked',
+      summary: `${sessionUser?.name || 'Reviewer'} approved proof for ${args.propertyAddress}. External notify held.`,
+      metadata: {
+        proofUrl: proofCandidate,
+        outboundHeld,
+        prefsHeld,
+        reason: outboundHeld ? 'outbound_not_live' : prefsReason,
+        intent: 'delivery_complete',
+      },
+      idempotencyKey: `outreach_held_${saved.id}_${proofCandidate}`,
+    }).catch(() => {});
+
+    res.status(200).json({
+      success: true,
+      persisted: true,
+      dispatchHeld: true,
+      outboundDisabled: outboundHeld,
+      notificationsHeld: prefsHeld,
+      mode: outboundHeld ? 'approved_outbound_held' : 'approved_notifications_held',
+      campaignId: args.campaignId,
+      task: saved,
+      reason: outboundHeld ? 'outbound_not_live' : prefsReason,
+      allowed: true,
+      gateReason: '',
+      recipientStatus: args.recipientStatus,
+      effectiveTo,
+      effectiveCc,
+      outboxId,
+      message: outboxId
+        ? 'Proof approved. Queued to outbound hold.'
+        : outboundHeld
+          ? 'Proof approved. Outbound is not live — email/text was not sent.'
+          : 'Proof approved. Notifications are disabled for this teammate — email/text was not sent.',
+    });
+    return { handled: true };
+  }
+
+  return { handled: false };
+}
+
 
 export interface SendQuestionsPayload {
   campaignId: string;
@@ -57,6 +289,61 @@ export interface SendQuestionsPayload {
   assetUrls?: string[];
   attachments?: Array<{ filename?: string; url: string }>;
 }
+
+marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', async (req: Request, res: Response) => {
+  try {
+    const { requireAuth } = await import('../auth/auth.js');
+    if (!(req as any).authUser && !(req as any).user) {
+      await new Promise<void>((resolve, reject) => {
+        requireAuth(req as any, res as any, (err?: any) => (err ? reject(err) : resolve()));
+      });
+      if (res.headersSent) return;
+    }
+    const actor = (req as any).authUser || (req as any).user || null;
+    const taskId = String(req.params.id || '').trim();
+    const task = getCanonicalMarketingTaskById(taskId);
+    const body = (req.body || {}) as SendQuestionsPayload;
+    const melissaCc = 'melissa.gagliardi@nestrealty.com';
+    const intent = body.intent || 'delivery_complete';
+    const proposedCc = Array.from(new Set([
+      ...(Array.isArray(body.ccEmails) ? body.ccEmails : []),
+      ...(intent === 'delivery_complete' && body.domain !== 'operational' ? [melissaCc] : []),
+    ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
+    const verdict = await evaluateDispatch({
+      task: task || { id: taskId },
+      actor,
+      recipient: {
+        email: body.recipientEmail || task?.agentEmail,
+        name: body.recipientName || task?.agentName,
+      },
+      channel: (body.channels || ['email']).includes('sms') && (body.channels || ['email']).includes('email')
+        ? 'both'
+        : (body.channels || ['email']).includes('sms')
+          ? 'sms'
+          : 'email',
+      cc: proposedCc,
+      intent,
+      proofUrl: body.proofUrl,
+      driveFolderUrl: body.driveFolderUrl ?? task?.driveFolderUrl,
+      assetUrls: body.assetUrls,
+      attachments: body.attachments,
+    });
+    const status = verdict.allowed ? 200 : (verdict.reason === DISPATCH_REASON.role ? 403 : 400);
+    return res.status(status).json({
+      ...verdict,
+      success: verdict.allowed,
+      gateReason: verdict.reason,
+      code: verdict.allowed ? undefined : dispatchRejectBody(verdict).code,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      allowed: false,
+      reason: err?.message || 'Dispatch check failed.',
+      error: err?.message || 'Dispatch check failed.',
+    });
+  }
+});
 
 marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (req: Request, res: Response) => {
   try {
@@ -102,31 +389,91 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         error: 'Prohibited recipient: The NORA hotline number (910) 507-2047 cannot be used as an agent text destination.'
       });
     }
-    if (wantsEmail && recipientEmail && isProhibitedEmail(recipientEmail)) {
-      return res.status(400).json({
-        success: false,
-        error: `Prohibited recipient: Placeholder email "${recipientEmail}" cannot receive messages.`
-      });
-    }
+    // Recipient, proof, Drive, and kill-switch refusals come only from evaluateDispatch.
     // Strip hotline from phone before directory resolve so it cannot poison email-only sends
     const safeRecipientPhone =
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
 
-    // 2. Server-side Canonical Recipient Re-resolution
-    const resolvedRecipient = await resolveServerCanonicalRecipient({
+    const taskRecord = getCanonicalMarketingTaskById(String(taskId || campaignId));
+    const melissaCc = 'melissa.gagliardi@nestrealty.com';
+    const isDeliveryComplete = intent === 'delivery_complete';
+    const proposedCc = Array.from(new Set([
+      ...(Array.isArray(ccEmails) ? ccEmails : []),
+      ...(isDeliveryComplete && domain !== 'operational' ? [melissaCc] : []),
+    ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
+
+    let actor = (req as any).authUser || (req as any).user || null;
+    if (!actor && isDeliveryComplete) {
+      const { requireAuth } = await import('../auth/auth.js');
+      await new Promise<void>((resolve, reject) => {
+        requireAuth(req as any, res as any, (err?: any) => (err ? reject(err) : resolve()));
+      });
+      if (res.headersSent) return;
+      actor = (req as any).authUser || (req as any).user || null;
+    }
+
+    const proofForSend = resolveProofPrecedence(proofUrl, taskRecord?.proofUrl);
+    const verdict = await evaluateDispatch({
+      task: taskRecord || { id: String(taskId || campaignId), workspaceId },
+      actor,
+      recipient: {
+        email: recipientEmail,
+        name: recipientName,
+        phone: safeRecipientPhone,
+      },
+      channel: wantsSms && wantsEmail ? 'both' : wantsSms ? 'sms' : 'email',
+      cc: proposedCc,
+      intent,
+      proofUrl,
+      driveFolderUrl,
+      assetUrls,
+      attachments,
+    });
+
+    if (
+      !verdict.allowed &&
+      (isDeliveryComplete ||
+        verdict.reason === DISPATCH_REASON.recipient ||
+        verdict.reason === DISPATCH_REASON.outbound)
+    ) {
+      return res.status(verdict.reason === DISPATCH_REASON.role ? 403 : 400).json(dispatchRejectBody(verdict));
+    }
+
+    // Directory first. Prove Gmail is not a directory person.
+    const directoryRecipient = await resolveServerCanonicalRecipient({
       requesterId,
       requesterName: recipientName,
       requesterEmail: recipientEmail,
       requesterPhone: safeRecipientPhone,
       workspaceId
     });
+    const proveAllowlistTo =
+      !directoryRecipient && isLocalProveAllowlistTo(recipientEmail)
+        ? String(recipientEmail).trim().toLowerCase()
+        : null;
 
-    if (!resolvedRecipient) {
+    if (!directoryRecipient && !proveAllowlistTo) {
       return res.status(400).json({
         success: false,
+        code: 'RECIPIENT_UNRESOLVED',
         error: 'Could not resolve a canonical directory record for this recipient in the current workspace.'
       });
     }
+
+    const resolvedRecipient = directoryRecipient ?? {
+      id: proveAllowlistTo as string,
+      name: String(recipientName || proveAllowlistTo).replace(/\(.*?\)/g, '').trim() || (proveAllowlistTo as string),
+      firstName: String(recipientName || 'Agent').split(' ')[0],
+      email: proveAllowlistTo,
+      phone: null,
+      emailVerified: true,
+      phoneVerified: false,
+      maskedEmail: null,
+      maskedPhone: null,
+      role: '',
+      isAgentOrBroker: false,
+      workspaceId,
+    };
 
     // Validate destinations for requested channels
     if (channels.includes('email') && (!resolvedRecipient.email || !resolvedRecipient.emailVerified)) {
@@ -137,12 +484,38 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     }
 
     if (channels.includes('sms') && (!resolvedRecipient.phone || !resolvedRecipient.phoneVerified)) {
-      return res.status(400).json({
-        success: false,
-        error: 'No verified mobile number is available for this agent.'
-      });
+      const emailCanProceed =
+        channels.includes('email') &&
+        Boolean(resolvedRecipient.email) &&
+        resolvedRecipient.emailVerified;
+      // Approve & Notify defaults to email+text. Missing SMS must not 400 the email send.
+      if (!emailCanProceed) {
+        return res.status(400).json({
+          success: false,
+          code: 'PHONE_UNVERIFIED',
+          error: 'No verified mobile number is available for this agent.'
+        });
+      }
     }
 
+    // Approve & Notify: valid https proof + reviewer session persists even when outbound is held.
+    if (intent === 'delivery_complete') {
+      const deliveryResult = await persistApproveNotifyProof(req, res, {
+        taskId: taskId || campaignId,
+        campaignId,
+        proofUrl: proofForSend || undefined,
+        driveFolderUrl,
+        workspaceId,
+        propertyAddress,
+        resolvedRecipient,
+        proveAllowlist: verdict.recipientStatus === 'allowlisted_prove',
+        dispatchCleared: true,
+        recipientStatus: verdict.recipientStatus,
+        effectiveTo: verdict.effectiveTo,
+        effectiveCc: verdict.effectiveCc,
+      });
+      if (deliveryResult.handled) return;
+    }
 
     // Member notification prefs (materials ready / missing info / SMS)
     try {
@@ -180,14 +553,9 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       console.warn('[send-questions] pref gate error', err);
     }
 
-    // 2b. Delivery outreach: always from AskNora; marketing completes CC Melissa
-    const melissaCc = 'melissa.gagliardi@nestrealty.com';
-    const isDeliveryComplete = intent === 'delivery_complete';
-    const shouldCcMelissa = isDeliveryComplete && domain !== 'operational';
-    const resolvedCc = Array.from(new Set([
-      ...(Array.isArray(ccEmails) ? ccEmails : []),
-      ...(shouldCcMelissa ? [melissaCc] : [])
-    ].map((e) => String(e || '').trim().toLowerCase()).filter(Boolean)));
+    // To and CC are the evaluateDispatch arrays. Do not filter again.
+    const resolvedTo = verdict.effectiveTo;
+    const resolvedCc = verdict.effectiveCc;
     const emailSubject = (subject && String(subject).trim())
       || (isDeliveryComplete
         ? `Your marketing materials are ready — ${propertyAddress}`
@@ -428,7 +796,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     const outboundMessage = isDeliveryComplete ? deliveryBody : message;
 
     // 5. Dispatch Email via Provider
-    if (channels.includes('email') && resolvedRecipient.email) {
+    if (channels.includes('email') && resolvedTo.length) {
       const questionsListHtml = !isDeliveryComplete && selectedQuestions.length > 0
         ? `<ul style="margin: 12px 0; padding-left: 20px; color: #01362D; line-height: 1.6;">${selectedQuestions.map(q => `<li style="margin-bottom: 6px;"><strong>${q}</strong></li>`).join('')}</ul>`
         : '';
@@ -503,7 +871,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         let sendError: string | undefined;
 
         const smtpResult = await sendAskNoraEmail({
-          to: resolvedRecipient.email,
+          to: resolvedTo[0],
           from: enforcedFromAddress,
           replyTo: 'AskNora@nestrealty.com',
           subject: emailSubject,
@@ -523,7 +891,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
           if (resendUsable) {
             providerUsed = 'resend';
             const emailResult = await dispatchEmailViaResend({
-              to: resolvedRecipient.email,
+              to: resolvedTo[0],
               from: enforcedFromAddress,
               subject: emailSubject,
               html: formattedHtml,
@@ -704,6 +1072,11 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
 
     return res.status(200).json({
       success: true,
+      allowed: true,
+      gateReason: '',
+      recipientStatus: verdict.recipientStatus,
+      effectiveTo: verdict.effectiveTo,
+      effectiveCc: verdict.effectiveCc,
       partial: warnings.length > 0,
       campaignId,
       dispatchedAt: new Date().toISOString(),
@@ -719,7 +1092,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     console.error('[Marketing Questions Route Exception]:', err);
     return res.status(500).json({
       success: false,
-      error: err.message || 'Internal error dispatching questions.'
+      code: 'SEND_QUESTIONS_FAILED',
+      error: err?.message || 'Internal error dispatching questions.'
     });
   }
 });
@@ -732,6 +1106,15 @@ marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', async
     const tasks = getAllCanonicalMarketingTasks();
     const task = tasks.find((x: any) => x.id === taskId);
     const stagedAssets = Array.isArray(req.body?.stagedAssets) ? req.body.stagedAssets : [];
+    if (task) {
+      if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {
+        task.attachments = req.body.attachments;
+      }
+      if ((!task.photos || !task.photos.length) && Array.isArray(req.body?.photos)) {
+        task.photos = req.body.photos;
+      }
+      if (!task.propertyAddress && req.body?.propertyAddress) task.propertyAddress = String(req.body.propertyAddress);
+    }
     const pack = task
       ? await ensureAskNoraDeliveryDrivePack(task, { stagedAssets })
       : await ensureAskNoraDeliveryDrivePack({
@@ -743,21 +1126,40 @@ marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', async
           attachments: req.body?.attachments,
         }, { stagedAssets });
 
-    if (task && pack.linkable && pack.driveFolderUrl) {
-      task.driveFolderUrl = pack.driveFolderUrl;
-      task.updatedAt = new Date().toISOString();
+    if (task && applyEnsuredFolder(task, pack.driveFolderUrl)) {
       saveCanonicalMarketingTask(task);
     }
 
-    return res.status(pack.linkable ? 200 : 200).json({
-      success: true,
+    if (!pack.driveFolderId || !pack.driveFolderUrl) {
+      const reason = driveCreateFailureReason(pack.error);
+      return res.status(400).json({
+        success: false,
+        allowed: false,
+        linkable: false,
+        driveFolderUrl: '',
+        reason,
+        error: reason,
+        code: 'DRIVE_FOLDER_CREATE_FAILED',
+      });
+    }
+
+    const reason = pack.linkable ? '' : (pack.error || 'Drive folder is empty.');
+    return res.status(200).json({
+      success: pack.linkable,
+      allowed: pack.linkable,
       linkable: pack.linkable,
-      driveFolderUrl: pack.linkable ? pack.driveFolderUrl : '',
-      driveFolderId: pack.linkable ? pack.driveFolderId : '',
+      driveFolderUrl: pack.driveFolderUrl,
+      driveFolderId: pack.driveFolderId,
       uploaded: pack.uploaded || [],
-      error: pack.linkable ? undefined : (pack.error || 'Folder not linkable yet'),
+      reason,
+      error: reason || undefined,
+      task,
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err?.message || 'ensure-drive failed' });
+    return res.status(500).json({
+      success: false,
+      code: 'ENSURE_DRIVE_FAILED',
+      error: err?.message || 'ensure-drive failed',
+    });
   }
 });

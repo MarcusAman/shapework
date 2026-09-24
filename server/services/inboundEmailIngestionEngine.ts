@@ -844,15 +844,23 @@ export async function enqueueOutboundEmail(params: {
   messageType: string;
   idempotencyKey: string;
   recipient: string;
+  /** Final To from evaluateDispatch. Stored as-is. */
+  to?: string[];
+  /** Final CC from evaluateDispatch. Stored as-is. */
+  cc?: string[];
   subject: string;
   payload: any;
   executor?: any;
+  /** Allowlist hold enqueue has no directory person. Dispatch guard still runs. */
+  skipMemberPrefs?: boolean;
 }): Promise<{ enqueued: boolean; outboxId?: string }> {
-  const { workspaceId, messageType, idempotencyKey, recipient, subject, payload, executor } = params;
+  const { workspaceId, messageType, idempotencyKey, recipient, to, cc, subject, payload, executor, skipMemberPrefs } = params;
+  const toList = Array.isArray(to) ? to : (recipient ? [recipient] : []);
+  const ccList = Array.isArray(cc) ? cc : [];
 
 
   // Member notification prefs (default-off). Master OUTBOUND_MASTER_MODE still checked at send time.
-  try {
+  if (!skipMemberPrefs) try {
     const { canSendAgentOutbound } = await import('../persistence/notificationPreferencesRepository.js');
     // Resolve userId from recipient email when possible
     let userId: string | undefined;
@@ -924,7 +932,7 @@ export async function enqueueOutboundEmail(params: {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 0, NOW(), NOW(), NOW())
         ON CONFLICT (idempotency_key) DO NOTHING
         RETURNING id`,
-        [outboxId, workspaceId, messageType, effectiveIdempotencyKey, recipient, subject, JSON.stringify(payload)]
+        [outboxId, workspaceId, messageType, effectiveIdempotencyKey, recipient, subject, JSON.stringify({ ...payload, to: toList, cc: ccList })]
       );
 
       if ((res.rowCount ?? 0) > 0) {
@@ -946,8 +954,10 @@ export async function enqueueOutboundEmail(params: {
     messageType,
     idempotencyKey: effectiveIdempotencyKey,
     recipient,
+    to: toList,
+    cc: ccList,
     subject,
-    payload,
+    payload: { ...payload, to: toList, cc: ccList },
     status: 'pending',
     attemptCount: 0,
     createdAt: new Date().toISOString()

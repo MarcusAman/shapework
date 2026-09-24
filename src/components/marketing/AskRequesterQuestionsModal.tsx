@@ -31,6 +31,14 @@ import {
   resolveCanonicalRecipient,
   VerifiedRecipient
 } from '../../services/canonicalRecipientService';
+import {
+  dispatchAssuranceLabel,
+  dispatchRecipientConfirmed,
+  type DispatchVerdictView,
+} from '../../lib/dispatchVerdict';
+import { resolveProofPrecedence } from '../../lib/proofPrecedence';
+
+const PROOF_CHECK_DEBOUNCE_MS = 300;
 
 export interface AskRequesterQuestionsModalProps {
   isOpen: boolean;
@@ -60,6 +68,8 @@ export interface AskRequesterQuestionsModalProps {
     channel: 'email' | 'sms' | 'both';
     relativeTime: string;
   } | null;
+  /** Server evaluateDispatch verdict. The live modal also fetches dispatch-check. */
+  dispatchVerdict?: DispatchVerdictView | null;
 }
 
 interface QuestionItem {
@@ -114,8 +124,6 @@ const QUESTION_CATALOG: QuestionItem[] = [
   }
 ];
 
-const MELISSA_CC = 'melissa.gagliardi@nestrealty.com';
-
 function isPlaceholderDriveLink(url: string): boolean {
   return /\/folders\/1DRV_/i.test(url) || /\/folders\/folder_/i.test(url) || /\/folders\/sub_/i.test(url);
 }
@@ -153,14 +161,14 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   onSendQuestions,
   intent: intentProp,
   isOutboundEnabled = false,
-  recentOutreach = null
+  recentOutreach = null,
+  dispatchVerdict = null
 }) => {
   const intent: 'ask_missing' | 'delivery_complete' =
     intentProp ||
     (campaign?.outreachIntent === 'delivery_complete' ? 'delivery_complete' : 'ask_missing');
   const isDelivery = intent === 'delivery_complete';
   const domain = String(campaign?.domain || campaign?.taskDomain || 'marketing');
-  const showMelissaCc = isDelivery && domain !== 'operational';
 
   const recipient: VerifiedRecipient = useMemo(() => {
     if (!campaign) {
@@ -183,7 +191,13 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [selectedChannel, setSelectedChannel] = useState<'email' | 'text' | 'both'>('email');
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>(['photos']);
   const [customQuestionText, setCustomQuestionText] = useState<string>('');
-  const [customMessage, setCustomMessage] = useState<string>('');
+  const deliveryDraft = [
+    `${recipient.firstName || recipient.name.split(' ')[0] || 'there'}, we have your requested marketing assets ready. Click the Google Drive link below to view.`,
+    ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
+    '',
+    'Respond to this text if you need any revisions.',
+  ].join('\n');
+  const [customMessage, setCustomMessage] = useState<string>(isDelivery ? deliveryDraft : '');
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [hasManuallyEditedMessage, setHasManuallyEditedMessage] = useState<boolean>(false);
   const [hasManuallyEditedSubject, setHasManuallyEditedSubject] = useState<boolean>(false);
@@ -191,6 +205,82 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [duplicateConfirmed, setDuplicateConfirmed] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [ensuredDriveUrl, setEnsuredDriveUrl] = useState<string>('');
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string>(String(campaign?.driveFolderUrl || ''));
+  const [driveSettled, setDriveSettled] = useState<boolean>(!isDelivery);
+  const [pastedProof, setPastedProof] = useState<string>(() =>
+    resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
+  );
+  const [proofForCheck, setProofForCheck] = useState<string>(() =>
+    resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
+  );
+  const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
+  const dispatchGen = React.useRef(0);
+  const activeDispatchVerdict = dispatchVerdict || fetchedDispatchVerdict;
+  const assuranceLabel = dispatchAssuranceLabel(activeDispatchVerdict?.recipientStatus);
+  const recipientConfirmed = dispatchRecipientConfirmed(activeDispatchVerdict?.recipientStatus);
+
+  useEffect(() => {
+    setDriveFolderUrl(String(campaign?.driveFolderUrl || ''));
+  }, [campaign?.id, campaign?.taskId]);
+
+  useEffect(() => {
+    setPastedProof(resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl));
+  }, [campaign?.approvePayload?.proofUrl, campaign?.proofUrl]);
+
+  useEffect(() => {
+    if (pastedProof === proofForCheck) return;
+    const timer = setTimeout(() => setProofForCheck(pastedProof), PROOF_CHECK_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [pastedProof, proofForCheck]);
+
+  useEffect(() => {
+    if (dispatchVerdict || !isOpen || !campaign) return;
+    if (isDelivery && !driveSettled) return;
+    const taskId = campaign.taskId || campaign.id;
+    if (!taskId) return;
+    const gen = ++dispatchGen.current;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/requests/${encodeURIComponent(taskId)}/dispatch-check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientEmail: campaign.agentEmail || campaign.email,
+            recipientName: campaign.agentName,
+            channels: ['email'],
+            intent,
+            proofUrl: proofForCheck,
+            driveFolderUrl: driveFolderUrl || undefined,
+            attachments: campaign.attachments || [],
+            domain,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (cancelled || gen !== dispatchGen.current) return;
+        if (data && (data.recipientStatus || typeof data.allowed === 'boolean')) {
+          setFetchedDispatchVerdict(data);
+        }
+      } catch {
+        if (!cancelled && gen === dispatchGen.current) setFetchedDispatchVerdict(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [
+    dispatchVerdict,
+    isOpen,
+    campaign?.id,
+    campaign?.taskId,
+    campaign?.agentEmail,
+    campaign?.email,
+    campaign?.agentName,
+    intent,
+    domain,
+    proofForCheck,
+    driveFolderUrl,
+    driveSettled,
+    isDelivery,
+  ]);
 
   useEffect(() => {
     if (recipient.emailVerified && recipient.phoneVerified) {
@@ -211,15 +301,28 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     setDuplicateConfirmed(false);
     setStatusMessage(null);
     setEnsuredDriveUrl('');
-    // Materials-ready: default email+text so SMS fires with the locked copy
-    setSelectedChannel(isDelivery ? 'both' : 'email');
-  }, [isOpen, campaign?.id, intent, isDelivery]);
+    // Materials-ready defaults to email+text only when both destinations are verified.
+    setSelectedChannel(
+      isDelivery && recipient.emailVerified && recipient.phoneVerified
+        ? 'both'
+        : recipient.phoneVerified && !recipient.emailVerified
+          ? 'text'
+          : 'email'
+    );
+  }, [isOpen, campaign?.id, intent, isDelivery, recipient.emailVerified, recipient.phoneVerified]);
 
   // Delivery: create/reuse real AskNora Drive folder so the assets strip is not empty
   useEffect(() => {
-    if (!isOpen || !campaign || !isDelivery) return;
+    if (!isOpen || !campaign || !isDelivery) {
+      setDriveSettled(true);
+      return;
+    }
     const taskId = campaign.taskId || campaign.id;
-    if (!taskId) return;
+    if (!taskId) {
+      setDriveSettled(true);
+      return;
+    }
+    setDriveSettled(false);
     let cancelled = false;
     (async () => {
       try {
@@ -228,7 +331,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             stagedAssets: campaign.approvePayload?.stagedAssets || [],
-            proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl,
+            proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl),
             attachments: campaign.attachments || [],
             propertyAddress: campaign.propertyAddress,
             agentName: campaign.agentName || campaign.recipientName,
@@ -237,18 +340,20 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
         });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.ok && data?.linkable && data?.driveFolderUrl) {
+        if (data?.driveFolderUrl) {
           campaign.driveFolderUrl = data.driveFolderUrl;
           setEnsuredDriveUrl(data.driveFolderUrl);
-          setStatusMessage(null);
-        } else if (res.ok) {
-          setEnsuredDriveUrl('');
-          setStatusMessage(data?.error || 'Drive not linkable yet — send will attach files to email.');
+          setDriveFolderUrl(data.driveFolderUrl);
         } else {
-          setStatusMessage(data?.error || 'Could not create AskNora Drive folder yet — send will attach files.');
+          setEnsuredDriveUrl('');
         }
+        setStatusMessage(data?.linkable ? null : (data?.reason || data?.error || "Couldn't create the Drive folder."));
+        setDriveSettled(true);
       } catch (err: any) {
-        if (!cancelled) setStatusMessage(err?.message || 'Drive folder ensure failed');
+        if (!cancelled) {
+          setStatusMessage(err?.message || "Couldn't create the Drive folder.");
+          setDriveSettled(true);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -346,11 +451,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       propertyAddress,
       intent,
       subject: emailSubject,
-      ccEmails: showMelissaCc ? [MELISSA_CC] : [],
+      ccEmails: activeDispatchVerdict?.effectiveCc || [],
       domain,
       workspaceId: campaign.workspaceId || 'ws_wilmington',
-      driveFolderUrl: campaign.driveFolderUrl || undefined,
-      proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl || undefined,
+      driveFolderUrl: driveFolderUrl || campaign.driveFolderUrl || undefined,
+      proofUrl: pastedProof || undefined,
       assetUrls: isDelivery ? [] : collectDeliveryAssetLinks(campaign),
       attachments: (campaign.attachments || []).filter((a: any) => a?.url)
     };
@@ -387,8 +492,14 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     }
   };
 
-  const isEmailAvailable = recipient.emailVerified;
+  const isEmailAvailable = recipientConfirmed;
   const isTextAvailable = recipient.phoneVerified;
+  const dispatchAllowed = activeDispatchVerdict?.allowed === true;
+  const effectiveTo = activeDispatchVerdict?.effectiveTo || [];
+  const effectiveCc = activeDispatchVerdict?.effectiveCc || [];
+  const dispatchBlockReason = activeDispatchVerdict && activeDispatchVerdict.allowed === false
+    ? activeDispatchVerdict.reason
+    : '';
   const isOutboundBlocked = !isOutboundEnabled;
   let actionButtonLabel = 'Save Outreach Draft';
   if (!isOutboundBlocked) {
@@ -429,10 +540,21 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     ? `Notify agent — assets ready · ${recipient.name}`
                     : `Send Questions to Requester · Ask ${recipient.name}`}
                 </h3>
-                {recipient.status === 'verified' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30">
+                {assuranceLabel === 'Verified Contact' && (
+                  <span
+                    data-testid="verified-contact-badge"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30"
+                  >
                     <ShieldCheck className="w-3 h-3" />
                     Verified Contact
+                  </span>
+                )}
+                {assuranceLabel === 'Allowlisted (prove)' && (
+                  <span
+                    data-testid="allowlisted-prove-badge"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-medium border border-white/30"
+                  >
+                    Allowlisted (prove)
                   </span>
                 )}
               </div>
@@ -474,8 +596,9 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">Approve is held until you send this note.</p>
-                <p className="text-emerald-800 text-[11px] mt-0.5">
-                  Customize the message, pick email / text / both, then send. Marketing completes CC Melissa automatically.
+                <p className="text-emerald-800 text-[11px] mt-0.5" data-testid="dispatch-cc-note">
+                  Customize the message, pick email / text / both, then send.{' '}
+                  {effectiveCc.length ? `CC ${effectiveCc.join(', ')}.` : "No one is CC'd."}
                 </p>
               </div>
             </div>
@@ -537,7 +660,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-900">{recipient.name}</div>
                   <div className="text-[11px] text-slate-600 font-mono mt-0.5 space-y-0.5">
-                    {recipient.maskedEmail ? (
+                    {isDelivery ? (
+                      <div data-testid="outreach-effective-to">
+                        {effectiveTo.length ? effectiveTo.join(', ') : '—'}
+                      </div>
+                    ) : recipient.maskedEmail ? (
                       <div className="flex items-center gap-1">
                         <Mail className="w-3 h-3 text-slate-400" />
                         <span>{recipient.maskedEmail}</span>
@@ -545,7 +672,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     ) : (
                       <span className="text-amber-700 font-sans text-[10px]">{recipient.emailExplanation}</span>
                     )}
-                    {recipient.maskedPhone && (
+                    {!isDelivery && recipient.maskedPhone && (
                       <div className="flex items-center gap-1">
                         <Phone className="w-3 h-3 text-slate-400" />
                         <span>{recipient.maskedPhone}</span>
@@ -584,13 +711,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 </div>
               )}
 
-              {showMelissaCc && selectedChannel !== 'text' && (
-                <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-cc-melissa">
+              {isDelivery && selectedChannel !== 'text' && (
+                <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-effective-cc">
                   <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pt-0.5">Cc</span>
-                  <div>
-                    <div className="font-semibold text-slate-900">Melissa Gagliardi</div>
-                    <div className="text-[11px] text-slate-600 font-mono">{MELISSA_CC}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Auto-CC on marketing complete outreach</div>
+                  <div className="text-[11px] text-slate-600 font-mono">
+                    {effectiveCc.length ? effectiveCc.join(', ') : "No one is CC'd."}
                   </div>
                 </div>
               )}
@@ -732,11 +857,18 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             Cancel
           </button>
 
+          {dispatchBlockReason ? (
+            <span data-testid="dispatch-block-reason" className="text-xs text-slate-700">
+              {dispatchBlockReason}
+            </span>
+          ) : <span />}
           <button
             type="button"
-            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate}
+            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate || !dispatchAllowed}
             onClick={handleAction}
             data-testid="ask-agent-submit-btn"
+            data-send-ready={dispatchAllowed ? 'true' : 'false'}
+            data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
             className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
@@ -756,5 +888,6 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     </div>
   );
 
+  if (typeof document === 'undefined') return dialog;
   return createPortal(dialog, document.body);
 };

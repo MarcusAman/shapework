@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { evaluateOutboundDispatchGuard } from './outboundDispatchGuards.js';
+import { EXPLICIT_OUTBOUND_ALLOWLIST } from '../../src/lib/outboundAllowlistGate.js';
 
 dotenv.config();
 
@@ -51,10 +52,7 @@ export interface EmailDispatchResult {
  * Strict active whitelist for outgoing email testing.
  * Under no circumstances will emails be sent to any address outside this list in test/staging.
  */
-export const ALLOWED_TEST_EMAIL_RECIPIENTS = [
-  'marcus.aman@gmail.com',
-  'marcus@shapework.co'
-];
+export const ALLOWED_TEST_EMAIL_RECIPIENTS = EXPLICIT_OUTBOUND_ALLOWLIST;
 
 export function isAllowedEmailRecipient(email?: string): boolean {
   if (!email) return false;
@@ -708,8 +706,10 @@ export async function sendTaskCompletionEmail(options: {
   driveFolderUrl?: string;
   heroImageUrl?: string;
   completedByName?: string;
+  /** Already filtered by evaluateDispatch.effectiveCc. */
+  cc?: string[];
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi' } = options;
+  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
 
   if (!isAllowedEmailRecipient(toEmail)) {
     return { success: true, messageId: `suppressed_safe_mode_${Date.now()}` };
@@ -744,6 +744,7 @@ export async function sendTaskCompletionEmail(options: {
 
   return sendEmail({
     to: toEmail,
+    cc: cc && cc.length ? cc : undefined,
     subject: `Ready: ${taskTitle} for ${propertyAddress} has been Delivered`,
     text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been completed and quality-checked by ${completedByName}.\n\nAccess your files in Google Drive: ${driveFolderUrl}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent

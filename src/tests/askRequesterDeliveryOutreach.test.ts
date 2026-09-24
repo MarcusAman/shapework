@@ -11,7 +11,7 @@ describe('Ask Requester delivery outreach (Melissa approve gate)', () => {
     expect(src).toContain('z-[120]');
     expect(src).toContain("delivery_complete");
     expect(src).toContain('outreach-email-card');
-    expect(src).toContain('melissa.gagliardi@nestrealty.com');
+    expect(src).toContain('effectiveCc');
     expect(src).toContain('AskNora@NestRealty.com');
   });
 
