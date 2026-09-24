@@ -9,8 +9,7 @@
 
 import { getDbPool, storageDriver } from '../persistence/repositories.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
-import { ALLOWED_TEST_EMAIL_RECIPIENTS } from '../email/emailProvider.js';
-import { CANONICAL_AGENT_DIRECTORY } from '../../src/services/canonicalRecipientService.js';
+import { isExactOutboundAllowlistHit } from '../../src/lib/outboundAllowlistGate.js';
 
 export interface VerifiedRecipientServer {
   id: string;
@@ -213,54 +212,29 @@ export async function resolveServerCanonicalRecipient(options: {
     };
   }
 
-  // Same list the UI uses (CANONICAL_AGENT_DIRECTORY), and only when that email is on the
-  // explicit outbound whitelist. Does not insert a NEST_FULL_ROSTER_77 row.
-  // Unknown non-whitelist emails still return null → send-questions 400.
-  const directoryAgent = CANONICAL_AGENT_DIRECTORY.find((agent) => {
-    const email = String(agent.email || '').trim().toLowerCase();
-    const requestedEmail = String(options.requesterEmail || '').trim().toLowerCase();
-    if (requestedEmail && email === requestedEmail) return true;
-    if (options.requesterId && agent.id.toLowerCase() === options.requesterId.toLowerCase()) return true;
-    return false;
-  });
-  if (
-    directoryAgent &&
-    isExplicitWhitelistEmail(directoryAgent.email) &&
-    !isProhibitedEmail(directoryAgent.email)
-  ) {
-    const email = directoryAgent.email.trim().toLowerCase();
-    const phoneValid = !isProhibitedPhone(directoryAgent.phone);
-    const roleLower = String(directoryAgent.role || '').toLowerCase();
+  // Directory miss. Allow the send only for an exact outbound-allowlist To.
+  // Does not insert directory_people or a NEST_FULL_ROSTER_77 row.
+  // Prod / kill: allowlist is empty, so this returns null and directory is required.
+  const allowEmail = String(options.requesterEmail || '').trim().toLowerCase();
+  if (allowEmail && isExactOutboundAllowlistHit(allowEmail) && !isProhibitedEmail(allowEmail)) {
+    const suppliedPhone = options.requesterPhone;
+    const phoneValid = Boolean(suppliedPhone) && !isProhibitedPhone(suppliedPhone);
+    const name = String(options.requesterName || allowEmail).replace(/\(.*?\)/g, '').trim() || allowEmail;
     return {
-      id: directoryAgent.id,
-      name: directoryAgent.name,
-      firstName: directoryAgent.firstName || directoryAgent.name.split(' ')[0] || 'Agent',
-      email,
-      phone: phoneValid ? directoryAgent.phone : null,
+      id: `allowlist:${allowEmail}`,
+      name,
+      firstName: name.split(' ')[0] || 'Agent',
+      email: allowEmail,
+      phone: phoneValid ? String(suppliedPhone) : null,
       emailVerified: true,
       phoneVerified: phoneValid,
-      maskedEmail: maskEmail(email),
-      maskedPhone: phoneValid ? maskPhoneNumber(directoryAgent.phone) : null,
-      role: directoryAgent.role,
-      isAgentOrBroker: roleLower.includes('broker') || roleLower.includes('agent') || directoryAgent.personType === 'agent',
+      maskedEmail: maskEmail(allowEmail),
+      maskedPhone: phoneValid ? maskPhoneNumber(suppliedPhone) : null,
+      role: 'Allowlist',
+      isAgentOrBroker: false,
       workspaceId: targetWs
     };
   }
 
   return null;
-}
-
-/** Explicit test whitelist only. Ignores the live/production bypass that allows every address. */
-function isExplicitWhitelistEmail(email?: string | null): boolean {
-  if (!email) return false;
-  const normalized = email.trim().toLowerCase();
-  const envAllowlist = (process.env.EMAIL_TEST_ALLOWLIST || '')
-    .split(',')
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
-  const allowed = new Set([
-    ...ALLOWED_TEST_EMAIL_RECIPIENTS.map((entry) => entry.toLowerCase()),
-    ...envAllowlist
-  ]);
-  return allowed.has(normalized);
 }

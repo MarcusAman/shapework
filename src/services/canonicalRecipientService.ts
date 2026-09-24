@@ -7,6 +7,9 @@
  * Strictly blocks hotline numbers, placeholder emails, and client-side fabricated destinations.
  */
 
+import { isExactOutboundAllowlistHit } from '../lib/outboundAllowlistGate';
+import { NEST_FULL_ROSTER_77 } from '../../server/persistence/nestRosterSeed';
+
 export interface VerifiedRecipient {
   requesterId?: string;
   name: string;
@@ -290,25 +293,39 @@ export function resolveCanonicalRecipient(options: ResolveRecipientOptions): Ver
     roleLower.includes('listing specialist') ||
     (matched ? matched.personType === 'agent' : false);
 
-  // Evaluate Email
+  // Same predicate as send-questions: Nest directory email, or an exact allowlist hit.
+  // A client-directory row that is not on the roster (Marcus, Dawn) is not a directory hit.
+  const matchedEmail = String(matched?.email || '').trim();
+  const nestDirectoryEmail = Boolean(
+    matchedEmail &&
+    !isProhibitedEmail(matchedEmail) &&
+    NEST_FULL_ROSTER_77.some(
+      (member) => String(member.email || '').trim().toLowerCase() === matchedEmail.toLowerCase()
+    )
+  );
+  const allowlistEmail = [agentEmail, matched?.email].find(
+    (candidate) => isExactOutboundAllowlistHit(candidate) && !isProhibitedEmail(candidate)
+  );
+
   let resolvedEmail: string | null = null;
-  if (matched && matched.email && !isProhibitedEmail(matched.email)) {
+  if (nestDirectoryEmail && matched?.email) {
     resolvedEmail = matched.email;
-  } else if (agentEmail && !isProhibitedEmail(agentEmail)) {
-    resolvedEmail = agentEmail.trim().toLowerCase();
+  } else if (allowlistEmail) {
+    resolvedEmail = String(allowlistEmail).trim().toLowerCase();
   }
 
-  const emailVerified = Boolean(resolvedEmail && !isProhibitedEmail(resolvedEmail));
+  const recipientSendable = Boolean(resolvedEmail);
+  const emailVerified = recipientSendable && Boolean(resolvedEmail && !isProhibitedEmail(resolvedEmail));
   const maskedEmail = emailVerified ? maskEmail(resolvedEmail) : null;
   const emailExplanation = !emailVerified
     ? 'No verified email address is available for this agent.'
     : undefined;
 
-  // Evaluate Phone
+  // Evaluate Phone — only after the same directory-or-allowlist predicate.
   let resolvedPhone: string | null = null;
-  if (matched && matched.phone && !isProhibitedPhone(matched.phone)) {
+  if (recipientSendable && matched && matched.phone && !isProhibitedPhone(matched.phone)) {
     resolvedPhone = matched.phone;
-  } else if (agentPhone && !isProhibitedPhone(agentPhone)) {
+  } else if (recipientSendable && agentPhone && !isProhibitedPhone(agentPhone)) {
     resolvedPhone = agentPhone.trim();
   }
 

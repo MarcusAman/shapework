@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { evaluateOutboundDispatchGuard } from './outboundDispatchGuards.js';
+import { EXPLICIT_OUTBOUND_ALLOWLIST } from '../../src/lib/outboundAllowlistGate.js';
 
 dotenv.config();
 
@@ -51,10 +52,7 @@ export interface EmailDispatchResult {
  * Strict active whitelist for outgoing email testing.
  * Under no circumstances will emails be sent to any address outside this list in test/staging.
  */
-export const ALLOWED_TEST_EMAIL_RECIPIENTS = [
-  'marcus.aman@gmail.com',
-  'marcus@shapework.co'
-];
+export const ALLOWED_TEST_EMAIL_RECIPIENTS = EXPLICIT_OUTBOUND_ALLOWLIST;
 
 export function isAllowedEmailRecipient(email?: string): boolean {
   if (!email) return false;

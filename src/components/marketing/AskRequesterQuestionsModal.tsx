@@ -389,6 +389,12 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
   const isEmailAvailable = recipient.emailVerified;
   const isTextAvailable = recipient.phoneVerified;
+  const channelReady =
+    selectedChannel === 'email'
+      ? isEmailAvailable
+      : selectedChannel === 'text'
+        ? isTextAvailable
+        : isEmailAvailable && isTextAvailable;
   const isOutboundBlocked = !isOutboundEnabled;
   let actionButtonLabel = 'Save Outreach Draft';
   if (!isOutboundBlocked) {
@@ -734,7 +740,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
           <button
             type="button"
-            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate}
+            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate || !channelReady}
             onClick={handleAction}
             data-testid="ask-agent-submit-btn"
             className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
