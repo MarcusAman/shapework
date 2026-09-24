@@ -9,6 +9,7 @@
 
 import { getDbPool, storageDriver } from '../persistence/repositories.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
+import { getActiveDirectoryMemberByEmail } from './canonicalDirectoryService.js';
 
 export interface VerifiedRecipientServer {
   id: string;
@@ -209,6 +210,30 @@ export async function resolveServerCanonicalRecipient(options: {
       isAgentOrBroker: true,
       workspaceId: matched.workspaceId || targetWs
     };
+  }
+
+  // Roster seed omits some live requesters (Marcus Aman / gmail). Directory bootstrap
+  // already knows them in local/dev — use it before failing the send closed.
+  if (options.requesterEmail && !isProhibitedEmail(options.requesterEmail)) {
+    const member = await getActiveDirectoryMemberByEmail(options.requesterEmail, targetWs);
+    if (member && (!member.workspaceId || isWilmington || member.workspaceId === targetWs)) {
+      const phoneValid = !isProhibitedPhone(member.phone);
+      const emailValid = !isProhibitedEmail(member.email);
+      return {
+        id: member.id,
+        name: member.displayName || member.name,
+        firstName: member.firstName || (member.name || '').split(' ')[0] || 'Agent',
+        email: emailValid ? member.email : null,
+        phone: phoneValid ? member.phone || null : null,
+        emailVerified: emailValid,
+        phoneVerified: phoneValid,
+        maskedEmail: emailValid ? maskEmail(member.email) : null,
+        maskedPhone: phoneValid ? maskPhoneNumber(member.phone) : null,
+        role: member.role || member.title || 'Broker',
+        isAgentOrBroker: true,
+        workspaceId: member.workspaceId || targetWs
+      };
+    }
   }
 
   return null;

@@ -8206,7 +8206,11 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
     });
   } catch (err: any) {
     console.error('ensure-drive error:', err);
-    return res.status(500).json({ success: false, error: err?.message || 'ensure-drive failed' });
+    return res.status(500).json({
+      success: false,
+      code: 'ENSURE_DRIVE_FAILED',
+      error: err?.message || 'ensure-drive failed',
+    });
   }
 });
 

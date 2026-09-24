@@ -17,11 +17,14 @@ import {
 import { recordActivityEvent, getActivityHistoryForTask } from '../services/activityHistoryService.js';
 import {
   ensureAskNoraDeliveryDrivePack,
+  isDurableHttpsProofUrl,
   isRealGoogleDriveUrl,
   loadLocalProofAttachments,
 } from '../services/askNoraDriveDelivery.js';
 import {
+  approveCanonicalMarketingTaskProof,
   getAllCanonicalMarketingTasks,
+  getCanonicalMarketingTaskById,
   saveCanonicalMarketingTask,
 } from '../persistence/marketingCampaignsRepository.js';
 import {
@@ -31,6 +34,159 @@ import {
 import { canSendAgentOutbound } from '../persistence/notificationPreferencesRepository.js';
 
 export const marketingQuestionsRouter = Router();
+
+/**
+ * Approve & Notify send: require the task reviewer, accept only a durable https proof,
+ * and write proofUrl + reviewState before outbound/prefs can refuse the click.
+ * Returns handled:true when the response was already sent (held or rejected).
+ */
+async function persistApproveNotifyProof(
+  req: Request,
+  res: Response,
+  args: {
+    taskId: string;
+    campaignId: string;
+    proofUrl?: string;
+    driveFolderUrl?: string;
+    workspaceId: string;
+    propertyAddress: string;
+    resolvedRecipient: { id?: string; email?: string | null; name?: string };
+  }
+): Promise<{ handled: boolean }> {
+  const { requireAuth } = await import('../auth/auth.js');
+  if (!(req as any).authUser && !(req as any).user) {
+    await new Promise<void>((resolve, reject) => {
+      requireAuth(req as any, res as any, (err?: any) => (err ? reject(err) : resolve()));
+    });
+    if (res.headersSent) return { handled: true };
+  }
+  const sessionUser = (req as any).authUser || (req as any).user;
+  const task = getCanonicalMarketingTaskById(args.taskId);
+  if (!task) {
+    res.status(404).json({ success: false, code: 'TASK_NOT_FOUND', error: 'Task not found' });
+    return { handled: true };
+  }
+
+  const { assertActorIsTaskReviewerForApproveNotify } = await import('../../src/lib/marketingApproveNotifyCapabilities.js');
+  const reviewerGate = assertActorIsTaskReviewerForApproveNotify(sessionUser, task);
+  if (!reviewerGate.allowed) {
+    res.status(reviewerGate.errorCode === 'UNAUTHENTICATED' ? 401 : 403).json({
+      success: false,
+      code: reviewerGate.errorCode || 'FORBIDDEN_NOT_TASK_REVIEWER',
+      error: reviewerGate.errorCode || 'FORBIDDEN_NOT_TASK_REVIEWER',
+      message: reviewerGate.reason || 'Only the task reviewer may approve and notify.',
+    });
+    return { handled: true };
+  }
+
+  if (shouldBlockClientOutbound(task)) {
+    res.status(403).json({
+      success: false,
+      code: 'OUTBOUND_BLOCKED',
+      error: dealTriageClientOutboundBlockReason(task) ||
+        'Deal triage active — BIC/owner negotiates; no client auto-outbound.',
+      outbound: 'blocked_no_client_send',
+    });
+    return { handled: true };
+  }
+
+  const smokeHay = `${String((req.body as any)?.subject || '')}\n${String((req.body as any)?.message || '')}`.toLowerCase();
+  if (/partial[- ]success|smtp smoke|asknora smtp smoke|\bsmoke:/.test(smokeHay) && process.env.OUTREACH_ALLOW_SMOKE !== 'true') {
+    res.status(400).json({
+      success: false,
+      code: 'SMOKE_BLOCKED',
+      error: 'Blocked smoke/debug outreach copy. Use the materials-ready template, or set OUTREACH_ALLOW_SMOKE=true for ops-only tests.',
+    });
+    return { handled: true };
+  }
+
+  const proofCandidate = [args.proofUrl, args.driveFolderUrl, task.proofUrl]
+    .map((u) => String(u || '').trim())
+    .find((u) => isDurableHttpsProofUrl(u)) || '';
+  if (!proofCandidate) {
+    res.status(400).json({
+      success: false,
+      code: 'INVALID_PROTOCOL',
+      error: 'INVALID_PROTOCOL',
+      message: 'INVALID_PROTOCOL: Proof link must use secure https:// protocol.',
+    });
+    return { handled: true };
+  }
+
+  task.proofUrl = proofCandidate;
+  if (!task.agentEmail && args.resolvedRecipient.email) {
+    task.agentEmail = args.resolvedRecipient.email;
+  }
+  task.updatedAt = new Date().toISOString();
+  saveCanonicalMarketingTask(task);
+  const approved = approveCanonicalMarketingTaskProof(task.id, 'Approved — Approve & Notify', {
+    id: sessionUser?.id,
+    name: sessionUser?.name || sessionUser?.email || 'Reviewer',
+  });
+  const saved = approved || getCanonicalMarketingTaskById(task.id) || task;
+
+  const masterMode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
+  const outboundHeld =
+    masterMode === 'disabled' ||
+    process.env.NODE_ENV === 'test' ||
+    (masterMode !== 'live' && process.env.ALLOW_EXTERNAL_DISPATCH !== 'true');
+
+  let prefsHeld = false;
+  let prefsReason = '';
+  try {
+    const userId = args.resolvedRecipient.id || `email:${String(args.resolvedRecipient.email || '').toLowerCase()}`;
+    const gate = await canSendAgentOutbound({ userId, messageType: 'materials_ready', channel: 'email' });
+    if (!gate.allowed) {
+      prefsHeld = true;
+      prefsReason = gate.reason || 'member_pref_disabled:materials_ready';
+    }
+  } catch {
+    prefsHeld = false;
+  }
+
+  if (outboundHeld || prefsHeld) {
+    await recordActivityEvent({
+      workspaceId: args.workspaceId,
+      requestId: args.campaignId,
+      taskId: saved.id,
+      eventType: 'outreach.blocked',
+      actorType: 'staff',
+      actorId: sessionUser?.id,
+      actorDisplayName: sessionUser?.name || 'Reviewer',
+      channel: 'email',
+      direction: 'internal',
+      communicationStatus: 'blocked',
+      summary: `${sessionUser?.name || 'Reviewer'} approved proof for ${args.propertyAddress}. External notify held.`,
+      metadata: {
+        proofUrl: proofCandidate,
+        outboundHeld,
+        prefsHeld,
+        reason: outboundHeld ? 'outbound_not_live' : prefsReason,
+        intent: 'delivery_complete',
+      },
+      idempotencyKey: `outreach_held_${saved.id}_${proofCandidate}`,
+    }).catch(() => {});
+
+    res.status(200).json({
+      success: true,
+      persisted: true,
+      dispatchHeld: true,
+      outboundDisabled: outboundHeld,
+      notificationsHeld: prefsHeld,
+      mode: outboundHeld ? 'approved_outbound_held' : 'approved_notifications_held',
+      campaignId: args.campaignId,
+      task: saved,
+      reason: outboundHeld ? 'outbound_not_live' : prefsReason,
+      message: outboundHeld
+        ? 'Proof approved. Outbound is not live — email/text was not sent.'
+        : 'Proof approved. Notifications are disabled for this teammate — email/text was not sent.',
+    });
+    return { handled: true };
+  }
+
+  return { handled: false };
+}
+
 
 export interface SendQuestionsPayload {
   campaignId: string;
@@ -124,6 +280,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     if (!resolvedRecipient) {
       return res.status(400).json({
         success: false,
+        code: 'RECIPIENT_UNRESOLVED',
         error: 'Could not resolve a canonical directory record for this recipient in the current workspace.'
       });
     }
@@ -137,12 +294,33 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     }
 
     if (channels.includes('sms') && (!resolvedRecipient.phone || !resolvedRecipient.phoneVerified)) {
-      return res.status(400).json({
-        success: false,
-        error: 'No verified mobile number is available for this agent.'
-      });
+      const emailCanProceed =
+        channels.includes('email') &&
+        Boolean(resolvedRecipient.email) &&
+        resolvedRecipient.emailVerified;
+      // Approve & Notify defaults to email+text. Missing SMS must not 400 the email send.
+      if (!emailCanProceed) {
+        return res.status(400).json({
+          success: false,
+          code: 'PHONE_UNVERIFIED',
+          error: 'No verified mobile number is available for this agent.'
+        });
+      }
     }
 
+    // Approve & Notify: valid https proof + reviewer session persists even when outbound is held.
+    if (intent === 'delivery_complete') {
+      const deliveryResult = await persistApproveNotifyProof(req, res, {
+        taskId: taskId || campaignId,
+        campaignId,
+        proofUrl,
+        driveFolderUrl,
+        workspaceId,
+        propertyAddress,
+        resolvedRecipient,
+      });
+      if (deliveryResult.handled) return;
+    }
 
     // Member notification prefs (materials ready / missing info / SMS)
     try {
@@ -719,7 +897,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     console.error('[Marketing Questions Route Exception]:', err);
     return res.status(500).json({
       success: false,
-      error: err.message || 'Internal error dispatching questions.'
+      code: 'SEND_QUESTIONS_FAILED',
+      error: err?.message || 'Internal error dispatching questions.'
     });
   }
 });
@@ -758,6 +937,10 @@ marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', async
       error: pack.linkable ? undefined : (pack.error || 'Folder not linkable yet'),
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: err?.message || 'ensure-drive failed' });
+    return res.status(500).json({
+      success: false,
+      code: 'ENSURE_DRIVE_FAILED',
+      error: err?.message || 'ensure-drive failed',
+    });
   }
 });

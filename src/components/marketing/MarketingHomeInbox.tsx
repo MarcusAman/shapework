@@ -2581,6 +2581,20 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           // Delivery: only complete after a real outbound success — never on draft/hold/fail
           if (data?.intent === 'delivery_complete') {
             const receipt = data.dispatchReceipt || {};
+            const taskIdEarly = data.taskId || questionModalCampaign?.taskId || questionModalCampaign?.id;
+            if (receipt.persisted && receipt.task && taskIdEarly) {
+              setTasks(prev => prev.map(t =>
+                t.id === taskIdEarly
+                  ? { ...t, ...receipt.task, reviewState: receipt.task.reviewState || 'approved' }
+                  : t
+              ));
+              if (receipt.dispatchHeld || receipt.outboundDisabled || receipt.notificationsHeld) {
+                showToast(receipt.message || '✓ Proof approved. Notify held — outbound is not live.');
+                setIsWorkstationOpen(false);
+                setWorkstationTask(null);
+                return;
+              }
+            }
             const sendFailed =
               Boolean(data.isDraftOnly) ||
               Boolean(receipt.outboundDisabled) ||

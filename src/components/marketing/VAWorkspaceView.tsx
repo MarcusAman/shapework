@@ -2914,6 +2914,18 @@ Agent: ${task.agentName} (${task.agentPhone})`;
 
           if (data?.intent === 'delivery_complete') {
             const taskId = data.taskId || (questionModalTask as any)?.taskId || questionModalTask?.id;
+            const receipt = data.dispatchReceipt || {};
+            if (receipt.persisted && receipt.task && taskId && (receipt.dispatchHeld || receipt.outboundDisabled || receipt.notificationsHeld)) {
+              setTasks(prev => prev.map(t =>
+                t.id === taskId
+                  ? { ...t, ...receipt.task, reviewState: receipt.task.reviewState || 'approved' }
+                  : t
+              ));
+              showToast(receipt.message || '✓ Proof approved. Notify held — outbound is not live.');
+              setWorkstationTask(null);
+              setQuestionModalTask(null);
+              return;
+            }
             if (taskId) {
               try {
                 const payload = {
