@@ -35,7 +35,7 @@ const SUPPORTED_PROVIDERS: OAuthProvider[] = [
 ];
 
 // GET /api/auth/providers - Full Connection Matrix Status
-oauthRouter.get('/providers', (req, res) => {
+oauthRouter.get('/providers', requireAuth, (req, res) => {
   const records = getAllOAuthTokenRecords();
   const matrix = SUPPORTED_PROVIDERS.map(p => {
     const rec = records.find(r => r.provider === p);
@@ -565,7 +565,7 @@ oauthRouter.post('/:provider/authorize', requireAuth, resolveWorkspaceContext, r
 });
 
 // GET /api/auth/:provider/ping - Test Connection Latency & Health
-oauthRouter.get('/:provider/ping', (req, res) => {
+oauthRouter.get('/:provider/ping', requireAuth, (req, res) => {
   const provider = req.params.provider as OAuthProvider;
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
@@ -625,22 +625,20 @@ oauthRouter.get('/:provider/callback', async (req, res) => {
 });
 
 // GET /api/auth/:provider/status - Check OAuth Token Status
-oauthRouter.get('/:provider/status', (req, res) => {
+oauthRouter.get('/:provider/status', requireAuth, (req, res) => {
   const provider = req.params.provider as OAuthProvider;
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
   }
 
   const record = getOAuthTokenRecord(provider);
-  if (!record || record.status === 'disconnected') {
-    return res.json({
-      success: true,
-      provider,
-      status: 'disconnected',
-      record: { provider, status: 'disconnected', accessToken: '', updatedAt: '' }
-    });
-  }
-  return res.json({ success: true, provider, status: record.status, record });
+  const connected = Boolean(record && (record.status === 'connected' || record.status === 'demo_connected'));
+  return res.json({
+    connected,
+    provider,
+    updatedAt: record?.updatedAt ?? null,
+    expiresAt: record?.expiresAt ?? null,
+  });
 });
 
 // GET /api/auth/credentials - Retrieve Configuration Status of All Providers

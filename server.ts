@@ -72,14 +72,7 @@ import { registerNoraDailyDigestRoutes } from './server/routes/noraDailyDigestRo
 import { NoraTrainingAcademyService } from './server/services/noraTrainingAcademyService.js';
 import { NoraVideoStudioService } from './server/services/noraVideoStudioService.js';
 import { NoraBrowserAgentService } from './server/services/noraBrowserAgentService.js';
-import { GoogleChatService } from './server/services/googleChatService.js';
-import { GoogleDriveService } from './server/services/googleDriveService.js';
-import { GoogleDocsService } from './server/services/googleDocsService.js';
-import { GoogleSlidesService } from './server/services/googleSlidesService.js';
-import { GoogleSheetsService } from './server/services/googleSheetsService.js';
-import { GoogleGmailService } from './server/services/googleGmailService.js';
-import { GoogleYouTubeService } from './server/services/googleYouTubeService.js';
-import { GoogleSandboxTestService } from './server/services/googleSandboxTestService.js';
+import { getGoogleChatRouter } from './server/integrations/google/googleChatRoutes.js';
 import { googleChatMcpClient } from './server/integrations/google/googleChatMcpClient.js';
 import { NoraCapabilitiesAuditService } from './server/services/noraCapabilitiesAuditService.js';
 import { ShowingTimeLockboxService } from './server/services/showingTimeLockboxService.js';
@@ -235,6 +228,7 @@ import { getApiNationDotloopRouter } from './server/integrations/apinationDotloo
 import { getQuickBooksRouter } from './server/integrations/quickbooks/quickbooksRoutes.js';
 import { getBasecampRouter } from './server/integrations/basecamp/basecampRoutes.js';
 import { getGoogleRouter } from './server/integrations/google/googleRoutes.js';
+import { getOnDemandSlaRouter } from './server/routes/onDemandSlaRoutes.js';
 import { getMicrosoftRouter } from './server/integrations/microsoft/microsoftRoutes.js';
 import { IntegrationStateStore } from './server/integrations/shared/integrationStateStore.js';
 import { getGoogleAccessToken } from './server/integrations/google/googleOAuth.js';
@@ -8636,17 +8630,8 @@ app.get('/api/marketing/sla/summary', async (req, res) => {
   }
 });
 
-// POST /api/marketing/sla/evaluate-all - Trigger on-demand SLA scan and dispatch overdue alerts
-app.post('/api/marketing/sla/evaluate-all', async (req, res) => {
-  try {
-    const { runSlaGuardrailCheck, getSlaGuardrailSummary } = await import('./server/services/taskSlaGuardrailService.js');
-    const result = await runSlaGuardrailCheck();
-    const summary = getSlaGuardrailSummary();
-    return res.json({ success: true, result, summary });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+// POST /api/marketing/sla/evaluate-all - On-demand SLA scan. Scheduler uses the internal job route.
+app.use('/api/marketing/sla', getOnDemandSlaRouter());
 
 // POST /api/marketing/inbox/scan-now - Trigger immediate IMAP scan of AskNora@nestrealty.com inbox
 app.post('/api/marketing/inbox/scan-now', requireStaffOrOidcAuth, async (req, res) => {
@@ -9241,7 +9226,7 @@ app.post('/api/marketing/assets/tokens/revoke', async (req, res) => {
 });
 
 // POST Simulate Agent MMS Text-to-Request
-app.post('/api/marketing/mms-messages/simulate', async (req, res) => {
+app.post('/api/marketing/mms-messages/simulate', requireAuth, async (req, res) => {
   try {
     const { fromPhone, body, mediaUrls, audioVoiceMemoUrl } = req.body;
     const result = await MmsTextToRequestService.processInboundMms({
@@ -10493,7 +10478,7 @@ app.get('/api/calendar/brokerage-meetings', async (req: any, res) => {
 });
 
 // GET /api/calendar/diagnostics - Google Calendar Connection & Readiness Diagnostic
-app.get('/api/calendar/diagnostics', async (req: any, res) => {
+app.get('/api/calendar/diagnostics', requireAuth, async (req: any, res) => {
   try {
     const { GoogleCalendarDiagnosticService } = await import('./server/services/googleCalendarDiagnosticService.js');
     const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
@@ -10505,7 +10490,7 @@ app.get('/api/calendar/diagnostics', async (req: any, res) => {
 });
 
 // GET /api/calendar/available-calendars - List Google Calendars for AskNora account
-app.get('/api/calendar/available-calendars', async (req: any, res) => {
+app.get('/api/calendar/available-calendars', requireAuth, async (req: any, res) => {
   try {
     const { GoogleCalendarDiagnosticService } = await import('./server/services/googleCalendarDiagnosticService.js');
     const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
@@ -10517,7 +10502,7 @@ app.get('/api/calendar/available-calendars', async (req: any, res) => {
 });
 
 // POST /api/calendar/select-target - Select and persist target calendar
-app.post('/api/calendar/select-target', async (req: any, res) => {
+app.post('/api/calendar/select-target', requireAuth, async (req: any, res) => {
   try {
     const { CalendarRepository } = await import('./server/persistence/calendarRepository.js');
     const { GoogleCalendarDiagnosticService } = await import('./server/services/googleCalendarDiagnosticService.js');
@@ -10806,573 +10791,7 @@ app.get('/api/voice-agent/browser-research', async (req, res) => {
 // ==========================================
 // GOOGLE CHAT & BROKERAGE DIRECTORY ENGINE
 // ==========================================
-
-// GET /api/google-chat/spaces - List active spaces & DMs
-app.get('/api/google-chat/spaces', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const spaces = await GoogleChatService.getSpacesAndDMs(wsId);
-    return res.json({ success: true, spaces, count: spaces.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/google-chat/messages/:spaceId - Get message thread for a space
-app.get('/api/google-chat/messages/:spaceId', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const messages = await GoogleChatService.getMessages(req.params.spaceId, wsId);
-    return res.json({ success: true, spaceId: req.params.spaceId, messages, count: messages.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/google-chat/send - Send a message + trigger autonomous Nora AI if tagged or in Nora DM
-app.post('/api/google-chat/send', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { spaceId, senderName = 'Ryan Crecelius', senderEmail = 'ryan@nestrealty.com', text, attachments } = req.body || {};
-    if (!spaceId || !text) {
-      return res.status(400).json({ success: false, error: 'spaceId and text are required' });
-    }
-    const result = await GoogleChatService.sendMessage({
-      spaceId,
-      senderName,
-      senderEmail,
-      text,
-      attachments,
-      workspaceId: wsId
-    });
-    return res.json({ success: true, ...result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/google-chat/roster - Full 77-member searchable Google Workspace roster
-app.get('/api/google-chat/roster', async (req, res) => {
-  try {
-    const roster = GoogleChatService.getRoster();
-    const query = (req.query.q as string || '').toLowerCase().trim();
-    const filtered = query
-      ? roster.filter(p =>
-          p.displayName.toLowerCase().includes(query) ||
-          p.email.toLowerCase().includes(query) ||
-          p.role.toLowerCase().includes(query) ||
-          p.officeNames.some(o => o.toLowerCase().includes(query))
-        )
-      : roster;
-    return res.json({ success: true, roster: filtered, count: filtered.length, totalMembers: roster.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/google-chat/create-dm - Start or get 1-on-1 DM with a broker
-app.post('/api/google-chat/create-dm', async (req, res) => {
-  try {
-    const { recipientEmail, currentUserName = 'Ryan Crecelius', currentUserEmail = 'ryan@nestrealty.com' } = req.body || {};
-    if (!recipientEmail) {
-      return res.status(400).json({ success: false, error: 'recipientEmail is required' });
-    }
-    const space = GoogleChatService.createOrGetDirectMessage(recipientEmail, currentUserName, currentUserEmail);
-    return res.json({ success: true, space });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE DRIVE & GOOGLE WORKSPACE HUB APIS
-// ==========================================
-
-// GET /api/integrations/google/drive/scaffolds - List all active listing Drive scaffolds
-app.get('/api/integrations/google/drive/scaffolds', async (req: any, res) => {
-  try {
-    const scaffolds = GoogleDriveService.getScaffolds();
-    return res.json({ success: true, scaffolds, count: scaffolds.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/drive/scaffold - Create new property folder scaffold in Google Drive
-app.post('/api/integrations/google/drive/scaffold', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { propertyAddress, agentName = 'Ryan Crecelius', agentEmail = 'ryan@nestrealty.com', deliverables } = req.body || {};
-    if (!propertyAddress) {
-      return res.status(400).json({ success: false, error: 'propertyAddress is required' });
-    }
-    const scaffold = await GoogleDriveService.scaffoldListingFolder({
-      propertyAddress,
-      agentName,
-      agentEmail,
-      deliverables,
-      workspaceId: wsId
-    });
-    return res.status(201).json({ success: true, scaffold });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/drive/search - Search files and documents in Drive
-app.get('/api/integrations/google/drive/search', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const query = (req.query.q as string) || '';
-    const files = await GoogleDriveService.searchDriveDocuments(query, wsId);
-    return res.json({ success: true, files, count: files.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/hub/status - Google Workspace Hub status
-app.get('/api/integrations/google/hub/status', async (req: any, res) => {
-  try {
-    const linkedFolders = GoogleDriveService.getLinkedFolders();
-    const scaffolds = GoogleDriveService.getScaffolds();
-    return res.json({
-      success: true,
-      connectedAccount: 'AskNora@nestrealty.com',
-      status: 'active',
-      linkedFolders,
-      totalScaffolds: scaffolds.length,
-      lastSync: new Date().toISOString()
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/hub/sync-folder - Trigger RAG vector sync for a linked Drive folder
-app.post('/api/integrations/google/hub/sync-folder', async (req: any, res) => {
-  try {
-    const { folderId } = req.body || {};
-    if (!folderId) {
-      return res.status(400).json({ success: false, error: 'folderId is required' });
-    }
-    const result = await GoogleDriveService.syncFolder(folderId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE DOCS API (v1) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/docs/templates - List NC real estate styled templates
-app.get('/api/integrations/google/docs/templates', (req, res) => {
-  try {
-    const templates = GoogleDocsService.getTemplates();
-    return res.json({ success: true, templates, count: templates.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/docs - List all generated Google Docs
-app.get('/api/integrations/google/docs', (req, res) => {
-  try {
-    const docs = GoogleDocsService.getGeneratedDocs();
-    return res.json({ success: true, docs, count: docs.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/docs/create - Generate a styled Google Doc
-app.post('/api/integrations/google/docs/create', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const {
-      title,
-      templateType = 'nc_offer_2t_brief',
-      propertyAddress,
-      clientName,
-      agentName = 'Ryan Crecelius',
-      agentEmail = 'ryan@nestrealty.com',
-      customFields,
-      folderId
-    } = req.body || {};
-
-    if (!title) {
-      return res.status(400).json({ success: false, error: 'title is required' });
-    }
-
-    const doc = await GoogleDocsService.createDocument({
-      title,
-      templateType,
-      propertyAddress,
-      clientName,
-      agentName,
-      agentEmail,
-      customFields,
-      folderId,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, doc });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/docs/:docId - Retrieve document content
-app.get('/api/integrations/google/docs/:docId', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const content = await GoogleDocsService.getDocumentContent(req.params.docId, wsId);
-    return res.json({ success: true, documentId: req.params.docId, ...content });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/docs/:docId/merge - Merge placeholders in Google Doc
-app.post('/api/integrations/google/docs/:docId/merge', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { fields } = req.body || {};
-    if (!fields || typeof fields !== 'object') {
-      return res.status(400).json({ success: false, error: 'fields object is required' });
-    }
-    const result = await GoogleDocsService.mergeTemplateFields(req.params.docId, fields, wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE SLIDES API (v1) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/slides/list - List all generated Google Slides presentation decks
-app.get('/api/integrations/google/slides/list', (req, res) => {
-  try {
-    const decks = GoogleSlidesService.getPresentationDecks();
-    return res.json({ success: true, decks, count: decks.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/slides/generate - Generate an 8-slide luxury presentation deck
-app.post('/api/integrations/google/slides/generate', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const {
-      propertyAddress,
-      listPrice = '$1,895,000',
-      specs = { beds: 4, baths: 3.5, sqft: 3420 },
-      agentName = 'Ryan Crecelius',
-      agentTitle = 'Broker / Owner & Regional Leader (BIC)',
-      agentEmail = 'ryan@nestrealty.com',
-      folderId
-    } = req.body || {};
-
-    if (!propertyAddress) {
-      return res.status(400).json({ success: false, error: 'propertyAddress is required' });
-    }
-
-    const deck = await GoogleSlidesService.generateListingDeck({
-      propertyAddress,
-      listPrice,
-      specs,
-      agentName,
-      agentTitle,
-      agentEmail,
-      folderId,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, deck });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/slides/:deckId - Retrieve presentation deck details
-app.get('/api/integrations/google/slides/:deckId', (req, res) => {
-  try {
-    const deck = GoogleSlidesService.getDeckById(req.params.deckId);
-    if (!deck) {
-      return res.status(404).json({ success: false, error: 'Presentation deck not found' });
-    }
-    return res.json({ success: true, deck });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE SHEETS API (v4) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/sheets/metadata - Retrieve master spreadsheet status and tab counts
-app.get('/api/integrations/google/sheets/metadata', (req, res) => {
-  try {
-    const metadata = GoogleSheetsService.getMetadata();
-    return res.json({ success: true, ...metadata });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/sheets/export - Synchronize local database to Google Sheets
-app.post('/api/integrations/google/sheets/export', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const result = await GoogleSheetsService.exportToGoogleSheets(wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/sheets/pull - Pull updates from Google Sheets
-app.post('/api/integrations/google/sheets/pull', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const result = await GoogleSheetsService.pullFromGoogleSheets(wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GMAIL API (v1) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/gmail/drafts - List staged drafts for Human-in-the-Loop review
-app.get('/api/integrations/google/gmail/drafts', (req, res) => {
-  try {
-    const drafts = GoogleGmailService.getDrafts();
-    return res.json({ success: true, drafts, count: drafts.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/gmail/stage-draft - Stage a new AI email draft
-app.post('/api/integrations/google/gmail/stage-draft', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { recipient, recipientName, subject, body, category, orderId, propertyAddress } = req.body || {};
-    if (!recipient || !subject || !body) {
-      return res.status(400).json({ success: false, error: 'recipient, subject, and body are required' });
-    }
-
-    const draft = await GoogleGmailService.stageDraft({
-      recipient,
-      recipientName: recipientName || recipient,
-      subject,
-      body,
-      category,
-      orderId,
-      propertyAddress,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, draft });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/gmail/send-draft - Approve & Send email via Gmail API
-app.post('/api/integrations/google/gmail/send-draft', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { draftId } = req.body || {};
-    if (!draftId) {
-      return res.status(400).json({ success: false, error: 'draftId is required' });
-    }
-
-    const result = await GoogleGmailService.sendDraft(draftId, wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/gmail/parse-vendor-reply - Inbound vendor thread parser & auto-task completion
-app.post('/api/integrations/google/gmail/parse-vendor-reply', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { emailText, senderEmail } = req.body || {};
-    if (!emailText || !senderEmail) {
-      return res.status(400).json({ success: false, error: 'emailText and senderEmail are required' });
-    }
-
-    const result = await GoogleGmailService.parseInboundVendorReply({
-      emailText,
-      senderEmail,
-      workspaceId: wsId
-    });
-
-    return res.json({ success: true, ...result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/gmail/search - Search Gmail message threads
-app.get('/api/integrations/google/gmail/search', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const query = (req.query.q as string) || '';
-    const threads = await GoogleGmailService.searchThreads(query, wsId);
-    return res.json({ success: true, threads, count: threads.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// YOUTUBE DATA API (v3) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/youtube/videos - List all published YouTube videos
-app.get('/api/integrations/google/youtube/videos', (req, res) => {
-  try {
-    const videos = GoogleYouTubeService.getVideos();
-    return res.json({ success: true, videos, count: videos.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/youtube/publish - Publish a new listing walkthrough video
-app.post('/api/integrations/google/youtube/publish', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const {
-      propertyAddress,
-      listPrice,
-      specs = { beds: 4, baths: 3.5, sqft: 3200 },
-      agentName = 'Ryan Crecelius',
-      agentTitle = 'Broker / Owner & Regional Leader (BIC)',
-      videoTitle,
-      description,
-      privacyStatus = 'unlisted',
-      playlistCategory = 'Luxury Coastal Tours'
-    } = req.body || {};
-
-    if (!propertyAddress || !listPrice) {
-      return res.status(400).json({ success: false, error: 'propertyAddress and listPrice are required' });
-    }
-
-    const video = await GoogleYouTubeService.publishListingVideo({
-      propertyAddress,
-      listPrice,
-      specs,
-      agentName,
-      agentTitle,
-      videoTitle,
-      description,
-      privacyStatus,
-      playlistCategory,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, video });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/youtube/playlists - List channel playlists
-app.get('/api/integrations/google/youtube/playlists', (req, res) => {
-  try {
-    const playlists = GoogleYouTubeService.getPlaylists();
-    return res.json({ success: true, playlists, count: playlists.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/youtube/analytics/:videoId - Fetch video engagement analytics
-app.get('/api/integrations/google/youtube/analytics/:videoId', (req, res) => {
-  try {
-    const analytics = GoogleYouTubeService.getVideoAnalytics(req.params.videoId);
-    return res.json({ success: true, analytics });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/youtube/search - Search brokerage YouTube channel
-app.get('/api/integrations/google/youtube/search', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const query = (req.query.q as string) || '';
-    const videos = await GoogleYouTubeService.searchChannelVideos(query, wsId);
-    return res.json({ success: true, videos, count: videos.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE INTEGRATION SANDBOX TEST HARNESS
-// ==========================================
-
-// POST /api/integrations/google/sandbox/run-test - Run single test or full 7-API diagnostic
-app.post('/api/integrations/google/sandbox/run-test', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const service = req.body?.service || 'all';
-
-    if (service === 'all') {
-      const report = await GoogleSandboxTestService.runFullDiagnostic(wsId);
-      return res.json({ success: true, report });
-    }
-
-    const validServices = ['drive', 'docs', 'slides', 'sheets', 'gmail', 'chat', 'youtube'];
-    if (!validServices.includes(service)) {
-      return res.status(400).json({ success: false, error: `Invalid service. Choose from: ${validServices.join(', ')} or 'all'.` });
-    }
-
-    const result = await GoogleSandboxTestService.runServiceTest(service as any, wsId);
-    return res.json({ success: true, result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/sandbox/history - Get diagnostic history & target configuration
-app.get('/api/integrations/google/sandbox/history', (req, res) => {
-  try {
-    const history = GoogleSandboxTestService.getHistory();
-    const targetEmail = GoogleSandboxTestService.getTargetEmail();
-    return res.json({ success: true, targetEmail, history, count: history.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/sandbox/target - Configure target test email
-app.post('/api/integrations/google/sandbox/target', (req, res) => {
-  try {
-    const { email, name } = req.body || {};
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ success: false, error: 'Valid email is required.' });
-    }
-    GoogleSandboxTestService.setTargetEmail(email, name);
-    return res.json({ success: true, targetEmail: email, targetName: name });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+app.use('/api/google-chat', getGoogleChatRouter());
 
 // ==========================================
 // NORA CAPABILITIES, SKILLS & AUDIT REGISTRY
@@ -13857,7 +13276,7 @@ app.get('/api/agent/history', requireAuth, resolveWorkspaceContext, requireWorks
 });
 
 // RYAN SHIELD AUTOMATED SLA BREACH ALERT DISPATCH ENDPOINT
-app.post('/api/ryan-shield/dispatch-sla-alert', async (req: any, res) => {
+app.post('/api/ryan-shield/dispatch-sla-alert', requireAuth, async (req: any, res) => {
   try {
     const { recipientEmail = 'ryan.crecelius@nestrealty.com' } = req.body;
     
@@ -22565,7 +21984,7 @@ app.post('/api/contracts/emd-wire/verify', async (req: any, res) => {
   }
 });
 
-app.post('/api/contracts/emd-wire/dispatch-escalation', async (req: any, res) => {
+app.post('/api/contracts/emd-wire/dispatch-escalation', requireAuth, async (req: any, res) => {
   try {
     const { propertyAddress = '312 Mayfaire Way, Wilmington NC 28405', daysRemaining = 0 } = req.body;
     const escalationId = `emd_escalation_${Date.now()}`;

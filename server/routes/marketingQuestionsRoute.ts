@@ -6,6 +6,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { requireAuth } from '../auth/auth.js';
 import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
 import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
 import { isAllowlistedProveRecipient } from '../../src/lib/outboundAllowlistGate.js';
@@ -345,7 +346,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', asyn
   }
 });
 
-marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (req: Request, res: Response) => {
+marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireAuth, async (req: Request, res: Response) => {
   try {
     const {
       campaignId,
