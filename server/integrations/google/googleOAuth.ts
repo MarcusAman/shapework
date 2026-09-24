@@ -87,12 +87,37 @@ export function getGoogleServiceAccountJWTClient(
   });
 }
 
+export type GoogleCodeExchangeResult = {
+  email: string;
+  providerAccountId: string;
+  encryptedAccessToken: string;
+  encryptedRefreshToken?: string;
+  accessTokenExpiresAt: string;
+  scopes: string[];
+};
+
+type GoogleCodeExchanger = (code: string, req?: any) => Promise<GoogleCodeExchangeResult>;
+type GoogleConnectionVerifier = typeof verifyGoogleConnection;
+
+let testCodeExchanger: GoogleCodeExchanger | null = null;
+let testConnectionVerifier: GoogleConnectionVerifier | null = null;
+
+/** Test-only seam. Production exchange never accepts a mock_ code. */
+export function setGoogleCodeExchangerForTests(exchanger: GoogleCodeExchanger | null) {
+  testCodeExchanger = exchanger;
+}
+
+/** Test-only seam for the live verification step. */
+export function setGoogleConnectionVerifierForTests(verifier: GoogleConnectionVerifier | null) {
+  testConnectionVerifier = verifier;
+}
+
 export async function exchangeGoogleCode(code: string, req?: any) {
+  if (testCodeExchanger) return testCodeExchanger(code, req);
   const config = getGoogleConfig();
   const hasRealCredentials = !!(config.clientId && config.clientSecret && !config.clientId.includes('placeholder') && !config.clientId.includes('mock'));
-  const isMockCode = code.startsWith('mock_');
 
-  if (!hasRealCredentials || isMockCode) {
+  if (!hasRealCredentials) {
     return {
       email: 'operations@nestrealty.com',
       providerAccountId: 'google_nest_ops_001',
@@ -233,6 +258,7 @@ export async function verifyGoogleConnection(
   capabilities: { gmail: boolean; calendar: boolean; drive: boolean };
   missingPermissions: string[];
 }> {
+  if (testConnectionVerifier) return testConnectionVerifier(connection, dbState, saveStateCallback);
   const isProd = process.env.APP_MODE === 'production' || process.env.NODE_ENV === 'production';
   const isMock = !isProd && (process.env.APP_MODE === 'development' || !process.env.GOOGLE_CLIENT_ID);
 

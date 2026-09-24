@@ -19,7 +19,7 @@ import {
 } from '../persistence/oauthTokensRepository.js';
 import { GOOGLE_WORKSPACE_SCOPES } from '../integrations/google/googleOAuth.js';
 import { handleGoogleOAuthCallback } from '../integrations/google/googleRoutes.js';
-import { requireAuth, type AuthenticatedRequest } from '../auth/auth.js';
+import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, type AuthenticatedRequest } from '../auth/auth.js';
 
 export const oauthRouter = Router();
 
@@ -552,27 +552,15 @@ oauthRouter.get('/:provider/consent', (req, res) => {
 });
 
 // POST /api/auth/:provider/authorize - Finalize authorization from Consent Screen
-oauthRouter.post('/:provider/authorize', (req, res) => {
+oauthRouter.post('/:provider/authorize', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), (req, res) => {
   const provider = req.params.provider as OAuthProvider;
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
   }
 
-  const { clientId } = req.body || {};
-
-  const record = saveOAuthTokenRecord({
-    provider,
-    accessToken: `${provider}_token_${Date.now()}`,
-    refreshToken: `${provider}_refresh_${Date.now()}`,
-    expiresAt: new Date(Date.now() + 86400000 * 30).toISOString(),
-    status: clientId ? 'connected' : 'demo_connected',
-    updatedAt: new Date().toISOString()
-  });
-
-  return res.json({
-    success: true,
-    message: `Authorized ${provider} successfully!`,
-    record
+  return res.status(400).json({
+    success: false,
+    error: 'This route does not complete an OAuth token exchange.',
   });
 });
 
@@ -688,7 +676,7 @@ oauthRouter.get('/credentials', (req, res) => {
 });
 
 // POST /api/auth/credentials - Save Custom Production Credentials for a Provider
-oauthRouter.post('/credentials', (req, res) => {
+oauthRouter.post('/credentials', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), (req, res) => {
   const { provider, clientId, clientSecret } = req.body || {};
   if (!provider || !SUPPORTED_PROVIDERS.includes(provider as OAuthProvider)) {
     return res.status(400).json({ success: false, error: `Invalid or unsupported provider: ${provider}` });
@@ -716,7 +704,7 @@ oauthRouter.post('/credentials', (req, res) => {
 });
 
 // DELETE /api/auth/credentials/:provider - Remove Saved Production Credentials
-oauthRouter.delete('/credentials/:provider', (req, res) => {
+oauthRouter.delete('/credentials/:provider', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), (req, res) => {
   const provider = req.params.provider as OAuthProvider;
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
@@ -727,7 +715,7 @@ oauthRouter.delete('/credentials/:provider', (req, res) => {
 });
 
 // POST /api/auth/:provider/disconnect - Disconnect & Clear Tokens
-oauthRouter.post('/:provider/disconnect', (req, res) => {
+oauthRouter.post('/:provider/disconnect', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), (req, res) => {
   const provider = req.params.provider as OAuthProvider;
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });

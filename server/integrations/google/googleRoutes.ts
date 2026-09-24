@@ -42,6 +42,8 @@ export function handleGoogleOAuthCallback(
     const appOrigin = process.env.PUBLIC_APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
 
     const sendCompletionPage = (status: 'success' | 'error', errorMsg?: string) => {
+      const safeError = errorMsg ? escapeHtml(errorMsg) : '';
+      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
       res.status(status === 'success' ? 200 : 400).send(`
         <!DOCTYPE html>
         <html>
@@ -52,14 +54,14 @@ export function handleGoogleOAuthCallback(
               type: 'SHAPEWORK_GOOGLE_OAUTH_COMPLETE',
               provider: 'google',
               status: '${status}',
-              error: ${errorMsg ? JSON.stringify(errorMsg) : 'null'}
+              error: ${safeError ? JSON.stringify(safeError) : 'null'}
             }, ${JSON.stringify(appOrigin)});
             window.close();
           </script>
         </head>
         <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
           <h2>${status === 'success' ? 'Authentication Successful' : 'Authentication Failed'}</h2>
-          <p>${status === 'success' ? 'You can close this window now.' : errorMsg || 'An unknown error occurred.'}</p>
+          <p>${status === 'success' ? 'You can close this window now.' : safeError || 'An unknown error occurred.'}</p>
         </body>
         </html>
       `);
@@ -86,7 +88,9 @@ export function handleGoogleOAuthCallback(
       return sendCompletionPage('error', 'Session mismatch. The user completing authorization does not match the initiator.');
     }
 
-    validateGoogleOAuthState(stateStr, stateData.workspaceId, stateData.userId);
+    if (!validateGoogleOAuthState(stateStr, stateData.workspaceId, stateData.userId)) {
+      return sendCompletionPage('error', 'OAuth state validation mismatch. Re-authorize Google connection.');
+    }
 
     try {
       const result = await exchangeGoogleCode(codeStr, req);
@@ -94,12 +98,11 @@ export function handleGoogleOAuthCallback(
       const store = new IntegrationStateStore(dbState);
       const existingConn = await store.getConnection(stateData.workspaceId, 'google_workspace');
       const preservedRefreshToken = result.encryptedRefreshToken || existingConn?.encryptedRefreshToken;
-
-      const conn = await store.upsertConnection({
+      const candidate = {
         id: `conn_google_${stateData.workspaceId}`,
         workspaceId: stateData.workspaceId,
-        provider: 'google_workspace',
-        status: 'connected',
+        provider: 'google_workspace' as const,
+        status: 'connected' as const,
         connectedByUserId: stateData.userId,
         connectedAt: new Date().toISOString(),
         providerAccountId: result.providerAccountId,
@@ -108,15 +111,14 @@ export function handleGoogleOAuthCallback(
         encryptedAccessToken: result.encryptedAccessToken,
         encryptedRefreshToken: preservedRefreshToken,
         accessTokenExpiresAt: result.accessTokenExpiresAt
-      });
+      };
 
-      const verification = await verifyGoogleConnection(conn, dbState, () => persistStateCallback(stateData.workspaceId));
+      const verification = await verifyGoogleConnection(candidate, dbState, async () => {});
       if (!verification.verified) {
-        conn.status = 'error';
-        conn.lastError = verification.error || 'Live verification check failed after exchange.';
-        await persistStateCallback(stateData.workspaceId);
-        return sendCompletionPage('error', conn.lastError);
+        return sendCompletionPage('error', verification.error || 'Live verification check failed after exchange.');
       }
+
+      await store.upsertConnection(candidate);
 
       logIntegrationAudit(
         dbState,
@@ -134,6 +136,15 @@ export function handleGoogleOAuthCallback(
       sendCompletionPage('error', `Failed to exchange Google OAuth authorization token: ${err.message}`);
     }
   };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: string) => Promise<void>): Router {

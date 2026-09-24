@@ -36,8 +36,8 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  // 2. Custom header check (x-shapework-csrf or x-requested-with)
-  const csrfHeader = req.headers['x-shapework-csrf'] || req.headers['x-requested-with'];
+  // 2. CSRF token. X-Requested-With alone is not a token.
+  const csrfHeader = req.headers['x-shapework-csrf'];
   if (csrfHeader) {
     return next();
   }
@@ -91,15 +91,9 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     }
   }
 
-  const isUatOrProd = process.env.APP_MODE === 'production' || process.env.APP_ENV === 'uat';
-  if (isUatOrProd && req.headers.cookie) {
-    // In production/UAT, ambient cookie-based requests must have Origin, Referer, or x-shapework-csrf header
-    console.warn(`[CSRF] Blocked cookie mutation: missing Origin/Referer/CSRF headers.`);
-    return res.status(403).json({ 
-      error: 'Forbidden', 
-      message: 'CSRF defense triggered: custom header (x-shapework-csrf) or valid Origin required.' 
-    });
-  }
-
-  next();
+  console.warn('[CSRF] Blocked mutation: missing CSRF token or matching Origin.');
+  return res.status(403).json({
+    error: 'Forbidden',
+    message: 'CSRF defense triggered: custom header (x-shapework-csrf) or valid Origin required.'
+  });
 }
