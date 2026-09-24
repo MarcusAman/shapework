@@ -298,9 +298,13 @@ export function validateProofUrl(url: string): { valid: boolean; error?: string;
 
   const trimmed = url.trim();
 
-  // Strictly enforce HTTPS
-  if (!trimmed.startsWith('https://')) {
+  // Strictly enforce HTTPS. data:, blob, and local uploads are not proof.
+  if (!trimmed.startsWith('https://') || /^data:/i.test(trimmed) || trimmed.startsWith('blob:') || trimmed.startsWith('/uploads/')) {
     return { valid: false, error: 'INVALID_PROTOCOL: Proof link must use secure https:// protocol.' };
+  }
+
+  if (/1DRV_/i.test(trimmed) || /\/folders\/(?:folder_|sub_)/i.test(trimmed) || /\/file\/d\/(?:file_|sample_)/i.test(trimmed)) {
+    return { valid: false, error: 'DRIVE_STUB: Synthetic Drive links are not accepted as proof.' };
   }
 
   try {

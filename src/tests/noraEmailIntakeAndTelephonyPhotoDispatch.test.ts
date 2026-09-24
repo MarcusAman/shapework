@@ -65,7 +65,8 @@ describe('Nora Email Intake Service for asknora@nestrealty.com', () => {
     expect(result.assignedLead).toBe('Melissa Gagliardi');
     expect(result.propertyAddress).toContain('7712 S Live Oak Pkwy');
     expect(result.extractedPhotosCount).toBe(2);
-    expect(result.driveFolderUrl).toContain('7712_S_LIVE_OAK_PKWY');
+    expect(result.driveFolderUrl || '').not.toMatch(/1DRV_/);
+    expect(!result.driveFolderUrl || result.driveFolderUrl.startsWith('https://drive.google.com/drive/folders/')).toBe(true);
 
     // Verify task exists in repository
     const tasks = getAllCanonicalMarketingTasks();

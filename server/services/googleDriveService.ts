@@ -442,6 +442,41 @@ class GoogleDriveServiceEngine {
     }
   }
 
+  /**
+   * Reuse a live listing folder already named for this address.
+   * Returns null when Drive is unavailable or the only hits are synthetic ids.
+   */
+  public async findListingFolderByAddress(propertyAddress: string, workspaceId: string = 'ws_wilmington'): Promise<{ id: string; url: string } | null> {
+    const name = String(propertyAddress || '').trim();
+    if (!name || /address pending|address needed/i.test(name)) return null;
+    const auth = await this.getAuthenticatedDriveClient(workspaceId);
+    if (!auth?.drive) return null;
+    const street = name.split(',')[0].trim();
+    const variants = Array.from(new Set([name, street].filter(Boolean)));
+    try {
+      for (const variant of variants) {
+        const safe = variant.replace(/'/g, "\\'");
+        const res = await auth.drive.files.list({
+          q: `name = '${safe}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+          pageSize: 5,
+          fields: 'files(id, name, webViewLink)',
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
+        });
+        const hit = (res.data.files || []).find((f: any) => f?.id && !/^(1DRV_|folder_|sub_)/i.test(String(f.id)));
+        if (hit?.id) {
+          return {
+            id: String(hit.id),
+            url: hit.webViewLink || `https://drive.google.com/drive/folders/${hit.id}`,
+          };
+        }
+      }
+    } catch (err: any) {
+      console.warn('[GoogleDriveService] findListingFolderByAddress failed:', err?.message || err);
+    }
+    return null;
+  }
+
   /** Prefer Marketing / flyer / 03_ subfolder for proof uploads. */
   public async findMarketingUploadParentId(parentFolderId: string, workspaceId: string = 'ws_wilmington'): Promise<string> {
     const id = String(parentFolderId || '').trim();

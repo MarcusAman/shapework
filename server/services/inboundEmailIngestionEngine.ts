@@ -48,6 +48,7 @@ import { recordActivityEvent } from './activityHistoryService.js';
 import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
 import { evaluateOutboundDispatchGuard, looksLikeSmokeOrTestThread } from '../email/outboundDispatchGuards.js';
 import { isTombstoned } from '../persistence/intakeTombstoneRepository.js';
+import { coalesceRealDriveUrl, isRealGoogleDriveUrl, listingAddressKey, promoteAskNoraListingFolder } from './askNoraDriveDelivery.js';
 
 // Known agent directory lookup for automatic phone and role enrichment
 export const KNOWN_AGENTS: Record<string, { name: string; phone: string; role: string }> = {
@@ -1255,8 +1256,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   const dueAt = extractDueDateFromText(`${subject} ${textContent}`);
   const deliverableItems = extractEmailDeliverables(subject, textContent);
 
-  const cleanAddr = propertyAddress ? propertyAddress.split(',')[0].replace(/[^a-zA-Z0-9]/g, '_').toUpperCase() : 'PENDING_ADDRESS';
-  const driveFolderUrl = `https://drive.google.com/drive/folders/1DRV_${cleanAddr}`;
+  let driveFolderUrl = '';
   const defaultDriveFileUrl = 'https://drive.google.com/file/d/1-Vph9XRJ6LCjllp9A0g5Y0M227lWack/view';
 
   // Ensure public uploads folder exists
@@ -1360,6 +1360,27 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   try {
     const allRequests = getAllCanonicalMarketingRequests();
     const allTasks = getAllCanonicalMarketingTasks();
+
+    const addrKey = listingAddressKey(propertyAddress);
+    if (addrKey) {
+      const priorReal =
+        allTasks.find((t) => listingAddressKey(t.propertyAddress) === addrKey && isRealGoogleDriveUrl(t.driveFolderUrl))?.driveFolderUrl
+        || allRequests.find((r) => listingAddressKey(r.propertyAddress) === addrKey && isRealGoogleDriveUrl(r.driveFolderUrl))?.driveFolderUrl
+        || '';
+      try {
+        const promoted = await promoteAskNoraListingFolder({
+          propertyAddress: propertyAddress || '',
+          agentName,
+          agentEmail,
+          workspaceId,
+          existingFolderUrl: priorReal,
+        });
+        driveFolderUrl = coalesceRealDriveUrl(promoted.driveFolderUrl, priorReal);
+      } catch (driveErr: any) {
+        console.warn('[Ingestion Engine] AskNora Drive folder deferred:', driveErr?.message || driveErr);
+        driveFolderUrl = coalesceRealDriveUrl(priorReal);
+      }
+    }
 
     if (dbClient) {
       try {
@@ -1588,7 +1609,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           assignedTo: existingOpenTaskForAddress.assignedTo || 'Melissa Gagliardi',
           ccRecipient: 'melissa.gagliardi@nestrealty.com',
           photosCount: (existingOpenTaskForAddress.photos || []).length,
-          driveFolderUrl: existingOpenTaskForAddress.driveFolderUrl || driveFolderUrl,
+          driveFolderUrl: coalesceRealDriveUrl(driveFolderUrl, existingOpenTaskForAddress.driveFolderUrl),
           message: `Successfully merged pending request ${pendingRequest.id} into existing open task ${existingOpenTaskForAddress.id}.`,
           actionTaken: 'reconciled_merged',
           task: existingOpenTaskForAddress
@@ -1601,7 +1622,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       pendingRequest.title = `${propertyAddress} Marketing Request`;
       pendingRequest.status = 'request_received';
       pendingRequest.updatedAt = new Date().toISOString();
-      pendingRequest.driveFolderUrl = driveFolderUrl;
+      pendingRequest.driveFolderUrl = coalesceRealDriveUrl(driveFolderUrl, pendingRequest.driveFolderUrl);
       if (photos.length > 0) {
         const existingPhotoKeys = new Set((pendingRequest.photos || []).map((p: any) => p.hash || p.id || p.name));
         const newUniquePhotos = photos.filter((p: any) => !existingPhotoKeys.has(p.hash || p.id || p.name));
@@ -1623,7 +1644,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         task.assignedTo = task.assignedTo || 'Melissa Gagliardi';
         task.assignedToId = task.assignedToId || 'dir_melissa_gagliardi_33';
         task.dueAt = dueAt;
-        task.driveFolderUrl = driveFolderUrl;
+        task.driveFolderUrl = coalesceRealDriveUrl(driveFolderUrl, task.driveFolderUrl);
         task.updatedAt = new Date().toISOString();
         if (photos.length > 0) {
           task.photos = [...(task.photos || []), ...photos];
@@ -1986,7 +2007,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         assignedTo: resolvedAssignee,
         ccRecipient,
         photosCount: (existingRequestForAddress.photos || []).length,
-        driveFolderUrl: existingRequestForAddress.driveFolderUrl || driveFolderUrl,
+        driveFolderUrl: coalesceRealDriveUrl(driveFolderUrl, existingRequestForAddress.driveFolderUrl),
         message: `Successfully reconciled email follow-up into existing request ${existingRequestForAddress.id}.`,
         actionTaken: 'reconciled_updated',
         request: existingRequestForAddress,

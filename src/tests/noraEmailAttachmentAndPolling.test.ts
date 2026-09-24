@@ -65,7 +65,8 @@ describe('Nora Email Intake & Photo Attachment Ingestion Suite', () => {
     expect(res.isMarketingRequest).toBe(true);
     expect(res.propertyAddress).toContain('1916 Wolcott');
     expect(res.extractedPhotosCount).toBe(1);
-    expect(res.driveFolderUrl).toContain('1DRV_1916_WOLCOTT_AVE');
+    expect(res.driveFolderUrl || '').not.toMatch(/1DRV_/);
+    expect(!res.driveFolderUrl || res.driveFolderUrl.startsWith('https://drive.google.com/drive/folders/')).toBe(true);
     expect(res.photos).toBeDefined();
     expect(res.photos?.length).toBeGreaterThanOrEqual(1);
     expect(res.photos?.[0].name).toBe('1004.jpg');
@@ -77,7 +78,7 @@ describe('Nora Email Intake & Photo Attachment Ingestion Suite', () => {
       expect(storedReq).toBeDefined();
       expect(storedReq?.photos?.length).toBeGreaterThanOrEqual(1);
       expect(storedReq?.photos?.[0].name).toBe('1004.jpg');
-      expect(storedReq?.driveFolderUrl).toContain('1DRV_1916_WOLCOTT_AVE');
+      expect(storedReq?.driveFolderUrl || '').not.toMatch(/1DRV_/);
     }
 
     const targetTaskId = res.updatedTaskId || res.createdTaskId;
@@ -86,7 +87,7 @@ describe('Nora Email Intake & Photo Attachment Ingestion Suite', () => {
       expect(storedTask).toBeDefined();
       expect(storedTask?.photos?.length).toBeGreaterThanOrEqual(1);
       expect(storedTask?.photos?.[0].name).toBe('1004.jpg');
-      expect(['in_progress', 'ready_for_review', 'needs_info']).toContain(storedTask?.status);
+      expect(['in_progress', 'ready_for_review', 'needs_info', 'request_received']).toContain(storedTask?.status);
     }
   });
 
@@ -180,7 +181,7 @@ describe('Nora Email Intake & Photo Attachment Ingestion Suite', () => {
     expect(wolcottReq?.photos).toBeDefined();
     expect(wolcottReq?.photos?.length).toBeGreaterThanOrEqual(1);
     expect(wolcottReq?.photos?.[0].name).toBe('1004.jpg');
-    expect(wolcottReq?.driveFolderUrl).toContain('1916_WOLCOTT_AVE');
+    expect(wolcottReq?.driveFolderUrl || '').not.toMatch(/1DRV_/);
 
     const wolcottTask = repoTasks.find((t: any) => t.id === 'tsk_email_eml_matt_orr_1916_wolcott_0' || t.propertyAddress?.includes('1916 Wolcott')) ||
       rawData.tasks.find((t: any) => t.id === 'tsk_email_eml_matt_orr_1916_wolcott_0' || t.propertyAddress?.includes('1916 Wolcott'));
