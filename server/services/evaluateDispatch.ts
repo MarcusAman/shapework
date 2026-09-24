@@ -11,7 +11,7 @@ import {
 } from '../../src/lib/outboundAllowlistGate.js';
 import { isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
-import { isInlineDataProof, resolveProofPrecedence } from '../../src/lib/proofPrecedence.js';
+import { isInlineDataProof, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
 
 export const DISPATCH_REASON = {
   role: 'Only the task reviewer may approve and notify.',
@@ -217,8 +217,14 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
 
   const effectiveTo = filterDispatchRecipients(email ? [email] : [], recipientStatus);
   const effectiveCc = filterDispatchRecipients(input.cc, recipientStatus);
-  const folderUrl = String(input.driveFolderUrl || input.task?.driveFolderUrl || '').trim();
-  const suppliedProof = resolveProofPrecedence(input.proofUrl, input.task?.proofUrl);
+  const resolved = resolveDispatchProofAndFolder({
+    pastedProof: input.proofUrl,
+    storedProof: input.task?.proofUrl,
+    driveFolderUrl: input.driveFolderUrl,
+    storedFolderUrl: input.task?.driveFolderUrl,
+  });
+  const folderUrl = resolved.driveFolderUrl;
+  const suppliedProof = resolved.proofUrl;
 
   // Fixed order: role, recipient, proof, Drive folder AND a file, kill switch.
   let reason = '';

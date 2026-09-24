@@ -8371,11 +8371,14 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     const agentEmail = task.agentEmail || parentReq?.agentEmail || (parentReq as any)?.requesterEmail || null;
     const agentName = task.agentName || parentReq?.agentName || (parentReq as any)?.requesterName || 'Agent';
     const agentPhone = task.agentPhone || parentReq?.agentPhone || null;
-    const driveUrl = (!task.driveFolderUrl || String(task.driveFolderUrl).includes('1DRV_'))
+    let driveUrl = (!task.driveFolderUrl || String(task.driveFolderUrl).includes('1DRV_'))
       ? (parentReq?.driveFolderUrl && !String(parentReq.driveFolderUrl).includes('1DRV_') ? parentReq.driveFolderUrl : '')
       : task.driveFolderUrl;
 
     const { evaluateDispatch, dispatchBlockStatus, dispatchRejectBody } = await import('./server/services/evaluateDispatch.js');
+    const { pastedDriveFolderUrl } = await import('./src/lib/proofPrecedence.js');
+    const pastedFolder = pastedDriveFolderUrl(pastedBody);
+    if (pastedFolder) driveUrl = pastedFolder;
     const dispatchVerdict = await evaluateDispatch({
       task: {
         ...task,

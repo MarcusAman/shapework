@@ -38,6 +38,8 @@ import {
 } from '../../lib/dispatchVerdict';
 import { resolveProofPrecedence } from '../../lib/proofPrecedence';
 
+const PROOF_CHECK_DEBOUNCE_MS = 300;
+
 export interface AskRequesterQuestionsModalProps {
   isOpen: boolean;
   campaign: any | null;
@@ -203,15 +205,38 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [duplicateConfirmed, setDuplicateConfirmed] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [ensuredDriveUrl, setEnsuredDriveUrl] = useState<string>('');
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string>(String(campaign?.driveFolderUrl || ''));
+  const [pastedProof, setPastedProof] = useState<string>(() =>
+    resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
+  );
+  const [proofForCheck, setProofForCheck] = useState<string>(() =>
+    resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
+  );
   const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
+  const dispatchGen = React.useRef(0);
   const activeDispatchVerdict = dispatchVerdict || fetchedDispatchVerdict;
   const assuranceLabel = dispatchAssuranceLabel(activeDispatchVerdict?.recipientStatus);
   const recipientConfirmed = dispatchRecipientConfirmed(activeDispatchVerdict?.recipientStatus);
 
   useEffect(() => {
+    setDriveFolderUrl(String(campaign?.driveFolderUrl || ''));
+  }, [campaign?.id, campaign?.taskId]);
+
+  useEffect(() => {
+    setPastedProof(resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl));
+  }, [campaign?.approvePayload?.proofUrl, campaign?.proofUrl]);
+
+  useEffect(() => {
+    if (pastedProof === proofForCheck) return;
+    const timer = setTimeout(() => setProofForCheck(pastedProof), PROOF_CHECK_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [pastedProof, proofForCheck]);
+
+  useEffect(() => {
     if (dispatchVerdict || !isOpen || !campaign) return;
     const taskId = campaign.taskId || campaign.id;
     if (!taskId) return;
+    const gen = ++dispatchGen.current;
     let cancelled = false;
     (async () => {
       try {
@@ -223,19 +248,35 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             recipientName: campaign.agentName,
             channels: ['email'],
             intent,
-            proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl),
-            driveFolderUrl: campaign.driveFolderUrl,
+            proofUrl: proofForCheck,
+            driveFolderUrl: driveFolderUrl || undefined,
+            attachments: campaign.attachments || [],
             domain,
           }),
         });
         const data = await res.json().catch(() => null);
-        if (!cancelled && data?.recipientStatus) setFetchedDispatchVerdict(data);
+        if (cancelled || gen !== dispatchGen.current) return;
+        if (data && (data.recipientStatus || typeof data.allowed === 'boolean')) {
+          setFetchedDispatchVerdict(data);
+        }
       } catch {
-        if (!cancelled) setFetchedDispatchVerdict(null);
+        if (!cancelled && gen === dispatchGen.current) setFetchedDispatchVerdict(null);
       }
     })();
     return () => { cancelled = true; };
-  }, [dispatchVerdict, isOpen, campaign, intent, domain]);
+  }, [
+    dispatchVerdict,
+    isOpen,
+    campaign?.id,
+    campaign?.taskId,
+    campaign?.agentEmail,
+    campaign?.email,
+    campaign?.agentName,
+    intent,
+    domain,
+    proofForCheck,
+    driveFolderUrl,
+  ]);
 
   useEffect(() => {
     if (recipient.emailVerified && recipient.phoneVerified) {
@@ -291,6 +332,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
         if (res.ok && data?.linkable && data?.driveFolderUrl) {
           campaign.driveFolderUrl = data.driveFolderUrl;
           setEnsuredDriveUrl(data.driveFolderUrl);
+          setDriveFolderUrl(data.driveFolderUrl);
           setStatusMessage(null);
         } else if (res.ok) {
           setEnsuredDriveUrl('');
@@ -400,8 +442,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       ccEmails: activeDispatchVerdict?.effectiveCc || [],
       domain,
       workspaceId: campaign.workspaceId || 'ws_wilmington',
-      driveFolderUrl: campaign.driveFolderUrl || undefined,
-      proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl) || undefined,
+      driveFolderUrl: driveFolderUrl || campaign.driveFolderUrl || undefined,
+      proofUrl: pastedProof || undefined,
       assetUrls: isDelivery ? [] : collectDeliveryAssetLinks(campaign),
       attachments: (campaign.attachments || []).filter((a: any) => a?.url)
     };
@@ -542,8 +584,9 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">Approve is held until you send this note.</p>
-                <p className="text-emerald-800 text-[11px] mt-0.5">
-                  Customize the message, pick email / text / both, then send. Marketing completes CC Melissa automatically.
+                <p className="text-emerald-800 text-[11px] mt-0.5" data-testid="dispatch-cc-note">
+                  Customize the message, pick email / text / both, then send.{' '}
+                  {effectiveCc.length ? `CC ${effectiveCc.join(', ')}.` : "No one is CC'd."}
                 </p>
               </div>
             </div>
@@ -660,7 +703,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-effective-cc">
                   <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pt-0.5">Cc</span>
                   <div className="text-[11px] text-slate-600 font-mono">
-                    {effectiveCc.length ? effectiveCc.join(', ') : '—'}
+                    {effectiveCc.length ? effectiveCc.join(', ') : "No one is CC'd."}
                   </div>
                 </div>
               )}

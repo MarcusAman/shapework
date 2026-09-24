@@ -396,6 +396,45 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         status: 400,
       },
       {
+        name: 'pasted folder link with no file',
+        headers: melissa,
+        body: payload({
+          proofUrl: DRIVE_FOLDER,
+          driveFolderUrl: undefined,
+          attachments: [],
+          assetUrls: [],
+        }),
+        allowed: false,
+        reason: DISPATCH_REASON.file,
+        status: 400,
+      },
+      {
+        name: 'pasted drive file link is not a folder',
+        headers: melissa,
+        body: payload({
+          proofUrl: HTTPS_PROOF,
+          driveFolderUrl: undefined,
+          attachments: [],
+          assetUrls: [],
+        }),
+        allowed: false,
+        reason: DISPATCH_REASON.file,
+        status: 400,
+      },
+      {
+        name: 'pasted folder link plus a file',
+        headers: melissa,
+        body: payload({
+          proofUrl: DRIVE_FOLDER,
+          driveFolderUrl: undefined,
+          attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png', filename: 'Test.png' }],
+        }),
+        allowed: true,
+        reason: '',
+        status: 200,
+        recipientStatus: 'allowlisted_prove',
+      },
+      {
         name: 'allowlisted marcus',
         headers: melissa,
         body: payload(),
@@ -684,6 +723,8 @@ describe('Notify modal reads dispatch-check To, CC, and allowed', () => {
     expect(html).toContain('data-testid="outreach-effective-to"');
     expect(html).toContain('marcus.aman@gmail.com');
     expect(html).toContain('data-testid="outreach-effective-cc"');
+    expect(html).toContain('No one is CC&#x27;d.');
+    expect(html).not.toContain('Marketing completes CC Melissa automatically');
     expect(html).not.toContain('melissa.gagliardi@nestrealty.com');
     expect(html).toContain('Send &amp; complete');
     expect(html).toContain('Proof link must use https.');
@@ -711,6 +752,7 @@ describe('Notify modal reads dispatch-check To, CC, and allowed', () => {
       })
     );
     expect(html).not.toContain('melissa.gagliardi@nestrealty.com');
+    expect(html).toContain('No one is CC&#x27;d.');
     expect(html).toContain('data-send-ready="true"');
     const button = html.match(/<button[^>]*data-testid="ask-agent-submit-btn"[^>]*>/);
     expect(button?.[0]).not.toContain('disabled=""');
