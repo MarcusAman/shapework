@@ -265,7 +265,7 @@ import { dispatchActionForStep, setOnStepCompleted } from './server/headless/act
 import { createOutcomeForStep } from './server/headless/outcomeService.js';
 import { createOwnerBriefItem } from './server/headless/ownerBriefService.js';
 import { loadStateFromStorage, saveStateToStorage, dbPool, getDbPool, storageDriver, dbInitPromise } from './server/persistence/repositories.js';
-import { loadWorkspaceState, saveWorkspaceState, seedDatabaseIfEmpty, ensureSuperAdminsExist, ensurePilotUsersExist, PILOT_TEAM_USERS } from './server/persistence/dbSync.js';
+import { loadWorkspaceState, saveWorkspaceState, seedDatabaseIfEmpty, ensureSuperAdminsExist, ensurePilotUsersExist, PILOT_TEAM_USERS, bindPersistOnFinish } from './server/persistence/dbSync.js';
 import { convertKeysToCamel, convertKeysToSnake } from './server/persistence/databaseRepositories.js';
 import { parseNestRechatRow } from './server/persistence/nestRechatParser.js';
 import { csrfProtection } from './server/auth/csrf.js';
@@ -2039,7 +2039,7 @@ import('./server/auth/auth').then(({ SEEDED_USERS, SEEDED_MEMBERSHIPS, ROLE_PERM
   });
 
 // Helper to save state changes
-const persistState = async (targetWorkspaceId?: string) => {
+const persistState = async (targetWorkspaceId?: string, options?: { reconcileDeletes?: boolean; mutatedStateKeys?: string[] }) => {
   const wsId = targetWorkspaceId || (dbState as any).activeWorkspaceId || 'nest-realty-demo';
   
   syncRuntimeToLegacy(dbState);
@@ -2050,7 +2050,7 @@ const persistState = async (targetWorkspaceId?: string) => {
   saveStateToStorage(dbState);
   if (storageDriver === 'database' && dbPool && wsId) {
     try {
-      await saveWorkspaceState(dbPool, wsId, dbState);
+      await saveWorkspaceState(dbPool, wsId, dbState, options);
     } catch (err) {
       console.error('[Database] Failed to persist state to database:', err);
     }
@@ -2059,14 +2059,12 @@ const persistState = async (targetWorkspaceId?: string) => {
 dbState.saveStateToStorage = (wsId?: string) => persistState(wsId);
 initJobQueue(dbState, (wsId?: string) => persistState(wsId));
 
-// Middleware to auto-persist state changes
+// Middleware to auto-persist state changes.
+// Login never reconciles deletes. Other routes reconcile a collection only
+// when this request changed that collection's ids.
 app.use((req, res, next) => {
-  res.on('finish', async () => {
-    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-      const wsId = (req as any).workspaceId || 'nest-realty-demo';
-      await persistState(wsId);
-    }
-  });
+  const wsId = (req as any).workspaceId || 'nest-realty-demo';
+  bindPersistOnFinish(req, res, wsId, () => dbState, (id, options) => persistState(id, options));
   next();
 });
 
