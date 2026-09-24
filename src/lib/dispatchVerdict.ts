@@ -9,6 +9,7 @@ export type DispatchVerdictView = {
   reason: string;
   recipientStatus: DispatchRecipientStatus;
   recipientId?: string | null;
+  effectiveTo?: string[];
   effectiveCc?: string[];
 };
 

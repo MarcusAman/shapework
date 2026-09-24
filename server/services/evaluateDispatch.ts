@@ -28,6 +28,9 @@ export type DispatchVerdict = {
   recipientStatus: DispatchRecipientStatus;
   /** Real directory id, or null. Never a made-up dir_* for an allowlist-only To. */
   recipientId: string | null;
+  /** Post-filter To. Outbox recipients must use this array as-is. */
+  effectiveTo: string[];
+  /** Post-filter CC. Outbox recipients must use this array as-is. */
   effectiveCc: string[];
 };
 
@@ -69,15 +72,27 @@ function cleanList(values?: Array<string | null | undefined> | null): string[] {
   );
 }
 
-/** Prod + a real directory person keeps CC. Every other mode keeps exact allowlist hits only. */
+/**
+ * Final recipient list. A directory person in production keeps every address.
+ * Every other mode keeps exact allowlist hits only, so a prove send cannot
+ * carry a Nest address in To or CC.
+ */
+export function filterDispatchRecipients(
+  addresses: string[] | null | undefined,
+  recipientStatus: DispatchRecipientStatus
+): string[] {
+  const cleaned = cleanList(addresses);
+  if (isProductionApp() && recipientStatus === 'directory') return cleaned;
+  const allow = new Set(EXPLICIT_OUTBOUND_ALLOWLIST.map((email) => email.toLowerCase()));
+  return cleaned.filter((email) => allow.has(email));
+}
+
+/** @deprecated Use filterDispatchRecipients. Same function for To and CC. */
 export function filterDispatchCc(
   cc: string[] | null | undefined,
   recipientStatus: DispatchRecipientStatus
 ): string[] {
-  const cleaned = cleanList(cc);
-  if (isProductionApp() && recipientStatus === 'directory') return cleaned;
-  const allow = new Set(EXPLICIT_OUTBOUND_ALLOWLIST.map((email) => email.toLowerCase()));
-  return cleaned.filter((email) => allow.has(email));
+  return filterDispatchRecipients(cc, recipientStatus);
 }
 
 function outboundTurnedOff(): boolean {
@@ -156,6 +171,7 @@ export function dispatchRejectBody(verdict: DispatchVerdict) {
     code: dispatchBlockCode(verdict.reason),
     recipientStatus: verdict.recipientStatus,
     recipientId: verdict.recipientId,
+    effectiveTo: verdict.effectiveTo,
     effectiveCc: verdict.effectiveCc,
   };
 }
@@ -178,7 +194,8 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     recipientStatus = 'allowlisted_prove';
   }
 
-  const effectiveCc = filterDispatchCc(input.cc, recipientStatus);
+  const effectiveTo = filterDispatchRecipients(email ? [email] : [], recipientStatus);
+  const effectiveCc = filterDispatchRecipients(input.cc, recipientStatus);
   const folderUrl = String(input.driveFolderUrl || input.task?.driveFolderUrl || '').trim();
   const suppliedProof = String(input.proofUrl || '').trim();
 
@@ -200,6 +217,7 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     reason,
     recipientStatus,
     recipientId,
+    effectiveTo,
     effectiveCc,
   };
 }

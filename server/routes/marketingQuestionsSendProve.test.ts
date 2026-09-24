@@ -363,11 +363,58 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         expect(send.data.reason === check.data.reason || send.data.gateReason === check.data.reason, row.name).toBe(true);
         if (row.recipientStatus) {
           expect(check.data.recipientStatus).toBe(row.recipientStatus);
-          expect(check.data.effectiveCc).not.toContain('melissa.gagliardi@nestrealty.com');
+          expect(check.data.effectiveTo).toEqual(['marcus.aman@gmail.com']);
+          expect(check.data.effectiveCc).toEqual([]);
         }
       } finally {
         process.env.OUTBOUND_MASTER_MODE = 'hold';
       }
+    }
+  });
+
+  it('hold outbox to/cc deep-equal dispatch-check effectiveTo and effectiveCc', async () => {
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const check = await postCheck(payload(), melissa);
+    expect(check.data.allowed).toBe(true);
+    expect(check.data.effectiveTo).toEqual(['marcus.aman@gmail.com']);
+    expect(check.data.effectiveCc).toEqual([]);
+
+    for (const key of [...memoryOutbox.keys()]) {
+      if (String(key).includes(TASK_ID)) memoryOutbox.delete(key);
+    }
+    const before = new Set(memoryOutbox.keys());
+    const send = await post(payload(), melissa);
+    expect(send.status, JSON.stringify(send.data)).toBe(200);
+    expect(process.env.OUTBOUND_MASTER_MODE).toBe('hold');
+    const created = [...memoryOutbox.entries()].filter(([key]) => !before.has(key));
+    expect(created.length).toBe(1);
+    expect(created[0][1].to).toEqual(check.data.effectiveTo);
+    expect(created[0][1].cc).toEqual(check.data.effectiveCc);
+    expect(created[0][1].payload.to).toEqual(check.data.effectiveTo);
+    expect(created[0][1].payload.cc).toEqual(check.data.effectiveCc);
+  });
+
+  it('drops every @nestrealty.com address from effectiveTo and effectiveCc while the prove allowlist is active', async () => {
+    expect(process.env.OUTBOUND_MASTER_MODE).toBe('hold');
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const bodies = [
+      payload(),
+      payload({
+        recipientName: 'Eduardo Lovo',
+        recipientEmail: 'eduardo.lovo@nestrealty.com',
+        recipientPhone: undefined,
+        channels: ['email'],
+        ccEmails: ['melissa.gagliardi@nestrealty.com', 'dawn@nestrealty.com'],
+      }),
+      payload({ ccEmails: ['someone@nestrealty.com'] }),
+    ];
+    for (const body of bodies) {
+      const check = await postCheck(body, melissa);
+      const lists = [...(check.data.effectiveTo || []), ...(check.data.effectiveCc || [])];
+      expect(
+        lists.some((email: string) => String(email).toLowerCase().endsWith('@nestrealty.com')),
+        JSON.stringify({ to: check.data.effectiveTo, cc: check.data.effectiveCc })
+      ).toBe(false);
     }
   });
 

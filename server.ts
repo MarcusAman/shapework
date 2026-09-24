@@ -8414,10 +8414,15 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
         smtpResponse: '250 skipped — agent notified via Ask Requester outreach modal',
         skippedAutoEmail: true
       };
+    } else if (!dispatchVerdict.effectiveTo.length) {
+      emailResult = {
+        smtpAccepted: false,
+        smtpResponse: 'No effective recipients after dispatch-check',
+      };
     } else {
       const { sendTaskCompletionEmail } = await import('./server/email/emailProvider.js');
       emailResult = await sendTaskCompletionEmail({
-        toEmail: agentEmail,
+        toEmail: dispatchVerdict.effectiveTo[0],
         agentName,
         propertyAddress,
         taskTitle: task.title,

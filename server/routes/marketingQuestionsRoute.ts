@@ -64,6 +64,7 @@ async function persistApproveNotifyProof(
     /** Shared evaluateDispatch already accepted this send. */
     dispatchCleared?: boolean;
     recipientStatus?: DispatchVerdict['recipientStatus'];
+    effectiveTo?: string[];
     effectiveCc?: string[];
   }
 ): Promise<{ handled: boolean }> {
@@ -174,12 +175,16 @@ async function persistApproveNotifyProof(
   }
 
   let outboxId: string | undefined;
-  if (args.proveAllowlist && outboundHeld && args.resolvedRecipient.email && masterMode === 'hold') {
+  const effectiveTo = args.effectiveTo || [];
+  const effectiveCc = args.effectiveCc || [];
+  if (args.proveAllowlist && outboundHeld && effectiveTo.length && masterMode === 'hold') {
     const queued = await enqueueOutboundEmail({
       workspaceId: args.workspaceId,
       messageType: 'materials_ready',
       idempotencyKey: `allowlist_hold_${saved.id}_${proofCandidate || 'no-proof'}`,
-      recipient: args.resolvedRecipient.email,
+      recipient: effectiveTo[0],
+      to: effectiveTo,
+      cc: effectiveCc,
       subject: String((req.body as any)?.subject || `Your marketing materials are ready — ${args.propertyAddress}`),
       payload: {
         body: String((req.body as any)?.message || ''),
@@ -190,6 +195,8 @@ async function persistApproveNotifyProof(
         intent: 'delivery_complete',
         hold: true,
         proofUrl: proofCandidate || undefined,
+        to: effectiveTo,
+        cc: effectiveCc,
       },
       skipMemberPrefs: true,
     });
@@ -240,7 +247,8 @@ async function persistApproveNotifyProof(
       allowed: true,
       gateReason: '',
       recipientStatus: args.recipientStatus,
-      effectiveCc: args.effectiveCc || [],
+      effectiveTo,
+      effectiveCc,
       outboxId,
       message: outboxId
         ? 'Proof approved. Queued to outbound hold.'
@@ -510,6 +518,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         proveAllowlist: verdict.recipientStatus === 'allowlisted_prove',
         dispatchCleared: true,
         recipientStatus: verdict.recipientStatus,
+        effectiveTo: verdict.effectiveTo,
         effectiveCc: verdict.effectiveCc,
       });
       if (deliveryResult.handled) return;
@@ -551,8 +560,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       console.warn('[send-questions] pref gate error', err);
     }
 
-    // CC already passed through evaluateDispatch. Non-allowlist addresses are dropped
-    // unless this is a directory recipient in production.
+    // To and CC are the evaluateDispatch arrays. Do not filter again.
+    const resolvedTo = verdict.effectiveTo;
     const resolvedCc = verdict.effectiveCc;
     const emailSubject = (subject && String(subject).trim())
       || (isDeliveryComplete
@@ -794,7 +803,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
     const outboundMessage = isDeliveryComplete ? deliveryBody : message;
 
     // 5. Dispatch Email via Provider
-    if (channels.includes('email') && resolvedRecipient.email) {
+    if (channels.includes('email') && resolvedTo.length) {
       const questionsListHtml = !isDeliveryComplete && selectedQuestions.length > 0
         ? `<ul style="margin: 12px 0; padding-left: 20px; color: #01362D; line-height: 1.6;">${selectedQuestions.map(q => `<li style="margin-bottom: 6px;"><strong>${q}</strong></li>`).join('')}</ul>`
         : '';
@@ -869,7 +878,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         let sendError: string | undefined;
 
         const smtpResult = await sendAskNoraEmail({
-          to: resolvedRecipient.email,
+          to: resolvedTo[0],
           from: enforcedFromAddress,
           replyTo: 'AskNora@nestrealty.com',
           subject: emailSubject,
@@ -889,7 +898,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
           if (resendUsable) {
             providerUsed = 'resend';
             const emailResult = await dispatchEmailViaResend({
-              to: resolvedRecipient.email,
+              to: resolvedTo[0],
               from: enforcedFromAddress,
               subject: emailSubject,
               html: formattedHtml,
@@ -1073,6 +1082,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       allowed: true,
       gateReason: '',
       recipientStatus: verdict.recipientStatus,
+      effectiveTo: verdict.effectiveTo,
       effectiveCc: verdict.effectiveCc,
       partial: warnings.length > 0,
       campaignId,
