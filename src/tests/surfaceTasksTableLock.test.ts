@@ -197,6 +197,19 @@ describe('Surface Tasks table lock v2 — MarketingHomeInbox', () => {
     expect(toolbarSlice).not.toMatch(/Filter by Timeframe|All Dates|Past 7 Days/);
   });
 
+  it('Table view: task-domain-pill-tabs absent (no All Tasks/Marketing/Listing/Offer/Operational category row)', () => {
+    // Category domain pill row must never sit inside the table branch
+    expect(tableSrc).not.toContain('task-domain-pill-tabs');
+    expect(tableSrc).not.toContain('task-domain-listing-launch');
+    expect(tableSrc).not.toContain('task-domain-offer-2t');
+
+    // Domain pills still exist for Board, but must be gated off when viewMode is table
+    const pillIdx = inboxSrc.indexOf('data-testid="task-domain-pill-tabs"');
+    expect(pillIdx).toBeGreaterThan(-1);
+    const gateWindow = inboxSrc.slice(Math.max(0, pillIdx - 400), pillIdx);
+    expect(gateWindow).toMatch(/viewMode\s*!==\s*['"]table['"]/);
+  });
+
   it('one filtered-set count everywhere (no 120/123/119 drift)', () => {
     expect(inboxSrc).toContain('data-testid="tasks-filtered-count"');
     expect(inboxSrc).toMatch(/tasks-filtered-count"[\s\S]{0,120}filteredTasks\.length/);

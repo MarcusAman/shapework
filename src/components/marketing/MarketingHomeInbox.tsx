@@ -1650,7 +1650,8 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   return (
     <div className="space-y-4 text-left font-sans animate-fadeIn" data-testid="marketing-requests-table">
       
-      {/* 1. TOP HEADER TOOLBAR: DOMAIN TABS (LEFT) & ACTION BUTTONS (RIGHT) */}
+      {/* 1. TOP HEADER TOOLBAR: DOMAIN TABS (LEFT) & ACTION BUTTONS (RIGHT) — Board only; hidden in Table (Surface v2 one-row toolbar) */}
+      {viewMode !== 'table' && (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* DOMAIN QUICK-SWITCH PILL TABS */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5" data-testid="task-domain-pill-tabs">
@@ -1751,6 +1752,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* 2. SURFACE TOOLBAR v2 — one row: Mine · Open · Blocked · Address · Board|Table */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
