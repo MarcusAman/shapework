@@ -17,6 +17,7 @@ import {
 import { resolveProofPrecedence } from '../../src/lib/proofPrecedence.js';
 import { recordActivityEvent, getActivityHistoryForTask } from '../services/activityHistoryService.js';
 import {
+  applyEnsuredFolder,
   ensureAskNoraDeliveryDrivePack,
   isDurableHttpsProofUrl,
   isRealGoogleDriveUrl,
@@ -36,6 +37,7 @@ import { canSendAgentOutbound } from '../persistence/notificationPreferencesRepo
 import {
   DISPATCH_REASON,
   dispatchRejectBody,
+  driveCreateFailureReason,
   evaluateDispatch,
   type DispatchVerdict,
 } from '../services/evaluateDispatch.js';
@@ -1104,6 +1106,15 @@ marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', async
     const tasks = getAllCanonicalMarketingTasks();
     const task = tasks.find((x: any) => x.id === taskId);
     const stagedAssets = Array.isArray(req.body?.stagedAssets) ? req.body.stagedAssets : [];
+    if (task) {
+      if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {
+        task.attachments = req.body.attachments;
+      }
+      if ((!task.photos || !task.photos.length) && Array.isArray(req.body?.photos)) {
+        task.photos = req.body.photos;
+      }
+      if (!task.propertyAddress && req.body?.propertyAddress) task.propertyAddress = String(req.body.propertyAddress);
+    }
     const pack = task
       ? await ensureAskNoraDeliveryDrivePack(task, { stagedAssets })
       : await ensureAskNoraDeliveryDrivePack({
@@ -1115,19 +1126,34 @@ marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', async
           attachments: req.body?.attachments,
         }, { stagedAssets });
 
-    if (task && pack.linkable && pack.driveFolderUrl) {
-      task.driveFolderUrl = pack.driveFolderUrl;
-      task.updatedAt = new Date().toISOString();
+    if (task && applyEnsuredFolder(task, pack.driveFolderUrl)) {
       saveCanonicalMarketingTask(task);
     }
 
-    return res.status(pack.linkable ? 200 : 200).json({
-      success: true,
+    if (!pack.driveFolderId || !pack.driveFolderUrl) {
+      const reason = driveCreateFailureReason(pack.error);
+      return res.status(400).json({
+        success: false,
+        allowed: false,
+        linkable: false,
+        driveFolderUrl: '',
+        reason,
+        error: reason,
+        code: 'DRIVE_FOLDER_CREATE_FAILED',
+      });
+    }
+
+    const reason = pack.linkable ? '' : (pack.error || 'Drive folder is empty.');
+    return res.status(200).json({
+      success: pack.linkable,
+      allowed: pack.linkable,
       linkable: pack.linkable,
-      driveFolderUrl: pack.linkable ? pack.driveFolderUrl : '',
-      driveFolderId: pack.linkable ? pack.driveFolderId : '',
+      driveFolderUrl: pack.driveFolderUrl,
+      driveFolderId: pack.driveFolderId,
       uploaded: pack.uploaded || [],
-      error: pack.linkable ? undefined : (pack.error || 'Folder not linkable yet'),
+      reason,
+      error: reason || undefined,
+      task,
     });
   } catch (err: any) {
     return res.status(500).json({

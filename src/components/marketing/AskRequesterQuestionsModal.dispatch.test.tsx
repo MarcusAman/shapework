@@ -95,10 +95,12 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     container = null;
   });
 
-  async function renderModal() {
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
+  async function renderModal(campaign = freshCampaign()) {
+    if (!container) {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      root = createRoot(container);
+    }
     await act(async () => {
       root?.render(
         React.createElement(AskRequesterQuestionsModal, {
@@ -106,7 +108,7 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
           onClose: () => {},
           intent: 'delivery_complete',
           isOutboundEnabled: true,
-          campaign: freshCampaign(),
+          campaign,
         })
       );
     });
@@ -115,17 +117,10 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     });
   }
 
-  it('enables Send after ensure-drive returns a folder and dispatch-check allows it', async () => {
+  it('opens Notify, ensure-drive succeeds, rechecks, and enables Send', async () => {
     const pending = installFetch();
     await renderModal();
-
-    const blocked = pending.checks.find((check) => !check.driveFolderUrl);
-    expect(blocked, 'dispatch-check before Drive').toBeTruthy();
-    await act(async () => {
-      blocked?.resolve(verdict(false));
-    });
-    expect(sendButton()?.disabled).toBe(true);
-    expect(document.body.textContent).toContain(BLOCKED);
+    expect(pending.checks, 'dispatch-check waits for ensure-drive').toHaveLength(0);
 
     await act(async () => {
       pending.releaseEnsure();
@@ -134,6 +129,8 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     });
     const allowed = pending.checks.find((check) => check.driveFolderUrl === FOLDER);
     expect(allowed, 'dispatch-check uses the ensure-drive folder').toBeTruthy();
+    expect(sendButton()?.disabled).toBe(true);
+
     await act(async () => {
       allowed?.resolve(verdict(true));
     });
@@ -144,25 +141,35 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
 
   it('keeps the newer verdict when an older dispatch-check responds late', async () => {
     const pending = installFetch();
-    await renderModal();
+    const campaign = freshCampaign();
+    await renderModal(campaign);
 
-    const blocked = pending.checks.find((check) => !check.driveFolderUrl);
-    expect(blocked).toBeTruthy();
     await act(async () => {
       pending.releaseEnsure();
       await Promise.resolve();
       await Promise.resolve();
     });
-    const allowed = pending.checks.find((check) => check.driveFolderUrl === FOLDER);
-    expect(allowed).toBeTruthy();
+    const first = pending.checks.find((check) => check.driveFolderUrl === FOLDER);
+    expect(first).toBeTruthy();
+
+    await renderModal({
+      ...campaign,
+      approvePayload: { proofUrl: 'https://drive.google.com/drive/folders/1AbCotherFolder111xyz' },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const newer = pending.checks[pending.checks.length - 1];
+    expect(newer).toBeTruthy();
+    expect(newer).not.toBe(first);
 
     await act(async () => {
-      allowed?.resolve(verdict(true));
+      newer?.resolve(verdict(true));
     });
     expect(sendButton()?.disabled).toBe(false);
 
     await act(async () => {
-      blocked?.resolve(verdict(false));
+      first?.resolve(verdict(false));
     });
     expect(sendButton()?.disabled).toBe(false);
     expect(sendButton()?.getAttribute('data-send-ready')).toBe('true');

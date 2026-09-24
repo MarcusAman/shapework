@@ -396,6 +396,39 @@ class GoogleDriveServiceEngine {
   }
 
 
+  /** Copy an existing Drive file into a listing folder. Owned by the authenticated AskNora user. */
+  public async copyFileToFolder(params: {
+    folderId: string;
+    fileId: string;
+    fileName: string;
+    workspaceId?: string;
+  }): Promise<{ isLive: boolean; fileId: string; webViewLink: string }> {
+    const folderId = String(params.folderId || '').trim();
+    const fileId = String(params.fileId || '').trim();
+    const fileName = String(params.fileName || '').trim() || fileId;
+    if (!folderId || !fileId) return { isLive: false, fileId: '', webViewLink: '' };
+    const auth = await this.getAuthenticatedDriveClient(params.workspaceId || 'ws_wilmington');
+    if (!auth?.drive?.files?.copy) return { isLive: false, fileId: '', webViewLink: '' };
+    try {
+      const res = await auth.drive.files.copy({
+        fileId,
+        requestBody: { name: fileName, parents: [folderId] },
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true,
+      });
+      const copiedId = String(res?.data?.id || '');
+      if (!copiedId) return { isLive: false, fileId: '', webViewLink: '' };
+      return {
+        isLive: true,
+        fileId: copiedId,
+        webViewLink: res.data.webViewLink || `https://drive.google.com/file/d/${copiedId}/view`,
+      };
+    } catch (err: any) {
+      console.warn('[GoogleDriveService] copy into folder failed:', err?.message || err);
+      return { isLive: false, fileId: '', webViewLink: '' };
+    }
+  }
+
   /**
    * Non-folder files directly inside a Drive folder.
    * No credentials, a thrown list (404 / permission), or any other list failure is not ok.

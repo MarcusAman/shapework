@@ -206,6 +206,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [ensuredDriveUrl, setEnsuredDriveUrl] = useState<string>('');
   const [driveFolderUrl, setDriveFolderUrl] = useState<string>(String(campaign?.driveFolderUrl || ''));
+  const [driveSettled, setDriveSettled] = useState<boolean>(!isDelivery);
   const [pastedProof, setPastedProof] = useState<string>(() =>
     resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
   );
@@ -234,6 +235,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
   useEffect(() => {
     if (dispatchVerdict || !isOpen || !campaign) return;
+    if (isDelivery && !driveSettled) return;
     const taskId = campaign.taskId || campaign.id;
     if (!taskId) return;
     const gen = ++dispatchGen.current;
@@ -276,6 +278,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     domain,
     proofForCheck,
     driveFolderUrl,
+    driveSettled,
+    isDelivery,
   ]);
 
   useEffect(() => {
@@ -309,9 +313,16 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
   // Delivery: create/reuse real AskNora Drive folder so the assets strip is not empty
   useEffect(() => {
-    if (!isOpen || !campaign || !isDelivery) return;
+    if (!isOpen || !campaign || !isDelivery) {
+      setDriveSettled(true);
+      return;
+    }
     const taskId = campaign.taskId || campaign.id;
-    if (!taskId) return;
+    if (!taskId) {
+      setDriveSettled(true);
+      return;
+    }
+    setDriveSettled(false);
     let cancelled = false;
     (async () => {
       try {
@@ -329,19 +340,20 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
         });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.ok && data?.linkable && data?.driveFolderUrl) {
+        if (data?.driveFolderUrl) {
           campaign.driveFolderUrl = data.driveFolderUrl;
           setEnsuredDriveUrl(data.driveFolderUrl);
           setDriveFolderUrl(data.driveFolderUrl);
-          setStatusMessage(null);
-        } else if (res.ok) {
-          setEnsuredDriveUrl('');
-          setStatusMessage(data?.error || 'Drive not linkable yet — send will attach files to email.');
         } else {
-          setStatusMessage(data?.error || 'Could not create AskNora Drive folder yet — send will attach files.');
+          setEnsuredDriveUrl('');
         }
+        setStatusMessage(data?.linkable ? null : (data?.reason || data?.error || "Couldn't create the Drive folder."));
+        setDriveSettled(true);
       } catch (err: any) {
-        if (!cancelled) setStatusMessage(err?.message || 'Drive folder ensure failed');
+        if (!cancelled) {
+          setStatusMessage(err?.message || "Couldn't create the Drive folder.");
+          setDriveSettled(true);
+        }
       }
     })();
     return () => { cancelled = true; };

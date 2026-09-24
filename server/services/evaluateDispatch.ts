@@ -9,10 +9,16 @@ import {
   isLocalProveAllowlistTo,
   isProductionApp,
 } from '../../src/lib/outboundAllowlistGate.js';
-import { isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
+import { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack, isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
-import { isInlineDataProof, pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
+import { pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
+import { saveCanonicalMarketingTask } from '../persistence/marketingCampaignsRepository.js';
 import { GoogleDriveService } from './googleDriveService.js';
+
+export function driveCreateFailureReason(detail?: string | null): string {
+  const why = String(detail || 'Drive folder create failed').trim().replace(/\.+$/, '');
+  return `Couldn't create the Drive folder: ${why}.`;
+}
 
 export const DISPATCH_REASON = {
   role: 'Only the task reviewer may approve and notify.',
@@ -141,35 +147,12 @@ function isDriveFolderUrl(url?: string | null): boolean {
   return isRealGoogleDriveUrl(value);
 }
 
-/** A file is an https file link or a real upload. A folder URL is not a file. data: is never a file. */
-function isSendableFileUrl(url?: string | null): boolean {
-  const value = String(url || '').trim();
-  if (!value || isInlineDataProof(value)) return false;
-  if (/\/folders\//i.test(value)) return false;
-  if (value.startsWith('/uploads/')) return true;
-  return isDurableHttpsProofUrl(value);
-}
-
-function attachmentFileUrl(item: unknown): string {
-  if (!item) return '';
-  if (typeof item === 'string') return item.trim();
-  const record = item as { url?: string; previewUrl?: string; driveUrl?: string; downloadUrl?: string };
-  return String(record.driveUrl || record.downloadUrl || record.url || record.previewUrl || '').trim();
-}
-
-function hasSendableFile(input: EvaluateDispatchInput, proof: string): boolean {
-  if (isSendableFileUrl(proof)) return true;
-  if ((input.assetUrls || []).some((url) => isSendableFileUrl(url))) return true;
-  const attachments = [...(input.attachments || []), ...(input.task?.attachments || [])];
-  return attachments.some((item) => isSendableFileUrl(attachmentFileUrl(item)));
-}
-
 /**
- * A pasted folder is sendable only when that folder id itself lists at least one file.
- * Task attachments, uploaded photos, and asset URLs do not count.
+ * Sendable only when this folder id lists at least one file.
+ * Task attachments and uploaded photos do not count. They have to be copied into the folder first.
  * A failed list (no credentials, 404, permission, or any other error) stays blocked.
  */
-async function pastedFolderFileReason(folderId: string, workspaceId?: string | null): Promise<string> {
+async function folderContentsReason(folderId: string, workspaceId?: string | null): Promise<string> {
   try {
     const listed = await GoogleDriveService.listFilesInFolder(folderId, String(workspaceId || 'ws_wilmington'));
     if (!listed.ok) return DISPATCH_REASON.unreadFolder;
@@ -178,6 +161,30 @@ async function pastedFolderFileReason(folderId: string, workspaceId?: string | n
   } catch {
     return DISPATCH_REASON.unreadFolder;
   }
+}
+
+/** No folder yet: create the AskNora address folder, copy intake files, then count what landed. */
+async function ensureFolderThenCount(input: EvaluateDispatchInput): Promise<string> {
+  const task = input.task || { id: 'dispatch' };
+  const attachments = [
+    ...(Array.isArray(task.attachments) ? task.attachments : []),
+    ...(Array.isArray(input.attachments) ? input.attachments : []),
+  ];
+  const pack = await ensureAskNoraDeliveryDrivePack(
+    { ...task, attachments, photos: task.photos },
+    { stagedAssets: (input.assetUrls || []).map((url) => ({ url })) }
+  );
+  if (!pack.driveFolderId || !isRealGoogleDriveUrl(pack.driveFolderUrl)) {
+    return driveCreateFailureReason(pack.error);
+  }
+  if (applyEnsuredFolder(task, pack.driveFolderUrl)) {
+    try {
+      saveCanonicalMarketingTask(task as any);
+    } catch (err: any) {
+      console.warn('[evaluateDispatch] could not persist drive folder:', err?.message || err);
+    }
+  }
+  return folderContentsReason(pack.driveFolderId, task.workspaceId);
 }
 
 export function dispatchBlockStatus(reason: string): number {
@@ -201,7 +208,9 @@ export function dispatchBlockCode(reason: string): string {
     case DISPATCH_REASON.outbound:
       return 'OUTBOUND_DISABLED';
     default:
-      return 'DISPATCH_BLOCKED';
+      return reason.startsWith("Couldn't create the Drive folder:")
+        ? 'DRIVE_FOLDER_CREATE_FAILED'
+        : 'DISPATCH_BLOCKED';
   }
 }
 
@@ -249,9 +258,10 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
   const folderUrl = resolved.driveFolderUrl;
   const suppliedProof = resolved.proofUrl;
   const pastedFolderId = pastedDriveFolderId(input.proofUrl);
+  const explicitFolderId = folderUrl.match(/\/folders\/([a-zA-Z0-9_-]+)/)?.[1] || '';
 
-  // Fixed order: role, recipient, proof, Drive folder AND a file, kill switch.
-  // A pasted folder lists its own files. Attachments and photos never satisfy that check.
+  // Fixed order: role, recipient, proof, Drive folder contents, kill switch.
+  // Auto-created and pasted folders both count files with the Drive list. Attachments never count.
   let reason = '';
   if (full && !actorIsTaskReviewer(input.actor, input.task)) {
     reason = DISPATCH_REASON.role;
@@ -260,10 +270,16 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
   } else if (full && explicitBadProof(suppliedProof)) {
     reason = DISPATCH_REASON.proof;
   } else if (full && pastedFolderId) {
-    reason = await pastedFolderFileReason(pastedFolderId, input.task?.workspaceId);
-  } else if (full && !(isDriveFolderUrl(folderUrl) && hasSendableFile(input, suppliedProof))) {
-    reason = DISPATCH_REASON.file;
+    reason = await folderContentsReason(pastedFolderId, input.task?.workspaceId);
+  } else if (full && isDriveFolderUrl(folderUrl) && explicitFolderId) {
+    reason = await folderContentsReason(explicitFolderId, input.task?.workspaceId);
+  } else if (full) {
+    reason = await ensureFolderThenCount(input);
   } else if (outboundTurnedOff(input)) {
+    reason = DISPATCH_REASON.outbound;
+  }
+
+  if (!reason && outboundTurnedOff(input)) {
     reason = DISPATCH_REASON.outbound;
   }
 

@@ -2207,7 +2207,7 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         original_review_owner_id, review_covering_staff_id, original_assignee_id,
         assignee_covering_staff_id, classification_confidence, routed_at,
         created_at, updated_at, photos, attachments, mls_number, channel,
-        proof_url, deliverable_type
+        proof_url, drive_folder_url, deliverable_type
       FROM canonical_marketing_tasks
       ORDER BY created_at DESC
     `);
@@ -2297,6 +2297,7 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         mlsNumber: t.mls_number || undefined,
         channel: t.channel || undefined,
         proofUrl: isInlineDataProof(t.proof_url) ? undefined : (t.proof_url || undefined),
+        driveFolderUrl: t.drive_folder_url || undefined,
         deliverableType: t.deliverable_type || undefined
       }));
       for (const task of canonicalTasksStore) scrubInlineProof(task);
@@ -2629,13 +2630,15 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
          SET photos = $2::jsonb,
              attachments = $3::jsonb,
              proof_url = $4,
+             drive_folder_url = $5,
              updated_at = NOW()
          WHERE id = $1`,
         [
           task.id,
           JSON.stringify(task.photos || []),
           JSON.stringify(task.attachments || []),
-          durableProof
+          durableProof,
+          task.driveFolderUrl || null
         ]
       );
     }

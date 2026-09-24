@@ -6435,6 +6435,7 @@ export async function getOrFetchCanonicalMarketingTask(taskId: string): Promise<
           mlsNumber: t.mls_number || undefined,
           channel: t.channel || undefined,
           proofUrl: t.proof_url && !/^data:|^blob:|^file:/i.test(String(t.proof_url).trim()) ? t.proof_url : undefined,
+          driveFolderUrl: t.drive_folder_url || undefined,
           deliverableType: t.deliverable_type || undefined
         } as CanonicalMarketingTask;
         saveCanonicalMarketingTask(task);
@@ -8164,24 +8165,20 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
     const taskId = req.params.id;
     const task = await getOrFetchCanonicalMarketingTask(taskId);
     if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
-    const { ensureAskNoraDeliveryDrivePack, isRealGoogleDriveUrl } = await import('./server/services/askNoraDriveDelivery.js');
+    const { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack } = await import('./server/services/askNoraDriveDelivery.js');
+    const { driveCreateFailureReason } = await import('./server/services/evaluateDispatch.js');
     // Hydrate proofs from request body when task record is thin (common on first open)
     if (!task.proofUrl && req.body?.proofUrl) task.proofUrl = String(req.body.proofUrl);
     if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {
       task.attachments = req.body.attachments;
     }
+    if ((!task.photos || !task.photos.length) && Array.isArray(req.body?.photos)) {
+      task.photos = req.body.photos;
+    }
     const pack = await ensureAskNoraDeliveryDrivePack(task, {
       stagedAssets: Array.isArray(req.body?.stagedAssets) ? req.body.stagedAssets : [],
     });
-    // Only persist/return a Drive URL when folder verifies openable with ≥1 file.
-    // Empty/404 folders must never ship to the agent (attachments-only is OK at send).
-    if (pack.linkable && pack.driveFolderUrl && isRealGoogleDriveUrl(pack.driveFolderUrl)) {
-      task.driveFolderUrl = pack.driveFolderUrl;
-      // Stamp durable Drive URL into notes (tasks table has no drive_folder_url column)
-      const stamp = `AskNora Drive folder: ${pack.driveFolderUrl}`;
-      if (!String(task.notes || '').includes(pack.driveFolderUrl)) {
-        task.notes = `${task.notes || ''}\n${stamp}`.trim();
-      }
+    if (applyEnsuredFolder(task, pack.driveFolderUrl)) {
       if (pack.uploaded?.length) {
         const uploadNote = pack.uploaded.map((u: any) => `${u.fileName}: ${u.webViewLink}`).join('\n');
         task.notes = `${task.notes || ''}\n[AskNora Drive proofs]:\n${uploadNote}`.trim();
@@ -8189,24 +8186,30 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
       if (task.notes && /1DRV_/i.test(String(task.notes))) {
         task.notes = String(task.notes).replace(/https?:\/\/drive\.google\.com\/drive\/folders\/1DRV_[^\s]+/gi, pack.driveFolderUrl);
       }
-      task.updatedAt = new Date().toISOString();
       saveCanonicalMarketingTask(task);
-      return res.json({
-        success: true,
-        linkable: true,
-        driveFolderUrl: pack.driveFolderUrl,
-        uploaded: pack.uploaded || [],
-        warning: null,
-        task,
+    }
+    if (!pack.driveFolderId || !pack.driveFolderUrl) {
+      const reason = driveCreateFailureReason(pack.error);
+      return res.status(400).json({
+        success: false,
+        allowed: false,
+        linkable: false,
+        driveFolderUrl: '',
+        reason,
+        error: reason,
+        code: 'DRIVE_FOLDER_CREATE_FAILED',
       });
     }
+    const reason = pack.linkable ? '' : (pack.error || 'Drive folder is empty.');
     return res.json({
-      success: true,
-      linkable: false,
-      driveFolderUrl: '',
+      success: pack.linkable,
+      allowed: pack.linkable,
+      linkable: pack.linkable,
+      driveFolderUrl: pack.driveFolderUrl,
+      driveFolderId: pack.driveFolderId,
       uploaded: pack.uploaded || [],
-      error: pack.error || 'Drive folder empty or unverified — send will attach files only',
-      warning: pack.error || 'Drive folder empty or unverified',
+      reason,
+      error: reason || undefined,
       task,
     });
   } catch (err: any) {

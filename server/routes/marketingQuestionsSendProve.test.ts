@@ -15,8 +15,13 @@ import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
 import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import { WorkspaceTaskDrawer } from '../../src/components/marketing/WorkspaceTaskDrawer.js';
 import { confirmRequesterWrite } from '../../src/lib/confirmRequesterWrite.js';
-import { DISPATCH_REASON, dispatchBlockCode, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
+import { DISPATCH_REASON, dispatchBlockCode, driveCreateFailureReason, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
 import { setDriveFilesListForTests } from '../services/googleDriveService.js';
+import {
+  __setAskNoraDriveDepsForTests,
+  resetAskNoraListingFolderRegistry,
+  type AskNoraDriveDeps,
+} from '../services/askNoraDriveDelivery.js';
 import { resolveServerCanonicalRecipient } from '../services/canonicalRecipientService.js';
 import {
   getAllCanonicalMarketingTasks,
@@ -30,6 +35,7 @@ const HTTPS_PROOF = 'https://drive.google.com/file/d/1AbCrealFile999xyz/view';
 const DRIVE_FOLDER = 'https://drive.google.com/drive/folders/1AbCrealFolder999xyz';
 const DRIVE_FOLDER_ID = '1AbCrealFolder999xyz';
 const UPLOAD_PHOTO = '/uploads/1789593612358_Test_marcusgmail.png';
+const CREATE_FAILED = driveCreateFailureReason('Drive folder create failed; no folder URL stored.');
 const STORE = path.join(process.cwd(), 'server/data/canonical_marketing_store_test.json');
 
 describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
@@ -42,6 +48,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
 
   beforeAll(async () => {
     process.env.OUTBOUND_MASTER_MODE = 'hold';
+    installDefaultDriveList();
     storeSnapshot = fs.existsSync(STORE) ? fs.readFileSync(STORE, 'utf8') : '';
     const app = express();
     app.use(express.json({ limit: '2mb' }));
@@ -57,6 +64,8 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
 
   afterAll(async () => {
     setDriveFilesListForTests(null);
+    __setAskNoraDriveDepsForTests(null);
+    resetAskNoraListingFolderRegistry();
     if (outboundMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
     else process.env.OUTBOUND_MASTER_MODE = outboundMaster;
     const items = getAllCanonicalMarketingTasks();
@@ -182,8 +191,8 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
     const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), melissa);
     expect(empty.status, JSON.stringify(empty.data)).toBe(400);
-    expect(empty.data.reason).toBe(DISPATCH_REASON.file);
-    expect(empty.data.code).toBe('NO_SENDABLE_FILE');
+    expect(empty.data.reason).toBe(CREATE_FAILED);
+    expect(empty.data.code).toBe('DRIVE_FOLDER_CREATE_FAILED');
     expect(getCanonicalMarketingTaskById(TASK_ID)?.reviewState).toBe('awaiting_review');
     const emptyRows = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
     expect(emptyRows.length).toBe(0);
@@ -194,21 +203,23 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png', filename: 'Test_marcusgmail.png' }],
     }), melissa);
     expect(uploadOnly.status, JSON.stringify(uploadOnly.data)).toBe(400);
-    expect(uploadOnly.data.reason).toBe(DISPATCH_REASON.file);
-    expect(uploadOnly.data.code).toBe('NO_SENDABLE_FILE');
+    expect(uploadOnly.data.reason).toBe(CREATE_FAILED);
+    expect(uploadOnly.data.code).toBe('DRIVE_FOLDER_CREATE_FAILED');
 
+    setDriveFilesListForTests(async () => ({ data: { files: [] } }));
     const folderOnly = await post(payload({
       proofUrl: undefined,
       driveFolderUrl: DRIVE_FOLDER,
       attachments: [],
       assetUrls: [],
     }), melissa);
+    installDefaultDriveList();
     expect(folderOnly.status, JSON.stringify(folderOnly.data)).toBe(400);
-    expect(folderOnly.data.reason).toBe(DISPATCH_REASON.file);
+    expect(folderOnly.data.reason).toBe(DISPATCH_REASON.emptyFolder);
 
     const fileOnly = await post(payload({ driveFolderUrl: undefined, proofUrl: HTTPS_PROOF }), melissa);
     expect(fileOnly.status, JSON.stringify(fileOnly.data)).toBe(400);
-    expect(fileOnly.data.reason).toBe(DISPATCH_REASON.file);
+    expect(fileOnly.data.reason).toBe(CREATE_FAILED);
 
     const pasted = await post(payload({ driveFolderUrl: DRIVE_FOLDER, proofUrl: HTTPS_PROOF }), melissa);
     expect(pasted.status, JSON.stringify(pasted.data)).toBe(200);
@@ -323,7 +334,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         headers: melissa,
         body: payload({ proofUrl: undefined, driveFolderUrl: undefined }),
         allowed: false,
-        reason: DISPATCH_REASON.file,
+        reason: CREATE_FAILED,
         status: 400,
       },
       {
@@ -335,15 +346,16 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png' }],
         }),
         allowed: false,
-        reason: DISPATCH_REASON.file,
+        reason: CREATE_FAILED,
         status: 400,
       },
       {
         name: 'drive folder with zero files',
         headers: melissa,
         body: payload({ proofUrl: undefined, driveFolderUrl: DRIVE_FOLDER, attachments: [], assetUrls: [] }),
+        driveList: 'empty',
         allowed: false,
-        reason: DISPATCH_REASON.file,
+        reason: DISPATCH_REASON.emptyFolder,
         status: 400,
       },
       {
@@ -411,7 +423,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           assetUrls: [],
         }),
         allowed: false,
-        reason: DISPATCH_REASON.file,
+        reason: CREATE_FAILED,
         status: 400,
       },
       {
@@ -490,7 +502,6 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       else process.env.OUTBOUND_MASTER_MODE = 'hold';
       setDispatchOutboundModeForTests(row.outboundMode || null);
       const driveList = row.driveList ? stubPastedFolderList(row.driveList) : null;
-      if (!row.driveList) setDriveFilesListForTests(null);
       if (row.seedUploadPhoto) {
         const task = getCanonicalMarketingTaskById(TASK_ID);
         saveCanonicalMarketingTask({
@@ -555,10 +566,16 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       } finally {
         process.env.OUTBOUND_MASTER_MODE = 'hold';
         setDispatchOutboundModeForTests(null);
-        setDriveFilesListForTests(null);
+        installDefaultDriveList();
       }
     }
   });
+
+function installDefaultDriveList() {
+  setDriveFilesListForTests(async () => ({
+    data: { files: [{ id: '1AbCrealFileInFolder', name: 'Tri-fold.pdf', mimeType: 'application/pdf' }] },
+  }));
+}
 
 function stubPastedFolderList(mode: 'empty' | 'error' | 'one') {
   const list = vi.fn(async () => {
@@ -693,6 +710,168 @@ function stubPastedFolderList(mode: 'empty' | 'error' | 'one') {
     expect(send.status, JSON.stringify(send.data)).toBe(200);
     expect(send.data.task?.proofUrl).toBe(HTTPS_PROOF);
     expect(getCanonicalMarketingTaskById(TASK_ID)?.proofUrl).toBe(HTTPS_PROOF);
+  });
+
+  it('auto-creates the AskNora folder, copies intake files, and blocks a failed or empty copy', async () => {
+    const uploadName = 'trifold-intake-prove.png';
+    const uploadPath = path.join(process.cwd(), 'uploads', uploadName);
+    fs.mkdirSync(path.dirname(uploadPath), { recursive: true });
+    fs.writeFileSync(uploadPath, Buffer.from('png'));
+    const folders = new Map<string, { id: string; url: string; files: string[] }>();
+    let seq = 0;
+    let failCreate = false;
+    let dropCopies = false;
+    let createCount = 0;
+    let uploadCount = 0;
+    let copyCount = 0;
+    const deps: AskNoraDriveDeps = {
+      async findFolderByAddress() {
+        return null;
+      },
+      async createFolder() {
+        createCount += 1;
+        if (failCreate) return { isLive: false, driveFolderId: '', driveFolderUrl: '' };
+        seq += 1;
+        const id = `1AbCautoFolder${seq}xyz`;
+        const url = `https://drive.google.com/drive/folders/${id}`;
+        folders.set(id, { id, url, files: [] });
+        return { isLive: true, driveFolderId: id, driveFolderUrl: url };
+      },
+      async uploadFile({ folderId, fileName }) {
+        uploadCount += 1;
+        if (dropCopies) return { isLive: false, fileId: '', webViewLink: '' };
+        const folder = folders.get(folderId);
+        if (!folder) return { isLive: false, fileId: '', webViewLink: '' };
+        folder.files.push(fileName);
+        seq += 1;
+        const fileId = `1FileUp${seq}xyz`;
+        return { isLive: true, fileId, webViewLink: `https://drive.google.com/file/d/${fileId}/view` };
+      },
+      async listFolderFileNames(folderId) {
+        return folders.get(folderId)?.files.slice() || [];
+      },
+      async copyDriveFile({ folderId, fileName }) {
+        copyCount += 1;
+        if (dropCopies) return { isLive: false, fileId: '', webViewLink: '' };
+        const folder = folders.get(folderId);
+        if (!folder) return { isLive: false, fileId: '', webViewLink: '' };
+        folder.files.push(fileName);
+        seq += 1;
+        const fileId = `1FileCopy${seq}xyz`;
+        return { isLive: true, fileId, webViewLink: `https://drive.google.com/file/d/${fileId}/view` };
+      },
+    };
+    setDriveFilesListForTests(async (args) => {
+      const id = String(args?.q || '').match(/'([^']+)'/)?.[1] || '';
+      const files = (folders.get(id)?.files || []).map((name) => ({ id: name, name, mimeType: 'image/png' }));
+      return { data: { files } };
+    });
+    __setAskNoraDriveDepsForTests(deps);
+    resetAskNoraListingFolderRegistry();
+
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const photoUrl = `/uploads/${uploadName}`;
+    const linked = 'https://drive.google.com/file/d/1AbClinkedIntakeFile/view';
+    const saveTask = (extra: Record<string, unknown> = {}) => {
+      saveCanonicalMarketingTask({
+        id: TASK_ID,
+        title: 'Tri-fold brochure',
+        status: 'in_progress',
+        reviewState: 'awaiting_review',
+        propertyAddress: '7174 Peachtree Way, Wilmington, NC 28403',
+        agentName: 'Marcus Aman',
+        agentEmail: 'marcus.aman@gmail.com',
+        workspaceId: 'ws_wilmington',
+        reviewOwnerId: 'dir_melissa_gagliardi_33',
+        reviewOwnerName: 'Melissa Gagliardi',
+        notes: '',
+        driveFolderUrl: undefined,
+        photos: [{ id: 'photo_intake', url: photoUrl, name: uploadName }],
+        attachments: [{ url: linked, driveUrl: linked, filename: 'linked.pdf' }],
+        ...extra,
+      } as any);
+    };
+    const postEnsure = async () => {
+      const res = await fetch(`${baseUrl}/api/marketing/tasks/${TASK_ID}/ensure-drive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...melissa },
+        body: JSON.stringify({ propertyAddress: '7174 Peachtree Way, Wilmington, NC 28403' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { status: res.status, data };
+    };
+    const sameReason = async (body: Record<string, unknown>, reason: string) => {
+      const check = await postCheck(body, melissa);
+      const send = await post(body, melissa);
+      const task = getCanonicalMarketingTaskById(TASK_ID);
+      const approve = await evaluateDispatch({
+        task: { ...(task || { id: TASK_ID }), id: TASK_ID, workspaceId: 'ws_wilmington' },
+        actor: { id: 'dir_melissa_gagliardi_33', name: 'Melissa Gagliardi', email: 'melissa.gagliardi@nestrealty.com' },
+        recipient: { email: 'marcus.aman@gmail.com', name: 'Marcus Aman' },
+        channel: 'email',
+        cc: ['melissa.gagliardi@nestrealty.com'],
+        intent: 'delivery_complete',
+        proofUrl: typeof body.proofUrl === 'string' ? body.proofUrl : undefined,
+        driveFolderUrl: typeof body.driveFolderUrl === 'string' ? body.driveFolderUrl : task?.driveFolderUrl,
+      });
+      expect(check.data.reason, JSON.stringify(check.data)).toBe(reason);
+      expect(send.data.reason, JSON.stringify(send.data)).toBe(reason);
+      expect(send.status).toBe(check.status);
+      expect(approve.reason, 'approve-and-dispatch').toBe(reason);
+    };
+
+    try {
+      saveTask();
+      const ensured = await postEnsure();
+      expect(ensured.status, JSON.stringify(ensured.data)).toBe(200);
+      expect(ensured.data.linkable).toBe(true);
+      expect(String(ensured.data.driveFolderUrl)).toMatch(/\/folders\/1AbCautoFolder1xyz/);
+      expect(getCanonicalMarketingTaskById(TASK_ID)?.driveFolderUrl).toBe(ensured.data.driveFolderUrl);
+      expect(createCount).toBe(1);
+      const folder = folders.get('1AbCautoFolder1xyz');
+      expect(folder?.files).toEqual([uploadName, 'linked.pdf']);
+
+      const noPaste = payload({ proofUrl: undefined, driveFolderUrl: undefined });
+      const check = await postCheck(noPaste, melissa);
+      expect(check.data.allowed, JSON.stringify(check.data)).toBe(true);
+      expect(check.data.effectiveTo).toEqual(['marcus.aman@gmail.com']);
+      expect(check.data.effectiveCc).toEqual([]);
+      const send = await post(noPaste, melissa);
+      expect(send.status, JSON.stringify(send.data)).toBe(200);
+      expect(send.data.allowed).toBe(true);
+
+      const again = await postEnsure();
+      expect(again.data.driveFolderUrl).toBe(ensured.data.driveFolderUrl);
+      expect(createCount).toBe(1);
+      expect(uploadCount).toBe(1);
+      expect(copyCount).toBe(1);
+      expect(folder?.files).toEqual([uploadName, 'linked.pdf']);
+
+      dropCopies = true;
+      resetAskNoraListingFolderRegistry();
+      saveTask({ photos: [], attachments: [], driveFolderUrl: undefined, notes: '' });
+      const emptyEnsure = await postEnsure();
+      expect(emptyEnsure.status, JSON.stringify(emptyEnsure.data)).toBe(200);
+      expect(emptyEnsure.data.linkable).toBe(false);
+      expect(emptyEnsure.data.driveFolderUrl).toBeTruthy();
+      await sameReason(
+        payload({ proofUrl: undefined, driveFolderUrl: emptyEnsure.data.driveFolderUrl, attachments: [], assetUrls: [] }),
+        DISPATCH_REASON.emptyFolder
+      );
+
+      failCreate = true;
+      resetAskNoraListingFolderRegistry();
+      saveTask({ photos: [], attachments: [], driveFolderUrl: undefined, notes: '' });
+      const failed = await postEnsure();
+      expect(failed.status).toBe(400);
+      expect(failed.data.reason).toBe(CREATE_FAILED);
+      await sameReason(payload({ proofUrl: undefined, driveFolderUrl: undefined, attachments: [], assetUrls: [] }), CREATE_FAILED);
+    } finally {
+      fs.rmSync(uploadPath, { force: true });
+      __setAskNoraDriveDepsForTests(null);
+      resetAskNoraListingFolderRegistry();
+      installDefaultDriveList();
+    }
   });
 
   it('keeps a Nest roster person on the directory and does not mint Marcus', async () => {
