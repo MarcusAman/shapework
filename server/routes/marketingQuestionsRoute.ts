@@ -790,7 +790,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
             : `${agentLabel}, we have your requested marketing assets ready. Your files are attached to this email.`,
           ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
           '',
-          'Respond to this text if you need any revisions.',
+          'Reply to this email if you need any revisions.',
         ].join('\n')
       : '';
     const outboundMessage = isDeliveryComplete ? deliveryBody : message;

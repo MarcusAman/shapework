@@ -36,7 +36,6 @@ import {
   dispatchRecipientConfirmed,
   type DispatchVerdictView,
 } from '../../lib/dispatchVerdict';
-import { resolveProofPrecedence } from '../../lib/proofPrecedence';
 
 const PROOF_CHECK_DEBOUNCE_MS = 300;
 
@@ -124,6 +123,45 @@ const QUESTION_CATALOG: QuestionItem[] = [
   }
 ];
 
+function attachmentUrls(campaign: any): Set<string> {
+  const urls = new Set<string>();
+  const take = (value?: string) => {
+    const text = String(value || '').trim();
+    if (text) urls.add(text);
+  };
+  for (const item of campaign?.attachments || []) {
+    take(item?.url);
+    take(item?.driveUrl);
+  }
+  for (const item of campaign?.photos || []) {
+    take(item?.url);
+    take(item?.driveUrl);
+  }
+  return urls;
+}
+
+/** A link the user pasted. Attachment paths and upload URLs are not proof. */
+function userPastedProofUrl(campaign: any, explicit?: string | null): string {
+  const text = String(explicit ?? '').trim();
+  if (!text) return '';
+  if (attachmentUrls(campaign).has(text)) return '';
+  if (/^\/?uploads\//i.test(text)) return '';
+  if (!/^https:\/\//i.test(text)) return '';
+  return text;
+}
+
+function deliveryDraftText(name: string, address: string, showDriveLine: boolean): string {
+  const ready = showDriveLine
+    ? `${name}, we have your requested marketing assets ready. Click the Google Drive link below to view.`
+    : `${name}, we have your requested marketing assets ready.`;
+  return [
+    ready,
+    ...(address && address !== 'Listing Property' ? ['', `Property: ${address}`] : []),
+    '',
+    'Reply to this email if you need any revisions.',
+  ].join('\n');
+}
+
 function isPlaceholderDriveLink(url: string): boolean {
   return /\/folders\/1DRV_/i.test(url) || /\/folders\/folder_/i.test(url) || /\/folders\/sub_/i.test(url);
 }
@@ -191,13 +229,10 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [selectedChannel, setSelectedChannel] = useState<'email' | 'text' | 'both'>('email');
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>(['photos']);
   const [customQuestionText, setCustomQuestionText] = useState<string>('');
-  const deliveryDraft = [
-    `${recipient.firstName || recipient.name.split(' ')[0] || 'there'}, we have your requested marketing assets ready. Click the Google Drive link below to view.`,
-    ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
-    '',
-    'Respond to this text if you need any revisions.',
-  ].join('\n');
-  const [customMessage, setCustomMessage] = useState<string>(isDelivery ? deliveryDraft : '');
+  const greeting = recipient.firstName || recipient.name.split(' ')[0] || 'there';
+  const [customMessage, setCustomMessage] = useState<string>(
+    isDelivery ? deliveryDraftText(greeting, propertyAddress, false) : ''
+  );
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [hasManuallyEditedMessage, setHasManuallyEditedMessage] = useState<boolean>(false);
   const [hasManuallyEditedSubject, setHasManuallyEditedSubject] = useState<boolean>(false);
@@ -208,10 +243,10 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [driveFolderUrl, setDriveFolderUrl] = useState<string>(String(campaign?.driveFolderUrl || ''));
   const [driveSettled, setDriveSettled] = useState<boolean>(!isDelivery);
   const [pastedProof, setPastedProof] = useState<string>(() =>
-    resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
+    userPastedProofUrl(campaign, campaign?.approvePayload?.proofUrl)
   );
   const [proofForCheck, setProofForCheck] = useState<string>(() =>
-    resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl)
+    userPastedProofUrl(campaign, campaign?.approvePayload?.proofUrl)
   );
   const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
   const dispatchGen = React.useRef(0);
@@ -224,8 +259,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   }, [campaign?.id, campaign?.taskId]);
 
   useEffect(() => {
-    setPastedProof(resolveProofPrecedence(campaign?.approvePayload?.proofUrl, campaign?.proofUrl));
-  }, [campaign?.approvePayload?.proofUrl, campaign?.proofUrl]);
+    setPastedProof(userPastedProofUrl(campaign, campaign?.approvePayload?.proofUrl));
+  }, [campaign, campaign?.approvePayload?.proofUrl]);
 
   useEffect(() => {
     if (pastedProof === proofForCheck) return;
@@ -237,7 +272,10 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     if (dispatchVerdict || !isOpen || !campaign) return;
     if (isDelivery && !driveSettled) return;
     const taskId = campaign.taskId || campaign.id;
-    if (!taskId) return;
+    const recipientEmail = String(
+      campaign.agentEmail || campaign.email || campaign.listingSnapshot?.listingAgentEmail || ''
+    ).trim();
+    if (!taskId || !recipientEmail) return;
     const gen = ++dispatchGen.current;
     let cancelled = false;
     (async () => {
@@ -246,11 +284,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            recipientEmail: campaign.agentEmail || campaign.email,
+            recipientEmail,
             recipientName: campaign.agentName,
             channels: ['email'],
             intent,
-            proofUrl: proofForCheck,
+            ...(proofForCheck ? { proofUrl: proofForCheck } : {}),
             driveFolderUrl: driveFolderUrl || undefined,
             attachments: campaign.attachments || [],
             domain,
@@ -331,7 +369,9 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             stagedAssets: campaign.approvePayload?.stagedAssets || [],
-            proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl),
+            ...(userPastedProofUrl(campaign, campaign.approvePayload?.proofUrl)
+              ? { proofUrl: userPastedProofUrl(campaign, campaign.approvePayload?.proofUrl) }
+              : {}),
             attachments: campaign.attachments || [],
             propertyAddress: campaign.propertyAddress,
             agentName: campaign.agentName || campaign.recipientName,
@@ -373,14 +413,9 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
     if (!hasManuallyEditedMessage) {
       if (isDelivery) {
-        setCustomMessage(
-          [
-            `${greetingName}, we have your requested marketing assets ready. Click the Google Drive link below to view.`,
-            ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
-            '',
-            'Respond to this text if you need any revisions.',
-          ].join('\n')
-        );
+        const showDriveLine = [ensuredDriveUrl, driveFolderUrl, ...collectDeliveryAssetLinks(campaign)]
+          .some((url) => /drive\.google\.com\//i.test(String(url || '')));
+        setCustomMessage(deliveryDraftText(greetingName, propertyAddress, showDriveLine));
       } else {
         const itemsList = selectedQuestions
           .map((id) => {
@@ -418,7 +453,9 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     hasManuallyEditedMessage,
     hasManuallyEditedSubject,
     campaign,
-    isDelivery
+    isDelivery,
+    ensuredDriveUrl,
+    driveFolderUrl
   ]);
 
   if (!isOpen || !campaign) return null;
@@ -690,6 +727,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                       ...collectDeliveryAssetLinks(campaign),
                     ].filter((u, i, arr) => u && arr.indexOf(u) === i);
                     if (!links.length) {
+                      if (statusMessage === "Google Drive isn't connected for this workspace.") return null;
                       return (
                         <p className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 m-0">
                           Creating AskNora Drive folder… if this stays empty, retry Send or paste a link.

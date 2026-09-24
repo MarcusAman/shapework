@@ -199,4 +199,140 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     expect(document.body.textContent).toContain(exact);
     expect(document.body.textContent).not.toContain("Couldn't create the Drive folder");
   });
+
+  it('does not send an attachment URL as proofUrl on ensure-drive or dispatch-check', async () => {
+    const photo = '/uploads/1789593612358_Test_marcusgmail.png';
+    const calls: Array<{ url: string; proofUrl?: string }> = [];
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body || '{}'));
+      calls.push({ url, proofUrl: body.proofUrl });
+      if (url.includes('ensure-drive')) {
+        return jsonResponse({ linkable: false, reason: 'Drive folder is empty.' }, 400);
+      }
+      if (url.includes('dispatch-check')) {
+        return jsonResponse(verdict(false), 400);
+      }
+      return jsonResponse({});
+    }) as typeof fetch;
+
+    await renderModal({
+      ...freshCampaign(),
+      proofUrl: photo,
+      approvePayload: { proofUrl: photo },
+      attachments: [{ url: photo, filename: 'Test.png' }],
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+
+    const proofCalls = calls.filter((call) => call.url.includes('ensure-drive') || call.url.includes('dispatch-check'));
+    expect(proofCalls.length).toBeGreaterThan(0);
+    for (const call of proofCalls) {
+      expect(call.proofUrl || '', call.url).not.toContain(photo);
+      expect(call.proofUrl || '').not.toMatch(/\/uploads\//);
+    }
+  });
+
+  it('sends proofUrl when the user pasted an https link', async () => {
+    const pasted = 'https://drive.google.com/file/d/1UserPastedProof999xyz/view';
+    const calls: Array<{ url: string; proofUrl?: string }> = [];
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body || '{}'));
+      calls.push({ url, proofUrl: body.proofUrl });
+      if (url.includes('ensure-drive')) return jsonResponse({ linkable: true, driveFolderUrl: FOLDER });
+      if (url.includes('dispatch-check')) return jsonResponse(verdict(true));
+      return jsonResponse({});
+    }) as typeof fetch;
+
+    await renderModal({
+      ...freshCampaign(),
+      approvePayload: { proofUrl: pasted },
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const withProof = calls.filter((call) =>
+      (call.url.includes('ensure-drive') || call.url.includes('dispatch-check')) && call.proofUrl === pasted
+    );
+    expect(withProof.length).toBeGreaterThan(0);
+  });
+
+  it('does not call dispatch-check until the recipient email is known', async () => {
+    const checks: string[] = [];
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body || '{}'));
+      if (url.includes('dispatch-check')) checks.push(String(body.recipientEmail || ''));
+      if (url.includes('ensure-drive')) return jsonResponse({ linkable: true, driveFolderUrl: FOLDER });
+      return jsonResponse(verdict(true));
+    }) as typeof fetch;
+
+    const campaign = { ...freshCampaign(), agentEmail: '', email: '' };
+    await renderModal(campaign);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(checks).toEqual([]);
+
+    await renderModal({ ...campaign, agentEmail: 'marcus.aman@gmail.com' });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(checks).toEqual(['marcus.aman@gmail.com']);
+  });
+
+  it('hides the paste fallback when Google Drive is not connected', async () => {
+    const exact = "Google Drive isn't connected for this workspace.";
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('ensure-drive')) {
+        return jsonResponse({ success: false, reason: exact, error: exact }, 400);
+      }
+      return jsonResponse({ ...verdict(false), reason: exact }, 400);
+    }) as typeof fetch;
+    await renderModal();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain(exact);
+    expect(document.body.textContent).not.toContain('retry Send or paste a link');
+  });
+
+  it('mentions the Drive link in the draft only when a Drive link is rendered, and says reply to this email', async () => {
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('ensure-drive')) {
+        return jsonResponse({ success: false, reason: 'Drive folder is empty.', error: 'Drive folder is empty.' }, 400);
+      }
+      return jsonResponse(verdict(false), 400);
+    }) as typeof fetch;
+    await renderModal();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const emptyDraft = (document.querySelector('[data-testid="ask-agent-message-textarea"]') as HTMLTextAreaElement).value;
+    expect(emptyDraft).not.toContain('Click the Google Drive link below');
+    expect(emptyDraft).toContain('Reply to this email');
+    expect(emptyDraft).not.toContain('Respond to this text');
+
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('ensure-drive')) return jsonResponse({ linkable: true, driveFolderUrl: FOLDER });
+      return jsonResponse(verdict(true));
+    }) as typeof fetch;
+    await renderModal({ ...freshCampaign(), id: 'tsk_modal_with_drive', taskId: 'tsk_modal_with_drive' });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.querySelector(`a[href="${FOLDER}"]`)).toBeTruthy();
+    const linkedDraft = (document.querySelector('[data-testid="ask-agent-message-textarea"]') as HTMLTextAreaElement).value;
+    expect(linkedDraft).toContain('Click the Google Drive link below');
+    expect(linkedDraft).toContain('Reply to this email');
+  });
 });

@@ -5,7 +5,7 @@ export type ClassifiedOutboundEmail = {
   success: boolean;
   reason?: string;
   activityEvent: 'outreach.sent' | 'outreach.held' | 'outreach.blocked';
-  communicationStatus: 'sent' | 'queued' | 'blocked';
+  communicationStatus: 'sent' | 'held' | 'blocked';
 };
 
 type SendResult = {
@@ -37,7 +37,7 @@ export function classifyOutboundEmailResult(result: SendResult): ClassifiedOutbo
       success: false,
       reason: result.reason || 'held',
       activityEvent: 'outreach.held',
-      communicationStatus: 'queued',
+      communicationStatus: 'held',
     };
   }
   if (result.suppressed) {

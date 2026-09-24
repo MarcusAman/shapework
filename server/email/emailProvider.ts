@@ -440,10 +440,14 @@ export async function sendPhotoUploadRequestEmail(options: {
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, driveUploadUrl, heroImageUrl, requestedItems = ['Exterior High-Res Hero', 'Kitchen & Living Areas', 'Primary Suite', 'Floorplans / Aerials'] } = options;
 
-  console.log(`[Email] Nora dispatching Google Drive photo upload request to ${toEmail} for ${propertyAddress}`);
-
   const photoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendPhotoUploadRequestEmail');
-  if (photoHeld) return photoHeld;
+  if (photoHeld) {
+    const outcome = photoHeld.held ? 'held' : 'blocked';
+    console.log(`[Outbound] ${outcome}: ${photoHeld.reason || outcome}`);
+    return photoHeld;
+  }
+
+  console.log(`[Email] Nora dispatching Google Drive photo upload request to ${toEmail} for ${propertyAddress}`);
 
   if (process.env.NODE_ENV === 'test') {
     return {
