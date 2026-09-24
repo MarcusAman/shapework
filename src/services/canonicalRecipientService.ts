@@ -27,6 +27,8 @@ export interface VerifiedRecipient {
   avatar: string;
   office?: string;
   status: 'verified' | 'partial' | 'unverified';
+  /** directory = Nest person. allowlist = prove To only. none = do not send. */
+  contactGate: 'directory' | 'allowlist' | 'none';
 }
 
 /**
@@ -341,9 +343,9 @@ export function resolveCanonicalRecipient(options: ResolveRecipientOptions): Ver
     ? 'No verified mobile number is available for this agent.'
     : undefined;
 
-  const status: 'verified' | 'partial' | 'unverified' =
-    emailVerified && phoneVerified ? 'verified' :
-    emailVerified || phoneVerified ? 'partial' : 'unverified';
+  const status: 'verified' | 'partial' | 'unverified' = directoryPerson
+    ? (emailVerified && phoneVerified ? 'verified' : emailVerified || phoneVerified ? 'partial' : 'unverified')
+    : 'unverified';
 
   return {
     requesterId: directoryPerson?.id,
@@ -361,8 +363,19 @@ export function resolveCanonicalRecipient(options: ResolveRecipientOptions): Ver
     phoneExplanation,
     avatar: rawName.charAt(0).toUpperCase(),
     office: directoryPerson?.office,
-    status
+    status,
+    contactGate: directoryPerson ? 'directory' : proveTo ? 'allowlist' : 'none',
   };
+}
+
+/** Header seam: green Verified Contact is directory-only. Prove To is a separate label. */
+export function contactAssuranceLabel(recipient: {
+  contactGate?: 'directory' | 'allowlist' | 'none';
+  status?: 'verified' | 'partial' | 'unverified';
+}): 'Verified Contact' | 'Allowlisted (prove)' | null {
+  if (recipient.contactGate === 'directory' && recipient.status === 'verified') return 'Verified Contact';
+  if (recipient.contactGate === 'allowlist') return 'Allowlisted (prove)';
+  return null;
 }
 
 /**

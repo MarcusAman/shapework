@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import {
   resolveCanonicalRecipient,
+  contactAssuranceLabel,
   VerifiedRecipient
 } from '../../services/canonicalRecipientService';
 
@@ -441,10 +442,21 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     ? `Notify agent — assets ready · ${recipient.name}`
                     : `Send Questions to Requester · Ask ${recipient.name}`}
                 </h3>
-                {recipient.status === 'verified' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30">
+                {contactAssuranceLabel(recipient) === 'Verified Contact' && (
+                  <span
+                    data-testid="verified-contact-badge"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30"
+                  >
                     <ShieldCheck className="w-3 h-3" />
                     Verified Contact
+                  </span>
+                )}
+                {contactAssuranceLabel(recipient) === 'Allowlisted (prove)' && (
+                  <span
+                    data-testid="allowlisted-prove-badge"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-medium border border-white/30"
+                  >
+                    Allowlisted (prove)
                   </span>
                 )}
               </div>
@@ -768,5 +780,6 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     </div>
   );
 
+  if (typeof document === 'undefined') return dialog;
   return createPortal(dialog, document.body);
 };

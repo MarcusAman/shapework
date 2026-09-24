@@ -10,7 +10,10 @@ import path from 'path';
 import type { Server } from 'http';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
 import { NEST_FULL_ROSTER_77 } from '../persistence/nestRosterSeed.js';
-import { resolveCanonicalRecipient } from '../../src/services/canonicalRecipientService.js';
+import { contactAssuranceLabel, resolveCanonicalRecipient } from '../../src/services/canonicalRecipientService.js';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js';
 import { marketingQuestionsRouter } from '../routes/marketingQuestionsRoute.js';
 import { memoryOutbox } from './inboundEmailIngestionEngine.js';
@@ -119,6 +122,9 @@ describe('directory then exact outbound allowlist', () => {
       expect(marcus.isAgentOrBroker).toBe(false);
       expect(marcus.requesterId).toBeUndefined();
       expect(marcus.phoneVerified).toBe(false);
+      expect(marcus.contactGate).toBe('allowlist');
+      expect(marcus.status).not.toBe('verified');
+      expect(contactAssuranceLabel(marcus)).toBe('Allowlisted (prove)');
 
       const random = resolveCanonicalRecipient({
         agentName: 'Random Person',
@@ -136,6 +142,8 @@ describe('directory then exact outbound allowlist', () => {
       const matt = resolveCanonicalRecipient({ agentName: 'Matt Orr' });
       expect(matt.emailVerified).toBe(true);
       expect(matt.email).toBe('matt.orr@nestrealty.com');
+      expect(matt.contactGate).toBe('directory');
+      expect(contactAssuranceLabel(matt)).toBe('Verified Contact');
 
       process.env.OUTBOUND_MASTER_MODE = 'live';
       const marcusLive = resolveCanonicalRecipient({
@@ -143,6 +151,8 @@ describe('directory then exact outbound allowlist', () => {
         agentEmail: 'marcus.aman@gmail.com',
       });
       expect(marcusLive.emailVerified).toBe(false);
+      expect(marcusLive.contactGate).toBe('none');
+      expect(contactAssuranceLabel(marcusLive)).toBeNull();
 
       delete process.env.APP_MODE;
       process.env.APP_MODE = 'production';
@@ -248,6 +258,44 @@ describe('send-questions allowlist hold writes the existing outbox', () => {
     expect(
       NEST_FULL_ROSTER_77.some((m) => String(m.email || '').toLowerCase() === 'marcus.aman@gmail.com')
     ).toBe(false);
+  });
+
+  it('hides Verified Contact for allowlist-only and shows Allowlisted (prove)', () => {
+    process.env.OUTBOUND_MASTER_MODE = 'hold';
+    const proveHtml = renderToStaticMarkup(
+      React.createElement(AskRequesterQuestionsModal, {
+        isOpen: true,
+        onClose: () => {},
+        campaign: {
+          id: 'tsk_trifold_allowlist_ui',
+          agentName: 'Marcus Aman',
+          agentEmail: 'marcus.aman@gmail.com',
+          phone: '(252) 717-0595',
+          propertyAddress: '1 Prove Lane',
+        },
+      })
+    );
+    expect(proveHtml).toContain('Allowlisted (prove)');
+    expect(proveHtml).toContain('data-testid="allowlisted-prove-badge"');
+    expect(proveHtml).not.toContain('Verified Contact');
+    expect(proveHtml).not.toContain('data-testid="verified-contact-badge"');
+
+    const directoryHtml = renderToStaticMarkup(
+      React.createElement(AskRequesterQuestionsModal, {
+        isOpen: true,
+        onClose: () => {},
+        campaign: {
+          id: 'camp_matt_orr_ui',
+          agentName: 'Matt Orr',
+          agentEmail: 'matt.orr@nestrealty.com',
+          phone: '(910) 612-8283',
+          propertyAddress: '100 Matt Way',
+        },
+      })
+    );
+    expect(directoryHtml).toContain('Verified Contact');
+    expect(directoryHtml).toContain('data-testid="verified-contact-badge"');
+    expect(directoryHtml).not.toContain('Allowlisted (prove)');
   });
 
   it('still 400s a random gmail that is not an allowlist hit', async () => {
