@@ -22,6 +22,37 @@ export function resolveProofPrecedence(pasted?: string | null, stored?: string |
   return proofInputValue(stored);
 }
 
+type PastedProofRecord = {
+  attachments?: Array<{ url?: string | null; driveUrl?: string | null } | null> | null;
+  photos?: Array<{ url?: string | null; driveUrl?: string | null } | null> | null;
+};
+
+/**
+ * Link the user pasted. An attachment URL, an /uploads/ path, or a stored
+ * task proof is not a paste. Shared by the drawer and the Notify modal.
+ */
+export function userPastedProofUrl(record?: PastedProofRecord | null, explicit?: string | null): string {
+  const text = String(explicit ?? '').trim();
+  if (!text) return '';
+  const urls = new Set<string>();
+  const take = (value?: string | null) => {
+    const item = String(value || '').trim();
+    if (item) urls.add(item);
+  };
+  for (const item of record?.attachments || []) {
+    take(item?.url);
+    take(item?.driveUrl);
+  }
+  for (const item of record?.photos || []) {
+    take(item?.url);
+    take(item?.driveUrl);
+  }
+  if (urls.has(text)) return '';
+  if (/^\/?uploads\//i.test(text)) return '';
+  if (!/^https:\/\//i.test(text)) return '';
+  return text;
+}
+
 /**
  * A pasted https://drive.google.com/drive/folders/<id> link is a Drive folder.
  * A file link (drive.google.com/file/...) is not a folder. Synthetic ids are not folders.

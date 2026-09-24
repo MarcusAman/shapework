@@ -36,6 +36,7 @@ import {
   dispatchRecipientConfirmed,
   type DispatchVerdictView,
 } from '../../lib/dispatchVerdict';
+import { userPastedProofUrl } from '../../lib/proofPrecedence';
 
 const PROOF_CHECK_DEBOUNCE_MS = 300;
 
@@ -122,33 +123,6 @@ const QUESTION_CATALOG: QuestionItem[] = [
     icon: <HelpCircle className="w-3.5 h-3.5" />
   }
 ];
-
-function attachmentUrls(campaign: any): Set<string> {
-  const urls = new Set<string>();
-  const take = (value?: string) => {
-    const text = String(value || '').trim();
-    if (text) urls.add(text);
-  };
-  for (const item of campaign?.attachments || []) {
-    take(item?.url);
-    take(item?.driveUrl);
-  }
-  for (const item of campaign?.photos || []) {
-    take(item?.url);
-    take(item?.driveUrl);
-  }
-  return urls;
-}
-
-/** A link the user pasted. Attachment paths and upload URLs are not proof. */
-function userPastedProofUrl(campaign: any, explicit?: string | null): string {
-  const text = String(explicit ?? '').trim();
-  if (!text) return '';
-  if (attachmentUrls(campaign).has(text)) return '';
-  if (/^\/?uploads\//i.test(text)) return '';
-  if (!/^https:\/\//i.test(text)) return '';
-  return text;
-}
 
 function deliveryDraftText(name: string, address: string, showDriveLine: boolean): string {
   const ready = showDriveLine
@@ -718,36 +692,27 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                   </div>
                 </div>
               </div>
-              {isDelivery && (
-                <div className="px-4 py-2.5 border-b border-slate-100" data-testid="outreach-delivery-assets">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Completed assets</div>
-                  {(() => {
-                    const links = [
-                      ...(ensuredDriveUrl ? [ensuredDriveUrl] : []),
-                      ...collectDeliveryAssetLinks(campaign),
-                    ].filter((u, i, arr) => u && arr.indexOf(u) === i);
-                    if (!links.length) {
-                      if (statusMessage === "Google Drive isn't connected for this workspace.") return null;
-                      return (
-                        <p className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 m-0">
-                          Creating AskNora Drive folder… if this stays empty, retry Send or paste a link.
-                        </p>
-                      );
-                    }
-                    return (
-                      <ul className="m-0 pl-4 space-y-1">
-                        {links.map((url) => (
-                          <li key={url} className="text-[12px] break-all">
-                            <a href={url} target="_blank" rel="noreferrer" className="text-[#00635C] font-semibold hover:underline">
-                              {/drive\.google\.com/i.test(url) ? 'Google Drive folder (AskNora)' : url}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    );
-                  })()}
-                </div>
-              )}
+              {isDelivery && (() => {
+                const links = [
+                  ...(ensuredDriveUrl ? [ensuredDriveUrl] : []),
+                  ...collectDeliveryAssetLinks(campaign),
+                ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+                if (!links.length) return null;
+                return (
+                  <div className="px-4 py-2.5 border-b border-slate-100" data-testid="outreach-delivery-assets">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Completed assets</div>
+                    <ul className="m-0 pl-4 space-y-1">
+                      {links.map((url) => (
+                        <li key={url} className="text-[12px] break-all">
+                          <a href={url} target="_blank" rel="noreferrer" className="text-[#00635C] font-semibold hover:underline">
+                            {/drive\.google\.com/i.test(url) ? 'Google Drive folder (AskNora)' : url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
 
               {isDelivery && selectedChannel !== 'text' && (
                 <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-effective-cc">

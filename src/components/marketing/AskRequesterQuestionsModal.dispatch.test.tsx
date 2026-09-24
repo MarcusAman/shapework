@@ -335,4 +335,24 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     expect(linkedDraft).toContain('Click the Google Drive link below');
     expect(linkedDraft).toContain('Reply to this email');
   });
+
+  it('does not render Completed assets when there is no folder or asset', async () => {
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('ensure-drive')) {
+        return jsonResponse({ success: false, reason: 'Drive folder is empty.', linkable: false }, 400);
+      }
+      return jsonResponse(verdict(false), 400);
+    }) as typeof fetch;
+    await renderModal({
+      ...freshCampaign(),
+      attachments: [],
+      photos: [],
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).not.toMatch(/Completed assets/i);
+  });
 });

@@ -89,7 +89,7 @@ import type { CanonicalActivityEvent } from '../../../server/services/activityHi
 import { resolveCanonicalStaffMember, getCanonicalMarketingDirector } from '../../services/canonicalRoster';
 import { getRequesterActionLabel, resolveCanonicalRecipient, CANONICAL_AGENT_DIRECTORY } from '../../services/canonicalRecipientService';
 import { dispatchRecipientConfirmed, type DispatchVerdictView } from '../../lib/dispatchVerdict';
-import { firstNonInlineProof, proofInputValue, resolveProofPrecedence } from '../../lib/proofPrecedence';
+import { firstNonInlineProof, proofInputValue, resolveProofPrecedence, userPastedProofUrl } from '../../lib/proofPrecedence';
 import { confirmRequesterWrite } from '../../lib/confirmRequesterWrite';
 import { resolveTaskAssets } from '../../utils/assetResolver';
 import {
@@ -325,6 +325,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const rawActiveTask = propActiveTask || propTask || null;
   const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string | null } | null>(null);
   const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
+  const dispatchCheckGen = useRef(0);
   const [isConfirmRequesterOpen, setIsConfirmRequesterOpen] = useState(false);
 
   const activeTask = useMemo(() => {
@@ -766,30 +767,33 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
   useEffect(() => {
     if (dispatchVerdict || !isOpen || !activeTask?.id) return;
-    let cancelled = false;
+    const recipientEmail = String(activeTask.agentEmail || '').trim();
+    if (!recipientEmail) return;
+    const gen = ++dispatchCheckGen.current;
     const taskId = activeTask.id;
+    const proofUrl = userPastedProofUrl(activeTask, manualProofUrl);
     (async () => {
       try {
         const res = await fetch(`/api/marketing/requests/${encodeURIComponent(taskId)}/dispatch-check`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            recipientEmail: activeTask.agentEmail,
+            recipientEmail,
             recipientName: activeTask.agentName,
             channels: ['email'],
             intent: 'delivery_complete',
-            proofUrl: resolveProofPrecedence(manualProofUrl, activeTask.proofUrl),
+            ...(proofUrl ? { proofUrl } : {}),
             driveFolderUrl: (activeTask as { driveFolderUrl?: string }).driveFolderUrl,
             domain: 'marketing',
           }),
         });
         const data = await res.json().catch(() => null);
-        if (!cancelled && data?.recipientStatus) setFetchedDispatchVerdict(data);
+        if (gen !== dispatchCheckGen.current) return;
+        if (data?.recipientStatus) setFetchedDispatchVerdict(data);
       } catch {
-        if (!cancelled) setFetchedDispatchVerdict(null);
+        if (gen === dispatchCheckGen.current) setFetchedDispatchVerdict(null);
       }
     })();
-    return () => { cancelled = true; };
   }, [dispatchVerdict, isOpen, activeTask?.id, activeTask?.agentEmail, activeTask?.agentName, activeTask?.proofUrl]);
 
   if (!isOpen || !activeTask) return null;
@@ -1458,6 +1462,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const handleConfirmRequester = async (agent: { id: string; name: string; email: string; phone?: string }) => {
     let verdict: DispatchVerdictView | null = null;
     if (activeTask) {
+      const gen = ++dispatchCheckGen.current;
+      const proofUrl = userPastedProofUrl(activeTask, manualProofUrl);
       try {
         const res = await fetch(`/api/marketing/requests/${encodeURIComponent(activeTask.id)}/dispatch-check`, {
           method: 'POST',
@@ -1467,17 +1473,17 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             recipientName: agent.name,
             channels: ['email'],
             intent: 'delivery_complete',
-            proofUrl: resolveProofPrecedence(manualProofUrl, activeTask.proofUrl),
+            ...(proofUrl ? { proofUrl } : {}),
             domain: 'marketing',
           }),
         });
         const data = await res.json().catch(() => null);
-        if (data?.recipientStatus) {
+        if (gen === dispatchCheckGen.current && data?.recipientStatus) {
           verdict = data;
           setFetchedDispatchVerdict(data);
         }
       } catch {
-        verdict = null;
+        if (gen === dispatchCheckGen.current) verdict = null;
       }
     }
     const patch = confirmRequesterWrite(agent, {
