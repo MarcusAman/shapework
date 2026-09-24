@@ -273,3 +273,5 @@ export async function identifyCaller(params: {
     }
   };
 }
+
+export const CANONICAL_GENERIC_GREETING = 'Hi, this is Nora with Nest Realty — how can I help?';

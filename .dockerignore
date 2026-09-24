@@ -3,7 +3,6 @@
 .git
 .gitignore
 node_modules
-*.mp4
 *.tar.gz
 playwright-report
 test-results
@@ -13,3 +12,7 @@ artifacts
 backups
 uploads
 *.log
+.test_backups
+data/audio_cache
+data/oauth_tokens.json
+data/reset_tokens.json

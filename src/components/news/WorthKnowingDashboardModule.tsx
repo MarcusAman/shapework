@@ -26,10 +26,11 @@ export const WorthKnowingDashboardModule: React.FC<WorthKnowingDashboardModulePr
     const fetchTopNews = async () => {
       try {
         const token = localStorage.getItem('shapework_session_token') || 'usr_ryan';
-        const res = await fetch(`/api/news/worth-your-time?workspaceId=${encodeURIComponent(workspaceId)}`, {
+        const targetWs = (workspaceId === 'all_locations' || !workspaceId) ? 'ws_wilmington' : workspaceId;
+        const res = await fetch(`/api/news/worth-your-time?workspaceId=${encodeURIComponent(targetWs)}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'x-workspace-id': workspaceId
+            'x-workspace-id': targetWs
           }
         });
         if (res.ok) {

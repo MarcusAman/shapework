@@ -1,22 +1,15 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * 
- * Ask Agent / Requester Communication Dialog
- * Calm, human-centered missing-information requester modal.
- * Enforces canonical recipient resolution, server-enforced Ask NORA sender identity,
- * provider-neutral controls, and honest outbound policy behavior.
  *
- * Contract compatibility:
- * Supports Send Questions to Requester / Ask Agent workflow.
- * Dispatch channels include SMS & Email.
- * Preset question topics:
- * - Confirm weekend Open House start and end hours
- * - Please provide high-resolution unbranded photography files
- * Action intent: Send SMS / Email Questions
+ * Ask Agent / Requester Communication Dialog
+ * Used for (1) missing-info questions and (2) post-approval "assets ready" outreach.
+ * Melissa verifies/edits email or text before anything is sent.
+ * Always From AskNora@NestRealty.com; marketing delivery CCs Melissa.
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Send,
@@ -24,7 +17,6 @@ import {
   Phone,
   AlertCircle,
   CheckCircle2,
-  MapPin,
   Clock,
   ShieldCheck,
   FileText,
@@ -54,8 +46,14 @@ export interface AskRequesterQuestionsModalProps {
     selectedQuestions: string[];
     dispatchReceipt?: any;
     isDraftOnly?: boolean;
+    intent?: 'ask_missing' | 'delivery_complete';
+    subject?: string;
+    ccEmails?: string[];
+    domain?: string;
+    taskId?: string;
   }) => void;
-  // Optional flag or simulation override for outbound communications (defaults to false for safety)
+  /** ask_missing (default) | delivery_complete — approve assets ready outreach */
+  intent?: 'ask_missing' | 'delivery_complete';
   isOutboundEnabled?: boolean;
   recentOutreach?: {
     timestamp: string;
@@ -116,15 +114,54 @@ const QUESTION_CATALOG: QuestionItem[] = [
   }
 ];
 
+const MELISSA_CC = 'melissa.gagliardi@nestrealty.com';
+
+function isPlaceholderDriveLink(url: string): boolean {
+  return /\/folders\/1DRV_/i.test(url) || /\/folders\/folder_/i.test(url) || /\/folders\/sub_/i.test(url);
+}
+
+function collectDeliveryAssetLinks(campaign: any): string[] {
+  const urls: string[] = [];
+  const push = (u?: string) => {
+    const s = String(u || '').trim();
+    if (!s || !/^https?:\/\//i.test(s) || urls.includes(s)) return;
+    if (isPlaceholderDriveLink(s)) return;
+    urls.push(s);
+  };
+  push(campaign?.driveFolderUrl);
+  push(campaign?.proofUrl);
+  push(campaign?.approvePayload?.proofUrl);
+  for (const a of campaign?.approvePayload?.stagedAssets || []) push(a?.previewUrl || a?.url);
+  for (const a of campaign?.attachments || []) push(a?.url || a?.driveUrl);
+  for (const p of campaign?.photos || []) push(p?.url || p?.driveUrl);
+  for (const p of campaign?.proofs || []) push(p?.url);
+  for (const u of campaign?.assetUrls || []) push(u);
+  // Harvest real Drive links from notes (ignore fake 1DRV_ slugs)
+  const noteBlob = [campaign?.notes, campaign?.approvePayload?.note, campaign?.requestExcerpt]
+    .filter(Boolean)
+    .join('\n');
+  const found = noteBlob.match(/https?:\/\/drive\.google\.com\/[^\s)\]>"']+/gi) || [];
+  for (const m of found) push(m.replace(/[.,;]+$/, ''));
+  return urls;
+}
+
+
 export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProps> = ({
   isOpen,
   campaign,
   onClose,
   onSendQuestions,
+  intent: intentProp,
   isOutboundEnabled = false,
   recentOutreach = null
 }) => {
-  // Resolve canonical recipient via identity chain
+  const intent: 'ask_missing' | 'delivery_complete' =
+    intentProp ||
+    (campaign?.outreachIntent === 'delivery_complete' ? 'delivery_complete' : 'ask_missing');
+  const isDelivery = intent === 'delivery_complete';
+  const domain = String(campaign?.domain || campaign?.taskDomain || 'marketing');
+  const showMelissaCc = isDelivery && domain !== 'operational';
+
   const recipient: VerifiedRecipient = useMemo(() => {
     if (!campaign) {
       return resolveCanonicalRecipient({});
@@ -141,19 +178,20 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const propertyAddress =
     campaign?.propertyAddress ||
     campaign?.listingSnapshot?.propertyAddress ||
-    '123 Test Boulevard';
+    'Listing property';
 
-  // Communication channel: 'email' | 'text' | 'both'
   const [selectedChannel, setSelectedChannel] = useState<'email' | 'text' | 'both'>('email');
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>(['photos']);
   const [customQuestionText, setCustomQuestionText] = useState<string>('');
   const [customMessage, setCustomMessage] = useState<string>('');
+  const [emailSubject, setEmailSubject] = useState<string>('');
   const [hasManuallyEditedMessage, setHasManuallyEditedMessage] = useState<boolean>(false);
+  const [hasManuallyEditedSubject, setHasManuallyEditedSubject] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [duplicateConfirmed, setDuplicateConfirmed] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [ensuredDriveUrl, setEnsuredDriveUrl] = useState<string>('');
 
-  // Set default valid channel when recipient resolves
   useEffect(() => {
     if (recipient.emailVerified && recipient.phoneVerified) {
       setSelectedChannel('email');
@@ -164,46 +202,126 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     }
   }, [recipient]);
 
-  // Generate initial professional message
   useEffect(() => {
-    if (!hasManuallyEditedMessage && campaign) {
-      const itemsList = selectedQuestions
-        .map(id => {
-          if (id === 'custom' && customQuestionText.trim()) {
-            return `• ${customQuestionText.trim()}`;
-          }
-          const item = QUESTION_CATALOG.find(q => q.id === id);
-          return item ? `• ${item.detail}` : null;
-        })
-        .filter(Boolean)
-        .join('\n');
+    if (!isOpen || !campaign) return;
+    setHasManuallyEditedMessage(false);
+    setHasManuallyEditedSubject(false);
+    setSelectedQuestions(isDelivery ? [] : ['photos']);
+    setCustomQuestionText('');
+    setDuplicateConfirmed(false);
+    setStatusMessage(null);
+    setEnsuredDriveUrl('');
+    // Materials-ready: default email+text so SMS fires with the locked copy
+    setSelectedChannel(isDelivery ? 'both' : 'email');
+  }, [isOpen, campaign?.id, intent, isDelivery]);
 
-      const greetingName = recipient.firstName || recipient.name.split(' ')[0] || 'there';
+  // Delivery: create/reuse real AskNora Drive folder so the assets strip is not empty
+  useEffect(() => {
+    if (!isOpen || !campaign || !isDelivery) return;
+    const taskId = campaign.taskId || campaign.id;
+    if (!taskId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/tasks/${taskId}/ensure-drive`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stagedAssets: campaign.approvePayload?.stagedAssets || [],
+            proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl,
+            attachments: campaign.attachments || [],
+            propertyAddress: campaign.propertyAddress,
+            agentName: campaign.agentName || campaign.recipientName,
+            agentEmail: campaign.agentEmail,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.ok && data?.linkable && data?.driveFolderUrl) {
+          campaign.driveFolderUrl = data.driveFolderUrl;
+          setEnsuredDriveUrl(data.driveFolderUrl);
+          setStatusMessage(null);
+        } else if (res.ok) {
+          setEnsuredDriveUrl('');
+          setStatusMessage(data?.error || 'Drive not linkable yet — send will attach files to email.');
+        } else {
+          setStatusMessage(data?.error || 'Could not create AskNora Drive folder yet — send will attach files.');
+        }
+      } catch (err: any) {
+        if (!cancelled) setStatusMessage(err?.message || 'Drive folder ensure failed');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, isDelivery, campaign?.id, campaign?.taskId]);
 
-      const generated = [
-        `Hi ${greetingName},`,
-        ``,
-        `We need a few additional details to continue the marketing request for ${propertyAddress}:`,
-        itemsList || `• Clarification on requested deliverables`,
-        ``,
-        `You can reply directly to this message, and NORA will add the information to the existing request.`,
-        ``,
-        `Thank you,`,
-        `Ask NORA`,
-        `Nest Realty Wilmington`
-      ].join('\n');
+  useEffect(() => {
+    if (!campaign) return;
+    const greetingName = recipient.firstName || recipient.name.split(' ')[0] || 'there';
 
-      setCustomMessage(generated);
+    if (!hasManuallyEditedSubject) {
+      setEmailSubject(
+        isDelivery
+          ? `Your marketing materials are ready — ${propertyAddress}`
+          : `Quick question on ${propertyAddress}`
+      );
     }
-  }, [selectedQuestions, customQuestionText, recipient, propertyAddress, hasManuallyEditedMessage, campaign]);
+
+    if (!hasManuallyEditedMessage) {
+      if (isDelivery) {
+        setCustomMessage(
+          [
+            `${greetingName}, we have your requested marketing assets ready. Click the Google Drive link below to view.`,
+            ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
+            '',
+            'Respond to this text if you need any revisions.',
+          ].join('\n')
+        );
+      } else {
+        const itemsList = selectedQuestions
+          .map((id) => {
+            if (id === 'custom' && customQuestionText.trim()) {
+              return `• ${customQuestionText.trim()}`;
+            }
+            const item = QUESTION_CATALOG.find((q) => q.id === id);
+            return item ? `• ${item.detail}` : null;
+          })
+          .filter(Boolean)
+          .join('\n');
+
+        setCustomMessage(
+          [
+            `Hi ${greetingName},`,
+            ``,
+            `We need a few additional details to continue the marketing request for ${propertyAddress}:`,
+            itemsList || `• Clarification on requested deliverables`,
+            ``,
+            `You can reply directly to this message, and NORA will add the information to the existing request.`,
+            ``,
+            `Thank you,`,
+            `Melissa Gagliardi`,
+            `Nest Realty Marketing`,
+            `(via Ask NORA · AskNora@NestRealty.com)`
+          ].join('\n')
+        );
+      }
+    }
+  }, [
+    selectedQuestions,
+    customQuestionText,
+    recipient,
+    propertyAddress,
+    hasManuallyEditedMessage,
+    hasManuallyEditedSubject,
+    campaign,
+    isDelivery
+  ]);
 
   if (!isOpen || !campaign) return null;
 
   const toggleQuestion = (id: string) => {
-    setSelectedQuestions(prev => {
-      const next = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
-      return next;
-    });
+    setSelectedQuestions((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
   const handleAction = async () => {
@@ -215,14 +333,26 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     if (selectedChannel === 'text' || selectedChannel === 'both') activeChannels.push('sms');
 
     const payload = {
-      campaignId: campaign.id || campaign.campaignId || 'camp_active',
+      campaignId: campaign.id || campaign.campaignId || campaign.taskId || 'camp_active',
+      taskId: campaign.taskId || campaign.id,
+      requesterId: campaign.requesterId || campaign.agentId || campaign.listingSnapshot?.listingAgentId || recipient.requesterId,
       recipientName: recipient.name,
-      recipientPhone: recipient.phone,
-      recipientEmail: recipient.email,
+      // Never send Nora hotline as agent phone (call-ingest / Eduardo seed poison)
+      recipientPhone: recipient.phoneVerified ? recipient.phone : undefined,
+      recipientEmail: recipient.emailVerified ? recipient.email : undefined,
       channels: activeChannels,
       message: customMessage,
-      selectedQuestions,
-      propertyAddress
+      selectedQuestions: isDelivery ? ['delivery_ready'] : selectedQuestions,
+      propertyAddress,
+      intent,
+      subject: emailSubject,
+      ccEmails: showMelissaCc ? [MELISSA_CC] : [],
+      domain,
+      workspaceId: campaign.workspaceId || 'ws_wilmington',
+      driveFolderUrl: campaign.driveFolderUrl || undefined,
+      proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl || undefined,
+      assetUrls: isDelivery ? [] : collectDeliveryAssetLinks(campaign),
+      attachments: (campaign.attachments || []).filter((a: any) => a?.url)
     };
 
     try {
@@ -233,6 +363,12 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       });
 
       const responseData = await res.json().catch(() => ({}));
+
+      if (!res.ok || responseData.success === false) {
+        setStatusMessage(responseData.error || `Could not send (${res.status}). Check the agent contact and try again.`);
+        setIsSubmitting(false);
+        return;
+      }
 
       if (onSendQuestions) {
         onSendQuestions({
@@ -246,53 +382,52 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       onClose();
     } catch (err: any) {
       console.warn('[Ask Agent Modal Dispatch]:', err);
-      if (onSendQuestions) {
-        onSendQuestions({
-          ...payload,
-          dispatchReceipt: { success: true, mode: 'local_draft_saved' },
-          isDraftOnly: true
-        });
-      }
+      setStatusMessage(err?.message || 'Network error — outreach not sent.');
       setIsSubmitting(false);
-      onClose();
     }
   };
 
-  // Channel button disabled conditions
   const isEmailAvailable = recipient.emailVerified;
   const isTextAvailable = recipient.phoneVerified;
-
-  // Determine footer button label
   const isOutboundBlocked = !isOutboundEnabled;
   let actionButtonLabel = 'Save Outreach Draft';
   if (!isOutboundBlocked) {
-    if (selectedChannel === 'email') actionButtonLabel = 'Send Email';
+    if (isDelivery) {
+      if (selectedChannel === 'email') actionButtonLabel = 'Send & complete';
+      else if (selectedChannel === 'text') actionButtonLabel = 'Text & complete';
+      else actionButtonLabel = 'Notify & complete';
+    } else if (selectedChannel === 'email') actionButtonLabel = 'Send Email';
     else if (selectedChannel === 'text') actionButtonLabel = 'Send Text';
     else actionButtonLabel = 'Send Request';
+  } else if (isDelivery) {
+    actionButtonLabel = 'Save draft & complete';
   }
 
-  // Duplicate outreach warning check
   const showRecentWarning = Boolean(recentOutreach);
   const isBlockedByDuplicate = showRecentWarning && !duplicateConfirmed;
 
-  const isContractTestCampaign = Boolean(campaign?.id === 'camp_001' || campaign?.agentName === 'Sarah Jenkins');
-
-  return (
+  const dialog = (
     <div
       data-testid="ask-agent-dialog"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+      data-intent={intent}
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header: Human-Centered & Calm */}
+        {/* Header */}
         <div className="px-6 py-4 bg-[#00635C] text-white flex items-center justify-between border-b border-[#004d47]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 text-white font-bold text-sm flex items-center justify-center shadow-inner">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-white/20 text-white font-bold text-sm flex items-center justify-center shadow-inner shrink-0">
               {recipient.avatar}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-bold text-sm text-white" data-testid="ask-agent-dialog-title">
-                  Send Questions to Requester · Ask {recipient.name}
+                  {isDelivery
+                    ? `Notify agent — assets ready · ${recipient.name}`
+                    : `Send Questions to Requester · Ask ${recipient.name}`}
                 </h3>
                 {recipient.status === 'verified' && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 text-[10px] font-medium border border-emerald-300/30">
@@ -301,24 +436,24 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                   </span>
                 )}
               </div>
-              <p className="text-[12px] text-emerald-100/85">
-                Request missing information for {propertyAddress}
+              <p className="text-[12px] text-emerald-100/85 truncate">
+                {isDelivery
+                  ? `Review & send before completing · ${propertyAddress}`
+                  : `Request missing information for ${propertyAddress}`}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer shrink-0"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scrollable Content */}
         <div className="p-6 space-y-4 overflow-y-auto">
-          {/* Outbound Mode Policy Notice */}
           {isOutboundBlocked && (
             <div
               data-testid="outbound-disabled-banner"
@@ -334,7 +469,18 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             </div>
           )}
 
-          {/* Recent Contact Warning Safeguard */}
+          {isDelivery && (
+            <div className="p-3 bg-emerald-50/90 border border-emerald-200 rounded-xl text-xs text-emerald-950 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Approve is held until you send this note.</p>
+                <p className="text-emerald-800 text-[11px] mt-0.5">
+                  Customize the message, pick email / text / both, then send. Marketing completes CC Melissa automatically.
+                </p>
+              </div>
+            </div>
+          )}
+
           {showRecentWarning && (
             <div
               data-testid="recent-contact-warning"
@@ -344,10 +490,10 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 <Clock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold text-rose-950">
-                    NORA emailed {recipient.firstName} about these details {recentOutreach?.relativeTime || '18 minutes ago'}.
+                    NORA emailed {recipient.firstName} about these details {recentOutreach?.relativeTime || 'recently'}.
                   </p>
                   <p className="text-[11px] text-rose-800 mt-0.5">
-                    To prevent contacting the agent multiple times, please confirm if you wish to repeat outreach.
+                    Confirm if you wish to repeat outreach.
                   </p>
                 </div>
               </div>
@@ -365,63 +511,123 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             </div>
           )}
 
-          {/* Recipient & Routing Summary Card (Read-Only) */}
+          {/* Polished email composition card */}
           <div
-            data-testid="recipient-summary-card"
-            className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5 text-xs"
+            data-testid="outreach-email-card"
+            className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">To Recipient</span>
-                <span className="font-bold text-slate-900 text-xs">{recipient.name}</span>
-                <div className="text-[11px] text-slate-600 mt-0.5 space-y-1 font-mono">
-                  <div>
-                    <span className="font-sans font-medium text-slate-500 text-[10px]">Email Destination: </span>
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {selectedChannel === 'text' ? 'Text preview' : 'Email composition'}
+              </span>
+              <span className="text-[10px] text-slate-400">Edit before send</span>
+            </div>
+            <div className="divide-y divide-slate-100 text-xs">
+              <div className="px-4 py-2.5 flex gap-3 items-start">
+                <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pt-0.5">From</span>
+                <div>
+                  <div className="font-semibold text-slate-900" data-testid="from-sender-label">
+                    Ask NORA &lt;AskNora@NestRealty.com&gt;
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Tracked Nest mailbox · replies route to Nora</div>
+                </div>
+              </div>
+              <div className="px-4 py-2.5 flex gap-3 items-start">
+                <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pt-0.5">To</span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900">{recipient.name}</div>
+                  <div className="text-[11px] text-slate-600 font-mono mt-0.5 space-y-0.5">
                     {recipient.maskedEmail ? (
-                      <span className="inline-flex items-center gap-1">
+                      <div className="flex items-center gap-1">
                         <Mail className="w-3 h-3 text-slate-400" />
                         <span>{recipient.maskedEmail}</span>
-                      </span>
+                      </div>
                     ) : (
-                      <span className="text-amber-700 text-[10px] font-sans">
-                        <AlertCircle className="w-3 h-3 inline mr-1" />
-                        <span>{recipient.emailExplanation}</span>
-                      </span>
+                      <span className="text-amber-700 font-sans text-[10px]">{recipient.emailExplanation}</span>
                     )}
-                  </div>
-
-                  <div>
-                    <span className="font-sans font-medium text-slate-500 text-[10px]">SMS Destination: </span>
-                    {recipient.maskedPhone ? (
-                      <span className="inline-flex items-center gap-1">
+                    {recipient.maskedPhone && (
+                      <div className="flex items-center gap-1">
                         <Phone className="w-3 h-3 text-slate-400" />
                         <span>{recipient.maskedPhone}</span>
-                      </span>
-                    ) : (
-                      <span className="text-amber-700 text-[10px] font-sans">
-                        <AlertCircle className="w-3 h-3 inline mr-1" />
-                        <span>{recipient.phoneExplanation}</span>
-                      </span>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
+              {isDelivery && (
+                <div className="px-4 py-2.5 border-b border-slate-100" data-testid="outreach-delivery-assets">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Completed assets</div>
+                  {(() => {
+                    const links = [
+                      ...(ensuredDriveUrl ? [ensuredDriveUrl] : []),
+                      ...collectDeliveryAssetLinks(campaign),
+                    ].filter((u, i, arr) => u && arr.indexOf(u) === i);
+                    if (!links.length) {
+                      return (
+                        <p className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 m-0">
+                          Creating AskNora Drive folder… if this stays empty, retry Send or paste a link.
+                        </p>
+                      );
+                    }
+                    return (
+                      <ul className="m-0 pl-4 space-y-1">
+                        {links.map((url) => (
+                          <li key={url} className="text-[12px] break-all">
+                            <a href={url} target="_blank" rel="noreferrer" className="text-[#00635C] font-semibold hover:underline">
+                              {/drive\.google\.com/i.test(url) ? 'Google Drive folder (AskNora)' : url}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
+                </div>
+              )}
 
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">From Identity</span>
-                <span className="font-semibold text-slate-800 text-xs block" data-testid="from-sender-label">
-                  From Ask NORA · AskNora@NestRealty.com
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1 block">
-                  Property: <strong className="text-slate-700">{propertyAddress}</strong>
-                </span>
+              {showMelissaCc && selectedChannel !== 'text' && (
+                <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-cc-melissa">
+                  <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pt-0.5">Cc</span>
+                  <div>
+                    <div className="font-semibold text-slate-900">Melissa Gagliardi</div>
+                    <div className="text-[11px] text-slate-600 font-mono">{MELISSA_CC}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">Auto-CC on marketing complete outreach</div>
+                  </div>
+                </div>
+              )}
+              {selectedChannel !== 'text' && (
+                <div className="px-4 py-2.5 flex gap-3 items-center">
+                  <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">Subject</span>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => {
+                      setEmailSubject(e.target.value);
+                      setHasManuallyEditedSubject(true);
+                    }}
+                    data-testid="outreach-subject-input"
+                    className="flex-1 text-xs font-semibold text-slate-800 bg-transparent outline-none border-b border-transparent focus:border-[#00635C] py-0.5"
+                  />
+                </div>
+              )}
+              <div className="px-4 py-3">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Message</label>
+                <textarea
+                  rows={isDelivery ? 9 : 7}
+                  value={customMessage}
+                  onChange={(e) => {
+                    setCustomMessage(e.target.value);
+                    setHasManuallyEditedMessage(true);
+                  }}
+                  data-testid="ask-agent-message-textarea"
+                  className="w-full text-xs p-0 border-0 outline-none font-sans text-slate-800 resize-none leading-relaxed bg-transparent"
+                />
               </div>
             </div>
           </div>
 
-          {/* Communication Method Segmented Control */}
+          {/* Channel */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 block">Communication Method</label>
+            <label className="text-xs font-bold text-slate-700 block">Send via</label>
             <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
               <button
                 type="button"
@@ -435,9 +641,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
                 <Mail className="w-3.5 h-3.5" />
-                <span>{isContractTestCampaign ? 'Email (Resend)' : 'Email'}</span>
+                <span>Email</span>
               </button>
-
               <button
                 type="button"
                 disabled={!isTextAvailable}
@@ -450,9 +655,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
                 <Phone className="w-3.5 h-3.5" />
-                <span>{isContractTestCampaign ? 'SMS (Twilio)' : 'Text message'}</span>
+                <span>Text message</span>
               </button>
-
               <button
                 type="button"
                 disabled={!isEmailAvailable || !isTextAvailable}
@@ -470,40 +674,39 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             </div>
           </div>
 
-          {/* Missing-Information Selection */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
-              <span>Missing Information Needed:</span>
-              <span className="text-[11px] font-normal text-slate-400">Select items to include</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {QUESTION_CATALOG.map((item) => {
-                const isSelected = selectedQuestions.includes(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => toggleQuestion(item.id)}
-                    className={`px-3 py-2 rounded-xl text-left text-xs transition cursor-pointer flex items-center gap-2 border ${
-                      isSelected
-                        ? 'bg-teal-50/70 border-teal-300 text-teal-950 font-semibold shadow-2xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className={`p-1 rounded-md ${isSelected ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                      {item.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="truncate block font-medium">{item.label}</span>
-                      <span className="text-[10px] text-slate-500 block truncate">{item.detail}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {selectedQuestions.includes('custom') && (
-              <div className="pt-1">
+          {/* Missing-info chips — only for ask_missing */}
+          {!isDelivery && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span>Missing Information Needed:</span>
+                <span className="text-[11px] font-normal text-slate-400">Select items to include</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {QUESTION_CATALOG.map((item) => {
+                  const isSelected = selectedQuestions.includes(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => toggleQuestion(item.id)}
+                      className={`px-3 py-2 rounded-xl text-left text-xs transition cursor-pointer flex items-center gap-2 border ${
+                        isSelected
+                          ? 'bg-teal-50/70 border-teal-300 text-teal-950 font-semibold shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className={`p-1 rounded-md ${isSelected ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        {item.icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate block font-medium">{item.label}</span>
+                        <span className="text-[10px] text-slate-500 block truncate">{item.detail}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedQuestions.includes('custom') && (
                 <input
                   type="text"
                   value={customQuestionText}
@@ -511,32 +714,16 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                   placeholder="Specify custom question..."
                   className="w-full text-xs px-3 py-2 rounded-xl border border-slate-300 focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] outline-none"
                 />
-              </div>
-            )}
-          </div>
-
-          {/* Message Preview (Editable) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700">Message Preview:</label>
-              <span className="text-[11px] text-slate-400">Branded notification from Ask NORA</span>
+              )}
             </div>
-            <textarea
-              rows={6}
-              value={customMessage}
-              onChange={(e) => {
-                setCustomMessage(e.target.value);
-                setHasManuallyEditedMessage(true);
-              }}
-              data-testid="ask-agent-message-textarea"
-              placeholder="Type your message here..."
-              className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C] outline-none font-sans text-slate-800 resize-none bg-slate-50/50 leading-relaxed"
-            />
-          </div>
+          )}
+
+          {statusMessage && (
+            <p className="text-xs text-slate-600">{statusMessage}</p>
+          )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -555,7 +742,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             {isSubmitting ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving...</span>
+                <span>Sending...</span>
               </>
             ) : (
               <>
@@ -568,4 +755,6 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       </div>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 };

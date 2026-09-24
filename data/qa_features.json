@@ -1,0 +1,17 @@
+[
+  {
+    "id": "FEAT-001",
+    "dateAdded": "2026-08-10",
+    "addedBy": "Adam",
+    "areaModule": "Dashboard & Briefing",
+    "idea": "Weekly Owner Digest Email",
+    "problemSolved": "Owners want a Monday morning email summarizing open requests, overdue items, and what got resolved last week. Saves them from needing to log in daily.",
+    "valueImpact": "High",
+    "effort": "M",
+    "status": "Planned",
+    "owner": "Marcus",
+    "notes": "Rollup logic implemented in OwnerWeeklyBriefPage. Add cron email dispatcher.",
+    "createdAt": "2026-08-10T09:00:00Z",
+    "updatedAt": "2026-08-16T10:00:00Z"
+  }
+]

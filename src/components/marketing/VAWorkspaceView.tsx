@@ -39,7 +39,10 @@ import {
   Calendar,
   MoreVertical,
   Filter,
-  CheckCheck
+  CheckCheck,
+  PanelLeftClose,
+  ChevronsRight,
+  Play
 } from 'lucide-react';
 import { AskRequesterQuestionsModal } from './AskRequesterQuestionsModal';
 import { MaxaBrowserAgentModal } from './MaxaBrowserAgentModal';
@@ -49,15 +52,21 @@ import { getTeamMemberSops, getCampaignGoverningSop, MarketingSopDefinition, MAR
 import { SOPQuickViewDrawer } from './SOPQuickViewDrawer';
 import { WorkspaceTaskDrawer } from './WorkspaceTaskDrawer';
 import { CompactActivityCardBadge } from './CompactActivityCardBadge';
+import { CanonicalTaskCard } from './CanonicalTaskCard';
+import { RequestSourceIcon } from './RequestSourceIcon';
+import { useFitBoardLayout } from './useFitBoardLayout';
 import {
   CANONICAL_WORKSPACE_ROSTER,
   getCanonicalStaffRoster,
   resolveCanonicalStaffMember,
+  getCanonicalMarketingDirector,
   isSarahJenkinsTask,
   sanitizeTaskAssignment,
+  isTaskInMemberWorkspace,
   CanonicalStaffMember
 } from '../../services/canonicalRoster';
 import { resolveCanonicalRecipient } from '../../services/canonicalRecipientService';
+import { MlsNumberBadge } from './MlsNumberBadge';
 
 export function getSlaUrgencyInfo(targetSla: string, priority: string = 'normal', status: string = 'in_production') {
   if (status === 'completed' || status === 'ready_for_review') {
@@ -111,6 +120,11 @@ export interface VAWorkTaskItem {
   reviewState?: 'awaiting_review' | 'revisions_requested' | 'approved';
   proofVersion?: number;
   targetSla: string;
+  dueAt?: string;
+  neededByDate?: string;
+  eventType?: string;
+  eventDate?: string;
+  eventTime?: string;
   receivedAt: string;
   assignedTo?: string;
   assignedToId?: string;
@@ -159,6 +173,7 @@ export interface VAWorkspaceViewProps {
   workItems?: any[];
   campaigns?: any[];
   tasks?: any[];
+  currentUser?: any;
   onOpenItem?: (id: string) => void;
   onSubmitProof?: (taskId: string, proofUrl: string, notes: string) => void;
   onSendQuestionsToRequester?: (campaign: any, data?: any) => void;
@@ -173,7 +188,7 @@ export type StaffWorkspaceMember = CanonicalStaffMember;
 
 export const WORKSPACE_MEMBERS: StaffWorkspaceMember[] = CANONICAL_WORKSPACE_ROSTER;
 
-export type KanbanLaneId = 'needs_info' | 'ready' | 'in_progress' | 'awaiting_review' | 'revisions' | 'completed';
+export type KanbanLaneId = 'intake_received' | 'needs_info' | 'ready' | 'in_progress' | 'awaiting_review' | 'revisions' | 'completed';
 
 export interface KanbanLaneConfig {
   id: KanbanLaneId;
@@ -183,6 +198,15 @@ export interface KanbanLaneConfig {
   badgeColor: string;
   dotColor: string;
 }
+
+export const INTAKE_LANE: KanbanLaneConfig = {
+  id: 'intake_received',
+  title: 'Intake Received',
+  description: 'New requests awaiting department lead review & delegation',
+  headerColor: 'bg-slate-100 text-slate-900 border-slate-300',
+  badgeColor: 'bg-slate-200 text-slate-800',
+  dotColor: 'bg-slate-500'
+};
 
 export const KANBAN_LANES: KanbanLaneConfig[] = [
   {
@@ -251,7 +275,10 @@ export function getTaskKanbanLane(task: VAWorkTaskItem): KanbanLaneId {
   if (status === 'needs_info') {
     return 'needs_info';
   }
-  if (status === 'ready_for_review' || status === 'assigned' || status === 'request_received') {
+  if (status === 'request_received' || status === 'intake_received') {
+    return 'ready';
+  }
+  if (status === 'ready_for_review' || status === 'assigned' || status === 'ready') {
     return 'ready';
   }
   return 'in_progress';
@@ -294,7 +321,7 @@ export function getTaskSourceChannel(task: VAWorkTaskItem): {
   if (hasCall || raw === 'phone' || raw === 'voice' || raw === 'call' || raw === 'retell') {
     return {
       type: 'phone',
-      label: 'Retell Voice',
+      label: 'Call',
       icon: Phone,
       color: 'text-[#00635C] bg-[#E5EFEA] border-[#00635C]/30'
     };
@@ -716,6 +743,7 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   workItems = [],
   campaigns = [],
   tasks: propTasks,
+  currentUser: propCurrentUser,
   onOpenItem,
   onSubmitProof,
   onSendQuestionsToRequester,
@@ -725,19 +753,43 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   initialDrawerOpen,
   initialViewMode
 }) => {
-  const [activeTeamMember, setActiveTeamMember] = useState<string>('Eduardo Lovo');
+  const [activeTeamMember, setActiveTeamMember] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const m = params.get('member') || params.get('user');
+        if (m) {
+          const found = WORKSPACE_MEMBERS.find(member => 
+            member.name.toLowerCase().includes(m.toLowerCase()) || 
+            member.id.toLowerCase() === m.toLowerCase() ||
+            member.email.toLowerCase().includes(m.toLowerCase())
+          );
+          if (found) return found.name;
+        }
+      } catch {}
+    }
+    if (propCurrentUser?.name) {
+      const found = WORKSPACE_MEMBERS.find(m => m.name === propCurrentUser.name);
+      if (found) return found.name;
+    }
+    return 'Eduardo Lovo';
+  });
   const [coverageFilter, setCoverageFilter] = useState<'all' | 'direct' | 'coverage'>('all');
   const [isCoverageModeSimulated, setIsCoverageModeSimulated] = useState<boolean>(false);
 
-  // View mode: default to Board on fresh load / reload, supporting explicit URL param ?view=table or initialViewMode
+  // View mode: default to Board on fresh load / reload, supporting explicit URL param ?view=table/board or localStorage or initialViewMode
   const [viewMode, setViewMode] = useState<'table' | 'board'>(() => {
     if (initialViewMode) return initialViewMode;
     if (typeof window !== 'undefined') {
       try {
         const params = new URLSearchParams(window.location.search);
-        const viewParam = params.get('view');
+        const viewParam = params.get('view')?.toLowerCase().trim();
         if (viewParam === 'table') return 'table';
-        if (viewParam === 'board') return 'board';
+        if (viewParam === 'board' || viewParam === 'pipeline' || viewParam === 'kanban') return 'board';
+
+        const stored = localStorage.getItem('nest_tasks_view_mode');
+        if (stored === 'table') return 'table';
+        if (stored === 'board' || stored === 'pipeline') return 'board';
       } catch {}
     }
     return 'board';
@@ -745,6 +797,14 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
 
   const handleViewModeChange = (mode: 'table' | 'board') => {
     setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nest_tasks_view_mode', mode);
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', mode);
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
   };
 
   const [tasks, setTasks] = useState<VAWorkTaskItem[]>(() => {
@@ -761,7 +821,9 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
                   ? 'proof_submitted'
                   : t.status === 'needs_info'
                     ? 'needs_info'
-                    : 'in_production');
+                    : t.status === 'assigned'
+                      ? 'assigned'
+                      : 'in_production');
 
         const recipient = resolveCanonicalRecipient({
           requesterId: t.requesterId || t.agentId,
@@ -794,7 +856,12 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
           proofVersion: t.proofVersion,
           isArchived,
           archivedAt: t.archivedAt,
-          targetSla: t.targetSla || t.dueAt || 'Today 5:00 PM',
+          targetSla: t.targetSla || t.dueAt || t.neededByDate || 'Deadline not specified',
+          dueAt: t.dueAt,
+          neededByDate: t.neededByDate,
+          eventType: t.eventType,
+          eventDate: t.eventDate,
+          eventTime: t.eventTime,
           receivedAt: t.receivedAt || t.createdAt || 'Recent',
           assignedTo: t.assignedTo,
           assignedToId: t.assignedToId,
@@ -811,15 +878,16 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
             dimensions: 'Standard Specification',
             templateId: 'flyer_editorial_letter'
           }],
-          listingDetails: t.listingDetails || {
-            price: '$895,000',
-            bedsBaths: '3 Beds / 2 Baths',
-            sqft: '2,400 SqFt',
-            headline: `Listing Collateral at ${t.propertyAddress || t.requestTitle || 'Wilmington'}`,
-            description: t.notes || 'Inbound marketing deliverable',
-            disclosures: 'Nest Realty Wilmington · NC Broker License #C29184 · Equal Housing Opportunity.',
-            mlsNumber: 'MLS #10041289',
-            licenseNumber: 'NC Broker #291842'
+          listingDetails: {
+            ...(t.listingDetails || {}),
+            price: t.listingDetails?.price || (t as any).listPrice || (t as any).price || '—',
+            bedsBaths: t.listingDetails?.bedsBaths || (t as any).bedsBaths || '—',
+            sqft: t.listingDetails?.sqft || (t as any).sqft || '—',
+            headline: t.listingDetails?.headline || `Listing Collateral at ${t.propertyAddress || t.requestTitle || 'Wilmington'}`,
+            description: t.listingDetails?.description || t.notes || 'Inbound marketing deliverable',
+            disclosures: t.listingDetails?.disclosures || 'Nest Realty Wilmington · NC Broker License #C29184 · Equal Housing Opportunity.',
+            mlsNumber: t.listingDetails?.mlsNumber || t.mlsNumber || (t as any).mls_number || '',
+            licenseNumber: t.listingDetails?.licenseNumber || 'NC Broker #291842'
           },
           photos: t.photos || [],
           sopCode: t.sopCode || 'SOP-MKT-008',
@@ -853,7 +921,9 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
                   ? 'proof_submitted'
                   : t.status === 'needs_info'
                     ? 'needs_info'
-                    : 'in_production');
+                    : t.status === 'assigned'
+                      ? 'assigned'
+                      : 'in_production');
 
         const recipient = resolveCanonicalRecipient({
           requesterId: t.requesterId || t.agentId,
@@ -886,7 +956,7 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
           proofVersion: t.proofVersion,
           isArchived,
           archivedAt: t.archivedAt,
-          targetSla: t.targetSla || t.dueAt || 'Today 5:00 PM',
+          targetSla: t.targetSla || t.dueAt || t.neededByDate || 'Deadline not specified',
           receivedAt: t.receivedAt || t.createdAt || 'Recent',
           assignedTo: t.assignedTo,
           assignedToId: t.assignedToId,
@@ -903,15 +973,16 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
             dimensions: 'Standard Specification',
             templateId: 'flyer_editorial_letter'
           }],
-          listingDetails: t.listingDetails || {
-            price: '$895,000',
-            bedsBaths: '3 Beds / 2 Baths',
-            sqft: '2,400 SqFt',
-            headline: `Listing Collateral at ${t.propertyAddress || t.requestTitle || 'Wilmington'}`,
-            description: t.notes || 'Inbound marketing deliverable',
-            disclosures: 'Nest Realty Wilmington · NC Broker License #C29184 · Equal Housing Opportunity.',
-            mlsNumber: 'MLS #10041289',
-            licenseNumber: 'NC Broker #291842'
+          listingDetails: {
+            ...(t.listingDetails || {}),
+            price: t.listingDetails?.price || (t as any).listPrice || (t as any).price || '—',
+            bedsBaths: t.listingDetails?.bedsBaths || (t as any).bedsBaths || '—',
+            sqft: t.listingDetails?.sqft || (t as any).sqft || '—',
+            headline: t.listingDetails?.headline || `Listing Collateral at ${t.propertyAddress || t.requestTitle || 'Wilmington'}`,
+            description: t.listingDetails?.description || t.notes || 'Inbound marketing deliverable',
+            disclosures: t.listingDetails?.disclosures || 'Nest Realty Wilmington · NC Broker License #C29184 · Equal Housing Opportunity.',
+            mlsNumber: t.listingDetails?.mlsNumber || t.mlsNumber || (t as any).mls_number || '',
+            licenseNumber: t.listingDetails?.licenseNumber || 'NC Broker #291842'
           },
           photos: t.photos || [],
           sopCode: t.sopCode || 'SOP-MKT-008',
@@ -953,7 +1024,9 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('All Statuses');
+  const isArchivedMode = statusFilter === 'Archived' || showArchived;
   const [categoryFilter, setCategoryFilter] = useState<string>('All Categories');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>('All Priorities');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -969,14 +1042,27 @@ export const VAWorkspaceView: React.FC<VAWorkspaceViewProps> = ({
   const [browserAgentModalTask, setBrowserAgentModalTask] = useState<VAWorkTaskItem | null>(null);
   const [selectedLightboxItem, setSelectedLightboxItem] = useState<DeliverableItem | null>(null);
 
-  // URL Deep Link Sync (?taskId=)
+  // URL Deep Link Sync (?taskId= & ?tab= & ?member=)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const params = new URLSearchParams(window.location.search);
       const qTaskId = params.get('taskId');
+      const qTab = params.get('tab') || params.get('drawerTab');
+      const qMember = params.get('member') || params.get('user');
+      if (qMember) {
+        const found = WORKSPACE_MEMBERS.find(member => 
+          member.name.toLowerCase().includes(qMember.toLowerCase()) || 
+          member.id.toLowerCase() === qMember.toLowerCase() ||
+          member.email.toLowerCase().includes(qMember.toLowerCase())
+        );
+        if (found) setActiveTeamMember(found.name);
+      }
       if (qTaskId) {
         setSelectedTaskId(qTaskId);
+        if (qTab) {
+          setDrawerInitialTab(qTab);
+        }
         setIsDrawerOpen(true);
       }
     } catch {}
@@ -1105,30 +1191,30 @@ Agent: ${task.agentName} (${task.agentPhone})`;
 
   // Synchronize incoming campaigns and tasks assigned to the active team member dynamically
   const mergedTasks = useMemo(() => {
-    const isEduardo = activeTeamMember === 'Eduardo Lovo';
-    const memberFirstName = activeTeamMember.split(' ')[0].toLowerCase();
-    const isArchivedMode = statusFilter === 'Archived' || showArchived;
+    const activeMemberStaff = resolveCanonicalStaffMember(activeTeamMember, 'ws_wilmington');
 
     // 1. Convert any campaigns assigned to this member
     const dynamicFromCampaigns: VAWorkTaskItem[] = (campaigns || [])
       .filter(c => {
-        const isArchived = Boolean((c as any).isArchived || c.status === 'archived');
-        if (isArchivedMode ? !isArchived : isArchived) return false;
-        const assigned = (c.assignedTo || '').toLowerCase();
-        if (isEduardo) {
-          return assigned.includes('eduardo') || assigned === 'va' || assigned.includes('virtual assistant');
-        }
-        return assigned.includes(memberFirstName);
+        return isTaskInMemberWorkspace(c, activeMemberStaff || { name: activeTeamMember }, {
+          coverageFilter,
+          isArchivedMode
+        });
       })
       .map((c, idx) => {
-        const existing = tasks.find(t => t.campaignId === c.id || t.id === c.id || (t.propertyAddress && c.propertyAddress && t.propertyAddress.includes(c.propertyAddress.split(',')[0])));
+        const normCAddr = (c.propertyAddress || '').toLowerCase().replace(/\b5th\b/g, 'fifth').replace(/\bave\b/g, 'avenue').replace(/\bn\b/g, 'north').replace(/\bst\b/g, 'street').replace(/[^a-z0-9]/g, '');
+        const existing = tasks.find(t => {
+          if (t.campaignId === c.id || t.id === c.id) return true;
+          if (c.requestId && t.requestId && c.requestId === t.requestId) return true;
+          if (t.propertyAddress && normCAddr) {
+            const normTAddr = t.propertyAddress.toLowerCase().replace(/\b5th\b/g, 'fifth').replace(/\bave\b/g, 'avenue').replace(/\bn\b/g, 'north').replace(/\bst\b/g, 'street').replace(/[^a-z0-9]/g, '');
+            if (normTAddr === normCAddr || normTAddr.includes(normCAddr) || normCAddr.includes(normTAddr)) return true;
+          }
+          return false;
+        });
+        // If an authoritative canonical task already exists, do NOT synthesize a duplicate work item
         if (existing) {
-          return {
-            ...existing,
-            status: (c.status || existing.status) as any,
-            proofUrl: c.proofUrl || existing.proofUrl || (c.status === 'ready_for_review' || c.status === 'proof_submitted' ? 'https://drive.google.com/drive/folders/proofs_staged' : undefined),
-            proofNotes: c.proofNotes || existing.proofNotes
-          };
+          return null;
         }
         const recipient = resolveCanonicalRecipient({
           requesterId: c.requesterId || c.agentId || c.listingSnapshot?.listingAgentId,
@@ -1152,7 +1238,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
           packageType: c.packageType || 'Luxury Collateral Package',
           priority: 'high',
           status: (c.status === 'ready_for_review' || c.status === 'proof_submitted' ? c.status : 'in_production') as any,
-          targetSla: c.slaTarget || 'Today 5:00 PM',
+          targetSla: c.slaTarget || c.dueAt || 'Deadline not specified',
           receivedAt: c.receivedAt || 'Recent',
           proofUrl: c.proofUrl || (c.status === 'ready_for_review' || c.status === 'proof_submitted' ? 'https://drive.google.com/drive/folders/proofs_staged' : undefined),
           proofNotes: c.proofNotes || (c.status === 'ready_for_review' ? 'Automated Maxa proofs staged by Nora Browser Agent.' : undefined),
@@ -1163,13 +1249,13 @@ Agent: ${task.agentName} (${task.agentPhone})`;
             templateId: 'flyer_editorial_letter'
           })),
           listingDetails: {
-            price: c.price || '$750,000',
-            bedsBaths: c.bedsBaths || '3 Beds / 2.5 Baths',
-            sqft: '2,600 SqFt',
+            price: c.price || 'Pending MLS retrieval',
+            bedsBaths: c.bedsBaths || 'Pending MLS retrieval',
+            sqft: c.sqft || 'Pending MLS retrieval',
             headline: `Luxury Living at ${c.propertyAddress ? c.propertyAddress.split(',')[0] : 'Listing'}`,
             description: c.requestExcerpt || 'Full luxury collateral package created in Nest Design Center.',
             disclosures: 'Nest Realty Wilmington · NC Broker License #C29184 · Equal Housing Opportunity.',
-            mlsNumber: 'MLS #10043000',
+            mlsNumber: c.mlsNumber || '',
             licenseNumber: 'NC Broker #291842'
           },
           photos: [
@@ -1184,41 +1270,38 @@ Agent: ${task.agentName} (${task.agentPhone})`;
             complianceChecked: true
           }
         };
-      });
+      })
+      .filter(Boolean) as VAWorkTaskItem[];
 
-    // 2. Base tasks assigned to this active member or coverage
-    const memberTasks = (tasks || []).filter(t => {
-      const isArchived = Boolean((t as any).isArchived || t.status === 'archived');
-      if (isArchivedMode ? !isArchived : isArchived) return false;
+    // 2. Base tasks assigned to this active member, coverage, or awaiting review by this member
+    const memberTasks = (tasks || []).filter(t => isTaskInMemberWorkspace(t, activeMemberStaff || { name: activeTeamMember }, {
+      coverageFilter,
+      isArchivedMode
+    }));
 
-      const assigned = ((t as any).assignedTo || '').toLowerCase();
-      const role = ((t as any).assignedToRole || '').toLowerCase();
-      const covering = ((t as any).coveringStaff || (t as any).coveringStaffName || '').toLowerCase();
-
-      if (coverageFilter === 'direct') {
-        if (isEduardo) {
-          return assigned.includes('eduardo') || role.includes('virtual assistant') || role.includes('va');
-        }
-        return assigned.includes(memberFirstName);
-      }
-
-      if (coverageFilter === 'coverage') {
-        if (isEduardo) {
-          return covering.includes('ann') || covering.includes('eduardo');
-        }
-        return covering.includes(memberFirstName);
-      }
-
-      if (isEduardo) {
-        return assigned.includes('eduardo') || role.includes('virtual assistant') || role.includes('va') || covering.includes('eduardo') || covering.includes('ann');
-      }
-      return assigned.includes(memberFirstName) || covering.includes(memberFirstName);
+    const combined: VAWorkTaskItem[] = [];
+    // First add authoritative member tasks
+    memberTasks.forEach(t => {
+      combined.push(t);
     });
 
-    const combined = [...dynamicFromCampaigns.filter(c => isArchivedMode ? Boolean((c as any).isArchived) : !Boolean((c as any).isArchived))];
-    memberTasks.forEach(t => {
-      if (!combined.some(dyn => dyn.id === t.id || (dyn.propertyAddress && t.propertyAddress && dyn.propertyAddress.includes(t.propertyAddress.split(',')[0])))) {
-        combined.push(t);
+    // Then add dynamic campaign tasks only if not already represented
+    dynamicFromCampaigns.forEach(dyn => {
+      const isArch = Boolean((dyn as any).isArchived || dyn.status === 'archived');
+      if (isArchivedMode ? !isArch : isArch) return;
+      const normDynAddr = (dyn.propertyAddress || '').toLowerCase().replace(/\b5th\b/g, 'fifth').replace(/\bave\b/g, 'avenue').replace(/\bn\b/g, 'north').replace(/\bst\b/g, 'street').replace(/[^a-z0-9]/g, '');
+      const alreadyPresent = combined.some(t => {
+        if (t.id === dyn.id) return true;
+        if (dyn.requestId && t.requestId && dyn.requestId === t.requestId) return true;
+        if (dyn.campaignId && (t.campaignId === dyn.campaignId || t.id === dyn.campaignId)) return true;
+        if (t.propertyAddress && normDynAddr) {
+          const normTAddr = t.propertyAddress.toLowerCase().replace(/\b5th\b/g, 'fifth').replace(/\bave\b/g, 'avenue').replace(/\bn\b/g, 'north').replace(/\bst\b/g, 'street').replace(/[^a-z0-9]/g, '');
+          if (normTAddr === normDynAddr || normTAddr.includes(normDynAddr) || normDynAddr.includes(normTAddr)) return true;
+        }
+        return false;
+      });
+      if (!alreadyPresent) {
+        combined.push(dyn);
       }
     });
 
@@ -1226,18 +1309,8 @@ Agent: ${task.agentName} (${task.agentPhone})`;
   }, [tasks, campaigns, activeTeamMember, propTasks, statusFilter, showArchived, coverageFilter]);
 
   const totalArchivedCount = useMemo(() => {
-    const isEduardo = activeTeamMember.toLowerCase().includes('eduardo');
-    const memberFirstName = activeTeamMember.split(' ')[0].toLowerCase();
-
-    return (tasks || []).filter((t: any) => {
-      const assigned = ((t as any).assignedTo || '').toLowerCase();
-      const role = ((t as any).assignedToRole || '').toLowerCase();
-      const covering = ((t as any).coveringStaff || '').toLowerCase();
-      const belongsToMember = isEduardo
-        ? (assigned.includes('eduardo') || role.includes('virtual assistant') || role.includes('va') || covering.includes('eduardo'))
-        : (assigned.includes(memberFirstName) || covering.includes(memberFirstName));
-      return belongsToMember && (t.isArchived || t.status === 'archived');
-    }).length;
+    const activeMemberStaff = resolveCanonicalStaffMember(activeTeamMember, 'ws_wilmington');
+    return (tasks || []).filter((t: any) => isTaskInMemberWorkspace(t, activeMemberStaff || { name: activeTeamMember }, { isArchivedMode: true })).length;
   }, [tasks, activeTeamMember]);
 
   // Filter tasks
@@ -1265,7 +1338,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
 
       const matchesStatus =
         statusFilter === 'All Statuses' ||
-        (statusFilter === 'In Production' && (t.status === 'in_production' || t.status === 'in_progress' || t.status === 'assigned' || t.status === 'request_received')) ||
+        (statusFilter === 'In Production' && (t.status === 'in_production' || t.status === 'in_progress' || t.status === 'assigned' || t.status === 'request_received') && t.reviewState !== 'awaiting_review' && t.status !== 'proof_submitted') ||
         (statusFilter === 'Proof Submitted' && (t.status === 'proof_submitted' || t.reviewState === 'awaiting_review')) ||
         (statusFilter === 'Awaiting Review' && (t.status === 'proof_submitted' || t.reviewState === 'awaiting_review')) ||
         (statusFilter === 'Ready for Review' && (t.status === 'ready_for_review' || t.status === 'agent_review')) ||
@@ -1280,8 +1353,38 @@ Agent: ${task.agentName} (${task.agentPhone})`;
 
   const activeTask = useMemo(() => {
     if (!selectedTaskId) return null;
-    return mergedTasks.find(t => t.id === selectedTaskId) || null;
-  }, [mergedTasks, selectedTaskId]);
+    return mergedTasks.find(t => t.id === selectedTaskId) ||
+      tasks.find(t => t.id === selectedTaskId) ||
+      (propTasks || []).find((t: any) => t.id === selectedTaskId) ||
+      null;
+  }, [mergedTasks, tasks, propTasks, selectedTaskId]);
+
+  // Dynamic Fit-Board layout for Kanban Lanes
+  const lanesMeta = useMemo(() => {
+    return KANBAN_LANES.map(lane => ({
+      id: lane.id,
+      taskCount: filteredTasks.filter(t => getTaskKanbanLane(t) === lane.id).length
+    }));
+  }, [filteredTasks]);
+
+  const {
+    containerRef: boardContainerRef,
+    collapsedColumns: collapsedLanes,
+    toggleColumnCollapse: toggleLaneCollapse,
+    columnWidthStyle,
+    railWidthStyle,
+    railWidthClass,
+    gapClass
+  } = useFitBoardLayout({
+    columns: lanesMeta,
+    context: 'workspace',
+    userId: activeTeamMember,
+    workspaceId: (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.getItem === 'function') ? window.localStorage.getItem('shapework_active_workspace_id') || 'nest-realty-wilmington' : 'nest-realty-wilmington',
+    minColWidth: 200,
+    targetColWidth: 230,
+    railWidth: 44,
+    gap: 8
+  });
 
   // Actionable Metrics calculated strictly from mergedTasks
   const openTasksCount = useMemo(() => {
@@ -1308,7 +1411,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
     }).length;
   }, [mergedTasks]);
 
-  const inProductionCount = mergedTasks.filter(t => t.status === 'in_production' || t.status === 'in_progress' || t.status === 'assigned' || t.status === 'request_received').length;
+  const inProductionCount = mergedTasks.filter(t => (t.status === 'in_production' || t.status === 'in_progress' || t.status === 'assigned' || t.status === 'request_received') && t.reviewState !== 'awaiting_review' && t.status !== 'proof_submitted').length;
   const proofSubmittedCount = awaitingReviewCount;
   const completedCount = mergedTasks.filter(t => t.status === 'completed' || t.status === 'approved' || t.reviewState === 'approved').length;
 
@@ -1395,40 +1498,52 @@ Agent: ${task.agentName} (${task.agentPhone})`;
     return list;
   }, [activeTask, campaigns]);
 
-  const handleTaskSubmitProof = (task: VAWorkTaskItem) => {
+  const handleTaskSubmitProof = async (task: VAWorkTaskItem) => {
     const finalProofUrl = proofInputUrl.trim() || 'https://drive.google.com/drive/folders/submitted_proofs_v1';
     const finalNotes = proofInputNotes.trim() || 'Proof compiled in Nest Design Center (Maxa). Disclosures verified.';
 
-    setTasks(prev => prev.map(t => t.id === task.id ? {
-      ...t,
-      status: 'in_progress',
-      reviewState: 'awaiting_review',
-      proofVersion: (t.proofVersion || 0) + 1,
-      assignedTo: 'Melissa Gagliardi',
-      assignedToRole: 'Marketing Director / Reviewer',
-      proofUrl: finalProofUrl,
-      proofNotes: finalNotes
-    } : t));
+    try {
+      const res = await fetch(`/api/marketing/tasks/${task.id}/submit-proof`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proofUrl: finalProofUrl, notes: finalNotes })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data.message || data.error || `Submit failed (HTTP ${res.status})`;
+        showToast(`⚠️ Proof not submitted: ${message}`);
+        return;
+      }
 
-    if (onSubmitProof) {
-      onSubmitProof(task.id, finalProofUrl, finalNotes);
-    }
-    if (onReassignTask) {
-      onReassignTask(task.id, 'Melissa Gagliardi');
-    }
-    if (onTaskStatusChange) {
-      onTaskStatusChange(task.id, 'in_progress');
-    }
+      const persisted = data.task || data;
+      setTasks(prev => prev.map(t => t.id === task.id ? {
+        ...t,
+        ...(typeof persisted === 'object' ? persisted : {}),
+        status: persisted?.status || 'in_progress',
+        reviewState: persisted?.reviewState || 'awaiting_review',
+        reviewOwnerId: persisted?.reviewOwnerId || 'dir_melissa_gagliardi_33',
+        reviewOwnerName: persisted?.reviewOwnerName || 'Melissa Gagliardi',
+        proofVersion: persisted?.proofVersion ?? ((t.proofVersion || 0) + 1),
+        proofUrl: persisted?.proofUrl || finalProofUrl,
+        proofNotes: persisted?.proofNotes || finalNotes,
+        assignedTo: persisted?.assignedTo || t.assignedTo,
+        assignedToId: persisted?.assignedToId || t.assignedToId
+      } : t));
 
-    fetch(`/api/marketing/tasks/${task.id}/submit-proof`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ proofUrl: finalProofUrl, notes: finalNotes })
-    }).catch(e => console.warn('[submit-proof api call]:', e));
+      if (onSubmitProof) {
+        await onSubmitProof(task.id, finalProofUrl, finalNotes);
+      }
+      if (onTaskStatusChange) {
+        onTaskStatusChange(task.id, 'in_progress');
+      }
 
-    setProofInputUrl('');
-    setProofInputNotes('');
-    showToast(`✓ Proof submitted & routed to Melissa Gagliardi for review & approval!`);
+      setProofInputUrl('');
+      setProofInputNotes('');
+      showToast(`✓ Proof submitted & routed to Melissa Gagliardi for review & approval!`);
+    } catch (e: any) {
+      console.warn('[submit-proof api call]:', e);
+      showToast(`⚠️ Proof not submitted: ${e?.message || 'Network or server error'}`);
+    }
   };
 
   // Safe Move Task across Kanban Lanes (Enforcing role permissions & rollback on 409)
@@ -1468,6 +1583,9 @@ Agent: ${task.agentName} (${task.agentPhone})`;
     // Optimistic Update
     setTasks(prev => prev.map(t => {
       if (t.id === taskId) {
+        if (targetLane === 'intake_received') {
+          return { ...t, status: 'request_received', reviewState: undefined };
+        }
         if (targetLane === 'needs_info') {
           return { ...t, status: 'needs_info', reviewState: undefined };
         }
@@ -1492,7 +1610,8 @@ Agent: ${task.agentName} (${task.agentPhone})`;
 
     // Server Synchronization with HTTP 409 Conflict Rollback
     try {
-      const serverStatus = targetLane === 'needs_info' ? 'needs_info' :
+      const serverStatus = targetLane === 'intake_received' ? 'request_received' :
+                           targetLane === 'needs_info' ? 'needs_info' :
                            targetLane === 'ready' ? 'ready_for_review' :
                            targetLane === 'completed' ? 'completed' : 'in_progress';
 
@@ -1524,22 +1643,110 @@ Agent: ${task.agentName} (${task.agentPhone})`;
   };
 
   const resolvedCurrentUser = useMemo(() => {
-    const member = WORKSPACE_MEMBERS.find(m => m.name === activeTeamMember);
-    const id = member?.id || (
-      activeTeamMember === 'Eduardo Lovo' ? 'usr_eduardo' :
-      activeTeamMember === 'Ann Gunn' ? 'dir_staff_ann_gunn' :
-      activeTeamMember === 'Melissa Gagliardi' ? 'usr_melissa' :
-      activeTeamMember === 'Ryan Crecelius' ? 'staff_ryan_crecelius' : 'staff_user'
-    );
-    const role = activeTeamMember === 'Melissa Gagliardi' ? 'marketing_director' :
-                 activeTeamMember === 'Ann Gunn' ? 'operations_lead' :
-                 activeTeamMember === 'Ryan Crecelius' ? 'owner' : 'producer';
-    return { id, name: activeTeamMember, role };
-  }, [activeTeamMember]);
+    // 1. If explicit authenticated user passed via props, prioritize it strictly
+    if (propCurrentUser && propCurrentUser.id && propCurrentUser.id !== 'usr_loading') {
+      const perms = Array.isArray(propCurrentUser.permissions) ? propCurrentUser.permissions : [];
+      const role = propCurrentUser.role || '';
+      const isDirector =
+        propCurrentUser.name === 'Melissa Gagliardi' ||
+        propCurrentUser.id === 'dir_melissa_gagliardi_33' ||
+        propCurrentUser.id === 'usr_melissa' ||
+        (propCurrentUser.email && propCurrentUser.email.toLowerCase().includes('melissa')) ||
+        perms.includes('marketing.final_approval') ||
+        role.toLowerCase() === 'marketing_director';
+      const canonicalStaff = resolveCanonicalStaffMember(propCurrentUser.id || propCurrentUser.email || propCurrentUser.name, 'ws_wilmington');
+      const hasFinalApproval = isDirector ||
+        canonicalStaff?.role?.toLowerCase() === 'marketing director' ||
+        canonicalStaff?.title?.toLowerCase().includes('marketing director') ||
+        (canonicalStaff as any)?.capabilities?.includes('marketing.final_approval');
+
+      return {
+        ...propCurrentUser,
+        role: hasFinalApproval ? (role || 'marketing_director') : role,
+        permissions: hasFinalApproval && !perms.includes('marketing.final_approval')
+          ? [...perms, 'marketing.final_approval', 'marketing.approve']
+          : perms
+      };
+    }
+
+    // 2. Derive authority from session JWT in localStorage if available
+    if (typeof window !== 'undefined') {
+      try {
+        const token = localStorage.getItem('shapework_session_token');
+        if (token && token.includes('.')) {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            if (payload && (payload.userId || payload.email || payload.name)) {
+              const staff = resolveCanonicalStaffMember(payload.userId || payload.email, 'ws_wilmington');
+              const role = payload.role || (staff?.role?.toLowerCase().includes('director') ? 'marketing_director' : 'producer');
+              const permissions = payload.permissions || (
+                role === 'marketing_director' || (staff as any)?.capabilities?.includes('marketing.final_approval')
+                  ? ['marketing.create', 'marketing.edit', 'marketing.final_approval']
+                  : ['marketing.create', 'marketing.edit']
+              );
+              return {
+                id: payload.userId || staff?.id || 'usr_session',
+                name: payload.name || staff?.displayName || staff?.name || 'Authenticated User',
+                email: payload.email || staff?.email || '',
+                role,
+                permissions
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Unauthenticated / Guest fallback (Read-only viewer; workspace selection does NOT confer authority)
+    return {
+      id: 'usr_guest',
+      name: 'Guest Viewer',
+      role: 'viewer',
+      permissions: ['marketing.view']
+    };
+  }, [propCurrentUser]);
+
+  // Workstation drawer authority follows the active workspace member tab (Eduardo / Melissa / Ann),
+  // so opening Melissa's queue always shows Approve & Complete — not Eduardo's Send to Manager.
+  const drawerCurrentUser = useMemo(() => {
+    if (activeTeamMember === 'Melissa Gagliardi') {
+      const melissa = WORKSPACE_MEMBERS.find(m => m.name === 'Melissa Gagliardi');
+      return {
+        id: melissa?.id || 'dir_melissa_gagliardi_33',
+        name: 'Melissa Gagliardi',
+        email: melissa?.email || 'melissa.gagliardi@nestrealty.com',
+        role: 'marketing_director',
+        permissions: ['marketing.create', 'marketing.edit', 'marketing.final_approval', 'marketing.approve', ...(Array.isArray(resolvedCurrentUser?.permissions) ? resolvedCurrentUser.permissions : [])]
+      };
+    }
+    if (activeTeamMember === 'Ann Gunn') {
+      const ann = WORKSPACE_MEMBERS.find(m => m.name === 'Ann Gunn');
+      return {
+        id: ann?.id || 'dir_ann_gunn_28',
+        name: 'Ann Gunn',
+        email: ann?.email || 'ann@nestrealty.com',
+        role: 'operations_lead',
+        permissions: ['operations.final_approval', 'operations.approve', 'marketing.create', 'marketing.edit', ...(Array.isArray(resolvedCurrentUser?.permissions) ? resolvedCurrentUser.permissions : [])]
+      };
+    }
+    if (activeTeamMember === 'Eduardo Lovo') {
+      const eduardo = WORKSPACE_MEMBERS.find(m => m.name === 'Eduardo Lovo');
+      return {
+        id: eduardo?.id || 'dir_eduardo_lovo_73',
+        name: 'Eduardo Lovo',
+        email: eduardo?.email || 'eduardo.lovo@nestrealty.com',
+        role: 'producer',
+        permissions: ['marketing.create', 'marketing.edit']
+      };
+    }
+    return resolvedCurrentUser;
+  }, [activeTeamMember, resolvedCurrentUser]);
 
   const getWorkspaceHeading = () => {
     if (isCurrentMemberCovered && isEduardoView) {
-      return "Eduardo's Queue (Covered by Ann Gunn)";
+      const covering = currentMemberObj.coveringStaffName || ((tasks || []).find(t => t.coveringStaff)?.coveringStaff) || 'Ann Gunn';
+      return `Eduardo's Queue (Covered by ${covering})`; // Eduardo's Queue (Covered by Ann Gunn)
     }
     if (isCurrentMemberCovered) {
       return `${currentMemberObj.name}'s Queue (Covered by ${currentMemberObj.coveringStaffName || 'Team'})`;
@@ -1607,16 +1814,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
             const isSelected = activeTeamMember === member.name;
             const memberFirst = member.name.split(' ')[0].toLowerCase();
             const isEduardoMember = member.name === 'Eduardo Lovo';
-            const countForMember = (tasks || []).filter(t => {
-              const isArchived = Boolean((t as any).isArchived || t.status === 'archived');
-              if (isArchived) return false;
-              const assigned = ((t as any).assignedTo || '').toLowerCase();
-              const role = ((t as any).assignedToRole || '').toLowerCase();
-              if (isEduardoMember) {
-                return assigned.includes('eduardo') || role.includes('virtual assistant') || role.includes('va');
-              }
-              return assigned.includes(memberFirst);
-            }).length;
+            const countForMember = (tasks || []).filter(t => isTaskInMemberWorkspace(t, member, { isArchivedMode })).length;
 
             const memberIsCovered = isCoverageModeSimulated || member.isOutOfOffice || (isEduardoMember && isCoverageModeSimulated);
 
@@ -1640,14 +1838,15 @@ Agent: ${task.agentName} (${task.agentPhone})`;
                 </div>
                 <span>{member.name}</span>
 
-                {member.coveringStaffName && (
+                {/* Configured backup ≠ active coverage. Only show when OOO/sim is active. */}
+                {Boolean(memberIsCovered && (member.coveringStaffName || member.backupStaffName)) && (
                   <span
                     data-testid={`member-ooo-badge-${member.id}`}
                     className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
                       isSelected ? 'bg-amber-400 text-amber-950' : 'bg-amber-100 text-amber-800 border border-amber-200'
                     }`}
                   >
-                    Covered by {member.coveringStaffName.split(' ')[0]}
+                    Covered by {(member.coveringStaffName || member.backupStaffName || 'Backup').split(' ')[0]}
                   </span>
                 )}
 
@@ -1862,6 +2061,21 @@ Agent: ${task.agentName} (${task.agentPhone})`;
             )}
           </div>
 
+          <button
+            type="button"
+            data-testid="workspace-filters-toggle"
+            onClick={() => setFiltersExpanded(v => !v)}
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 border ${
+              filtersExpanded || categoryFilter !== 'All Categories' || priorityFilter !== 'All Priorities'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
+            }`}
+            title="Show category and priority filters"
+          >
+            Filters{filtersExpanded ? ' ▾' : ' ▸'}
+          </button>
+          {(filtersExpanded || viewMode === 'table') && (
+            <>
           {/* Category Filter */}
           <select
             data-testid="filter-category"
@@ -1889,10 +2103,13 @@ Agent: ${task.agentName} (${task.agentPhone})`;
             <option value="high">High</option>
             <option value="normal">Normal</option>
           </select>
+            </>
+          )}
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
-          {/* Status Filter Buttons */}
+          {/* Status filters: table only — board already shows stage columns (no duplicate pills) */}
+          {viewMode === 'table' ? (
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
             {['All Statuses', 'In Production', 'Awaiting Review', 'Completed', 'Archived'].map((status) => {
               const isSelected = statusFilter === status || (status === 'Archived' && showArchived);
@@ -1932,6 +2149,29 @@ Agent: ${task.agentName} (${task.agentPhone})`;
               );
             })}
           </div>
+          ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-testid="status-filter-archived"
+              onClick={() => {
+                const next = !showArchived;
+                setShowArchived(next);
+                setStatusFilter(next ? 'Archived' : 'All Statuses');
+              }}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                showArchived
+                  ? 'bg-slate-900 text-white shadow-xs font-bold'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
+              }`}
+            >
+              <span>Archived</span>
+              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                showArchived ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
+              }`}>{totalArchivedCount}</span>
+            </button>
+          </div>
+          )}
 
           {/* SEGMENTED VIEW TOGGLE (BOARD VS TABLE) */}
           <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80 shrink-0 shadow-2xs" data-testid="workspace-view-switcher">
@@ -2057,14 +2297,18 @@ Agent: ${task.agentName} (${task.agentPhone})`;
                                   {t.propertyAddress}
                                 </span>
                               )}
+                              <MlsNumberBadge mlsNumber={t.listingDetails?.mlsNumber} />
                             </div>
 
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {/* Source Channel Badge */}
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${sourceInfo.color}`}>
-                                <SourceIcon className="w-3 h-3 shrink-0" />
-                                <span>{sourceInfo.label}</span>
-                              </span>
+                              <RequestSourceIcon
+                                channel={t.sourceChannel || (t as any).channel}
+                                callId={t.callId}
+                                id={t.id}
+                                variant="badge"
+                                showLabel={true}
+                              />
 
                               {/* Category Pill */}
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${
@@ -2169,7 +2413,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
                           {t.reviewState === 'awaiting_review' || t.status === 'proof_submitted' ? (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
                               <Eye className="w-3 h-3 shrink-0" />
-                              <span>Awaiting Review</span>
+                              <span>{t.reviewOwnerName ? `Awaiting ${t.reviewOwnerName.split(' ')[0]}'s review` : 'Awaiting Review'}</span>
                             </span>
                           ) : t.reviewState === 'revisions_requested' ? (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1">
@@ -2292,15 +2536,49 @@ Agent: ${task.agentName} (${task.agentPhone})`;
 
       {/* VIEW 2: FUNCTIONAL KANBAN BOARD VIEW */}
       {viewMode === 'board' && (
-        <div className="overflow-x-auto pb-4 no-scrollbar" data-testid="workspace-kanban-board">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 min-w-[1100px]">
+        <div ref={boardContainerRef} className="overflow-x-auto pb-4 w-full min-w-0" data-testid="workspace-kanban-board">
+          <div className={`flex ${gapClass} items-start w-full min-w-0`}>
             {KANBAN_LANES.map((lane) => {
               const laneTasks = filteredTasks.filter(t => getTaskKanbanLane(t) === lane.id);
+              const isCollapsed = Boolean(collapsedLanes[lane.id]);
+
+              if (isCollapsed) {
+                return (
+                  <div
+                    key={lane.id}
+                    data-testid={`kanban-rail-${lane.id}`}
+                    onClick={() => toggleLaneCollapse(lane.id)}
+                    style={railWidthStyle}
+                    className={`${railWidthClass} h-[620px] bg-slate-50/80 hover:bg-slate-100 border border-slate-200/80 rounded-2xl flex flex-col items-center py-4 cursor-pointer transition select-none shadow-2xs group`}
+                    title={`Click to expand ${lane.title}`}
+                  >
+                    <div className="flex flex-col items-center gap-3">
+                      <span className={`w-2.5 h-2.5 rounded-full ${lane.dotColor}`} />
+                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full ${lane.badgeColor}`}>
+                        {laneTasks.length}
+                      </span>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center py-4">
+                      <span className="[writing-mode:vertical-rl] rotate-180 font-bold text-xs text-slate-700 tracking-wider group-hover:text-[#00635C] transition">
+                        {lane.title}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="p-1 text-slate-400 group-hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition"
+                      title="Expand lane"
+                    >
+                      <ChevronsRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              }
 
               return (
                 <div
                   key={lane.id}
                   data-testid={`kanban-lane-${lane.id}`}
+                  style={columnWidthStyle}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -2309,7 +2587,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
                       handleMoveTaskToLane(taskId, lane.id);
                     }
                   }}
-                  className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-2.5 flex flex-col min-h-[500px] shadow-2xs"
+                  className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-3 flex flex-col min-h-[620px] shadow-2xs"
                 >
                   {/* Lane Header */}
                   <div className={`p-2.5 rounded-xl border mb-2 flex items-center justify-between ${lane.headerColor}`}>
@@ -2317,141 +2595,92 @@ Agent: ${task.agentName} (${task.agentPhone})`;
                       <span className={`w-2 h-2 rounded-full shrink-0 ${lane.dotColor}`} />
                       <h4 className="font-bold text-xs truncate tracking-tight">{lane.title}</h4>
                     </div>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${lane.badgeColor}`}>
-                      {laneTasks.length}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${lane.badgeColor}`}>
+                        {laneTasks.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleLaneCollapse(lane.id)}
+                        className="p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-white/60 transition cursor-pointer"
+                        title={`Collapse ${lane.title}`}
+                      >
+                        <PanelLeftClose className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Cards Container */}
-                  <div className="flex-1 space-y-2.5 overflow-y-auto">
+                  <div className="flex-1 space-y-3 overflow-y-auto">
                     {laneTasks.length === 0 ? (
                       <div className="h-28 border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-xs text-center p-3">
                         <span>Drop tasks here</span>
                       </div>
                     ) : (
                       laneTasks.map((t) => {
-                        const category = getTaskCategory(t);
-                        const sourceInfo = getTaskSourceChannel(t);
-                        const SourceIcon = sourceInfo.icon;
-                        const sla = getSlaUrgencyInfo(t.targetSla, t.priority, t.status);
+                        const quickMoveOptions = KANBAN_LANES.map((l) => ({
+                          id: l.id,
+                          title: l.title,
+                          dotColor: l.dotColor,
+                          isActive: lane.id === l.id,
+                          onSelect: () => handleMoveTaskToLane(t.id, l.id)
+                        }));
+
+                        let primaryAction = undefined;
+                        if (lane.id === 'needs_info') {
+                          primaryAction = {
+                            label: 'Resolve Info',
+                            onClick: () => openTaskDrawer(t.id)
+                          };
+                        } else if (lane.id === 'ready') {
+                          primaryAction = {
+                            label: 'Start Work',
+                            icon: <Play className="w-2.5 h-2.5 fill-current" />,
+                            onClick: () => handleMoveTaskToLane(t.id, 'in_progress')
+                          };
+                        } else if (lane.id === 'in_progress') {
+                          primaryAction = {
+                            label: 'Submit Proof',
+                            onClick: () => openTaskDrawer(t.id, 'proof')
+                          };
+                        } else if (lane.id === 'awaiting_review') {
+                          primaryAction = {
+                            label: 'Open Review',
+                            variant: 'purple' as const,
+                            onClick: () => openTaskDrawer(t.id, 'review')
+                          };
+                        } else if (lane.id === 'revisions') {
+                          primaryAction = {
+                            label: 'Revise',
+                            variant: 'amber' as const,
+                            onClick: () => openTaskDrawer(t.id, 'proof')
+                          };
+                        } else if (lane.id === 'completed') {
+                          primaryAction = {
+                            label: 'Deliverable',
+                            variant: 'secondary' as const,
+                            onClick: () => openTaskDrawer(t.id)
+                          };
+                        }
 
                         return (
-                          <div
+                          <CanonicalTaskCard
                             key={t.id}
+                            task={t}
                             data-testid={`kanban-card-${t.id}`}
-                            draggable
+                            context="workspace"
+                            isDraggable={true}
                             onDragStart={(e) => {
                               e.dataTransfer.setData('text/plain', t.id);
                             }}
                             onClick={() => openTaskDrawer(t.id)}
-                            className="bg-white border border-slate-200/80 hover:border-[#00635C]/50 rounded-xl p-3 shadow-2xs hover:shadow-md transition cursor-pointer space-y-2 group"
-                          >
-                            {/* Card Top Strip: Category & Priority */}
-                            <div className="flex items-center justify-between gap-1">
-                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
-                                category === 'Signage' ? 'bg-amber-50 text-amber-800 border-amber-200' :
-                                category === 'Operations' ? 'bg-purple-50 text-purple-800 border-purple-200' :
-                                category === 'Technology' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
-                                category === 'Office' ? 'bg-blue-50 text-blue-800 border-blue-200' :
-                                'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              }`}>
-                                {category}
-                              </span>
-
-                              <div className="flex items-center gap-1">
-                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
-                                  t.priority === 'urgent' ? 'bg-rose-100 text-rose-900' :
-                                  t.priority === 'high' ? 'bg-amber-100 text-amber-900' :
-                                  'bg-slate-100 text-slate-700'
-                                }`}>
-                                  {t.priority}
-                                </span>
-
-                                {t.proofVersion && t.proofVersion > 1 && (
-                                  <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-900 text-[9px] font-bold font-mono">
-                                    v{t.proofVersion}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Card Title & Property */}
-                            <div>
-                              <h5 className="font-bold text-xs text-slate-900 group-hover:text-[#00635C] transition line-clamp-2">
-                                {t.packageType || t.propertyAddress}
-                              </h5>
-                              {t.propertyAddress && (
-                                <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                                  {t.propertyAddress}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Requester & Source Channel */}
-                            <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="w-4 h-4 rounded-full bg-[#00635C] text-white font-bold text-[8px] flex items-center justify-center shrink-0">
-                                  {t.agentName.slice(0, 1)}
-                                </div>
-                                <span className="font-semibold text-slate-700 truncate max-w-[80px]">{t.agentName}</span>
-                              </div>
-
-                              <span className={`inline-flex items-center gap-1 px-1 py-0.2 rounded text-[9px] font-semibold border ${sourceInfo.color}`}>
-                                <SourceIcon className="w-2.5 h-2.5" />
-                                <span>{sourceInfo.type === 'phone' ? 'Voice' : sourceInfo.label}</span>
-                              </span>
-                            </div>
-
-                            {/* Compact Activity & Contact Preview */}
-                            <div className="pt-0.5">
-                              <CompactActivityCardBadge
-                                taskId={t.id}
-                                fallbackSummary={t.notes || 'Intake recorded'}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openTaskDrawer(t.id, 'history');
-                                }}
-                              />
-                            </div>
-
-                            {/* Due SLA & Quick Move Action */}
-                            <div className="flex items-center justify-between pt-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
-                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border inline-flex items-center gap-1 ${sla.color}`}>
-                                <span className={`w-1 h-1 rounded-full ${sla.dotColor}`} />
-                                <span className="truncate max-w-[130px]">{sla.label}</span>
-                              </span>
-
-                              {/* Quick Move Dropdown Menu */}
-                              <div className="relative group/menu">
-                                <button
-                                  type="button"
-                                  data-testid={`move-btn-${t.id}`}
-                                  className="text-slate-400 hover:text-slate-700 p-1 hover:bg-slate-100 rounded transition cursor-pointer"
-                                  title="Move to another lane"
-                                >
-                                  <MoreVertical className="w-3 h-3" />
-                                </button>
-
-                                <div className="hidden group-hover/menu:block absolute right-0 bottom-full mb-1 w-36 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-50 text-left">
-                                  <div className="px-2 py-0.5 text-[9px] font-bold text-slate-400 uppercase">Move to:</div>
-                                  {KANBAN_LANES.map(l => (
-                                    <button
-                                      key={l.id}
-                                      type="button"
-                                      data-testid={`move-to-${l.id}-${t.id}`}
-                                      onClick={() => handleMoveTaskToLane(t.id, l.id)}
-                                      className={`w-full px-2 py-1 text-[10px] font-semibold text-left transition flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 ${
-                                        lane.id === l.id ? 'text-[#00635C] font-bold bg-emerald-50/50' : 'text-slate-700'
-                                      }`}
-                                    >
-                                      <span className={`w-1.5 h-1.5 rounded-full ${l.dotColor}`} />
-                                      <span>{l.title}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                            quickMoveOptions={quickMoveOptions}
+                            onActivityClick={(e) => {
+                              e.stopPropagation();
+                              openTaskDrawer(t.id, 'history');
+                            }}
+                            primaryAction={primaryAction}
+                          />
                         );
                       })
                     )}
@@ -2468,23 +2697,92 @@ Agent: ${task.agentName} (${task.agentPhone})`;
         <WorkspaceTaskDrawer
           isOpen={isDrawerOpen}
           activeTask={activeTask as any}
-          tasksList={mergedTasks as any}
+          tasksList={(mergedTasks.some(t => t.id === activeTask.id) ? mergedTasks : [activeTask, ...mergedTasks]) as any}
           initialTab={drawerInitialTab as any}
           onClose={() => setIsDrawerOpen(false)}
           onSelectTask={(id) => openTaskDrawer(id)}
           onSubmitProof={async (taskId, proofUrl, notes, assetMetadata) => {
-            if (onSubmitProof) {
-              await onSubmitProof(taskId, proofUrl, notes);
+            // F-01: Only move to Awaiting Review after durable submit-proof succeeds.
+            const currentTask = tasks.find(t => t.id === taskId);
+            const resolvedProof = proofUrl || currentTask?.proofUrl || (currentTask?.photos && currentTask.photos[0]) || '';
+            const isRev = Boolean(
+              currentTask?.reviewState === 'revisions_requested' ||
+              currentTask?.status === 'revisions' ||
+              (currentTask?.reviewHistory || []).some(r => r.action === 'revisions_requested')
+            );
+            const dirMember = getCanonicalMarketingDirector(currentTask?.workspaceId || 'ws_wilmington');
+            const dirFirstName = dirMember?.firstName
+              || dirMember?.displayName?.split(' ')[0]
+              || dirMember?.name?.split(' ')[0]
+              || 'Melissa';
+
+            let persistedTask: any = null;
+            try {
+              if (typeof fetch !== 'undefined') {
+                const res = await fetch(`/api/marketing/tasks/${taskId}/submit-proof`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    proofUrl: resolvedProof,
+                    notes,
+                    assetMetadata
+                  })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                  const message = data.message || data.error || `Submit failed (HTTP ${res.status})`;
+                  showToast(`⚠️ Proof not submitted: ${message}`);
+                  throw new Error(message);
+                }
+                persistedTask = data.task || data;
+              }
+
+              if (onSubmitProof) {
+                await onSubmitProof(taskId, resolvedProof, notes);
+              }
+
+              const serverReviewState = (persistedTask?.reviewState || 'awaiting_review');
+              const serverStatus = persistedTask?.status || 'in_progress';
+              const serverProofVersion = persistedTask?.proofVersion
+                ?? (((currentTask as any)?.proofVersion || 0) + 1);
+              const serverReviewOwnerId = persistedTask?.reviewOwnerId || 'dir_melissa_gagliardi_33';
+              const serverReviewOwnerName = persistedTask?.reviewOwnerName || 'Melissa Gagliardi';
+              const serverProofUrl = persistedTask?.proofUrl || resolvedProof;
+              const serverProofHistory = persistedTask?.proofHistory || [
+                ...(((currentTask as any)?.proofHistory) || []),
+                {
+                  version: serverProofVersion,
+                  proofUrl: serverProofUrl,
+                  uploadedBy: resolvedCurrentUser?.name || 'Production Specialist',
+                  uploadedById: resolvedCurrentUser?.id,
+                  uploadedAt: new Date().toISOString(),
+                  notes
+                }
+              ];
+
+              setTasks(prev => prev.map(t => t.id === taskId ? {
+                ...t,
+                ...(persistedTask || {}),
+                status: serverStatus,
+                reviewState: serverReviewState,
+                reviewOwnerName: serverReviewOwnerName,
+                reviewOwnerId: serverReviewOwnerId,
+                proofUrl: serverProofUrl,
+                proofNotes: notes ?? persistedTask?.proofNotes,
+                proofVersion: serverProofVersion,
+                proofHistory: serverProofHistory,
+                assignedTo: persistedTask?.assignedTo || t.assignedTo,
+                assignedToId: persistedTask?.assignedToId || t.assignedToId
+              } : t));
+              showToast(isRev ? `Sent to ${dirFirstName} for review` : `✓ Proof submitted to ${dirFirstName} for review`);
+            } catch (err: any) {
+              console.warn('[VAWorkspaceView] Durable submit-proof failed:', err);
+              // Do not flip lane / increment proofVersion on failure.
+              if (err && !String(err.message || '').includes('Proof not submitted')) {
+                showToast(`⚠️ Proof not submitted: ${err.message || 'Network or server error'}`);
+              }
+              throw err;
             }
-            setTasks(prev => prev.map(t => t.id === taskId ? {
-              ...t,
-              status: 'in_production',
-              reviewState: 'awaiting_review',
-              proofUrl,
-              proofNotes: notes,
-              proofVersion: ((t as any).proofVersion || 0) + 1
-            } : t));
-            showToast('✓ Proof submitted for manager review');
           }}
           onRequestRevisions={async (taskId, feedbackNotes) => {
             if (onTaskStatusChange) {
@@ -2509,33 +2807,146 @@ Agent: ${task.agentName} (${task.agentPhone})`;
             } : t));
             showToast('✓ Proof approved for delivery');
           }}
+          onApproveAndDispatch={async (taskId, note, opts) => {
+            try {
+              const res = await fetch(`/api/marketing/tasks/${taskId}/approve-and-dispatch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  note,
+                  approvedBy: resolvedCurrentUser?.name || 'Melissa Gagliardi',
+                  proofUrl: opts?.proofUrl,
+                  stagedAssets: opts?.stagedAssets,
+                  assetMetadata: opts?.assetMetadata,
+                  selfComplete: opts?.selfComplete
+                })
+              });
+              const data = await res.json();
+              if (data.success) {
+                if (data.delivered) {
+                  setTasks(prev => prev.map(t => t.id === taskId ? {
+                    ...t,
+                    status: 'completed',
+                    reviewState: 'approved',
+                    approvedProofVersion: t.proofVersion || 1
+                  } : t));
+                  showToast(`✓ Approved and delivered to ${data.task?.agentName || 'agent'}`);
+                } else if (data.dispatchHeld) {
+                  setTasks(prev => prev.map(t => t.id === taskId ? {
+                    ...t,
+                    status: 'in_progress',
+                    reviewState: 'approved',
+                    approvedProofVersion: t.proofVersion || 1
+                  } : t));
+                  showToast('✓ Proof approved. Delivery held in safe mode.');
+                }
+              }
+              return data;
+            } catch (err: any) {
+              showToast(`Error: ${err.message}`);
+              return { success: false, error: err.message };
+            }
+          }}
+          onDeliverProof={async (taskId) => {
+            try {
+              const res = await fetch(`/api/marketing/tasks/${taskId}/deliver`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              const data = await res.json();
+              if (data.success && data.delivered) {
+                setTasks(prev => prev.map(t => t.id === taskId ? {
+                  ...t,
+                  status: 'completed',
+                  reviewState: 'approved'
+                } : t));
+                showToast(`✓ Delivered to ${data.task?.agentName || 'agent'}`);
+              }
+              return data;
+            } catch (err: any) {
+              showToast(`Error: ${err.message}`);
+              return { success: false, error: err.message };
+            }
+          }}
           onReassignTask={(taskId, newAssignee) => {
             handleReassignTask(taskId, newAssignee);
           }}
-          onAskRequester={(task) => setQuestionModalTask(task as any)}
+          onAskRequester={(task, opts) => {
+            setQuestionModalTask({
+              ...(task as any),
+              outreachIntent: opts?.intent || 'ask_missing',
+              approvePayload: opts?.approvePayload || null,
+              taskId: (task as any).id,
+              domain: (task as any).domain ||
+                (['signage', 'lockbox', 'operations'].includes(String((task as any).category || '')) ? 'operational' : 'marketing')
+            } as any);
+          }}
           onOpenSopDocument={(sop) => setQuickViewSop(sop)}
-          currentUser={resolvedCurrentUser}
+          currentUser={drawerCurrentUser}
         />
       )}
 
       {/* POPUP: SEND QUESTIONS TO REQUESTER MODAL */}
       <AskRequesterQuestionsModal
         isOpen={Boolean(questionModalTask)}
+        intent={(questionModalTask as any)?.outreachIntent === 'delivery_complete' ? 'delivery_complete' : 'ask_missing'}
+        isOutboundEnabled={true}
         campaign={questionModalTask ? {
           id: questionModalTask.campaignId || questionModalTask.id,
+          taskId: (questionModalTask as any).taskId || questionModalTask.id,
           requesterId: questionModalTask.requesterId,
           agentName: questionModalTask.agentName,
           phone: questionModalTask.agentPhone,
           agentEmail: questionModalTask.agentEmail,
           agentRole: questionModalTask.agentRole,
-          propertyAddress: questionModalTask.propertyAddress
+          propertyAddress: questionModalTask.propertyAddress,
+          title: (questionModalTask as any).title,
+          packageType: (questionModalTask as any).packageType,
+          domain: (questionModalTask as any).domain || 'marketing',
+          outreachIntent: (questionModalTask as any).outreachIntent,
+          approvePayload: (questionModalTask as any).approvePayload
         } : null}
         onClose={() => setQuestionModalTask(null)}
-        onSendQuestions={(data) => {
+        onSendQuestions={async (data) => {
           if (onSendQuestionsToRequester && questionModalTask) {
             onSendQuestionsToRequester(questionModalTask, data);
           }
-          if (data.isDraftOnly) {
+
+          if (data?.intent === 'delivery_complete') {
+            const taskId = data.taskId || (questionModalTask as any)?.taskId || questionModalTask?.id;
+            if (taskId) {
+              try {
+                const payload = {
+                  ...((questionModalTask as any)?.approvePayload || {}),
+                  note: (questionModalTask as any)?.approvePayload?.note || 'Approved — agent notified via Ask Requester outreach',
+                  approvedBy: (questionModalTask as any)?.approvePayload?.approvedBy || 'Melissa Gagliardi',
+                  skipAgentEmail: true,
+                  selfComplete: (questionModalTask as any)?.approvePayload?.selfComplete ?? true
+                };
+                const res = await fetch(`/api/marketing/tasks/${taskId}/approve-and-dispatch`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+                });
+                const result = await res.json().catch(() => ({}));
+                if (result?.success || res.ok) {
+                  setTasks(prev => prev.map(t =>
+                    t.id === taskId
+                      ? { ...t, status: 'completed', reviewState: 'approved', ...(result.task || {}) }
+                      : t
+                  ));
+                  showToast(data.isDraftOnly
+                    ? '✓ Approved · outreach saved as draft (outbound held)'
+                    : '✓ Approved · agent notified');
+                  setWorkstationTask(null);
+                } else {
+                  showToast(`Outreach sent, but complete failed: ${result?.error || result?.message || 'unknown'}`);
+                }
+              } catch (err: any) {
+                showToast(`Outreach saved but approve failed: ${err?.message || err}`);
+              }
+            }
+          } else if (data.isDraftOnly) {
             showToast(`✓ Outreach draft saved for ${data.recipientName} (outbound disabled by policy)`);
           } else {
             showToast(`✓ Dispatched questions via ${(data.channels || []).join(' & ').toUpperCase()} to ${data.recipientName}!`);

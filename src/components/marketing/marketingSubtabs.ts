@@ -2,13 +2,11 @@ export type MarketingSubtab =
   | "requests"
   | "calls"
   | "today"
-  | "va";
+  | "va"; // kept for type compat; UI no longer shows it — aliases to Tasks
 
 export const MARKETING_SUBTABS: { id: MarketingSubtab; label: string; secondaryLabel?: string }[] = [
   { id: "requests", label: "Tasks" },
   { id: "calls", label: "Calls", secondaryLabel: "(910) 507-2047" },
-  { id: "today", label: "Today's Queue" },
-  { id: "va", label: "Workspace" },
 ] satisfies Array<{
   id: MarketingSubtab;
   label: string;
@@ -16,9 +14,9 @@ export const MARKETING_SUBTABS: { id: MarketingSubtab; label: string; secondaryL
 }>;
 
 export const LEGACY_SUBTAB_ALIASES: Record<string, MarketingSubtab> = {
-  today: "today",
-  "today-board": "today",
-  "today_board": "today",
+  today: "requests",
+  "today-board": "requests",
+  "today_board": "requests",
   tasks: "requests",
   "all-tasks": "requests",
   "marketing-tasks": "requests",
@@ -28,9 +26,11 @@ export const LEGACY_SUBTAB_ALIASES: Record<string, MarketingSubtab> = {
   templates: "requests",
   campaigns: "requests",
   queue: "requests",
-  va: "va",
-  va_workspace: "va",
-  "va-workspace": "va",
+  // Workspace folded into Tasks — assignment + lane drive the workflow
+  va: "requests",
+  workspace: "requests",
+  va_workspace: "requests",
+  "va-workspace": "requests",
   calls: "calls",
   intake: "calls",
   intake_log: "calls",
@@ -66,5 +66,4 @@ export const LEGACY_SUBTAB_ALIASES: Record<string, MarketingSubtab> = {
   events_vip: "requests",
   studio: "requests",
   sandbox: "requests",
-  workspace: "requests",
 };

@@ -95,6 +95,8 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
     '1-Page Property Flyer (8.5x11 Print)',
     '9:16 Social Story Carousel'
   ]);
+  /** Yard sign: brokerage install needs address; agent pickup does not */
+  const [fulfillmentMode, setFulfillmentMode] = useState<'install' | 'pickup'>('install');
 
   // Uploaded images & attachments
   const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>([]);
@@ -134,6 +136,7 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
     } else if (newDomain === 'operational') {
       setDeliverables(['Yard Sign Post & Custom Rider Installation']);
       setAssignedTo('Ann Gunn');
+      setFulfillmentMode('install');
     } else {
       setDeliverables(['Vendor Dispatch & Estimate Review']);
       setAssignedTo('Ryan Crecelius');
@@ -186,9 +189,24 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const isYardSignRequest = domain === 'operational' && deliverables.some((d) => /yard sign/i.test(d));
+  const hasLocationOps = deliverables.some((d) => /lockbox|a-frame|removal/i.test(d));
+  /** Agent pickup of yard sign only → no address. Install (or lockbox / A-frame / removal) → address required. */
+  const requireAddress =
+    domain !== 'operational'
+      ? true
+      : hasLocationOps || !(isYardSignRequest && fulfillmentMode === 'pickup');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalAddress = propertyAddress.trim() || '1916 Wolcott Ave, Wilmington, NC 28403';
+    if (requireAddress && !propertyAddress.trim()) return;
+    const finalAddress = propertyAddress.trim()
+      || (requireAddress ? 'Address not specified' : 'Agent pickup — address not required');
+    const fulfillmentNote = isYardSignRequest
+      ? (fulfillmentMode === 'pickup'
+          ? 'Fulfillment: Agent pickup (no install address required)'
+          : 'Fulfillment: Brokerage install (property address required)')
+      : '';
     const finalTitle = title.trim() || `${finalAddress} — ${domain === 'marketing' ? 'Marketing Suite' : domain === 'operational' ? 'Signage & Ops' : 'Brokerage Request'}`;
     
     // Resolve agent details
@@ -230,7 +248,7 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
       assignedToRole: assignedRole,
       status: 'in_progress',
       dueAt: dueDate,
-      notes: `Logged By: ${loggedBy} | Requester: ${agentName} | Intake Channel: ${channel.toUpperCase()} | Caller Notes: ${requestExcerpt || 'None provided'}\nUploaded Assets: ${photos.map(p => p.name).join(', ') || 'None'}`,
+      notes: `Logged By: ${loggedBy} | Requester: ${agentName} | Intake Channel: ${channel.toUpperCase()} | Caller Notes: ${requestExcerpt || 'None provided'}${fulfillmentNote ? `\n${fulfillmentNote}` : ''}\nUploaded Assets: ${photos.map(p => p.name).join(', ') || 'None'}`,
       photos,
       attachments: photos,
       driveFolderUrl: `https://drive.google.com/drive/folders/1DRV_${finalAddress.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`,
@@ -252,7 +270,7 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
       assignedTo,
       onBehalfOf: loggedBy,
       requestExcerpt: requestExcerpt.trim() || `Inbound ${channel} intake: ${deliverables.join(' • ')}`,
-      rawExcerpt: `Logged By: ${loggedBy}\nChannel: ${channel.toUpperCase()} (Desk/Nora Hotline 910-507-2047)\nCaller: ${agentName} <${agentEmail}>\nProperty: ${finalAddress}\nDirectives: ${requestExcerpt || 'Proceed with standard template package.'}`,
+      rawExcerpt: `Logged By: ${loggedBy}\nChannel: ${channel.toUpperCase()} (Desk/Nora Hotline 910-507-2047)\nCaller: ${agentName} <${agentEmail}>\nProperty: ${finalAddress}${fulfillmentNote ? `\n${fulfillmentNote}` : ''}\nDirectives: ${requestExcerpt || 'Proceed with standard template package.'}`,
       taskIds: createdTasks.map(t => t.id),
       photos,
       attachments: photos,
@@ -418,19 +436,55 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
             </div>
           </div>
 
+          {/* Yard sign fulfillment: install vs agent pickup */}
+          {isYardSignRequest && (
+            <div data-testid="ops-yard-sign-fulfillment">
+              <label className="font-bold text-slate-700 block mb-1.5">Yard sign fulfillment *</label>
+              <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setFulfillmentMode('install')}
+                  className={`py-2 px-3 rounded-xl font-bold text-xs transition cursor-pointer ${
+                    fulfillmentMode === 'install'
+                      ? 'bg-white text-[#00635C] shadow-xs border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Brokerage installs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFulfillmentMode('pickup')}
+                  className={`py-2 px-3 rounded-xl font-bold text-xs transition cursor-pointer ${
+                    fulfillmentMode === 'pickup'
+                      ? 'bg-white text-[#00635C] shadow-xs border border-slate-200/80'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Agent pickup
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1.5">
+                {fulfillmentMode === 'install'
+                  ? 'Install needs the property address for the crew.'
+                  : 'Pickup at the office — property address not required.'}
+              </p>
+            </div>
+          )}
+
           {/* Row: Property Address & Title */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-[#00635C]" />
-                <span>Property Address *</span>
+                <span>Property Address{requireAddress ? ' *' : ' (optional)'}</span>
               </label>
               <input
                 type="text"
-                required
+                required={requireAddress}
                 value={propertyAddress}
                 onChange={(e) => setPropertyAddress(e.target.value)}
-                placeholder="e.g. 104 N 3rd St, Wilmington, NC"
+                placeholder={requireAddress ? 'e.g. 104 N 3rd St, Wilmington, NC' : 'Optional — not needed for agent pickup'}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#00635C] outline-none text-xs font-semibold text-slate-800"
               />
             </div>
@@ -495,12 +549,16 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
             />
           </div>
 
-          {/* Attachment & Photo Uploader */}
+          {/* Attachment & Photo Uploader — required for marketing photos; optional on ops */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="font-bold text-slate-700 flex items-center gap-1.5">
                 <ImageIcon className="w-3.5 h-3.5 text-[#00635C]" />
-                <span>Upload Photos & File Attachments ({uploadedAssets.length})</span>
+                <span>
+                  {domain === 'operational'
+                    ? `Attachments (optional) (${uploadedAssets.length})`
+                    : `Upload Photos & File Attachments (${uploadedAssets.length})`}
+                </span>
               </label>
               <button
                 type="button"
@@ -527,8 +585,16 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
                 className="border-2 border-dashed border-slate-200 hover:border-[#00635C] bg-slate-50/50 hover:bg-teal-50/30 rounded-2xl p-4 text-center cursor-pointer transition"
               >
                 <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                <p className="font-semibold text-slate-700 text-xs">Drag and drop property photos or click to browse</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Supports high-resolution PNG, JPG, WebP, and PDF collateral files</p>
+                <p className="font-semibold text-slate-700 text-xs">
+                  {domain === 'operational'
+                    ? 'Optional — drop a photo, PDF, or note if helpful'
+                    : 'Drag and drop property photos or click to browse'}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {domain === 'operational'
+                    ? 'Ops tasks do not require assets to complete. PNG, JPG, WebP, or PDF if needed.'
+                    : 'Supports high-resolution PNG, JPG, WebP, and PDF collateral files'}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -608,7 +674,7 @@ export const NewMarketingRequestModal: React.FC<NewMarketingRequestModalProps> =
               className="px-5 py-2.5 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <Check className="w-4 h-4" />
-              <span>Create Task & Stage Collateral</span>
+              <span>{domain === 'operational' ? 'Create Operational Task' : 'Create Task & Stage Collateral'}</span>
             </button>
           </div>
         </form>

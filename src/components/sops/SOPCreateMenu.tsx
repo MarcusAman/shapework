@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, GitBranch, Zap, FileText, ArrowLeft, ArrowRight, AlertCircle, X, Sparkles, ChevronRight, Check, Upload } from 'lucide-react';
-import { SOP_TEMPLATES, SOPTemplate } from './sopTemplates';
+import { Plus, GitBranch, Zap, FileText, ArrowLeft, ArrowRight, AlertCircle, X, Sparkles, ChevronRight, Check, Upload, Tag } from 'lucide-react';
+import { SOP_TEMPLATES, SOP_CATEGORY_TEMPLATES, SOPTemplate } from './sopTemplates';
 
 interface SOPCreateMenuProps {
   onBack: () => void;
@@ -69,7 +69,7 @@ export default function SOPCreateMenu({
             Create an SOP
           </h1>
           <p className="text-xs text-stone-500 mt-1">
-            Choose how you’d like to begin.
+            Choose how you’d like to begin. Select a category starter template (Finance, Transactions, Office, Vendor, Systems, Marketing), build with NORA, or begin blank.
           </p>
         </div>
 
@@ -201,43 +201,76 @@ export default function SOPCreateMenu({
 
         {/* PROGRESSIVE DISCLOSURE: Template Picker Sheet / List */}
         {showTemplatePicker && (
-          <div className="p-5 bg-white border border-stone-200 rounded-2xl shadow-sm space-y-3 animate-fadeIn">
+          <div className="p-5 bg-white border border-stone-200 rounded-2xl shadow-sm space-y-4 animate-fadeIn">
             <div className="flex items-center justify-between pb-2 border-b border-stone-100">
               <div>
-                <h4 className="font-serif font-bold text-sm text-stone-900">Available Nest Templates</h4>
-                <p className="text-[11px] text-stone-500">Select a template to clone as your starting point</p>
+                <h4 className="font-serif font-bold text-sm text-stone-900">Category Starter Templates & SOPs</h4>
+                <p className="text-[11px] text-stone-500">Select a category starter template (Finance, Transactions, Office, Vendor, Systems, Marketing)</p>
               </div>
               <button 
                 onClick={() => setShowTemplatePicker(false)}
-                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg"
+                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              {SOP_TEMPLATES.map((tmpl) => (
-                <button
-                  key={tmpl.id}
-                  onClick={() => onSelectTemplate(tmpl)}
-                  className="p-3.5 bg-[#F7F8F5] hover:bg-[#E5EFEA]/40 border border-stone-200/80 hover:border-[#00635C] rounded-xl text-left transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[#00635C]">
-                      {tmpl.department || 'Operations'}
+            {/* Category Quick Starters */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {SOP_CATEGORY_TEMPLATES.map((cat) => {
+                const matched = SOP_TEMPLATES.find(t => t.id === cat.templateId);
+                return (
+                  <button
+                    key={cat.category}
+                    onClick={() => {
+                      if (matched) {
+                        onSelectTemplate(matched);
+                      }
+                    }}
+                    className="p-3 bg-[#E5EFEA]/30 hover:bg-[#E5EFEA] border border-[#00635C]/20 hover:border-[#00635C] rounded-xl text-left transition-all cursor-pointer group"
+                  >
+                    <span className="text-[10px] font-bold uppercase text-[#00635C] block">
+                      {cat.category}
                     </span>
-                    <span className="text-[10px] text-stone-400">
-                      {tmpl.steps?.length || 0} Steps
+                    <strong className="text-xs text-stone-900 font-semibold block mt-0.5 group-hover:text-[#00635C]">
+                      {cat.label}
+                    </strong>
+                    <span className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
+                      {cat.description}
                     </span>
-                  </div>
-                  <h5 className="font-semibold text-xs text-stone-900 mt-1 group-hover:text-[#00635C] transition-colors">
-                    {tmpl.title}
-                  </h5>
-                  <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">
-                    {tmpl.purpose || tmpl.scope}
-                  </p>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-stone-100">
+              <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block mb-2">
+                All Available Nest Standards
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {SOP_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    onClick={() => onSelectTemplate(tmpl)}
+                    className="p-3.5 bg-[#F7F8F5] hover:bg-[#E5EFEA]/40 border border-stone-200/80 hover:border-[#00635C] rounded-xl text-left transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[#00635C]">
+                        {tmpl.category || tmpl.department || 'Operations'}
+                      </span>
+                      <span className="text-[10px] text-stone-400">
+                        {tmpl.steps?.length || 0} Steps
+                      </span>
+                    </div>
+                    <h5 className="font-semibold text-xs text-stone-900 mt-1 group-hover:text-[#00635C] transition-colors">
+                      {tmpl.title}
+                    </h5>
+                    <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">
+                      {tmpl.purpose || tmpl.scope}
+                    </p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}

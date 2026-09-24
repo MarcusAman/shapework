@@ -4,9 +4,9 @@ import path from 'path';
 import { MARKETING_SUBTABS, LEGACY_SUBTAB_ALIASES } from '../components/marketing/marketingSubtabs';
 
 describe('Marketing Subtabs, Calls Tab, and Slide-Out Transcript Drawer Integration', () => {
-  it('1. Verifies 4 core marketing subtabs: Requests, Calls, Today\'s Queue, and Workspace', () => {
+  it('1. Verifies core marketing subtabs: Tasks and Calls (Today\'s Queue and Workspace folded into Tasks)', () => {
     const tabIds = MARKETING_SUBTABS.map(t => t.id);
-    expect(tabIds).toEqual(['requests', 'calls', 'today', 'va']);
+    expect(tabIds).toEqual(['requests', 'calls']);
 
     const requestsTab = MARKETING_SUBTABS.find(t => t.id === 'requests');
     expect(requestsTab?.label).toBe('Tasks');
@@ -15,11 +15,8 @@ describe('Marketing Subtabs, Calls Tab, and Slide-Out Transcript Drawer Integrat
     expect(['Calls', 'Inbound Calls']).toContain(callsTab?.label);
     expect(callsTab?.secondaryLabel).toBe('(910) 507-2047');
 
-    const todayTab = MARKETING_SUBTABS.find(t => t.id === 'today');
-    expect(todayTab?.label).toBe("Today's Queue");
-
-    const vaTab = MARKETING_SUBTABS.find(t => t.id === 'va');
-    expect(vaTab?.label).toBe('Workspace');
+    expect(MARKETING_SUBTABS.find(t => t.id === 'today')).toBeUndefined();
+    expect(MARKETING_SUBTABS.find(t => t.id === 'va')).toBeUndefined();
   });
 
   it('2. Verifies legacy subtab aliases mapping', () => {
@@ -27,9 +24,9 @@ describe('Marketing Subtabs, Calls Tab, and Slide-Out Transcript Drawer Integrat
     expect(LEGACY_SUBTAB_ALIASES['calls']).toBe('calls');
     expect(LEGACY_SUBTAB_ALIASES['voice-intake']).toBe('calls');
     expect(LEGACY_SUBTAB_ALIASES['intake_log']).toBe('calls');
-    expect(LEGACY_SUBTAB_ALIASES['today-board']).toBe('today');
+    expect(LEGACY_SUBTAB_ALIASES['today-board']).toBe('requests');
     expect(LEGACY_SUBTAB_ALIASES['workboard']).toBe('requests');
-    expect(LEGACY_SUBTAB_ALIASES['va_workspace']).toBe('va');
+    expect(LEGACY_SUBTAB_ALIASES['va_workspace']).toBe('requests');
   });
 
   it('3. Verifies Requests Table supports rich actions (Open Maxa Proof Assets, VA, Team Assign, Questions Modal)', () => {

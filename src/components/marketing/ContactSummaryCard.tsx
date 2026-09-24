@@ -67,7 +67,8 @@ export const ContactSummaryCard: React.FC<ContactSummaryCardProps> = ({
     lastInboundReply,
     waitingOn,
     timeWaiting,
-    communicationBlockedByPolicy
+    communicationBlockedByPolicy,
+    policyBannerMessage
   } = contactSummary;
 
   // Status badge helper
@@ -300,7 +301,7 @@ export const ContactSummaryCard: React.FC<ContactSummaryCardProps> = ({
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold">Outbound Policy Active: </span>
-            Outbound communications are currently blocked by policy (<code className="bg-rose-100 px-1 py-0.5 rounded font-mono text-[10px]">OUTBOUND_MODE=disabled</code>). Inquiries and deliveries are logged and displayed as <strong className="font-semibold">Blocked (Not Sent)</strong> rather than falsely claiming delivery.
+            {policyBannerMessage || 'Outbound communications are currently paused by policy.'} Inquiries and deliveries are logged and displayed as <strong className="font-semibold">Blocked (Not Sent)</strong> rather than falsely claiming delivery.
           </div>
         </div>
       )}

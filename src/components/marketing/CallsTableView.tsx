@@ -119,6 +119,7 @@ export interface CallsTableViewProps {
   onSelectCall?: (call: TelephonyCallItem) => void;
   onNavigateToRequest?: (requestId: string) => void;
   onNavigateToTask?: (taskId: string) => void;
+  initialTimeframe?: 'today' | 'all';
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -153,6 +154,37 @@ export function getDateStringInNewYork(dateInput: string | number | Date): strin
   } catch {
     return null;
   }
+}
+
+/**
+ * Formats a call timestamp into Eastern Time ("h:mm A · MMM D").
+ * If rawTimestamp is available, parses and formats using America/New_York.
+ * Otherwise, falls back to the pre-rendered timestamp string.
+ */
+export function formatCallTimestampInEastern(call: TelephonyCallItem): string {
+  const candidate = call.rawTimestamp || (call.timestamp && !isNaN(Date.parse(call.timestamp)) ? call.timestamp : null);
+  if (candidate) {
+    try {
+      const d = new Date(candidate);
+      if (!isNaN(d.getTime())) {
+        const timePart = d.toLocaleTimeString('en-US', {
+          timeZone: 'America/New_York',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        const datePart = d.toLocaleDateString('en-US', {
+          timeZone: 'America/New_York',
+          month: 'short',
+          day: 'numeric'
+        });
+        return `${timePart} · ${datePart}`;
+      }
+    } catch {
+      // Fall through to call.timestamp
+    }
+  }
+  return call.timestamp || 'Today';
 }
 
 /**
@@ -423,12 +455,19 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
   selectedCallId,
   onSelectCall,
   onNavigateToRequest,
-  onNavigateToTask
+  onNavigateToTask,
+  initialTimeframe = 'today'
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDept, setSelectedDept] = useState<string>('All Departments');
   const [selectedDirection, setSelectedDirection] = useState<string>('all');
-  const [callsTimeframe, setCallsTimeframe] = useState<'today' | 'all'>('today');
+  const [callsTimeframe, setCallsTimeframe] = useState<'today' | 'all'>(initialTimeframe || 'today');
+
+  useEffect(() => {
+    if (initialTimeframe) {
+      setCallsTimeframe(initialTimeframe);
+    }
+  }, [initialTimeframe]);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [includeArchive, setIncludeArchive] = useState<boolean>(false);
@@ -500,7 +539,14 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
           disconnectionReason: drawerCall.disconnectionReason
         },
         idempotencyKey: `call_${drawerCall.id}`,
-        occurredAt: drawerCall.timestamp ? new Date(drawerCall.timestamp).toISOString() : new Date().toISOString(),
+        occurredAt: (() => {
+          const raw = drawerCall.rawTimestamp || drawerCall.timestamp;
+          if (raw) {
+            const d = new Date(raw);
+            if (!isNaN(d.getTime())) return d.toISOString();
+          }
+          return new Date().toISOString();
+        })(),
         recordedAt: new Date().toISOString()
       }]);
       setDrawerContactSummary({
@@ -917,7 +963,7 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5 text-[#00635C]" />
-            <span>Today&apos;s Calls</span>
+            <span>Today's Calls</span>
             <span
               data-testid="today-calls-count-badge"
               className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
@@ -1173,33 +1219,51 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
         className="hidden"
       />
 
-      {/* HONEST ERROR BANNER (NEVER CONVERTS ERROR TO ZERO CALLS) */}
+      {/* Soft-fail: keep cached calls visible; error ≠ empty (Critiquito) */}
       {hasActiveError && (
-        <div data-testid="calls-error-state" className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2">
-          <div className="flex items-center gap-2 text-rose-900 font-bold text-xs">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>Telephony Ledger Connection Error</span>
+        <div
+          data-testid="calls-error-state"
+          className={`nest-banner-in p-3 rounded-2xl space-y-1.5 border ${
+            calls.length > 0
+              ? 'bg-amber-50 border-amber-200'
+              : 'bg-rose-50 border-rose-200'
+          }`}
+        >
+          <div className={`flex items-center gap-2 font-bold text-xs ${calls.length > 0 ? 'text-amber-950' : 'text-rose-900'}`}>
+            <AlertCircle className={`w-4 h-4 shrink-0 ${calls.length > 0 ? 'text-amber-600' : 'text-rose-600'}`} />
+            <span>
+              {calls.length > 0
+                ? 'Live telephony unreachable'
+                : 'Telephony Ledger Connection Error'}
+            </span>
           </div>
-          <p className="text-xs text-rose-700">
-            {error || 'Unable to connect to the persistent PostgreSQL telephony calls ledger.'}
+          <p className={`text-xs ${calls.length > 0 ? 'text-amber-800' : 'text-rose-700'}`}>
+            {calls.length > 0
+              ? 'Showing last loaded calls. Live ledger refresh failed — Retry when the server is back.'
+              : (error || 'Unable to connect to the persistent PostgreSQL telephony calls ledger.')}
           </p>
-          <div className="flex items-center gap-2 pt-1">
+          {error && calls.length > 0 && (
+            <p className="text-[10px] text-amber-700/80 font-mono truncate">{error}</p>
+          )}
+          <div className="flex items-center gap-2 pt-0.5">
             {onRefresh && (
               <button
                 type="button"
                 onClick={onRefresh}
-                className="px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer flex items-center gap-1.5"
+                className={`nest-press px-3 py-1 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer flex items-center gap-1.5 ${
+                  calls.length > 0 ? 'bg-amber-700 hover:bg-amber-800' : 'bg-rose-700 hover:bg-rose-800'
+                }`}
               >
                 <RefreshCw className="w-3 h-3" />
-                <span>Retry Connection</span>
+                <span>Retry</span>
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* LOADING SKELETON */}
-      {loading && !hasActiveError && (
+      {/* LOADING SKELETON — only when we have nothing to show yet */}
+      {loading && calls.length === 0 && !hasActiveError && (
         <div data-testid="calls-loading-state" className="p-10 text-center bg-white border border-slate-200/80 rounded-2xl shadow-xs space-y-2.5">
           <RefreshCw className="w-5 h-5 text-[#00635C] animate-spin mx-auto" />
           <div className="font-semibold text-xs text-slate-800">Loading telephony calls ledger…</div>
@@ -1207,8 +1271,8 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
         </div>
       )}
 
-      {/* SCANNABLE APPLE-GRADE CALL LIST */}
-      {!loading && !hasActiveError && (
+      {/* Soft-fail: cached rows stay; pure error (no cache) ≠ empty “No calls today” */}
+      {(calls.length > 0 || (!hasActiveError && !loading)) && (
         <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
@@ -1278,7 +1342,7 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
                     <td colSpan={8} className="py-14 text-center text-slate-400">
                       {calls.length === 0 ? (
                         callsTimeframe === 'today' ? (
-                          <div className="space-y-2 max-w-md mx-auto" data-testid="empty-today-calls">
+                          <div className="nest-fade-empty space-y-2 max-w-md mx-auto" data-testid="empty-today-calls">
                             <Clock className="w-7 h-7 text-[#00635C] mx-auto mb-1" />
                             <div className="font-bold text-sm text-slate-800">No calls recorded today</div>
                             <p className="text-xs text-slate-500">
@@ -1312,26 +1376,45 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
                         )
                       ) : (
                         <div className="space-y-2 max-w-md mx-auto" data-testid="empty-filtered-calls">
-                          <Filter className="w-7 h-7 text-slate-300 mx-auto mb-1" />
-                          <div className="font-bold text-sm text-slate-800">No calls match current filters</div>
-                          <p className="text-xs text-slate-500">
-                            {searchQuery
-                              ? `No calls match "${searchQuery}" with the selected department and direction filters.`
-                              : `No calls found with department "${selectedDept}" or direction "${selectedDirection}".`}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSearchQuery('');
-                              setSelectedDept('All Departments');
-                              setSelectedDirection('all');
-                              setCallsTimeframe('all');
-                              setIncludeArchive(false);
-                            }}
-                            className="mt-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold cursor-pointer"
-                          >
-                            Clear Filters &amp; Search
-                          </button>
+                          {callsTimeframe === 'today' && !searchQuery && selectedDept === 'All Departments' && selectedDirection === 'all' ? (
+                            <>
+                              <Clock className="w-7 h-7 text-[#00635C] mx-auto mb-1" />
+                              <div className="font-bold text-sm text-slate-800">No calls recorded today</div>
+                              <p className="text-xs text-slate-500">
+                                No calls have been received on the NORA Voice Line (+1 910 507-2047) today in Eastern Time. There are {calls.length} calls in total call history.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setCallsTimeframe('all')}
+                                className="mt-2 px-3 py-1.5 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-semibold cursor-pointer shadow-2xs"
+                              >
+                                View All Calls ({calls.length})
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <Filter className="w-7 h-7 text-slate-300 mx-auto mb-1" />
+                              <div className="font-bold text-sm text-slate-800">No calls match current filters</div>
+                              <p className="text-xs text-slate-500">
+                                {searchQuery
+                                  ? `No calls match "${searchQuery}" with the selected department and direction filters.`
+                                  : `No calls found with department "${selectedDept}" or direction "${selectedDirection}".`}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearchQuery('');
+                                  setSelectedDept('All Departments');
+                                  setSelectedDirection('all');
+                                  setCallsTimeframe('all');
+                                  setIncludeArchive(false);
+                                }}
+                                className="mt-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold cursor-pointer"
+                              >
+                                Reset all filters
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </td>
@@ -1375,7 +1458,7 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
 
                         {/* 2. Date & Time */}
                         <td className="py-2.5 px-3 whitespace-nowrap">
-                          <div className="font-medium text-slate-900 text-xs">{c.timestamp}</div>
+                          <div className="font-medium text-slate-900 text-xs">{formatCallTimestampInEastern(c)}</div>
                         </td>
 
                         {/* 3. Caller & Requester */}
@@ -1470,7 +1553,7 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
                         </button>
                         <div>
                           <div className="font-semibold text-slate-900 text-xs">{c.callerName || 'Unknown caller'}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{c.timestamp}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{formatCallTimestampInEastern(c)}</div>
                         </div>
                       </div>
                       <div className="text-right">
@@ -1573,7 +1656,7 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
                   <span>•</span>
                   <span>{drawerCall.office || 'Nest Realty Wilmington'}</span>
                   <span>•</span>
-                  <span>{drawerCall.timestamp || 'Today'}</span>
+                  <span>{formatCallTimestampInEastern(drawerCall)}</span>
                   <span>•</span>
                   <span>{drawerCall.duration}</span>
                 </div>
@@ -2186,7 +2269,7 @@ export const CallsTableView: React.FC<CallsTableViewProps> = ({
                           <div className="w-2 h-2 rounded-full bg-emerald-500 absolute -left-[17px] top-1.5" />
                           <div className="font-semibold text-slate-900">Inbound Call Received</div>
                           <div className="text-[11px] text-slate-500">
-                            {drawerCall.timestamp} · Via NORA Voice Line (910) 507-2047
+                            {formatCallTimestampInEastern(drawerCall)} · Via NORA Voice Line (910) 507-2047
                           </div>
                         </div>
 

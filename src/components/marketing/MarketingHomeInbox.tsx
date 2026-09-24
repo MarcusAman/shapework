@@ -42,10 +42,11 @@ import {
   Tag,
   Calendar,
   Eye,
+  UserPlus,
   SlidersHorizontal,
   Building2,
   Folder,
-  FolderOpen,
+  CornerDownRight,
   MoreHorizontal,
   Users,
   BookOpen,
@@ -63,7 +64,9 @@ import {
   Printer,
   ArrowUpDown,
   Database,
-  Mic
+  Mic,
+  PanelLeftClose,
+  ChevronsRight
 } from 'lucide-react';
 import { 
   CanonicalMarketingTask, 
@@ -75,18 +78,35 @@ import {
 } from '../../../server/persistence/marketingCampaignsRepository';
 import { getDerivedCampaignState, getDerivedAssetState } from '../../shared/marketingStateModel';
 import { AskRequesterQuestionsModal } from './AskRequesterQuestionsModal';
+import { resolveCanonicalRecipient } from '../../services/canonicalRecipientService';
+import { NestOrbVisualizer } from '../shared/NestOrbVisualizer';
 import { MaxaBrowserAgentModal } from './MaxaBrowserAgentModal';
 import { RequestActionModal } from './RequestActionModal';
 import { NewMarketingRequestModal } from './NewMarketingRequestModal';
+import { isListingLaunchTask as isListingLaunchTaskFromSop } from '../../lib/listingLaunchSop';
+import { isOffer2TBoardTask as isOffer2TBoardTaskFromSop } from '../../lib/offer2tSop';
 import { PrintOperationsModal } from './PrintOperationsModal';
 import { RequestInspectorDrawer } from './RequestInspectorDrawer';
 import { TaskRequestDetailModal } from './TaskRequestDetailModal';
+import { WorkspaceTaskDrawer, type WorkspaceDrawerTask } from './WorkspaceTaskDrawer';
+import { resolveCanonicalStaffMember } from '../../services/canonicalRoster';
 import { CompactActivityCardBadge } from './CompactActivityCardBadge';
+import {
+  assignSurfaceTableParentRowNumbers,
+  formatSurfaceTableActivityRelative,
+  formatSurfaceTableActivityTooltip,
+  formatSurfaceTableReceived,
+  resolveSurfaceTableRequesterName,
+  resolveSurfaceTableTypeChip,
+  surfaceTableParentNumberKey,
+} from '../../lib/surfaceTasksTableLock';
 import { TaskQuickActionsModal } from './TaskQuickActionsModal';
 import { getTeamMemberSops, getCampaignGoverningSop, MarketingSopDefinition, MARKETING_SOPS } from './marketingSopRegistry';
 import { SOPQuickViewDrawer } from './SOPQuickViewDrawer';
 import { getSlaUrgencyInfo } from './VAWorkspaceView';
 import { CANONICAL_WORKSPACE_ROSTER } from '../../services/canonicalRoster';
+import { CanonicalTaskCard } from './CanonicalTaskCard';
+import { useFitBoardLayout } from './useFitBoardLayout';
 
 export interface MarketingHomeInboxProps {
   campaigns?: any[];
@@ -107,6 +127,15 @@ export interface MarketingHomeInboxProps {
   onCloseTaskDetail?: () => void;
   initialTasks?: CanonicalMarketingTask[];
   initialRequests?: CanonicalMarketingRequest[];
+  onTasksChange?: (tasks: CanonicalMarketingTask[]) => void;
+  onRequestsChange?: (requests: CanonicalMarketingRequest[]) => void;
+  currentUser?: {
+    id?: string;
+    name?: string;
+    role?: string;
+    email?: string;
+    permissions?: string[];
+  } | null;
 }
 
 export const TEAM_MEMBERS = CANONICAL_WORKSPACE_ROSTER.map(m => ({
@@ -125,6 +154,9 @@ export const PIPELINE_STAGES: Array<{
   color: string;
   dotColor: string;
   badgeBg: string;
+  /** Soft lane header: white surface + colored left accent (table + board) */
+  headerBar: string;
+  headerCount: string;
 }> = [
   {
     id: 'request_received',
@@ -133,7 +165,9 @@ export const PIPELINE_STAGES: Array<{
     description: 'New tasks awaiting triage or readiness review',
     color: 'border-slate-300 bg-slate-50/50',
     dotColor: 'bg-slate-500',
-    badgeBg: 'bg-slate-100 text-slate-700 border-slate-300'
+    badgeBg: 'bg-slate-100 text-slate-700 border-slate-300',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-slate-500 border-y border-r border-slate-200/90',
+    headerCount: 'bg-slate-100 text-slate-700 border-slate-200'
   },
   {
     id: 'assigned',
@@ -142,7 +176,9 @@ export const PIPELINE_STAGES: Array<{
     description: 'Assigned to team member, awaiting intentional Start Work',
     color: 'border-blue-300 bg-blue-50/30',
     dotColor: 'bg-blue-500',
-    badgeBg: 'bg-blue-50 text-blue-800 border-blue-200'
+    badgeBg: 'bg-blue-50 text-blue-800 border-blue-200',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-blue-500 border-y border-r border-slate-200/90',
+    headerCount: 'bg-blue-50 text-blue-800 border-blue-200'
   },
   {
     id: 'in_progress',
@@ -151,7 +187,9 @@ export const PIPELINE_STAGES: Array<{
     description: 'Active design & production underway',
     color: 'border-amber-300 bg-amber-50/30',
     dotColor: 'bg-amber-500',
-    badgeBg: 'bg-amber-50 text-amber-800 border-amber-200'
+    badgeBg: 'bg-amber-50 text-amber-800 border-amber-200',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-amber-500 border-y border-r border-slate-200/90',
+    headerCount: 'bg-amber-50 text-amber-900 border-amber-200'
   },
   {
     id: 'agent_review',
@@ -160,7 +198,9 @@ export const PIPELINE_STAGES: Array<{
     description: 'Proof package submitted to manager for review and sign-off',
     color: 'border-purple-300 bg-purple-50/30',
     dotColor: 'bg-purple-500',
-    badgeBg: 'bg-purple-50 text-purple-800 border-purple-200'
+    badgeBg: 'bg-purple-50 text-purple-800 border-purple-200',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-violet-500 border-y border-r border-slate-200/90',
+    headerCount: 'bg-violet-50 text-violet-800 border-violet-200'
   },
   {
     id: 'revisions',
@@ -169,7 +209,9 @@ export const PIPELINE_STAGES: Array<{
     description: 'Changes requested by agent, awaiting rework',
     color: 'border-rose-300 bg-rose-50/30',
     dotColor: 'bg-rose-500',
-    badgeBg: 'bg-rose-50 text-rose-800 border-rose-200'
+    badgeBg: 'bg-rose-50 text-rose-800 border-rose-200',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-rose-500 border-y border-r border-slate-200/90',
+    headerCount: 'bg-rose-50 text-rose-800 border-rose-200'
   },
   {
     id: 'approved',
@@ -178,7 +220,9 @@ export const PIPELINE_STAGES: Array<{
     description: 'Digital asset approved & delivered / published',
     color: 'border-emerald-300 bg-emerald-50/30',
     dotColor: 'bg-emerald-500',
-    badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200'
+    badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-emerald-500 border-y border-r border-slate-200/90',
+    headerCount: 'bg-emerald-50 text-emerald-800 border-emerald-200'
   },
   {
     id: 'with_vendor',
@@ -187,61 +231,64 @@ export const PIPELINE_STAGES: Array<{
     description: 'Physical order dispatched to FastSigns / Coastal Sign Post',
     color: 'border-[#00635C]/30 bg-[#E5EFEA]/40',
     dotColor: 'bg-[#00635C]',
-    badgeBg: 'bg-[#E5EFEA] text-[#00635C] border-[#00635C]/30'
+    badgeBg: 'bg-[#E5EFEA] text-[#00635C] border-[#00635C]/30',
+    headerBar: 'bg-white text-slate-800 border-l-4 border-l-[#00635C] border-y border-r border-slate-200/90',
+    headerCount: 'bg-[#E5EFEA] text-[#00635C] border-[#00635C]/25'
   }
 ];
 
-export function getStageForTask(task: { status?: string; reviewState?: string; assignedTo?: string }) {
-  if (task.status === 'needs_info') {
+export type CanonicalPipelineLaneId = 'request_received' | 'assigned' | 'in_progress' | 'agent_review' | 'revisions' | 'approved' | 'with_vendor';
+
+export function getCanonicalLaneForTask(task: {
+  status?: string;
+  reviewState?: string;
+  assignedTo?: string;
+  isArchived?: boolean;
+}): CanonicalPipelineLaneId | 'archived' | 'legacy_unreconciled' {
+  if (task.isArchived || task.status === 'archived') return 'archived';
+  if (task.status === 'approved' || task.status === 'completed' || task.reviewState === 'approved') return 'approved';
+  if (task.status === 'agent_review' || task.reviewState === 'awaiting_review') return 'agent_review';
+  if (task.status === 'revisions' || task.reviewState === 'revisions_requested') return 'revisions';
+  if (task.status === 'with_vendor') return 'with_vendor';
+  if (task.status === 'in_progress') return 'in_progress';
+  if (task.status === 'assigned' || task.status === 'ready_for_review') return 'assigned';
+  if (task.status === 'request_received' || task.status === 'needs_info' || (!task.assignedTo && !task.status)) return 'request_received';
+  return 'legacy_unreconciled';
+}
+
+export function getStageForTask(task: { status?: string; reviewState?: string; assignedTo?: string; isArchived?: boolean }) {
+  const lane = getCanonicalLaneForTask(task);
+  if (lane === 'archived') {
     return {
-      id: 'needs_info' as const,
-      label: 'Needs Information',
-      shortLabel: 'Needs Info',
-      description: 'Incomplete intake missing required specifications or assets',
-      color: 'border-rose-300 bg-rose-50/30',
-      dotColor: 'bg-rose-500',
-      badgeBg: 'bg-rose-50 text-rose-800 border-rose-200'
+      id: 'archived' as any,
+      label: 'Archived',
+      shortLabel: 'Archived',
+      description: 'Archived task',
+      color: 'border-slate-200 bg-slate-50',
+      dotColor: 'bg-slate-400',
+      badgeBg: 'bg-slate-100 text-slate-500 border-slate-200'
     };
   }
-  if (task.status === 'ready_for_review') {
-    return {
-      id: 'ready_for_review' as const,
-      label: 'Ready for Review',
-      shortLabel: 'Ready',
-      description: 'Intake verified and ready for operations start',
-      color: 'border-blue-300 bg-blue-50/30',
-      dotColor: 'bg-blue-500',
-      badgeBg: 'bg-blue-50 text-blue-800 border-blue-200'
-    };
-  }
-  if (task.reviewState === 'awaiting_review' || task.status === 'agent_review') {
-    return {
-      id: 'agent_review' as const,
-      label: 'Awaiting Manager Review',
-      shortLabel: 'Manager Review',
-      description: 'Proof submitted, awaiting manager review',
-      color: 'border-purple-300 bg-purple-50/30',
-      dotColor: 'bg-purple-500',
-      badgeBg: 'bg-purple-50 text-purple-800 border-purple-200'
-    };
-  }
-  if (task.status === 'request_received') {
+  if (lane === 'legacy_unreconciled') {
     return {
       id: 'request_received' as const,
-      label: task.assignedTo ? 'Intake Received' : 'Unassigned',
-      shortLabel: task.assignedTo ? 'Intake' : 'Unassigned',
-      description: 'New intake received',
-      color: 'border-slate-300 bg-slate-50/50',
-      dotColor: 'bg-slate-500',
-      badgeBg: 'bg-slate-100 text-slate-700 border-slate-300'
+      label: `Legacy: ${task.status || 'Unknown'}`,
+      shortLabel: 'Unreconciled',
+      description: 'Task with unrecognized legacy status surfaced for triage',
+      color: 'border-amber-300 bg-amber-50/50',
+      dotColor: 'bg-amber-500',
+      badgeBg: 'bg-amber-100 text-amber-800 border-amber-300'
     };
   }
-  return PIPELINE_STAGES.find(s => s.id === task.status) || PIPELINE_STAGES[0];
+  const matched = PIPELINE_STAGES.find(s => s.id === lane);
+  if (matched) return matched;
+  return PIPELINE_STAGES[0];
 }
 
 export const CATEGORY_LABELS: Record<string, { label: string; bg: string; text: string }> = {
   farming: { label: 'Farming', bg: 'bg-emerald-100', text: 'text-emerald-800' },
   listing_launch: { label: 'Listing Launch', bg: 'bg-blue-100', text: 'text-blue-800' },
+  offer_2t: { label: 'Offer / 2-T', bg: 'bg-teal-100', text: 'text-teal-800' },
   open_house: { label: 'Open House', bg: 'bg-purple-100', text: 'text-purple-800' },
   social: { label: 'Social', bg: 'bg-pink-100', text: 'text-pink-800' },
   signage: { label: 'Signage', bg: 'bg-amber-100', text: 'text-amber-800' },
@@ -250,8 +297,20 @@ export const CATEGORY_LABELS: Record<string, { label: string; bg: string; text: 
   other: { label: 'Custom', bg: 'bg-slate-100', text: 'text-slate-800' }
 };
 
+export const isListingLaunchBoardTask = (t: CanonicalMarketingTask): boolean => {
+  if (!t) return false;
+  return isListingLaunchTaskFromSop(t as any);
+};
+
+export const isOffer2TBoardTask = (t: CanonicalMarketingTask): boolean => {
+  if (!t) return false;
+  return isOffer2TBoardTaskFromSop(t as any);
+};
+
 export const isMarketingTask = (t: CanonicalMarketingTask): boolean => {
   if (!t) return true;
+  // Listing Launch is its own Tasks tab — never bucket into Marketing
+  if (isListingLaunchBoardTask(t)) return false;
   const cat = (t.category || '').toLowerCase();
   const title = (t.title || '').toLowerCase();
   if (cat.includes('sign') || cat.includes('photo') || cat.includes('lockbox') || cat.includes('compliance') || cat.includes('escrow') || cat.includes('contract')) {
@@ -264,8 +323,23 @@ export const isMarketingTask = (t: CanonicalMarketingTask): boolean => {
 };
 
 export const isOperationalTask = (t: CanonicalMarketingTask): boolean => {
+  if (!t) return false;
+  if (isListingLaunchBoardTask(t)) return false;
+  if (isOffer2TBoardTask(t)) return false;
   return !isMarketingTask(t);
 };
+
+/** Surface Tasks table Lane column — domain helpers, NOT pipeline stage. */
+export type SurfaceDomainLane = 'Listing' | 'Offer' | 'Marketing' | 'Deal risk' | '—';
+export function getSurfaceDomainLane(task: CanonicalMarketingTask): SurfaceDomainLane {
+  if (!task) return '—';
+  if (isListingLaunchBoardTask(task)) return 'Listing';
+  if (isOffer2TBoardTask(task)) return 'Offer';
+  if (isMarketingTask(task)) return 'Marketing';
+  if (isOperationalTask(task)) return 'Deal risk';
+  return '—';
+}
+
 
 export function formatElapsedDuration(createdAt?: string, nowTimestamp = Date.now()): string {
   if (!createdAt) return '00:00:00:00';
@@ -286,6 +360,207 @@ export function formatElapsedDuration(createdAt?: string, nowTimestamp = Date.no
   return `${dStr}:${hStr}:${mStr}:${sStr}`;
 }
 
+
+/** Map Tasks list row → WorkspaceTaskDrawer shape (uploads + MLS + parent request). */
+export function toWorkspaceDrawerTask(
+  task: CanonicalMarketingTask,
+  parent?: CanonicalMarketingRequest | null
+): WorkspaceDrawerTask {
+  const mls = String(task.mlsNumber || parent?.mlsNumber || '').trim();
+  const photos = (task.photos && task.photos.length > 0)
+    ? task.photos
+    : (parent?.photos || []);
+  return {
+    id: task.id,
+    campaignId: (task as any).campaignId,
+    requestId: task.requestId || parent?.id,
+    requesterId: (task as any).requesterId || (parent as any)?.createdById,
+    propertyAddress: task.propertyAddress || parent?.propertyAddress || task.requestTitle || task.title || '',
+    agentName: task.agentName || parent?.agentName || 'Listing Broker (REALTOR®)',
+    agentPhone: task.agentPhone || parent?.agentPhone || '',
+    agentEmail: task.agentEmail || parent?.agentEmail || '',
+    agentRole: task.agentRole || parent?.agentRole,
+    packageType: task.title,
+    priority: ((task.priority as any) === 'urgent' || (task.priority as any) === 'high') ? (task.priority as any) : 'normal',
+    status: task.status || 'assigned',
+    reviewState: task.reviewState,
+    proofVersion: task.proofVersion,
+    targetSla: task.dueAt || task.neededByDate || '',
+    dueAt: task.dueAt || task.dueDate,
+    neededByDate: task.neededByDate,
+    eventType: task.eventType || parent?.eventType,
+    eventDate: task.eventDate || parent?.eventDate,
+    eventTime: task.eventTime || parent?.eventTime,
+    receivedAt: parent?.receivedAt || parent?.createdAt || task.createdAt || '',
+    assignedTo: task.assignedTo,
+    assignedToId: task.assignedToId,
+    assignedToRole: task.assignedToRole,
+    reviewOwnerId: task.reviewOwnerId && !String(task.reviewOwnerId).includes('_test_')
+      ? task.reviewOwnerId
+      : ((task.category === 'signage' || task.category === 'operations') ? 'dir_ann_gunn_28' : 'dir_melissa_gagliardi_33'),
+    reviewOwnerName: (task.reviewOwnerName || task.reviewOwner) && !String(task.reviewOwnerName || task.reviewOwner || '').includes('Durability')
+      ? (task.reviewOwnerName || task.reviewOwner)
+      : ((task.category === 'signage' || task.category === 'operations') ? 'Ann Gunn' : 'Melissa Gagliardi'),
+    coveringStaffId: task.coveringStaffId,
+    coveringStaffName: task.coveringStaffName || task.coveringStaff,
+    proofUrl: task.proofUrl,
+    proofNotes: task.proofNotes,
+    proofHistory: task.proofHistory as any,
+    reviewHistory: task.reviewHistory as any,
+    notes: task.notes,
+    category: task.category,
+    routingState: task.routingState,
+    routingReasons: task.routingReasons,
+    channel: task.channel || parent?.channel,
+    classificationConfidence: task.classificationConfidence,
+    callId: task.callId || task.telephonyCallId,
+    sourceCallId: task.telephonyCallId || task.callId,
+    workspaceId: task.workspaceId || parent?.workspaceId,
+    departmentId: task.departmentId,
+    deliverableType: task.deliverableType,
+    title: task.title,
+    governingSopId: task.governingSopId,
+    governingSopVersion: task.governingSopVersion,
+    requestedAssets: [],
+    listingDetails: {
+      price: '',
+      bedsBaths: '',
+      sqft: '',
+      headline: task.title,
+      description: task.notes || parent?.requestExcerpt || '',
+      disclosures: '',
+      mlsNumber: mls,
+      licenseNumber: ''
+    },
+    photos: (photos || []).map((p: any, i: number) =>
+      typeof p === 'string'
+        ? { id: `photo_${i}`, url: p }
+        : { id: p.id || `photo_${i}`, url: p.url, name: p.name, caption: p.caption }
+    ),
+    attachments: (task.attachments || parent?.attachments || []) as any,
+    sopCode: '',
+    sopTitle: '',
+    requirements: task.requirements,
+    internalFlags: task.internalFlags,
+    mlsNumber: mls,
+    parentRequest: parent || undefined
+  } as WorkspaceDrawerTask & { mlsNumber?: string; parentRequest?: CanonicalMarketingRequest };
+}
+
+function mapInboxTabToDrawerTab(
+  tab: 'overview' | 'conversation' | 'work' | 'activity'
+): 'overview' | 'history' | 'proof' | 'files' {
+  if (tab === 'conversation' || tab === 'activity') return 'history';
+  if (tab === 'work') return 'proof';
+  return 'overview';
+}
+
+export type LaneListItem =
+  | { kind: 'request'; requestId: string; tasks: CanonicalMarketingTask[] }
+  | {
+      kind: 'task';
+      requestId: string;
+      task: CanonicalMarketingTask;
+      indent: number;
+      siblingCount: number;
+      isFirstSubtask?: boolean;
+      isLastSubtask?: boolean;
+    };
+
+/** Within a lane: collapse sibling deliverables under their parent intake request */
+export function buildLaneListItems(
+  laneTasks: CanonicalMarketingTask[],
+  expandedRequestIds: Record<string, boolean> = {}
+): LaneListItem[] {
+  const buckets = new Map<string, CanonicalMarketingTask[]>();
+  for (const t of laneTasks) {
+    const key = t.requestId || `solo_${t.id}`;
+    const arr = buckets.get(key) || [];
+    arr.push(t);
+    buckets.set(key, arr);
+  }
+  const items: LaneListItem[] = [];
+  for (const [requestId, reqTasks] of buckets) {
+    const isMulti = reqTasks.length > 1 && !requestId.startsWith('solo_');
+    if (isMulti) {
+      items.push({ kind: 'request', requestId, tasks: reqTasks });
+      if (expandedRequestIds[requestId]) {
+        reqTasks.forEach((t, idx) => {
+          items.push({
+            kind: 'task',
+            requestId,
+            task: t,
+            indent: 1,
+            siblingCount: reqTasks.length,
+            isFirstSubtask: idx === 0,
+            isLastSubtask: idx === reqTasks.length - 1
+          });
+        });
+      }
+    } else {
+      items.push({
+        kind: 'task',
+        requestId,
+        task: reqTasks[0],
+        indent: 0,
+        siblingCount: 1,
+        isFirstSubtask: false,
+        isLastSubtask: false
+      });
+    }
+  }
+  return items;
+}
+
+/** Lock #2.1 — optional table group mode (default parent-by-address). */
+export type SurfaceTableGroupMode = 'address' | 'lane';
+export const SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL = 'Group by address';
+export const SURFACE_TABLE_GROUP_BY_LANE_LABEL = 'Group by Lane';
+/** Lane section order — domain helpers, NOT pipeline stages. */
+export const SURFACE_DOMAIN_LANE_ORDER: Exclude<SurfaceDomainLane, '—'>[] = [
+  'Marketing',
+  'Listing',
+  'Offer',
+  'Deal risk',
+];
+
+export type SurfaceTableListItem =
+  | { kind: 'lane'; lane: Exclude<SurfaceDomainLane, '—'>; count: number }
+  | LaneListItem;
+
+/**
+ * Table list builder for Surface lock #2.1.
+ * Default `address`: parent-by-address (buildLaneListItems).
+ * `lane`: section headers Marketing / Listing / Offer / Deal risk; inside each, still parent-by-address.
+ */
+export function buildSurfaceTableListItems(
+  tasks: CanonicalMarketingTask[],
+  expandedRequestIds: Record<string, boolean> = {},
+  groupMode: SurfaceTableGroupMode = 'address'
+): SurfaceTableListItem[] {
+  if (groupMode !== 'lane') {
+    return buildLaneListItems(tasks, expandedRequestIds);
+  }
+  const buckets = new Map<Exclude<SurfaceDomainLane, '—'>, CanonicalMarketingTask[]>();
+  for (const lane of SURFACE_DOMAIN_LANE_ORDER) buckets.set(lane, []);
+  for (const t of tasks) {
+    const lane = getSurfaceDomainLane(t);
+    const key: Exclude<SurfaceDomainLane, '—'> =
+      lane === '—' ? 'Marketing' : lane;
+    const arr = buckets.get(key) || [];
+    arr.push(t);
+    buckets.set(key, arr);
+  }
+  const items: SurfaceTableListItem[] = [];
+  for (const lane of SURFACE_DOMAIN_LANE_ORDER) {
+    const laneTasks = buckets.get(lane) || [];
+    if (laneTasks.length === 0) continue;
+    items.push({ kind: 'lane', lane, count: laneTasks.length });
+    items.push(...buildLaneListItems(laneTasks, expandedRequestIds));
+  }
+  return items;
+}
+
 export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   campaigns = [],
   activeJob,
@@ -304,9 +579,18 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   initialSelectedTaskId,
   onCloseTaskDetail,
   initialTasks,
-  initialRequests
+  initialRequests,
+  onTasksChange,
+  onRequestsChange,
+  currentUser: propCurrentUser
 }) => {
   const [nowMs, setNowMs] = useState<number>(Date.now());
+  const lastBroadcastTasksKeyRef = useRef<string>('');
+  const lastBroadcastRequestsKeyRef = useRef<string>('');
+  const onTasksChangeRef = useRef(onTasksChange);
+  onTasksChangeRef.current = onTasksChange;
+  const onRequestsChangeRef = useRef(onRequestsChange);
+  onRequestsChangeRef.current = onRequestsChange;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -340,31 +624,56 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     if (initialRequests && initialRequests.length > 0) return initialRequests;
     return [];
   });
-  const [taskDomain, setTaskDomain] = useState<'all' | 'marketing' | 'operations'>('all');
+  const [taskDomain, setTaskDomain] = useState<'all' | 'marketing' | 'operations' | 'listing_launch' | 'offer_2t'>('all');
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>(() => {
     if (initialViewMode) return initialViewMode;
-    if (campaigns && campaigns.length > 0) return 'table';
     if (typeof window !== 'undefined') {
       try {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('view') === 'table') return 'table';
+        const viewParam = params.get('view')?.toLowerCase().trim();
+        if (viewParam === 'table') return 'table';
+        if (viewParam === 'board' || viewParam === 'pipeline' || viewParam === 'kanban') return 'pipeline';
+
+        const stored = localStorage.getItem('nest_tasks_view_mode');
+        if (stored === 'table') return 'table';
+        if (stored === 'board' || stored === 'pipeline') return 'pipeline';
       } catch {}
     }
     return 'pipeline';
   });
+
+  const handleViewModeChange = (mode: 'table' | 'pipeline') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('nest_tasks_view_mode', mode === 'pipeline' ? 'board' : 'table');
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', mode === 'pipeline' ? 'board' : 'table');
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
+  };
   const [searchQuery, setSearchQuery] = useState<string>('');
+  /** Surface bar v2: Mine · Open · Blocked · Address (one row). */
+  const [surfaceMineOnly, setSurfaceMineOnly] = useState(false);
+  const [surfaceOpenOnly, setSurfaceOpenOnly] = useState(false);
+  const [surfaceBlockedOnly, setSurfaceBlockedOnly] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('All Statuses');
   const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('All Team Members');
   const [selectedTimeframe, setSelectedTimeframe] = useState<'all' | '30d' | 'quarter' | 'future_2027'>('all');
+  /** Parent intake request accordion: requestId → expanded (default collapsed when 2+ subtasks) */
+  const [expandedRequestIds, setExpandedRequestIds] = useState<Record<string, boolean>>({});
+  const [tableGroupMode, setTableGroupMode] = useState<SurfaceTableGroupMode>('address');
   const [showArchived, setShowArchived] = useState<boolean>(false);
-  const [sortField, setSortField] = useState<'dueAt' | 'createdAt'>('dueAt');
+  const [sortField, setSortField] = useState<'dueAt' | 'createdAt' | 'title' | 'receivedAt'>('dueAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [activeActionDropdownId, setActiveActionDropdownId] = useState<string | null>(null);
   const [sendToSubmenuTaskId, setSendToSubmenuTaskId] = useState<string | null>(null);
   const [quickActionsTask, setQuickActionsTask] = useState<CanonicalMarketingTask | null>(null);
+  const [quickActionsMode, setQuickActionsMode] = useState<'full' | 'reassign'>('full');
   const [showNewRequestModal, setShowNewRequestModal] = useState<boolean>(false);
   const [inspectorRequest, setInspectorRequest] = useState<CanonicalMarketingRequest | null>(null);
   const [showInspectorDrawer, setShowInspectorDrawer] = useState<boolean>(false);
@@ -373,16 +682,29 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   const [modalSelectedTask, setModalSelectedTask] = useState<CanonicalMarketingTask | null>(null);
   const [modalRequest, setModalRequest] = useState<CanonicalMarketingRequest | null>(null);
   const [modalInitialTab, setModalInitialTab] = useState<'overview' | 'conversation' | 'work' | 'activity'>('overview');
+  const [isWorkstationOpen, setIsWorkstationOpen] = useState(false);
+  const [workstationTask, setWorkstationTask] = useState<(WorkspaceDrawerTask & { mlsNumber?: string; parentRequest?: CanonicalMarketingRequest }) | null>(null);
+  const [workstationInitialTab, setWorkstationInitialTab] = useState<'overview' | 'history' | 'proof' | 'files'>('overview');
   const [questionModalCampaign, setQuestionModalCampaign] = useState<any | null>(null);
   const [browserAgentCampaign, setBrowserAgentCampaign] = useState<any | null>(null);
   const [selectedActionCampaign, setSelectedActionCampaign] = useState<any | null>(null);
   const [quickViewSop, setQuickViewSop] = useState<MarketingSopDefinition | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [lastArchivedTaskIds, setLastArchivedTaskIds] = useState<string[] | null>(null);
   const [printManifest, setPrintManifest] = useState<PrintSpecManifest | null>(null);
   const [activePresetMenuRequestId, setActivePresetMenuRequestId] = useState<string | null>(null);
   const [customDeliverableModalReqId, setCustomDeliverableModalReqId] = useState<string | null>(null);
   const [customDeliverableTitle, setCustomDeliverableTitle] = useState<string>('');
   const [isSyncingEmailInbox, setIsSyncingEmailInbox] = useState<boolean>(false);
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
+    const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
+    return {
+      'Authorization': `Bearer ${token}`,
+      'x-workspace-id': workspaceId
+    };
+  };
 
   const handleSyncEmailInbox = async () => {
     setIsSyncingEmailInbox(true);
@@ -407,12 +729,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   const [customDeliverableVendor, setCustomDeliverableVendor] = useState<string>('');
 
   const loadTasksAndRequests = () => {
-    const token = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_session_token')) || 'usr_ryan';
-    const workspaceId = (typeof localStorage !== 'undefined' && localStorage.getItem('shapework_active_workspace_id')) || 'nest-realty-wilmington';
-    const authHeaders = {
-      'Authorization': `Bearer ${token}`,
-      'x-workspace-id': workspaceId
-    };
+    const authHeaders = getAuthHeaders();
 
     fetch('/api/marketing/tasks', { headers: authHeaders })
       .then(res => res.ok ? res.json() : null)
@@ -440,12 +757,139 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const showToast = (msg: string) => {
+  // Synchronize tasks changes with parent container (MarketingIntakeConsole) and broadcast event
+  useEffect(() => {
+    const newKey = tasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+    if (lastBroadcastTasksKeyRef.current === newKey) {
+      return;
+    }
+    lastBroadcastTasksKeyRef.current = newKey;
+
+    if (onTasksChange) {
+      onTasksChange(tasks);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('marketing-tasks-updated', {
+        detail: { tasks, source: 'MarketingHomeInbox' }
+      }));
+    }
+  }, [tasks]);
+
+  useEffect(() => {
+    const newKey = requests.map(r => `${r.id}:${r.status}:${r.updatedAt || ''}`).join('|');
+    if (lastBroadcastRequestsKeyRef.current === newKey) {
+      return;
+    }
+    lastBroadcastRequestsKeyRef.current = newKey;
+
+    if (onRequestsChange) {
+      onRequestsChange(requests);
+    }
+  }, [requests]);
+
+  // Sync if initialTasks changes from parent (e.g. parent poll or external update)
+  useEffect(() => {
+    if (initialTasks && initialTasks.length > 0) {
+      const newKey = initialTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+      setTasks(prev => {
+        const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+        if (prevKey === newKey) return prev;
+        lastBroadcastTasksKeyRef.current = newKey;
+        return initialTasks;
+      });
+    }
+  }, [initialTasks]);
+
+  // Listen to manual or external data refresh events
+  useEffect(() => {
+    const handleRefresh = () => {
+      loadTasksAndRequests();
+    };
+    const handleExternalTasksUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tasks?: CanonicalMarketingTask[]; source?: string }>;
+      if (customEvent.detail?.source === 'MarketingHomeInbox') return;
+      if (customEvent.detail?.tasks && Array.isArray(customEvent.detail.tasks)) {
+        const incomingTasks = customEvent.detail.tasks;
+        const incomingKey = incomingTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+        setTasks(prev => {
+          const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+          if (prevKey === incomingKey) return prev;
+          lastBroadcastTasksKeyRef.current = incomingKey;
+          return incomingTasks;
+        });
+      } else {
+        loadTasksAndRequests();
+      }
+    };
+    window.addEventListener('refresh-marketing-data', handleRefresh);
+    window.addEventListener('marketing-tasks-updated', handleExternalTasksUpdated);
+    return () => {
+      window.removeEventListener('refresh-marketing-data', handleRefresh);
+      window.removeEventListener('marketing-tasks-updated', handleExternalTasksUpdated);
+    };
+  }, []);
+
+  const showToast = (msg: string, undoTaskIds?: string[]) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+    setLastArchivedTaskIds(undoTaskIds && undoTaskIds.length > 0 ? undoTaskIds : null);
+    setTimeout(() => {
+      setToastMessage(null);
+      setLastArchivedTaskIds(null);
+    }, 6000);
   };
 
-  const handleBatchAction = async (action: 'assign_eduardo' | 'assign_melissa' | 'vendor_dispatch' | 'approve' | 'archive' | 'print_hub') => {
+  const drawerCurrentUser = (() => {
+    const queueName = selectedAssignee !== 'All Team Members' && selectedAssignee !== 'Unassigned'
+      ? selectedAssignee
+      : null;
+    const fromQueue = queueName ? resolveCanonicalStaffMember(queueName) : null;
+    const fromProp = propCurrentUser;
+    if (fromQueue && (fromQueue.name === 'Melissa Gagliardi' || queueName === 'Melissa Gagliardi')) {
+      return {
+        id: fromQueue.id || 'dir_melissa_gagliardi_33',
+        name: 'Melissa Gagliardi',
+        email: fromQueue.email || 'melissa.gagliardi@nestrealty.com',
+        role: 'marketing_director',
+        permissions: ['marketing.create', 'marketing.edit', 'marketing.final_approval', 'marketing.approve', ...(Array.isArray(fromProp?.permissions) ? fromProp.permissions : [])]
+      };
+    }
+    if (fromQueue && (fromQueue.name === 'Eduardo Lovo' || queueName === 'Eduardo Lovo')) {
+      return {
+        id: fromQueue.id || 'dir_eduardo_lovo_73',
+        name: 'Eduardo Lovo',
+        email: fromQueue.email || 'eduardo.lovo@nestrealty.com',
+        role: 'producer',
+        permissions: ['marketing.create', 'marketing.edit']
+      };
+    }
+    if (fromQueue && (fromQueue.name === 'Ann Gunn' || queueName === 'Ann Gunn')) {
+      return {
+        id: fromQueue.id || 'dir_ann_gunn_28',
+        name: 'Ann Gunn',
+        email: fromQueue.email || 'ann@nestrealty.com',
+        role: 'operations_lead',
+        permissions: ['operations.final_approval', 'operations.approve', 'marketing.create', 'marketing.edit']
+      };
+    }
+    if (fromProp?.name || fromProp?.id) {
+      return {
+        id: fromProp.id || 'usr_session',
+        name: fromProp.name || 'Team Member',
+        email: fromProp.email,
+        role: fromProp.role || 'producer',
+        permissions: Array.isArray(fromProp.permissions) ? fromProp.permissions : ['marketing.create', 'marketing.edit']
+      };
+    }
+    return {
+      id: 'usr_guest',
+      name: 'Guest Viewer',
+      role: 'viewer',
+      permissions: ['marketing.view']
+    };
+  })();
+
+
+  const handleBatchAction = async (action: 'assign_eduardo' | 'assign_melissa' | 'vendor_dispatch' | 'approve' | 'archive' | 'restore' | 'print_hub') => {
     if (selectedTaskIds.length === 0) return;
     const targetIds = [...selectedTaskIds];
     setSelectedTaskIds([]);
@@ -454,7 +898,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       try {
         const res = await fetch('/api/marketing/print-hub/generate-manifest', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({ taskIds: targetIds, quantity: 50 })
         });
         const data = await res.json();
@@ -478,7 +922,15 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         const allWillBeArchived = allTasksForReq.every(t => targetIds.includes(t.id) || t.isArchived || t.status === 'archived');
         return allWillBeArchived ? { ...r, isArchived: true } : r;
       }));
-      showToast(`✓ Archived ${targetIds.length} task(s)`);
+      showToast(`✓ Archived ${targetIds.length} task(s)`, targetIds);
+    } else if (action === 'restore') {
+      setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: t.proofUrl ? 'in_progress' : 'request_received', isArchived: false, archivedAt: undefined } : t));
+      setRequests(prev => prev.map(r => {
+        const reqTaskIds = r.taskIds || [];
+        const isAffected = reqTaskIds.some(id => targetIds.includes(id)) || targetIds.some(id => id.includes(r.id));
+        return isAffected ? { ...r, isArchived: false } : r;
+      }));
+      showToast(`✓ Restored ${targetIds.length} task(s) to active queue`);
     } else if (action === 'assign_eduardo') {
       setTasks(prev => prev.map(t => targetIds.includes(t.id) ? { ...t, status: 'assigned', assignedTo: 'Eduardo Lovo', assignedToRole: 'Virtual Assistant' } : t));
       showToast(`✓ Assigned ${targetIds.length} task(s) to Eduardo Lovo`);
@@ -497,7 +949,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     try {
       const res = await fetch('/api/marketing/tasks/batch-action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           taskIds: targetIds,
           action,
@@ -510,8 +962,8 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           const matched = data.updatedTasks.find((u: any) => u.id === t.id);
           return matched || t;
         }));
-        if (action === 'archive') {
-          fetch('/api/marketing/canonical-requests')
+        if (action === 'archive' || action === 'restore') {
+          fetch('/api/marketing/canonical-requests', { headers: getAuthHeaders() })
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d?.success && Array.isArray(d.requests)) setRequests(d.requests); });
         }
@@ -563,12 +1015,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         setCustomDeliverableTitle('');
         setCustomDeliverableVendor('');
       } else {
+        const parentReq = requests.find(r => r.id === requestId);
         const fallbackTask: CanonicalMarketingTask = {
           id: `task_custom_${Date.now()}`,
           requestId,
-          requestTitle: 'Marketing Request',
-          propertyAddress: '104 Live Oak Dr, Wilmington NC',
-          agentName: 'Listing Broker (REALTOR®)',
+          requestTitle: parentReq?.title || 'Marketing Request',
+          propertyAddress: parentReq?.propertyAddress || 'Address not specified',
+          agentName: parentReq?.agentName || 'Requester not identified',
           agentRole: 'Listing Agent',
           title: customDeliverableTitle,
           category: customDeliverableCategory as any,
@@ -586,12 +1039,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       }
     } catch (e) {
       console.error('Add deliverable error:', e);
+      const parentReq = requests.find(r => r.id === requestId);
       const fallbackTask: CanonicalMarketingTask = {
         id: `task_custom_${Date.now()}`,
         requestId,
-        requestTitle: 'Marketing Request',
-        propertyAddress: '104 Live Oak Dr, Wilmington NC',
-        agentName: 'Listing Broker (REALTOR®)',
+        requestTitle: parentReq?.title || 'Marketing Request',
+        propertyAddress: parentReq?.propertyAddress || 'Address not specified',
+        agentName: parentReq?.agentName || 'Requester not identified',
         agentRole: 'Listing Agent',
         title: customDeliverableTitle,
         category: customDeliverableCategory as any,
@@ -619,7 +1073,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     try {
       const res = await fetch(`/api/marketing/tasks/${taskId}/status`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ status: newStatus, ...extra })
       });
 
@@ -636,8 +1090,8 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             startedBy: newStatus === 'in_progress' ? (t.startedBy || extra?.performedBy || 'Melissa Gagliardi') : t.startedBy,
             vendorName: extra?.vendorName || t.vendorName,
             vendorNotes: extra?.vendorNotes || t.vendorNotes,
-            isArchived: newStatus === 'archived' ? true : t.isArchived,
-            archivedAt: newStatus === 'archived' ? new Date().toISOString() : t.archivedAt,
+            isArchived: newStatus === 'archived' ? true : (newStatus !== 'archived' && t.isArchived ? false : t.isArchived),
+            archivedAt: newStatus === 'archived' ? (t.archivedAt || new Date().toISOString()) : undefined,
             completedAt: newStatus === 'completed' ? (t.completedAt || new Date().toISOString()) : t.completedAt,
             updatedAt: new Date().toISOString()
           };
@@ -646,14 +1100,21 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       }
 
       if (extra?.customToast) {
-        showToast(extra.customToast);
+        showToast(extra.customToast, newStatus === 'archived' ? [taskId] : undefined);
+      } else if (newStatus === 'archived') {
+        showToast('✓ Task archived and moved to Archived tab', [taskId]);
       } else if (extra?.assignedTo) {
         showToast(`✓ Task assigned to ${extra.assignedTo} (${extra.assignedToRole || 'Team Member'})`);
       } else {
         showToast(`✓ Task updated to ${newStatus.replace(/_/g, ' ')}`);
       }
     } catch {
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      setTasks(prev => prev.map(t => t.id === taskId ? {
+        ...t,
+        status: newStatus,
+        isArchived: newStatus === 'archived' ? true : (newStatus !== 'archived' && t.isArchived ? false : t.isArchived),
+        archivedAt: newStatus === 'archived' ? (t.archivedAt || new Date().toISOString()) : undefined
+      } : t));
     }
   };
 
@@ -682,10 +1143,55 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     handleUpdateStatus(taskId, 'archived', { performedBy: 'Melissa Gagliardi' });
   };
 
+  const handleRestoreTask = async (taskId: string) => {
+    const targetTask = tasks.find(t => t.id === taskId);
+    if (!targetTask) return;
+
+    // 1. Optimistic update
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      return {
+        ...t,
+        status: t.proofUrl ? 'in_progress' : 'request_received',
+        isArchived: false,
+        archivedAt: undefined,
+        updatedAt: new Date().toISOString()
+      };
+    }));
+
+    if (targetTask.requestId) {
+      setRequests(prev => prev.map(r => r.id === targetTask.requestId ? { ...r, isArchived: false } : r));
+    }
+
+    showToast(`✓ Restored "${targetTask.title}" to active queue`);
+
+    // 2. Durable backend restore
+    try {
+      const res = await fetch(`/api/marketing/tasks/${taskId}/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.task) {
+          setTasks(prev => prev.map(t => t.id === taskId ? data.task : t));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to restore task:', err);
+    }
+  };
+
   const handleArchiveRequestAndTasks = async (requestId: string) => {
+    const affectedTasks = tasks.filter(t => t.requestId === requestId);
+    const affectedIds = affectedTasks.map(t => t.id);
     try {
       const res = await fetch(`/api/marketing/canonical-requests/${requestId}/archive-all`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAuthHeaders()
       });
       if (res.ok) {
         const data = await res.json();
@@ -695,10 +1201,11 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         setRequests(prev => prev.map(r => r.id === requestId ? { ...r, isArchived: true } : r));
         setTasks(prev => prev.map(t => t.requestId === requestId ? { ...t, status: 'archived', isArchived: true } : t));
       }
-      showToast(`✓ Archived request container and all its deliverables!`);
+      showToast(`✓ Archived request container and all its deliverables!`, affectedIds);
     } catch {
       setRequests(prev => prev.map(r => r.id === requestId ? { ...r, isArchived: true } : r));
       setTasks(prev => prev.map(t => t.requestId === requestId ? { ...t, status: 'archived', isArchived: true } : t));
+      showToast(`✓ Archived request container and all its deliverables!`, affectedIds);
     }
   };
 
@@ -723,8 +1230,12 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     showToast(`✓ Created request "${newReq.title}" with ${newTasks.length} task deliverable(s)`);
   };
 
-  const handleOpenTaskDetail = (task: CanonicalMarketingTask, initialTab: 'overview' | 'conversation' | 'work' | 'activity' = 'overview') => {
-    const parent = requests.find(r => r.id === task.requestId || r.title === task.requestTitle || r.propertyAddress === task.propertyAddress) || {
+  const resolveParentRequest = (task: CanonicalMarketingTask): CanonicalMarketingRequest => {
+    const found = (task.requestId ? requests.find(r => r.id === task.requestId) : undefined) ||
+      (task.propertyAddress && task.propertyAddress.trim() ? requests.find(r => r.propertyAddress && r.propertyAddress.toLowerCase().trim() === task.propertyAddress.toLowerCase().trim()) : undefined) ||
+      (task.requestTitle && task.requestTitle.trim() ? requests.find(r => r.title && r.title.trim() && r.title.toLowerCase().trim() === task.requestTitle.toLowerCase().trim()) : undefined);
+    if (found) return found;
+    return {
       id: task.requestId || `req_${task.id}`,
       title: task.requestTitle || task.title,
       propertyAddress: task.propertyAddress || task.requestTitle,
@@ -735,20 +1246,24 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       taskIds: [task.id],
       receivedAt: 'Recently',
       createdAt: task.createdAt,
-      updatedAt: task.updatedAt
-    };
-    const resolvedAgentName = (task.agentName && !task.agentName.includes('Marcus Aman'))
-      ? task.agentName
-      : (parent.agentName && !parent.agentName.includes('Marcus Aman') ? parent.agentName : 'Listing Broker (REALTOR®)');
-    
-    const syncedParent = {
-      ...parent,
-      agentName: resolvedAgentName
-    };
-    setModalSelectedTask({ ...task, agentName: resolvedAgentName });
+      updatedAt: task.updatedAt,
+      mlsNumber: task.mlsNumber,
+      photos: task.photos
+    } as CanonicalMarketingRequest;
+  };
+
+  const handleOpenTaskDetail = (task: CanonicalMarketingTask, initialTab: 'overview' | 'conversation' | 'work' | 'activity' = 'overview') => {
+    const parent = resolveParentRequest(task);
+    const resolvedAgentName = task.agentName || parent.agentName || 'Requester not identified';
+    const syncedParent = { ...parent, agentName: resolvedAgentName };
+    const syncedTask = { ...task, agentName: resolvedAgentName };
+    setModalSelectedTask(syncedTask);
     setModalRequest(syncedParent);
     setModalInitialTab(initialTab);
-    setShowTaskDetailModal(true);
+    setWorkstationTask(toWorkspaceDrawerTask(syncedTask, syncedParent));
+    setWorkstationInitialTab(mapInboxTabToDrawerTab(initialTab));
+    setIsWorkstationOpen(true);
+    setShowTaskDetailModal(false);
     if (typeof window !== 'undefined') {
       try {
         const url = new URL(window.location.href);
@@ -756,6 +1271,24 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         window.history.replaceState({}, '', url.toString());
       } catch {}
     }
+  };
+
+  const handleCloseWorkstation = () => {
+    const currentId = workstationTask?.id || modalSelectedTask?.id || initialSelectedTaskId || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('taskId') : null);
+    if (currentId) closedTaskIdRef.current = currentId;
+    setIsWorkstationOpen(false);
+    setWorkstationTask(null);
+    setShowTaskDetailModal(false);
+    setModalRequest(null);
+    setModalSelectedTask(null);
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('taskId');
+        window.history.replaceState({}, '', url.toString());
+      } catch {}
+    }
+    onCloseTaskDetail?.();
   };
 
   const handleUpdateAssignee = async (taskId: string, assignee: string) => {
@@ -793,7 +1326,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         } else {
           const archived = allTasksCombined.find(t => t.id === targetId && t.isArchived);
           if (archived) {
-            showToast('This task has been archived and is not available on the active board.');
+            handleOpenTaskDetail(archived);
           }
         }
       }
@@ -818,11 +1351,12 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       const dateObj = new Date(dueAt);
       if (isNaN(dateObj.getTime())) return { label: dueAt, isOverdue: false, isToday: false, badgeClass: 'text-slate-600 bg-slate-50 border-slate-200' };
 
-      const now = new Date('2026-08-24T00:00:00Z');
-      const targetDate = new Date(dateObj.toISOString().split('T')[0] + 'T00:00:00Z');
-      const diffDays = Math.round((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const targetDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+      const diffDays = Math.round((targetDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
 
-      const formattedStr = targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: targetDate.getFullYear() !== 2026 ? 'numeric' : undefined });
+      const formattedStr = targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: targetDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
 
       if (diffDays < 0) {
         return { label: `Overdue (${formattedStr})`, isOverdue: true, isToday: false, badgeClass: 'text-rose-800 bg-rose-50 border-rose-200 font-bold' };
@@ -837,6 +1371,51 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       }
     } catch {
       return { label: dueAt, isOverdue: false, isToday: false, badgeClass: 'text-slate-600 bg-slate-50 border-slate-200' };
+    }
+  };
+
+  // Format Requested Needed By Date
+  const formatNeededByDate = (neededByDate?: string | null, dueAt?: string | null) => {
+    const target = neededByDate || dueAt;
+    if (!target) return { label: 'No date set', isOverdue: false, isToday: false, badgeClass: 'text-slate-400 bg-slate-50 border-slate-200' };
+
+    try {
+      if (typeof target === 'string' && target.toLowerCase().includes('today')) {
+        return {
+          label: 'Due Today',
+          isToday: true,
+          badgeClass: 'text-amber-800 bg-amber-50 border-amber-200 font-semibold'
+        };
+      }
+
+      const d = new Date(target);
+      if (isNaN(d.getTime())) return { label: target, isOverdue: false, isToday: false, badgeClass: 'text-slate-600 bg-slate-50 border-slate-200' };
+
+      const isMidnightUtc = target.includes('T00:00:00') || target.length === 10;
+      const formattedStr = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: isMidnightUtc ? 'UTC' : 'America/New_York'
+      });
+
+      const todayStr = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'America/New_York'
+      });
+
+      const isToday = formattedStr === todayStr;
+      return {
+        label: formattedStr,
+        isToday,
+        badgeClass: isToday
+          ? 'text-amber-800 bg-amber-50 border-amber-200 font-semibold'
+          : 'text-slate-700 bg-slate-50 border-slate-200 font-medium'
+      };
+    } catch {
+      return { label: target, isOverdue: false, isToday: false, badgeClass: 'text-slate-600 bg-slate-50 border-slate-200' };
     }
   };
 
@@ -863,9 +1442,32 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     }
   };
 
+  /** ISO received time for sort/display: parent receivedAt when parseable, else task.createdAt */
+  const getTaskReceivedIso = (t: CanonicalMarketingTask): string | undefined => {
+    const parent = t.requestId ? requests.find(r => r.id === t.requestId) : undefined;
+    const candidates = [parent?.receivedAt, (t as any).receivedAt, t.createdAt];
+    for (const raw of candidates) {
+      if (!raw || typeof raw !== 'string') continue;
+      const ms = Date.parse(raw);
+      if (!Number.isNaN(ms)) return new Date(ms).toISOString();
+    }
+    // Non-ISO labels like "Just now · Desk Intake" — fall through to createdAt already tried
+    return t.createdAt;
+  };
+
   // Helpers for Marketing vs Operational Tasks
+  const isListingLaunch = (t: CanonicalMarketingTask): boolean => {
+    return isListingLaunchBoardTask(t);
+  };
+
+  const isOffer2T = (t: CanonicalMarketingTask): boolean => {
+    return isOffer2TBoardTask(t);
+  };
+
   const isMarketing = (t: CanonicalMarketingTask): boolean => {
     if (!t) return true;
+    if (isListingLaunch(t)) return false;
+    if (isOffer2T(t)) return false;
     const cat = (t.category || '').toLowerCase();
     const title = (t.title || '').toLowerCase();
     if (cat.includes('sign') || cat.includes('photo') || cat.includes('lockbox') || cat.includes('compliance') || cat.includes('escrow') || cat.includes('contract')) {
@@ -878,6 +1480,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   };
 
   const isOperational = (t: CanonicalMarketingTask): boolean => {
+    if (!t) return false;
+    if (isListingLaunch(t)) return false;
+    if (isOffer2T(t)) return false;
     return !isMarketing(t);
   };
 
@@ -888,14 +1493,19 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
     return {
       all: active.length,
       marketing: active.filter(isMarketing).length,
-      operations: active.filter(isOperational).length
+      operations: active.filter(isOperational).length,
+      listing_launch: active.filter(isListingLaunch).length,
+      offer_2t: active.filter(isOffer2T).length
     };
   }, [allTasksCombined, selectedStatus, showArchived]);
 
   // Filtered & Chronologically Sorted Tasks
   const filteredTasks = useMemo(() => {
-    const now = new Date('2026-08-24T00:00:00Z').getTime();
+    // Start of today in the operator's local TZ — completed work drops off All Tasks after midnight.
+    const startOfTodayMs = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime();
     const isArchivedMode = selectedStatus === 'Archived' || showArchived;
+    const q = (searchQuery || '').toLowerCase().trim();
+    const isSearching = Boolean(q);
 
     return allTasksCombined
       .filter(t => {
@@ -908,8 +1518,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         // Domain Filter (All vs Marketing vs Operations)
         if (taskDomain === 'marketing' && !isMarketing(t)) return false;
         if (taskDomain === 'operations' && !isOperational(t)) return false;
+        if (taskDomain === 'listing_launch' && !isListingLaunch(t)) return false;
+        if (taskDomain === 'offer_2t' && !isOffer2T(t)) return false;
 
-        const q = (searchQuery || '').toLowerCase().trim();
         const matchesSearch =
           !q ||
           ((t.title || '').toLowerCase().includes(q)) ||
@@ -920,19 +1531,34 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           (Boolean(t.assignedTo) && String(t.assignedTo).toLowerCase().includes(q)) ||
           (Boolean(t.vendorName) && String(t.vendorName).toLowerCase().includes(q));
 
+        const lane = getCanonicalLaneForTask(t);
+
+        // Day rollover: prior-day Approved/Done leave All Tasks, but stay findable via search or the Approved filter.
+        if (
+          !isArchivedMode &&
+          !isSearching &&
+          (selectedStatus === 'All Tasks' || selectedStatus === 'All Statuses') &&
+          lane === 'approved'
+        ) {
+          const doneAt = t.completedAt || t.archivedAt || t.updatedAt || t.createdAt;
+          const doneMs = doneAt ? new Date(doneAt).getTime() : 0;
+          if (doneMs > 0 && doneMs < startOfTodayMs) {
+            return false;
+          }
+        }
+
         const matchesStatus =
           selectedStatus === 'All Tasks' ||
           selectedStatus === 'All Statuses' ||
-          selectedStatus === 'Archived' ||
-          (selectedStatus === 'Unassigned' && (t.status === 'request_received' || !t.assignedTo)) ||
-          (selectedStatus === 'Task Received' && (t.status === 'request_received' || !t.assignedTo)) ||
-          (selectedStatus === 'Request Received' && (t.status === 'request_received' || !t.assignedTo)) ||
-          (selectedStatus === 'Assigned' && (t.status === 'assigned' || t.status === 'ready_for_review')) ||
-          (selectedStatus === 'In Progress' && (t.status === 'in_progress' || t.status === 'assigned')) ||
-          ((selectedStatus === 'Awaiting Manager Review' || selectedStatus === 'Agent Review' || selectedStatus === 'Manager Review') && (t.status === 'agent_review' || t.reviewState === 'awaiting_review' || t.status === 'revisions')) ||
-          (selectedStatus === 'Revisions' && t.status === 'revisions') ||
-          (selectedStatus === 'Approved' && (t.status === 'approved' || t.status === 'completed')) ||
-          (selectedStatus === 'With Vendor' && t.status === 'with_vendor');
+          (selectedStatus === 'Archived' && lane === 'archived') ||
+          (selectedStatus === 'Unreconciled Legacy' && lane === 'legacy_unreconciled') ||
+          ((selectedStatus === 'Unassigned' || selectedStatus === 'Task Received' || selectedStatus === 'Request Received') && (lane === 'request_received' || lane === 'legacy_unreconciled')) ||
+          (selectedStatus === 'Assigned' && lane === 'assigned') ||
+          (selectedStatus === 'In Progress' && lane === 'in_progress') ||
+          ((selectedStatus === 'Awaiting Manager Review' || selectedStatus === 'Agent Review' || selectedStatus === 'Manager Review') && lane === 'agent_review') ||
+          (selectedStatus === 'Revisions' && lane === 'revisions') ||
+          (selectedStatus === 'Approved' && lane === 'approved') ||
+          (selectedStatus === 'With Vendor' && lane === 'with_vendor');
 
         const matchesCategory =
           selectedCategory === 'All Categories' ||
@@ -941,12 +1567,17 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         const matchesAssignee =
           selectedAssignee === 'All Team Members' ||
           (selectedAssignee === 'Unassigned' && (!t.assignedTo || t.status === 'request_received')) ||
-          t.assignedTo === selectedAssignee;
+          t.assignedTo === selectedAssignee ||
+          (selectedAssignee === 'Melissa Gagliardi' && (
+            t.reviewOwner === 'Melissa Gagliardi' ||
+            t.reviewOwnerName === 'Melissa Gagliardi' ||
+            (t.reviewState === 'awaiting_review' && (!t.reviewOwner || t.reviewOwner === 'Melissa Gagliardi'))
+          ));
 
         // Timeframe filter
         let matchesTimeframe = true;
         const taskDate = new Date(t.updatedAt || t.dueAt || t.createdAt).getTime();
-        const diffDaysFromNow = (now - taskDate) / (1000 * 60 * 60 * 24);
+        const diffDaysFromNow = (nowMs - taskDate) / (1000 * 60 * 60 * 24);
 
         if (selectedTimeframe === '7d') {
           matchesTimeframe = Math.abs(diffDaysFromNow) <= 7;
@@ -958,48 +1589,49 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           matchesTimeframe = new Date(t.dueAt || t.createdAt).getFullYear() >= 2027;
         }
 
-        return matchesSearch && matchesStatus && matchesCategory && matchesAssignee && matchesTimeframe;
+        const mineName = (propCurrentUser?.name || drawerCurrentUser?.name || '').trim();
+        const matchesSurfaceMine =
+          !surfaceMineOnly ||
+          !mineName ||
+          (Boolean(t.assignedTo) && String(t.assignedTo).toLowerCase() === mineName.toLowerCase()) ||
+          (Boolean(t.assignedToName) && String(t.assignedToName).toLowerCase() === mineName.toLowerCase()) ||
+          (Boolean((t as any).ownerName) && String((t as any).ownerName).toLowerCase() === mineName.toLowerCase());
+
+        const matchesSurfaceOpen =
+          !surfaceOpenOnly ||
+          (!t.isArchived && t.status !== 'archived' && t.status !== 'approved' && t.status !== 'completed' && getCanonicalLaneForTask(t) !== 'approved');
+
+        const matchesSurfaceBlocked =
+          !surfaceBlockedOnly ||
+          t.status === 'blocked' ||
+          String((t as any).routingState || '').toLowerCase() === 'blocked' ||
+          Boolean((t as any).isBlocked);
+
+        return matchesSearch && matchesStatus && matchesCategory && matchesAssignee && matchesTimeframe && matchesSurfaceMine && matchesSurfaceOpen && matchesSurfaceBlocked;
       })
       .sort((a, b) => {
-        if (sortField === 'createdAt') {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (sortField === 'receivedAt' || sortField === 'createdAt') {
+          const aIso = sortField === 'receivedAt' ? getTaskReceivedIso(a) : a.createdAt;
+          const bIso = sortField === 'receivedAt' ? getTaskReceivedIso(b) : b.createdAt;
+          const aTime = aIso ? new Date(aIso).getTime() : 0;
+          const bTime = bIso ? new Date(bIso).getTime() : 0;
           return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
         }
-        const diff = getSortWeight(a.dueAt) - getSortWeight(b.dueAt);
+        if (sortField === 'title') {
+          return sortOrder === 'asc'
+            ? (a.title || '').localeCompare(b.title || '')
+            : (b.title || '').localeCompare(a.title || '');
+        }
+        const aDate = a.neededByDate || a.dueAt;
+        const bDate = b.neededByDate || b.dueAt;
+        const diff = getSortWeight(aDate) - getSortWeight(bDate);
         return sortOrder === 'asc' ? diff : -diff;
       });
-  }, [allTasksCombined, taskDomain, searchQuery, selectedStatus, selectedCategory, selectedAssignee, selectedTimeframe, showArchived, sortField, sortOrder]);
+  }, [allTasksCombined, taskDomain, searchQuery, selectedStatus, selectedCategory, selectedAssignee, selectedTimeframe, showArchived, sortField, sortOrder, nowMs, requests, surfaceMineOnly, surfaceOpenOnly, surfaceBlockedOnly, propCurrentUser]);
 
-  // Derived Metrics from Real Records
-  const metrics = useMemo(() => {
-    const activeTasks = allTasksCombined.filter(t => {
-      if (t.isArchived || t.status === 'archived') return false;
-      if (taskDomain === 'marketing' && !isMarketing(t)) return false;
-      if (taskDomain === 'operations' && !isOperational(t)) return false;
-      return true;
-    });
-
-    const archivedTasks = allTasksCombined.filter(t => {
-      if (!t.isArchived && t.status !== 'archived') return false;
-      if (taskDomain === 'marketing' && !isMarketing(t)) return false;
-      if (taskDomain === 'operations' && !isOperational(t)) return false;
-      return true;
-    });
-
-    return {
-      activeRequests: requests.filter(r => !r.isArchived).length,
-      openTasks: activeTasks.length,
-      unassignedCount: activeTasks.filter(t => t.status === 'request_received' || !t.assignedTo).length,
-      assignedCount: activeTasks.filter(t => t.status === 'assigned').length,
-      inProgressCount: activeTasks.filter(t => t.status === 'in_progress' || t.status === 'assigned').length,
-      agentReviewCount: activeTasks.filter(t => t.status === 'agent_review' || t.status === 'revisions').length,
-      revisionsCount: activeTasks.filter(t => t.status === 'revisions').length,
-      approvedCount: activeTasks.filter(t => t.status === 'approved' || t.status === 'completed').length,
-      withVendorCount: activeTasks.filter(t => t.status === 'with_vendor').length,
-      archivedCount: archivedTasks.length
-    };
-  }, [allTasksCombined, requests, taskDomain]);
+  const toggleRequestAccordion = (requestId: string) => {
+    setExpandedRequestIds((prev) => ({ ...prev, [requestId]: !prev[requestId] }));
+  };
 
   // Requests Container Rollup
   const requestContainersWithRollup = useMemo(() => {
@@ -1020,6 +1652,38 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         };
       });
   }, [requests, allTasksCombined, showArchived]);
+
+  // Compute dynamic Fit-Board column metadata and layout
+  const pipelineColumnsMeta = useMemo(() => {
+    return PIPELINE_STAGES.map(col => {
+      const count = filteredTasks.filter(t => {
+        const lane = getCanonicalLaneForTask(t);
+        if (col.id === 'request_received') {
+          return lane === 'request_received' || lane === 'legacy_unreconciled';
+        }
+        return lane === col.id;
+      }).length;
+      return { id: col.id, taskCount: count };
+    });
+  }, [filteredTasks]);
+
+  const {
+    containerRef: boardContainerRef,
+    collapsedColumns,
+    toggleColumnCollapse,
+    columnWidthStyle,
+    railWidthStyle,
+    railWidthClass,
+    gapClass
+  } = useFitBoardLayout({
+    columns: pipelineColumnsMeta,
+    context: 'tasks',
+    workspaceId: (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.getItem === 'function') ? window.localStorage.getItem('shapework_active_workspace_id') || 'nest-realty-wilmington' : 'nest-realty-wilmington',
+    minColWidth: 200,
+    targetColWidth: 230,
+    railWidth: 44,
+    gap: 8
+  });
 
   const getTeamMemberBadge = (name?: string) => {
     const member = TEAM_MEMBERS.find(m => m.name === name);
@@ -1045,14 +1709,15 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   return (
     <div className="space-y-4 text-left font-sans animate-fadeIn" data-testid="marketing-requests-table">
       
-      {/* 1. TOP HEADER TOOLBAR: DOMAIN TABS (LEFT) & ACTION BUTTONS (RIGHT) */}
+      {/* 1. TOP HEADER TOOLBAR: DOMAIN TABS (LEFT) & ACTION BUTTONS (RIGHT) — Board only; hidden in Table (Surface v2 one-row toolbar) */}
+      {viewMode !== 'table' && (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* DOMAIN QUICK-SWITCH PILL TABS */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5" data-testid="task-domain-pill-tabs">
           <button
             type="button"
             onClick={() => setTaskDomain('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
+            className={`nest-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer ${
               taskDomain === 'all'
                 ? 'bg-slate-900 text-white shadow-xs font-bold'
                 : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/80 shadow-2xs'
@@ -1067,7 +1732,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           <button
             type="button"
             onClick={() => setTaskDomain('marketing')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
+            className={`nest-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer ${
               taskDomain === 'marketing'
                 ? 'bg-[#00635C] text-white shadow-xs font-bold'
                 : 'bg-white hover:bg-emerald-50/50 text-emerald-800 border border-emerald-200/70 shadow-2xs'
@@ -1079,10 +1744,43 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             </span>
           </button>
 
+
+          <button
+            type="button"
+            onClick={() => setTaskDomain('listing_launch')}
+            data-testid="task-domain-listing-launch"
+            className={`nest-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer ${
+              taskDomain === 'listing_launch'
+                ? 'bg-[#01362D] text-white shadow-xs font-bold'
+                : 'bg-white hover:bg-emerald-50/50 text-[#01362D] border border-[#01362D]/25 shadow-2xs'
+            }`}
+          >
+            <span>Listing Launch</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${taskDomain === 'listing_launch' ? 'bg-white/20 text-white' : 'bg-[#01362D]/10 text-[#01362D]'}`}>
+              {domainCounts.listing_launch}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTaskDomain('offer_2t')}
+            data-testid="task-domain-offer-2t"
+            className={`nest-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer ${
+              taskDomain === 'offer_2t'
+                ? 'bg-[#01362D] text-white shadow-xs font-bold'
+                : 'bg-white hover:bg-emerald-50/50 text-[#01362D] border border-[#01362D]/25 shadow-2xs'
+            }`}
+          >
+            <span>Offer / 2-T</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${taskDomain === 'offer_2t' ? 'bg-white/20 text-white' : 'bg-[#01362D]/10 text-[#01362D]'}`}>
+              {domainCounts.offer_2t}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => setTaskDomain('operations')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
+            className={`nest-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer ${
               taskDomain === 'operations'
                 ? 'bg-indigo-600 text-white shadow-xs font-bold'
                 : 'bg-white hover:bg-indigo-50/50 text-indigo-800 border border-indigo-200/70 shadow-2xs'
@@ -1095,124 +1793,145 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           </button>
         </div>
 
-        {/* ACTION BUTTONS (SAME ROW AS DOMAIN TABS) */}
+        {/* ACTION BUTTONS (SAME ROW AS DOMAIN TABS) — compact Nora orb, not pulse chrome */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Live Sync Pulse Indicator for Ask Nora */}
-          <div 
-            className="px-3 py-1.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-2"
-            title="Continuous background sync active with Ask Nora (Auto-polls every 60s)"
+          <button
+            type="button"
+            data-testid="tasks-ask-nora-header"
+            onClick={() => {
+              try {
+                window.dispatchEvent(new CustomEvent('nest-navigate-tab', { detail: { tab: 'Workboard' } }));
+              } catch {}
+            }}
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#F7F3EC] border border-[#E8DFD0] text-[#01362D] text-xs font-semibold hover:bg-[#F0EBE1] transition cursor-pointer shadow-2xs"
+            title="Open Ask Nora"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-semibold text-emerald-900">Ask Nora</span>
-          </div>
+            <NestOrbVisualizer size="xs" customSize={18} className="shadow-xs" />
+            <span>Ask Nora</span>
+          </button>
         </div>
       </div>
+      )}
 
-      {/* 2. SLIM SEGMENTED STATUS & SEARCH TOOLBAR */}
-      <div className="bg-white border border-slate-200/70 rounded-2xl p-3 shadow-xs space-y-2.5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-          
-          {/* Segmented Status Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-            {['All Tasks', 'Unassigned', 'In Progress', 'Awaiting Manager Review', 'With Vendor', 'Approved', 'Archived'].map(statusName => {
-              const isSelected = selectedStatus === statusName || (selectedStatus === 'All Statuses' && statusName === 'All Tasks');
-              const count = statusName === 'All Tasks' ? metrics.openTasks :
-                            statusName === 'Unassigned' ? metrics.unassignedCount :
-                            statusName === 'In Progress' ? metrics.inProgressCount :
-                            (statusName === 'Awaiting Manager Review' || statusName === 'Agent Review') ? metrics.agentReviewCount :
-                            statusName === 'With Vendor' ? metrics.withVendorCount :
-                            statusName === 'Approved' ? metrics.approvedCount :
-                            metrics.archivedCount;
+      {/* 2. SURFACE TOOLBAR v2 — one row: Mine · Open · Blocked · Address · Board|Table */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
+        <div className="flex items-center justify-between gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-1 min-w-[260px] flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-1.5 shrink-0" data-testid="tasks-surface-filters">
+              <button
+                type="button"
+                data-testid="tasks-filter-mine"
+                aria-pressed={surfaceMineOnly}
+                onClick={() => setSurfaceMineOnly(v => !v)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition ${
+                  surfaceMineOnly
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
+                }`}
+              >
+                Mine
+              </button>
+              <button
+                type="button"
+                data-testid="tasks-filter-open"
+                aria-pressed={surfaceOpenOnly}
+                onClick={() => setSurfaceOpenOnly(v => !v)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition ${
+                  surfaceOpenOnly
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
+                }`}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                data-testid="tasks-filter-blocked"
+                aria-pressed={surfaceBlockedOnly}
+                onClick={() => setSurfaceBlockedOnly(v => !v)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition ${
+                  surfaceBlockedOnly
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100'
+                }`}
+              >
+                Blocked
+              </button>
+            </div>
 
-              return (
-                <button
-                  key={statusName}
-                  type="button"
-                  onClick={() => setSelectedStatus(statusName)}
-                  className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-slate-900 text-white shadow-xs font-bold'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60'
-                  }`}
-                >
-                  <span>{statusName}</span>
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600'
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Search, Assignee Filter, and View Mode Switcher */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <div className="relative w-full sm:w-56">
+            <div className="relative flex-1 sm:max-w-xs min-w-[180px]">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search address, agent, task..."
-                className="w-full pl-8 pr-3 py-1 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none transition"
+                placeholder="Address…"
+                aria-label="Filter by address"
+                data-testid="tasks-filter-address"
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C]/20"
               />
             </div>
+          </div>
 
-            <select
-              aria-label="Filter by Team Member Workspace"
-              value={selectedAssignee}
-              onChange={(e) => setSelectedAssignee(e.target.value)}
-              className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
+          {/* Lock #2.1 — Group by Lane | Group by address (Table only) */}
+          {viewMode === 'table' && (
+            <div
+              className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/70 shrink-0"
+              data-testid="tasks-group-by-toggle"
             >
-              <option value="All Team Members">All Team Members</option>
-              {TEAM_MEMBERS.map(m => (
-                <option key={m.name} value={m.name}>{m.name.split(' ')[0]}</option>
-              ))}
-              <option value="Unassigned">Unassigned</option>
-            </select>
-
-            <select
-              aria-label="Filter by Timeframe"
-              value={selectedTimeframe}
-              onChange={(e) => setSelectedTimeframe(e.target.value as any)}
-              className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
-            >
-              <option value="all">All Dates</option>
-              <option value="7d">Past 7 Days</option>
-              <option value="30d">Past 30 Days</option>
-              <option value="quarter">This Quarter</option>
-              <option value="future_2027">Future 2027</option>
-            </select>
-
-            {/* View Switcher */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/70" data-testid="all-tasks-view-switcher">
               <button
                 type="button"
-                data-testid="all-tasks-view-toggle-board"
-                onClick={() => setViewMode('pipeline')}
-                className={`px-2.5 py-0.5 rounded-lg flex items-center gap-1 text-xs transition cursor-pointer ${
-                  viewMode === 'pipeline' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-900'
+                data-testid="tasks-group-by-address"
+                aria-pressed={tableGroupMode === 'address'}
+                onClick={() => setTableGroupMode('address')}
+                className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                  tableGroupMode === 'address'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <LayoutGrid className="w-3 h-3" />
-                <span>Board</span>
+                {SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL}
               </button>
               <button
                 type="button"
-                data-testid="all-tasks-view-toggle-table"
-                onClick={() => setViewMode('table')}
-                className={`px-2.5 py-0.5 rounded-lg flex items-center gap-1 text-xs transition cursor-pointer ${
-                  viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-900'
+                data-testid="tasks-group-by-lane"
+                aria-pressed={tableGroupMode === 'lane'}
+                onClick={() => setTableGroupMode('lane')}
+                className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                  tableGroupMode === 'lane'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <List className="w-3 h-3" />
-                <span>Table</span>
+                {SURFACE_TABLE_GROUP_BY_LANE_LABEL}
               </button>
             </div>
+          )}
+
+          {/* View Switcher Aligned Right */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/70 shrink-0 ml-auto" data-testid="all-tasks-view-switcher">
+            <button
+              type="button"
+              data-testid="all-tasks-view-toggle-board"
+              onClick={() => handleViewModeChange('pipeline')}
+              className={`px-3 py-1 rounded-lg flex items-center gap-1.5 text-xs transition cursor-pointer ${
+                viewMode === 'pipeline' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Board</span>
+            </button>
+            <button
+              type="button"
+              data-testid="all-tasks-view-toggle-table"
+              onClick={() => handleViewModeChange('table')}
+              className={`px-3 py-1 rounded-lg flex items-center gap-1.5 text-xs transition cursor-pointer ${
+                viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Table</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1221,12 +1940,13 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       {viewMode === 'table' ? (
         
         /* TABLE VIEW */
-        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs w-full" data-testid="all-tasks-table-view">
-          <div className="overflow-x-auto min-h-[380px] pb-32 w-full rounded-2xl">
+        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs w-full max-w-full overflow-hidden" data-testid="all-tasks-table-view" data-grouped-list="true">
+          <div className="overflow-x-auto min-h-[380px] pb-24 w-full">
             <table className="w-full text-left text-xs border-collapse table-auto">
-              <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-medium">
+              <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-medium">
                 <tr>
-                  <th className="py-3 px-3 w-10 text-center">
+                  {/* 1. Selection Checkbox */}
+                  <th className="py-3.5 px-3 w-10 text-center">
                     <input
                       type="checkbox"
                       aria-label="Select all marketing tasks"
@@ -1238,30 +1958,45 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                       className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer"
                     />
                   </th>
-                  <th className="py-3 px-3 min-w-[280px] w-[32%] font-bold text-slate-700">Task & Property</th>
-                  <th className="py-3 px-3 w-[110px] font-bold text-slate-700">Category</th>
-                  <th className="py-3 px-3 w-[130px] font-bold text-slate-700">Agent</th>
-                  <th className="py-3 px-3 w-[140px] font-bold text-slate-700">Assigned To</th>
-                  <th className="py-3 px-3 w-[120px] font-bold text-slate-700">Status</th>
+
+                  {/* 2. # — parent row number only (table lock v3) */}
+                  <th className="py-3.5 px-2 w-10 text-center font-bold text-slate-700" data-testid="tasks-col-num">
+                    #
+                  </th>
+
+                  {/* 3. Task */}
                   <th 
-                    className="py-3 px-3 w-[150px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none"
+                    className="py-3.5 px-3 w-[24%] min-w-[200px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none text-left"
                     onClick={() => {
-                      if (sortField === 'createdAt') {
+                      if (sortField === 'title') {
                         setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
                       } else {
-                        setSortField('createdAt');
-                        setSortOrder('desc');
+                        setSortField('title');
+                        setSortOrder('asc');
                       }
                     }}
-                    title="Click to sort by Created Date"
+                    title="Click to sort by Title"
+                    data-testid="tasks-col-task"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>Created</span>
-                      <ArrowUpDown className={`w-3 h-3 ${sortField === 'createdAt' ? 'text-[#00635C]' : 'text-slate-400'}`} />
+                      <span>Task</span>
+                      <ArrowUpDown className={`w-3 h-3 ${sortField === 'title' ? 'text-[#00635C]' : 'text-slate-400'}`} />
                     </div>
                   </th>
+
+                  {/* 3. Status */}
+                  <th className="py-3.5 px-3 w-[11%] min-w-[110px] font-bold text-slate-700 text-left" data-testid="tasks-col-status">
+                    Status
+                  </th>
+
+                  {/* 4. Owner */}
+                  <th className="py-3.5 px-3 w-[12%] min-w-[120px] font-bold text-slate-700 text-left" data-testid="tasks-col-owner">
+                    Owner
+                  </th>
+
+                  {/* 5. Due */}
                   <th 
-                    className="py-3 px-3 w-[120px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none"
+                    className="py-3.5 px-3 w-[11%] min-w-[100px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none text-left"
                     onClick={() => {
                       if (sortField === 'dueAt') {
                         setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -1270,751 +2005,531 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                         setSortOrder('asc');
                       }
                     }}
-                    title="Click to sort by Deadline"
+                    title="Click to sort by Due date"
+                    data-testid="tasks-col-due"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span>Deadline</span>
+                      <span>Due</span>
                       <ArrowUpDown className={`w-3 h-3 ${sortField === 'dueAt' ? 'text-[#00635C]' : 'text-slate-400'}`} />
                     </div>
                   </th>
-                  <th className="py-3 px-3 w-[110px] font-bold text-slate-700">Vendor</th>
-                  <th className="py-3 px-3 text-right pr-4 w-[160px] font-bold text-slate-700 bg-slate-50/90">Actions</th>
+
+                  {/* 6. Blocker (stub until fields) */}
+                  <th className="py-3.5 px-3 w-[8%] min-w-[72px] font-bold text-slate-700 text-left" data-testid="tasks-col-blocker">
+                    Blocker
+                  </th>
+
+                  {/* 7. Where (stub until fields) */}
+                  <th className="py-3.5 px-3 w-[8%] min-w-[72px] font-bold text-slate-700 text-left" data-testid="tasks-col-where">
+                    Where
+                  </th>
+
+                  {/* 8. Lane (domain helpers — not pipeline stage) */}
+                  <th className="py-3.5 px-3 w-[9%] min-w-[88px] font-bold text-slate-700 text-left" data-testid="tasks-col-lane">
+                    Lane
+                  </th>
+
+                  {/* 9. Received (table lock v3) */}
+                  <th
+                    className="py-3.5 px-3 w-[11%] min-w-[100px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100/80 transition select-none text-left"
+                    onClick={() => {
+                      if (sortField === 'receivedAt') {
+                        setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField('receivedAt');
+                        setSortOrder('desc');
+                      }
+                    }}
+                    title="Click to sort by Received"
+                    data-testid="tasks-col-received"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Received</span>
+                      <ArrowUpDown className={`w-3 h-3 ${sortField === 'receivedAt' ? 'text-[#00635C]' : 'text-slate-400'}`} />
+                    </div>
+                  </th>
+
+                  {/* 10. Activity */}
+                  <th className="py-3.5 px-3 w-[12%] min-w-[120px] font-bold text-slate-700 text-left" data-testid="tasks-col-activity">
+                    Activity
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {filteredTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-16 text-center text-slate-400">
-                      <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      No marketing tasks matching the selected filters.
+                    <td colSpan={11} className="py-16 text-center" data-testid="tasks-empty-quiet">
+                      <div className="flex flex-col items-center gap-3 max-w-sm mx-auto">
+                        <NestOrbVisualizer size="sm" customSize={40} className="shadow-sm" />
+                        <div className="space-y-1">
+                          <p className="font-serif font-bold text-sm text-[#01362D]">Intake is clear.</p>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            Nothing matches these filters right now — Nora is quiet on this lane. Try clearing filters, or start something new.
+                          </p>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  filteredTasks.map((task, rowIdx) => {
-                    const stage = getStageForTask(task);
-                    const catInfo = CATEGORY_LABELS[task.category] || CATEGORY_LABELS.other;
-                    const dueInfo = formatDueLabel(task.dueAt);
-                    const isSelected = selectedTaskIds.includes(task.id);
-                    const isDropdownActive = activeActionDropdownId === task.id;
-                    // Only open upwards if table has at least 4 rows and this is one of the bottom 2 rows
-                    const isNearBottom = filteredTasks.length >= 4 && rowIdx >= filteredTasks.length - 2;
+                  (() => {
+                  const surfaceTableItems = buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode);
+                  const parentRowNums = assignSurfaceTableParentRowNumbers(surfaceTableItems);
+                  return surfaceTableItems.map((listItem) => {
+                    if (listItem.kind === 'lane') {
+                      return (
+                        <tr
+                          key={`lane-section-${listItem.lane}`}
+                          data-testid={`list-lane-section-${listItem.lane.replace(/\s+/g, '-').toLowerCase()}`}
+                          className="bg-slate-100/90 border-t border-slate-200"
+                        >
+                          <td colSpan={11} className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                                {listItem.lane}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                                {listItem.count}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    if (listItem.kind === 'request') {
+                      const reqTasks = listItem.tasks;
+                      const parentReq = requests.find(r => r.id === listItem.requestId);
+                      const sample = reqTasks[0];
+                      const isExpanded = Boolean(expandedRequestIds[listItem.requestId]);
+                      const addressLabel = parentReq?.propertyAddress || sample?.propertyAddress || parentReq?.title || sample?.requestTitle || 'Marketing Request';
 
-                    // Match corresponding campaign for deep actions modal
+                      const allSubtasksSelected = reqTasks.length > 0 && reqTasks.every(t => selectedTaskIds.includes(t.id));
+                      const someSubtasksSelected = reqTasks.some(t => selectedTaskIds.includes(t.id)) && !allSubtasksSelected;
+
+                      return (
+                        <tr
+                          key={`req-${listItem.requestId}`}
+                          data-testid={`list-request-row-${listItem.requestId}`}
+                          className="bg-[#F3F8F5] border-t border-t-[#00635C]/25"
+                        >
+                          <td
+                            className="py-2.5 px-3 text-center align-middle bg-[#F3F8F5] border-l-4 border-l-[#00635C]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              aria-label={`Select all ${reqTasks.length} subtasks in ${addressLabel}`}
+                              checked={allSubtasksSelected}
+                              ref={(el) => {
+                                if (el) {
+                                  el.indeterminate = someSubtasksSelected;
+                                }
+                              }}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const subtaskIds = reqTasks.map(t => t.id);
+                                if (e.target.checked) {
+                                  setSelectedTaskIds(prev => Array.from(new Set([...prev, ...subtaskIds])));
+                                } else {
+                                  setSelectedTaskIds(prev => prev.filter(id => !subtaskIds.includes(id)));
+                                }
+                              }}
+                              className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-2.5 px-2 text-center align-middle bg-[#F3F8F5] text-[11px] font-mono font-bold text-slate-500 tabular-nums">
+                            <span data-testid="tasks-parent-row-num">{parentRowNums.get(`request:${listItem.requestId}`) ?? ''}</span>
+                          </td>
+                          <td colSpan={9} className="py-0 px-0 bg-[#F3F8F5]">
+                            <div
+                              data-testid={`list-request-accordion-${listItem.requestId}`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRequestAccordion(listItem.requestId);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleRequestAccordion(listItem.requestId);
+                                }
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-[#E5EFEA]/80 transition cursor-pointer select-none"
+                              aria-expanded={isExpanded}
+                            >
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isExpanded
+                                  ? <ChevronDown className="w-4 h-4 text-[#00635C]" />
+                                  : <ChevronRight className="w-4 h-4 text-[#00635C]" />}
+                              </div>
+                              <span className="text-xs sm:text-[13px] font-black text-slate-900 truncate flex-1 min-w-0">
+                                {addressLabel}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-[#00635C]/30 text-[#00635C] shadow-2xs shrink-0">
+                                {reqTasks.length} subtask{reqTasks.length === 1 ? '' : 's'}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const task = listItem.task;
+                    const rowIndent = listItem.indent;
+                    const isSubtask = rowIndent > 0;
+                    const isLastSubtask = Boolean(listItem.isLastSubtask);
+                    const stage = getStageForTask(task);
+                    const isSelected = selectedTaskIds.includes(task.id);
+                    const neededInfo = formatNeededByDate(task.neededByDate, task.dueAt);
+                    const typeChip = isSubtask ? resolveSurfaceTableTypeChip(task.category) : null;
+                    const requesterMuted = resolveSurfaceTableRequesterName(task);
+                    const activityIso = task.updatedAt || task.createdAt;
+
                     const matchedCamp = campaigns.find((c: any) => c.id === task.requestId || c.propertyAddress?.includes(task.requestTitle)) || {
                       id: task.requestId || task.id,
                       propertyAddress: task.propertyAddress || task.requestTitle,
                       agentName: task.agentName,
                       status: task.status,
                       statusKey: task.status,
-                      generatedDeliverables: [
-                        { id: 'deliv_1', name: 'Double-Sided 8.5x11 Property Flyer', format: 'pdf', dpi: 300 },
-                        { id: 'deliv_2', name: '9:16 Social Story Carousel', format: 'png', dpi: 300 },
-                        { id: 'deliv_3', name: '6x9 Jumbo EDDM Postcard', format: 'pdf', dpi: 300 }
-                      ]
+                      generatedDeliverables: []
                     };
 
-                    const slaUrgency = getSlaUrgencyInfo('Today 3:00 PM', 'urgent', task.status);
-
                     return (
-                      <tr
-                        key={task.id}
-                        onClick={() => handleOpenTaskDetail(task)}
-                        className={`hover:bg-slate-50/90 transition cursor-pointer ${isSelected ? 'bg-emerald-50/30' : ''} ${isDropdownActive ? 'relative z-30' : 'relative z-0'}`}
-                      >
-                        {/* Checkbox */}
-                        <td 
-                          className="py-3 px-3 text-center align-top"
-                          onClick={(e) => e.stopPropagation()}
+                      <React.Fragment key={`task-frag-${task.id}`}>
+                        <tr
+                          key={task.id}
+                          onClick={() => handleOpenTaskDetail(task)}
+                          className={`nest-row-open cursor-pointer transition ${
+                            isSelected
+                              ? 'bg-emerald-50/50'
+                              : isSubtask
+                              ? 'bg-[#F9FBFA] hover:bg-[#EDF5F1]'
+                              : 'bg-white hover:bg-slate-50/90'
+                          } ${
+                            isSubtask
+                              ? `border-l-4 border-l-[#00635C] ${isLastSubtask ? 'border-b-2 border-b-[#00635C]/35' : 'border-b border-b-slate-100'}`
+                              : 'border-b border-slate-200/80 border-l-4 border-l-transparent'
+                          }`}
+                          data-parent-request={task.requestId || undefined}
+                          data-subtask-indent={rowIndent}
+                          data-testid={isSubtask ? `subtask-row-${task.id}` : `task-row-${task.id}`}
                         >
-                          <input
-                            type="checkbox"
-                            aria-label={`Select campaign ${task.requestTitle}`}
-                            checked={isSelected}
-                            onChange={(e) => {
-                              setSelectedTaskIds(prev => e.target.checked ? [...prev, task.id] : prev.filter(id => id !== task.id));
-                            }}
-                            className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer mt-1"
-                          />
-                        </td>
+                          <td
+                            className={`py-2 px-3 text-center align-top ${isSubtask ? 'bg-[#F9FBFA]' : ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              aria-label={`Select campaign ${task.requestTitle || task.title}`}
+                              checked={isSelected}
+                              onChange={(e) => {
+                                setSelectedTaskIds(prev => e.target.checked ? [...prev, task.id] : prev.filter(id => id !== task.id));
+                              }}
+                              className="rounded border-slate-300 text-[#00635C] focus:ring-[#00635C] w-3.5 h-3.5 cursor-pointer mt-1"
+                            />
+                          </td>
 
-                        {/* Task Title, Property Address & Intake Channel Badge */}
-                        <td className="py-3 px-3 align-top">
-                          <div className="flex items-start gap-2.5">
-                            {((task.photos && task.photos.length > 0) || (task.attachments && task.attachments.length > 0) || task.heroPhotoUrl) ? (
-                              <img 
-                                src={task.heroPhotoUrl || (task.attachments && task.attachments[0]?.url) || (task.photos && task.photos[0]?.url)} 
-                                alt={task.propertyAddress || task.title} 
-                                className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0 shadow-2xs mt-0.5"
-                              />
-                            ) : (
-                              <div className="w-9 h-9 rounded-lg bg-[#003831] border border-[#002823] shrink-0 flex flex-col items-center justify-center relative overflow-hidden shadow-2xs mt-0.5 p-0.5">
-                                <img src="/nest-realty-logo-white.svg" alt="Nest" className="w-6 object-contain mb-1.5" />
-                                <div className="absolute inset-x-0 bottom-0 bg-amber-400 py-0.2 text-center text-[5.5px] font-black text-black uppercase tracking-tighter leading-none">
-                                  Need Photos
-                                </div>
-                              </div>
+                          {/* # — parent only (v3); children render null */}
+                          <td className={`py-2 px-2 text-center align-top text-[11px] font-mono font-bold text-slate-500 tabular-nums ${isSubtask ? 'bg-[#F9FBFA]' : ''}`}>
+                            {isSubtask ? null : (
+                              <span data-testid="tasks-parent-row-num">
+                                {parentRowNums.get(surfaceTableParentNumberKey(listItem) || '') ?? ''}
+                              </span>
                             )}
-                            <div className="min-w-0 flex-1">
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenTaskDetail(task);
-                                }}
-                                className="font-bold text-slate-900 text-xs hover:text-[#00635C] transition cursor-pointer flex items-center gap-1.5 group"
-                              >
-                                <span>{task.title}</span>
-                                <Eye className="w-3 h-3 text-slate-300 group-hover:text-[#00635C] opacity-0 group-hover:opacity-100 transition" />
-                              </div>
-                              
-                              {/* Property Address */}
-                              <div className="flex items-center gap-1 text-[11px] text-slate-600 font-medium mt-0.5">
-                                <span className="truncate max-w-[280px]">
-                                  {task.propertyAddress || task.requestTitle}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                          </td>
 
-                          {/* Intake Channel Badge (Phone, Email, Text, Chat) */}
-                          <div className="flex items-center gap-1.5 mt-1">
-                            {(() => {
-                              const parentReq = requests.find(r => r.id === task.requestId || r.taskIds?.includes(task.id) || (r.propertyAddress && r.propertyAddress === task.propertyAddress));
-                              const channel = parentReq?.channel || (task.id.includes('email') ? 'email' : (task.id.includes('sms') || task.id.includes('text') ? 'text' : (task.id.includes('chat') ? 'chat' : 'phone')));
-                              const timeStr = parentReq?.receivedAt || (task.createdAt ? new Date(task.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
-
-                              if (channel === 'email') {
-                                return (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold">
-                                    <Mail className="w-2.5 h-2.5 text-amber-600" />
-                                    <span>Email {timeStr ? `· ${timeStr}` : ''}</span>
-                                  </span>
-                                );
-                              }
-                              if (channel === 'text' || channel === 'sms') {
-                                return (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-semibold">
-                                    <MessageSquare className="w-2.5 h-2.5 text-purple-600" />
-                                    <span>SMS {timeStr ? `· ${timeStr}` : ''}</span>
-                                  </span>
-                                );
-                              }
-                              if (channel === 'chat') {
-                                return (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-semibold">
-                                    <Bot className="w-2.5 h-2.5 text-emerald-600" />
-                                    <span>Nora Chat {timeStr ? `· ${timeStr}` : ''}</span>
-                                  </span>
-                                );
-                              }
-                              return (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-semibold">
-                                  <Phone className="w-2.5 h-2.5 text-blue-600" />
-                                  <span>Phone {timeStr ? `· ${timeStr}` : ''}</span>
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          
-                          {/* Maxa Proofs Badge if applicable */}
-                          {(task.status === 'agent_review' || task.status === 'approved' || task.id.includes('1104')) && (
-                            <div 
+                          {/* Task — children: type chip + title; requester muted under title (v3) */}
+                          <td className={`py-2 px-3 align-top ${isSubtask ? 'pl-4 sm:pl-6' : ''}`}>
+                            <div
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleOpenTaskDetail(task);
                               }}
-                              className="flex items-center gap-1 mt-1 text-[10px] cursor-pointer group/proofs"
-                              title="Click to inspect generated proof assets sent to agent"
+                              className="cursor-pointer group"
                             >
-                              <span className="font-bold text-slate-500 group-hover/proofs:text-purple-700 transition">Maxa Proofs:</span>
-                              <span className="bg-purple-50 hover:bg-purple-100 text-purple-700 px-1.5 py-0.2 rounded border border-purple-200 font-semibold transition">📄 Flyer</span>
-                              <span className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-1.5 py-0.2 rounded border border-pink-200 font-semibold transition">📱 Story</span>
-                              <span className="bg-cyan-50 hover:bg-cyan-100 text-cyan-700 px-1.5 py-0.2 rounded border border-cyan-200 font-semibold transition">📬 Postcard</span>
-                              <span className="text-emerald-700 font-bold ml-0.5 group-hover/proofs:underline">Proofs Ready</span>
-                            </div>
-                          )}
-
-                          {task.notes && (
-                            <div className="text-[10px] text-slate-400 italic line-clamp-1 mt-0.5">
-                              "{task.notes}"
-                            </div>
-                          )}
-
-                          <div className="mt-2 max-w-xs">
-                            <CompactActivityCardBadge
-                              taskId={task.id}
-                              fallbackSummary={task.notes || 'Intake recorded'}
-                              fallbackTime={task.createdAt ? new Date(task.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : undefined}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenTaskDetail(task, 'activity');
-                              }}
-                            />
-                          </div>
-                        </td>
-
-                        {/* Category & Domain */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                              (task.domain || (['signage', 'lockbox'].includes(task.category) ? 'operations' : 'marketing')) === 'operations'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                : 'bg-purple-100 text-purple-800 border border-purple-200'
-                            }`}>
-                              {(task.domain || (['signage', 'lockbox'].includes(task.category) ? 'operations' : 'marketing')) === 'operations' ? 'Ops' : 'Mktg'}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${catInfo.bg} ${catInfo.text}`}>
-                              {catInfo.label}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Agent */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          <span className="font-semibold text-slate-800">{task.agentName}</span>
-                        </td>
-
-                        {/* Assigned To */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          {getTeamMemberBadge(task.assignedTo)}
-                        </td>
-
-                        {/* Status Badge */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stage.badgeBg}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${stage.dotColor}`} />
-                            <span>{stage.label}</span>
-                          </span>
-                        </td>
-
-                        {/* Created Date */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 text-xs text-slate-700 font-mono font-medium">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span>{formatCreatedDateTime(task.createdAt)}</span>
-                            </div>
-                            <div 
-                              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded border border-slate-200/90 bg-slate-50 text-slate-600 text-[9px] font-mono font-bold tracking-tight shadow-2xs"
-                              title="Elapsed time since task creation (Days:Hours:Minutes:Seconds)"
-                            >
-                              <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                              <span>{formatElapsedDuration(task.createdAt, nowMs)}</span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Deadline (Due Date) */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          <div className="space-y-1">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] border ${dueInfo.badgeClass}`}>
-                              <Clock className="w-3 h-3" />
-                              <span>{dueInfo.label}</span>
-                            </span>
-                            {dueInfo.isToday && (
-                              <div className="text-[9px] font-bold text-rose-600 uppercase">Due Today</div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Vendor Name */}
-                        <td className="py-3 px-3 align-top whitespace-nowrap">
-                          {task.vendorName ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#E5EFEA] text-[#00635C] border border-[#00635C]/20">
-                              <Truck className="w-3 h-3" />
-                              <span>{task.vendorName}</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-
-                        {/* Contextual Action Buttons */}
-                        <td 
-                          onClick={(e) => e.stopPropagation()}
-                          className={`py-3 px-3 text-right pr-4 align-top whitespace-nowrap w-[160px] ${isDropdownActive ? 'z-40' : 'z-10'}`}
-                        >
-                          <div className="inline-flex items-center justify-end gap-1.5">
-                            
-                            {/* State 1: Request Received -> Assign */}
-                            {task.status === 'request_received' && (
-                              <button
-                                type="button"
-                                onClick={() => handleAssignTask(task.id, 'Melissa Gagliardi')}
-                                className="px-2.5 py-1 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg font-bold text-[11px] shadow-2xs transition cursor-pointer"
-                              >
-                                Take Ownership
-                              </button>
-                            )}
-
-                            {/* State 2: Assigned -> Start Work */}
-                            {task.status === 'assigned' && (
-                              <button
-                                type="button"
-                                onClick={() => handleStartWork(task.id)}
-                                className="px-2.5 py-1 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg font-bold text-[11px] shadow-2xs transition cursor-pointer flex items-center gap-1"
-                              >
-                                <Play className="w-2.5 h-2.5 fill-current" />
-                                <span>Start Work</span>
-                              </button>
-                            )}
-
-                            {/* State 3: In Progress -> Send for Review */}
-                            {task.status === 'in_progress' && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateStatus(task.id, 'agent_review')}
-                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-[11px] shadow-2xs transition cursor-pointer"
-                              >
-                                Send for Review
-                              </button>
-                            )}
-
-                            {/* State 4: Agent Review -> Approve or Request Changes */}
-                            {task.status === 'agent_review' && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (task.category === 'signage' || task.category === 'print') {
-                                      handleSendToVendor(task.id);
-                                    } else {
-                                      handleUpdateStatus(task.id, 'approved');
-                                    }
-                                  }}
-                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition cursor-pointer"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateStatus(task.id, 'revisions', { note: 'Agent requested layout changes' })}
-                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[11px] transition cursor-pointer"
-                                >
-                                  Changes
-                                </button>
-                              </>
-                            )}
-
-                            {/* State 5: Revisions -> Start Rework */}
-                            {task.status === 'revisions' && (
-                              <button
-                                type="button"
-                                onClick={() => handleStartWork(task.id)}
-                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] shadow-2xs transition cursor-pointer"
-                              >
-                                Start Rework
-                              </button>
-                            )}
-
-                            {/* State 6/7: With Vendor / Approved -> Complete / Archive */}
-                            {(task.status === 'with_vendor' || task.status === 'approved' || task.status === 'completed') && (
-                              <button
-                                type="button"
-                                onClick={() => handleArchiveTask(task.id)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg font-semibold text-[11px] transition cursor-pointer flex items-center gap-1"
-                              >
-                                <Archive className="w-3 h-3 text-slate-500" />
-                                <span>Archive</span>
-                              </button>
-                            )}
-
-                            {/* Inspect Details Button */}
-                            <button
-                              type="button"
-                              title="Inspect Request Details & Google Assets"
-                              onClick={() => handleOpenTaskDetail(task)}
-                              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Universal "Handle" Action Button */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedActionCampaign(matchedCamp);
-                              }}
-                              className="px-2.5 py-1 bg-[#00635C] hover:bg-[#004d47] text-white rounded-lg font-bold text-[11px] shadow-2xs transition cursor-pointer"
-                            >Handle</button>
-
-                            {/* Autonomous Maxa Browser Agent Trigger */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setBrowserAgentCampaign(matchedCamp || { id: task.id, propertyAddress: task.propertyAddress, title: task.title });
-                              }}
-                              className="p-1 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-[#00635C] transition cursor-pointer"
-                              title="Click to Run Autonomous Maxa Browser Agent"
-                            >
-                              <Bot className="w-3.5 h-3.5" />
-                              <span className="sr-only">Click to Run Autonomous Maxa Browser Agent</span>
-                            </button>
-
-                            {/* Quick Actions Modal Trigger */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQuickActionsTask(task);
-                              }}
-                              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                              title="Quick Actions"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-
-                            {/* Flyout Submenu: Assign Team Member */}
-                            {sendToSubmenuTaskId === task.id && (
-                              <div className={`absolute right-0 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-left ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-                                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                  Assign Team Member
-                                </div>
-                                {TEAM_MEMBERS.map(member => (
-                                  <button
-                                    key={member.name}
-                                    type="button"
-                                    onClick={() => {
-                                      handleAssignTask(task.id, member.name);
-                                      setSendToSubmenuTaskId(null);
-                                      setActiveActionDropdownId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50 flex items-center justify-between"
+                              <div className="font-bold text-slate-900 text-xs sm:text-[13px] hover:text-[#00635C] transition flex items-center gap-1.5 leading-snug flex-wrap">
+                                {isSubtask && (
+                                  <CornerDownRight className="w-3.5 h-3.5 text-[#00635C] shrink-0" />
+                                )}
+                                {isSubtask && typeChip && (
+                                  <span
+                                    data-testid="task-type-chip"
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-black/5 shrink-0 ${typeChip.bg} ${typeChip.text}`}
                                   >
-                                    <span className="font-semibold text-slate-700">{member.name}</span>
-                                    <span className="text-[10px] text-slate-400">{member.role}</span>
-                                  </button>
-                                ))}
+                                    {typeChip.label}
+                                  </span>
+                                )}
+                                <span className="line-clamp-2">{task.title}</span>
+                                <Eye className="w-3 h-3 text-slate-300 group-hover:text-[#00635C] opacity-0 group-hover:opacity-100 transition shrink-0" />
                               </div>
-                            )}
-                            {/* Rich Actions: Open Maxa Proof Assets, Send to VA, Send to..., Ask Questions */}
+                              {requesterMuted && (
+                                <div data-testid="task-requester-muted" className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">
+                                  {requesterMuted}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Status — one pill only */}
+                          <td
+                            className="py-2 px-3 align-top whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stage.badgeBg}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${stage.dotColor}`} />
+                                <span>{stage.label}</span>
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {(task.isArchived || task.status === 'archived') && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRestoreTask(task.id);
+                                    }}
+                                    className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    title="Restore Task to Active Pipeline"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>Restore</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setQuickActionsMode('full'); setQuickActionsTask(task);
+                                  }}
+                                  className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                  title="Quick Actions"
+                                  aria-label="Quick Actions"
+                                >
+                                  <MoreHorizontal className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
                             <div className="hidden">
+                              <button type="button" onClick={() => setSelectedActionCampaign(matchedCamp)}>Handle</button>
+                              <button type="button" onClick={() => setBrowserAgentCampaign(matchedCamp)}>Click to Run Autonomous Maxa Browser Agent</button>
                               <button type="button" onClick={() => handleOpenTaskDetail(task)}>Open Maxa Proof Assets</button>
                               <button type="button" onClick={() => handleAssignTask(task.id, 'Eduardo Lovo')}>Send to VA</button>
                               <button type="button" onClick={() => setSendToSubmenuTaskId(task.id)}>Send to...</button>
                               <button type="button" onClick={() => setQuestionModalCampaign(matchedCamp)}>Ask Questions</button>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+
+                          {/* Owner */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap">
+                            {getTeamMemberBadge(task.assignedTo)}
+                          </td>
+
+                          {/* Due */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] border ${neededInfo.badgeClass}`}>
+                              <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span>{neededInfo.label}</span>
+                            </span>
+                          </td>
+
+                          {/* Blocker stub */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap text-slate-400" data-testid="task-blocker-cell">
+                            —
+                          </td>
+
+                          {/* Where stub */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap text-slate-400" data-testid="task-where-cell">
+                            —
+                          </td>
+
+                          {/* Lane (domain helpers) */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap" data-testid="task-lane-cell">
+                            <span className="text-[11px] font-semibold text-slate-700">{getSurfaceDomainLane(task)}</span>
+                          </td>
+
+                          {/* Received (v3) */}
+                          <td className="py-2 px-3 align-top whitespace-nowrap text-[11px] text-slate-600" data-testid="task-received-cell">
+                            {formatSurfaceTableReceived(getTaskReceivedIso(task))}
+                          </td>
+
+                          {/* Activity — relative + full timestamp tooltip (v3) */}
+                          <td className="py-2 px-3 align-top" data-testid="task-activity-cell" onClick={(e) => e.stopPropagation()}>
+                            <CompactActivityCardBadge
+                              taskId={task.id}
+                              fallbackSummary={task.notes || task.title || 'Intake recorded'}
+                              fallbackTime={formatSurfaceTableActivityRelative(activityIso)}
+                              timestampTooltip={formatSurfaceTableActivityTooltip(activityIso)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenTaskDetail(task, 'activity');
+                              }}
+                            />
+                          </td>
+                        </tr>
+                        {isSubtask && isLastSubtask && (
+                          <tr key={`spacer-end-${task.id}`} className="h-2.5 bg-slate-50/70 border-b border-slate-200" aria-hidden="true">
+                            <td colSpan={11} className="py-0 px-0" />
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
-                  })
+                  });
+                  })()
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Table Footer Summary */}
-          <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-            <span>Showing {filteredTasks.length} of {allTasksCombined.length} tasks</span>
-            <span className="text-slate-400">Sorted chronologically by deadline</span>
+          {/* Table Footer Summary — one filtered-set count */}
+          <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 font-medium flex items-center justify-between">
+            <span data-testid="tasks-filtered-count">{filteredTasks.length} tasks</span>
+            <span className="text-slate-400">Sorted by {sortField === 'title' ? 'Title' : sortField === 'receivedAt' ? 'Received' : sortField === 'createdAt' ? 'Created Date' : 'Needed By Date'}</span>
           </div>
         </div>
       ) : (
         
         /* PIPELINE (KANBAN) VIEW — 7 CANONICAL COLUMNS */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3 overflow-x-auto pb-4" data-testid="pipeline-view">
+        <div ref={boardContainerRef} className={`flex ${gapClass} overflow-x-auto pb-4 items-start w-full min-w-0`} data-testid="pipeline-view">
           {PIPELINE_STAGES.map((col) => {
             const colTasks = filteredTasks.filter(t => {
+              const lane = getCanonicalLaneForTask(t);
               if (col.id === 'request_received') {
-                return t.status === 'request_received' || t.status === 'needs_info';
+                return lane === 'request_received' || lane === 'legacy_unreconciled';
               }
-              if (col.id === 'assigned') {
-                return t.status === 'assigned' || t.status === 'ready_for_review';
-              }
-              if (col.id === 'agent_review') {
-                return t.status === 'agent_review' || t.reviewState === 'awaiting_review';
-              }
-              if (col.id === 'in_progress') {
-                if (t.reviewState === 'awaiting_review') return false;
-                return t.status === 'in_progress';
-              }
-              return t.status === col.id;
+              return lane === col.id;
             });
+
+            const isCollapsed = Boolean(collapsedColumns[col.id]);
+
+            if (isCollapsed) {
+              return (
+                <div
+                  key={col.id}
+                  data-testid={`column-rail-${col.id}`}
+                  onClick={() => toggleColumnCollapse(col.id)}
+                  style={railWidthStyle}
+                  className={`${railWidthClass} h-[620px] rounded-2xl flex flex-col items-center py-4 cursor-pointer transition select-none shadow-xs group hover:bg-slate-50 ${col.headerBar}`}
+                  title={`Click to expand ${col.label}`}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <span className={`w-2.5 h-2.5 rounded-full ${col.dotColor}`} />
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold border ${col.headerCount}`}>
+                      {colTasks.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center py-4">
+                    <span className="[writing-mode:vertical-rl] rotate-180 font-bold text-xs text-slate-700 tracking-wider">
+                      {col.label}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition"
+                    title="Expand column"
+                  >
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            }
 
             return (
               <div
                 key={col.id}
-                className={`bg-white border rounded-2xl p-3 flex flex-col min-h-[460px] shadow-xs ${col.color}`}
+                data-testid={`pipeline-column-${col.id}`}
+                style={columnWidthStyle}
+                className={`bg-white border rounded-2xl p-3 flex flex-col min-h-[620px] shadow-xs ${col.color}`}
               >
-                {/* Column Header */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className={`w-2 h-2 rounded-full ${col.dotColor}`} />
-                    <span className="font-bold text-xs text-slate-900 truncate">{col.label}</span>
+                {/* Column Header — solid color bar, white lettering */}
+                <div className={`flex items-center justify-between -mx-3 -mt-3 mb-3 px-3 py-2.5 rounded-t-2xl ${col.headerBar}`}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${col.dotColor}`} />
+                    <span className="font-bold text-xs text-slate-800 truncate tracking-wide">{col.label}</span>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 bg-white border border-slate-200 rounded-full font-bold text-slate-700 shrink-0">
-                    {colTasks.length}
-                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${col.headerCount}`}>
+                      {colTasks.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleColumnCollapse(col.id)}
+                      className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                      title={`Collapse ${col.label}`}
+                    >
+                      <PanelLeftClose className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Column Card Stream */}
-                <div className="space-y-2 flex-1 overflow-y-auto pr-0.5">
+                <div className="space-y-3 flex-1 overflow-y-auto pr-0.5">
                   {colTasks.length === 0 ? (
                     <div className="h-36 flex items-center justify-center text-slate-400 text-xs italic text-center px-2">
                       No tasks in this stage
                     </div>
                   ) : (
                     colTasks.map((task) => {
-                      const catInfo = CATEGORY_LABELS[task.category] || CATEGORY_LABELS.other;
-                      const dueInfo = formatDueLabel(task.dueAt);
                       const parentReq = requests.find(r => r.id === task.requestId);
                       const propertyAddr = task.propertyAddress || parentReq?.propertyAddress || task.requestTitle || 'Listing Property';
-                      const requesterName = task.agentName || parentReq?.agentName || 'Matt Orr';
-                      const sourceChannel = task.sourceChannel || parentReq?.sourceChannel || (task.requestId?.includes('call') ? 'phone' : 'email');
-                      const hasPhotos = Boolean((task.photos && task.photos.length > 0) || (task.attachments && task.attachments.length > 0) || task.heroPhotoUrl || parentReq?.heroPhotoUrl);
-                      const photoUrl = task.heroPhotoUrl || parentReq?.heroPhotoUrl || (task.attachments && task.attachments[0]?.url) || (task.photos && task.photos[0]?.url);
-                      const isDropdownActive = activeActionDropdownId === task.id;
                       const matchedCamp = campaigns.find(c => c.id === task.campaignId || c.propertyAddress?.toLowerCase() === propertyAddr.toLowerCase());
-                      const taskDomain = task.domain || (['print', 'social', 'open_house', 'farming', 'listing_launch'].includes(task.category) ? 'marketing' : ['signage', 'lockbox'].includes(task.category) ? 'operations' : 'other');
+                      const taskDomainType = task.domain || (['print', 'social', 'open_house', 'farming'].includes(task.category) ? 'marketing' : ['signage', 'lockbox'].includes(task.category) ? 'operations' : 'other');
+
+                      // Contextual Primary Action in Nest green
+                      let primaryAction = undefined;
+                      let secondaryAction = undefined;
+                      const assigneeName = String(task.assignedTo || task.assignedToName || '').trim();
+                      const isUnassigned = !assigneeName || assigneeName.toLowerCase() === 'unassigned';
+
+                      // A/C footer: Assign|Reassign + Open (status workflow lives in the drawer)
+                      secondaryAction = {
+                        label: 'Open',
+                        icon: <Eye className="w-3 h-3" />,
+                        onClick: (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          handleOpenTaskDetail(task);
+                        }
+                      };
+                      if (isUnassigned) {
+                        primaryAction = {
+                          label: 'Assign',
+                          icon: <UserPlus className="w-3 h-3" />,
+                          onClick: (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            handleAssignTask(
+                              task.id,
+                              taskDomainType === 'operations' ? 'Ann Gunn' : 'Melissa Gagliardi'
+                            );
+                          }
+                        };
+                      } else {
+                        primaryAction = {
+                          label: 'Reassign',
+                          onClick: (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            setQuickActionsMode('reassign');
+                            setQuickActionsTask(task);
+                          }
+                        };
+                      }
 
                       return (
-                        <div
+                        <CanonicalTaskCard
                           key={task.id}
+                          task={task}
+                          parentRequest={parentReq}
+                          campaign={matchedCamp}
+                          context="tasks"
                           onClick={() => handleOpenTaskDetail(task)}
-                          className="bg-white border border-slate-200/90 hover:border-[#003831] rounded-xl p-3 shadow-xs hover:shadow-md transition-all duration-200 text-left space-y-2.5 relative group/card cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
-                        >
-                          {/* Top Row: Domain, Category, Deadline, Elapsed Timer & Action Dropdown */}
-                          <div className="flex items-center justify-between gap-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                taskDomain === 'marketing' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                                taskDomain === 'operations' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                                'bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}>
-                                {taskDomain === 'marketing' ? 'Marketing' : taskDomain === 'operations' ? 'Operations' : 'Other'}
-                              </span>
-
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${catInfo.bg} ${catInfo.text}`}>
-                                {catInfo.label}
-                              </span>
-
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold ${dueInfo.badgeClass}`}>
-                                {dueInfo.label}
-                              </span>
-
-                              {task.status === 'needs_info' && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded border font-bold bg-rose-50 text-rose-800 border-rose-200">
-                                  Needs Information
-                                </span>
-                              )}
-
-                              {/* Elapsed Timer Badge (Days:Hours:Minutes:Seconds) */}
-                              <span 
-                                className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border border-slate-200/90 bg-slate-50 text-slate-700 font-mono font-bold tracking-tight shadow-2xs" 
-                                title="Elapsed time since task creation (Days:Hours:Minutes:Seconds)"
-                              >
-                                <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                <span>{formatElapsedDuration(task.createdAt, nowMs)}</span>
-                              </span>
-                            </div>
-
-                            {/* Card Three-Dot Action Trigger -> Quick Actions Modal */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQuickActionsTask(task);
-                              }}
-                              className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                              title="Quick Actions"
-                            >
-                              <MoreHorizontal className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {/* Property Photo & Title Section */}
-                          <div className="flex items-start gap-2.5">
-                            {hasPhotos && photoUrl ? (
-                              <img 
-                                src={photoUrl} 
-                                alt={propertyAddr} 
-                                className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0 shadow-2xs group-hover/card:ring-2 group-hover/card:ring-[#003831] transition"
-                              />
-                            ) : (
-                              <div className="w-11 h-11 rounded-lg bg-[#003831] border border-[#002823] shrink-0 flex flex-col items-center justify-center relative overflow-hidden shadow-2xs group-hover/card:ring-2 group-hover/card:ring-[#003831] transition p-1">
-                                <img src="/nest-realty-logo-white.svg" alt="Nest" className="w-8 object-contain mb-2" />
-                                <div className="absolute inset-x-0 bottom-0 bg-amber-400 py-0.2 text-center text-[6.5px] font-black text-black uppercase tracking-tighter leading-none">
-                                  Need Photos
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="min-w-0 flex-1">
-                              <div className="font-bold text-xs text-slate-900 line-clamp-2 group-hover/card:text-[#003831] transition leading-tight">
-                                {task.title}
-                              </div>
-                              <div className="text-[11px] text-slate-600 truncate mt-0.5 font-medium">
-                                {propertyAddr}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Requester & Source Channel Badges */}
-                          <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                            <span className="flex items-center gap-1 text-slate-700 bg-slate-50 border border-slate-200/70 px-1.5 py-0.5 rounded font-semibold truncate">
-                              <User className="w-2.5 h-2.5 text-slate-500" />
-                              <span className="truncate">{requesterName}</span>
-                            </span>
-
-                            {sourceChannel === 'phone' || task.requestId?.includes('call') ? (
-                              <span className="flex items-center gap-1 text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded font-bold">
-                                <Phone className="w-2.5 h-2.5 text-emerald-700" />
-                                <span>(910) 507-2047</span>
-                              </span>
-                            ) : sourceChannel === 'email' ? (
-                              <span className="flex items-center gap-1 text-blue-800 bg-blue-50 border border-blue-200/80 px-1.5 py-0.5 rounded font-bold">
-                                <Mail className="w-2.5 h-2.5 text-blue-700" />
-                                <span>Email</span>
-                              </span>
-                            ) : sourceChannel === 'sms' || sourceChannel === 'mms' ? (
-                              <span className="flex items-center gap-1 text-indigo-800 bg-indigo-50 border border-indigo-200/80 px-1.5 py-0.5 rounded font-bold">
-                                <MessageSquare className="w-2.5 h-2.5 text-indigo-700" />
-                                <span>Text/MMS</span>
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded font-bold">
-                                <Building2 className="w-2.5 h-2.5 text-amber-700" />
-                                <span>Direct</span>
-                              </span>
-                            )}
-
-                            {/* Quick Drive Folder Link */}
-                            {(task.driveFolderUrl || parentReq?.driveFolderUrl) && (
-                              <a
-                                href={task.driveFolderUrl || parentReq?.driveFolderUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-1 text-[#003831] bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/60 px-1.5 py-0.5 rounded font-bold transition ml-auto"
-                                title="Open Google Drive Pack"
-                              >
-                                <Folder className="w-2.5 h-2.5" />
-                                <span>Drive</span>
-                              </a>
-                            )}
-                          </div>
-
-                          {/* Vendor Info Strip */}
-                          {task.vendorName && (
-                            <div className="p-2 bg-emerald-50/60 border border-[#003831]/20 rounded-lg space-y-1 text-[10px]">
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-[#003831] flex items-center gap-1">
-                                  <Truck className="w-3 h-3" />
-                                  <span>{task.vendorName}</span>
-                                </span>
-                                <span className="text-[9px] font-mono text-emerald-800 font-bold">WITH VENDOR</span>
-                              </div>
-                              {task.vendorNotes && (
-                                <p className="text-slate-600 italic leading-tight text-[10px]">
-                                  "{task.vendorNotes}"
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Compact Activity & Contact Preview */}
-                          <div className="pt-1">
-                            <CompactActivityCardBadge
-                              taskId={task.id}
-                              fallbackSummary={task.notes || 'Intake recorded'}
-                              fallbackTime={dueInfo.label}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenTaskDetail(task, 'activity');
-                              }}
-                            />
-                          </div>
-
-                          {/* Footer Assignee & Primary Action Button */}
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1 text-[10px]">
-                            <div>{getTeamMemberBadge(task.assignedTo)}</div>
-
-                            {/* Contextual Action Button */}
-                            {task.status === 'request_received' && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAssignTask(task.id, taskDomain === 'operations' ? 'Ann Gunn' : 'Melissa Gagliardi');
-                                }}
-                                className="px-2 py-1 bg-[#003831] hover:bg-[#0A332C] text-white rounded-md font-bold text-[10px] transition cursor-pointer shadow-2xs"
-                              >
-                                Take Task
-                              </button>
-                            )}
-
-                            {task.status === 'assigned' && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartWork(task.id);
-                                }}
-                                className="px-2 py-1 bg-[#003831] hover:bg-[#0A332C] text-white rounded-md font-bold text-[10px] transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                              >
-                                <Play className="w-2.5 h-2.5 fill-current" />
-                                <span>Start Work</span>
-                              </button>
-                            )}
-
-                            {task.status === 'in_progress' && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleUpdateStatus(task.id, 'agent_review');
-                                }}
-                                className="px-2 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded-md font-bold text-[10px] transition cursor-pointer shadow-2xs"
-                              >
-                                Review
-                              </button>
-                            )}
-
-                            {task.status === 'agent_review' && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (task.category === 'signage' || task.category === 'print') {
-                                    handleSendToVendor(task.id);
-                                  } else {
-                                    handleUpdateStatus(task.id, 'approved');
-                                  }
-                                }}
-                                className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md font-bold text-[10px] transition cursor-pointer shadow-2xs"
-                              >
-                                Approve
-                              </button>
-                            )}
-
-                            {task.status === 'revisions' && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartWork(task.id);
-                                }}
-                                className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-bold text-[10px] transition cursor-pointer shadow-2xs"
-                              >
-                                Rework
-                              </button>
-                            )}
-
-                            {(task.status === 'with_vendor' || task.status === 'approved') && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleUpdateStatus(task.id, 'completed');
-                                }}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[10px] transition cursor-pointer shadow-2xs flex items-center gap-1"
-                              >
-                                <Check className="w-3 h-3" />
-                                <span>Complete</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                          onQuickActions={(e) => {
+                            setQuickActionsMode('full'); setQuickActionsTask(task);
+                          }}
+                          onActivityClick={(e) => {
+                            handleOpenTaskDetail(task, 'activity');
+                          }}
+                          primaryAction={primaryAction}
+                          secondaryAction={secondaryAction}
+                        />
                       );
                     })
                   )}
@@ -2048,9 +2563,64 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       <AskRequesterQuestionsModal
         isOpen={Boolean(questionModalCampaign)}
         campaign={questionModalCampaign}
+        intent={questionModalCampaign?.outreachIntent === 'delivery_complete' ? 'delivery_complete' : 'ask_missing'}
+        isOutboundEnabled={true}
         onClose={() => setQuestionModalCampaign(null)}
-        onSendQuestions={(c, data) => {
-          if (onSendQuestionsToRequester) onSendQuestionsToRequester(c, data);
+        onSendQuestions={async (data) => {
+          if (onSendQuestionsToRequester) onSendQuestionsToRequester(questionModalCampaign, data);
+
+          // Delivery: only complete after a real outbound success — never on draft/hold/fail
+          if (data?.intent === 'delivery_complete') {
+            const receipt = data.dispatchReceipt || {};
+            const sendFailed =
+              Boolean(data.isDraftOnly) ||
+              Boolean(receipt.outboundDisabled) ||
+              receipt.success === false ||
+              receipt.mode === 'blocked' ||
+              receipt.mode === 'draft_saved';
+            if (sendFailed) {
+              showToast(
+                receipt.error ||
+                  receipt.message ||
+                  'Outreach did not send — task left open (not completed).'
+              );
+              return;
+            }
+            const taskId = data.taskId || questionModalCampaign?.taskId || questionModalCampaign?.id;
+            if (taskId) {
+              try {
+                const payload = {
+                  ...(questionModalCampaign?.approvePayload || {}),
+                  note: (questionModalCampaign?.approvePayload?.note) || 'Approved — agent notified via Ask Requester outreach',
+                  approvedBy: questionModalCampaign?.approvePayload?.approvedBy || 'Melissa Gagliardi',
+                  skipAgentEmail: true,
+                  selfComplete: questionModalCampaign?.approvePayload?.selfComplete ?? true
+                };
+                const res = await fetch(`/api/marketing/tasks/${taskId}/approve-and-dispatch`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+                });
+                const result = await res.json().catch(() => ({}));
+                if (result?.success || res.ok) {
+                  setTasks(prev => prev.map(t =>
+                    t.id === taskId
+                      ? { ...t, status: 'completed', reviewState: 'approved', ...(result.task || {}) }
+                      : t
+                  ));
+                  showToast('✓ Approved · agent notified');
+                  setIsWorkstationOpen(false);
+                  setWorkstationTask(null);
+                } else {
+                  showToast(`Email/text sent, but complete failed: ${result?.error || result?.message || 'unknown'} — check task status`);
+                }
+              } catch (err: any) {
+                showToast(`Email/text may have sent, but approve failed: ${err?.message || err}`);
+              }
+            }
+          } else {
+            showToast(data?.isDraftOnly ? '✓ Outreach draft saved' : '✓ Questions sent to requester');
+          }
         }}
       />
 
@@ -2195,13 +2765,26 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             <span>Print Hub</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleBatchAction('archive')}
-            className="px-2.5 py-1.5 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition whitespace-nowrap cursor-pointer"
-          >
-            Archive
-          </button>
+          {(selectedStatus === 'Archived' || showArchived) ? (
+            <button
+              type="button"
+              onClick={() => handleBatchAction('restore')}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer shadow-md"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restore Selected</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleBatchAction('archive')}
+              className="px-2.5 py-1.5 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 hover:border-rose-500/50 rounded-xl transition whitespace-nowrap cursor-pointer flex items-center gap-1"
+              title="Archive & Remove from Active Boards"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>Archive</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -2216,8 +2799,23 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
 
       {/* 9. TOAST FEEDBACK */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center gap-2 animate-fadeIn">
+        <div className="fixed bottom-6 right-6 z-50 bg-[#01362D] text-[#F7F3EC] px-4 py-2.5 rounded-2xl text-xs font-semibold shadow-2xl flex items-center gap-3 animate-fadeIn border border-[#00635C]/40">
           <span>{toastMessage}</span>
+          {lastArchivedTaskIds && lastArchivedTaskIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const idsToRestore = [...lastArchivedTaskIds];
+                setLastArchivedTaskIds(null);
+                setToastMessage(null);
+                idsToRestore.forEach(id => handleRestoreTask(id));
+              }}
+              className="px-2.5 py-1 bg-[#00635C] hover:bg-[#004d47] text-white text-[11px] font-bold rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1 border border-white/20 ml-1"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Undo</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -2240,31 +2838,178 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         }}
       />
 
-      {/* 12. CENTERED TASK & REQUEST DETAIL MODAL */}
-      {showTaskDetailModal && modalRequest && (
+      {/* 12. FULL WORKSTATION (uploads + MLS + proof) — replaces lite TaskRequestDetailModal */}
+      {isWorkstationOpen && workstationTask && (
+        <WorkspaceTaskDrawer
+          isOpen={isWorkstationOpen}
+          activeTask={workstationTask as any}
+          tasksList={allTasksCombined.map(t => toWorkspaceDrawerTask(t, resolveParentRequest(t))) as any}
+          initialTab={workstationInitialTab as any}
+          onClose={handleCloseWorkstation}
+          onSelectTask={(id) => {
+            const next = allTasksCombined.find(t => t.id === id);
+            if (next) handleOpenTaskDetail(next, modalInitialTab);
+          }}
+          onSubmitProof={async (taskId, proofUrl, notes, assetMetadata) => {
+            const currentTask = allTasksCombined.find(t => t.id === taskId);
+            const resolvedProof = proofUrl || currentTask?.proofUrl || (currentTask?.photos && currentTask.photos[0]?.url) || '';
+            try {
+              const res = await fetch(`/api/marketing/tasks/${taskId}/submit-proof`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proofUrl: resolvedProof, notes, assetMetadata })
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                const message = data.message || data.error || `Submit failed (HTTP ${res.status})`;
+                showToast(`⚠️ Proof not submitted: ${message}`);
+                throw new Error(message);
+              }
+              const persistedTask = data.task || data;
+              setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...(persistedTask || {}) } : t));
+              if (workstationTask?.id === taskId) {
+                setWorkstationTask(toWorkspaceDrawerTask({ ...currentTask, ...persistedTask } as CanonicalMarketingTask, modalRequest));
+              }
+              showToast('✓ Proof submitted for review');
+            } catch (err: any) {
+              if (err && !String(err.message || '').includes('Proof not submitted')) {
+                showToast(`⚠️ Proof not submitted: ${err.message || 'Network or server error'}`);
+              }
+              throw err;
+            }
+          }}
+          onRequestRevisions={async (taskId, feedbackNotes) => {
+            handleUpdateStatus(taskId, 'in_progress', { reviewState: 'revisions_requested', proofNotes: feedbackNotes });
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'in_progress', reviewState: 'revisions_requested', proofNotes: feedbackNotes } : t));
+            showToast('✓ Revisions requested. Returned to producer queue.');
+          }}
+          onApproveProof={async (taskId) => {
+            handleUpdateStatus(taskId, 'completed', { reviewState: 'approved' });
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'completed', reviewState: 'approved' } : t));
+            showToast('✓ Proof approved for delivery');
+          }}
+          onApproveAndDispatch={async (taskId, note, opts) => {
+            try {
+              const res = await fetch(`/api/marketing/tasks/${taskId}/approve-and-dispatch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  note,
+                  approvedBy: drawerCurrentUser?.name || 'Melissa Gagliardi',
+                  proofUrl: opts?.proofUrl,
+                  stagedAssets: opts?.stagedAssets,
+                  assetMetadata: opts?.assetMetadata,
+                  selfComplete: opts?.selfComplete
+                })
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok || !data.success) {
+                throw new Error(data.message || data.error || `Approve failed (HTTP ${res.status})`);
+              }
+              setTasks(prev => prev.map(t => t.id === taskId ? {
+                ...t,
+                status: data.delivered ? 'completed' : 'in_progress',
+                reviewState: 'approved',
+                approvedProofVersion: t.proofVersion || 1,
+                proofUrl: opts?.proofUrl || t.proofUrl
+              } : t));
+              showToast(data.delivered
+                ? `✓ Approved and delivered to ${data.task?.agentName || 'agent'}`
+                : '✓ Proof approved. Delivery held in safe mode.');
+              return data;
+            } catch (err: any) {
+              showToast(`Error: ${err.message}`);
+              throw err;
+            }
+          }}
+          onDeliverProof={async (taskId) => {
+            try {
+              const res = await fetch(`/api/marketing/tasks/${taskId}/deliver`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              const data = await res.json();
+              if (data.success && data.delivered) {
+                setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'completed', reviewState: 'approved' } : t));
+                showToast(`✓ Delivered to ${data.task?.agentName || 'agent'}`);
+              }
+              return data;
+            } catch (err: any) {
+              showToast(`Error: ${err.message}`);
+              return { success: false, error: err.message };
+            }
+          }}
+          onReassignTask={(taskId, newAssignee) => {
+            handleUpdateAssignee(taskId, newAssignee);
+          }}
+          onAskRequester={(task, opts) => {
+            const intent = opts?.intent || 'ask_missing';
+            const domain =
+              (task as any).domain ||
+              (['signage', 'lockbox', 'operations'].includes(String(task.category || '')) ? 'operational' : 'marketing');
+            const parentReq = task.requestId
+              ? requests.find((r) => r.id === task.requestId)
+              : undefined;
+            const resolved = resolveCanonicalRecipient({
+              requesterId:
+                (task as any).requesterId ||
+                (task as any).agentId ||
+                (parentReq as any)?.requesterId ||
+                (parentReq as any)?.agentId,
+              agentName: task.agentName || (parentReq as any)?.agentName,
+              agentEmail: (task as any).agentEmail || (parentReq as any)?.agentEmail,
+              agentPhone: (task as any).agentPhone || (parentReq as any)?.agentPhone,
+              agentRole: (task as any).agentRole || (parentReq as any)?.agentRole
+            });
+            const proofFromPayload = opts?.approvePayload?.proofUrl;
+            const staged = opts?.approvePayload?.stagedAssets || [];
+            const assetUrls = [
+              (task as any).driveFolderUrl,
+              parentReq?.driveFolderUrl,
+              (task as any).proofUrl,
+              proofFromPayload,
+              ...staged.map((a: any) => a?.previewUrl || a?.url),
+              ...((task as any).attachments || []).map((a: any) => a?.url || a?.driveUrl),
+              ...((task as any).proofs || []).map((pr: any) => pr?.url),
+            ].filter((u: any) => typeof u === 'string' && /^https?:\/\//i.test(u));
+            setQuestionModalCampaign({
+              id: (task as any).campaignId || task.requestId || task.id,
+              taskId: task.id,
+              workspaceId: (task as any).workspaceId || 'ws_wilmington',
+              requesterId: resolved.requesterId,
+              agentName: resolved.name || task.agentName,
+              agentEmail: resolved.email || (task as any).agentEmail,
+              agentPhone: resolved.phoneVerified ? resolved.phone : undefined,
+              propertyAddress: task.propertyAddress || (parentReq as any)?.propertyAddress,
+              title: task.title,
+              packageType: (task as any).packageType || task.title,
+              requestTitle: task.requestTitle,
+              domain,
+              outreachIntent: intent,
+              approvePayload: opts?.approvePayload || null,
+              driveFolderUrl: (task as any).driveFolderUrl || parentReq?.driveFolderUrl,
+              proofUrl: (task as any).proofUrl || proofFromPayload,
+              attachments: (task as any).attachments || parentReq?.attachments || [],
+              photos: (task as any).photos || [],
+              proofs: (task as any).proofs || [],
+              assetUrls: Array.from(new Set(assetUrls)),
+              notes: (task as any).notes || (parentReq as any)?.notes || (parentReq as any)?.requestExcerpt
+            });
+          }}
+          onOpenSopDocument={(sop) => setQuickViewSop(sop)}
+          currentUser={drawerCurrentUser}
+        />
+      )}
+
+      {/* Lite modal kept only if explicitly opened without workstation (legacy fallback) */}
+      {showTaskDetailModal && !isWorkstationOpen && modalRequest && (
         <TaskRequestDetailModal
           isOpen={showTaskDetailModal}
           request={modalRequest}
           selectedTask={modalSelectedTask}
           tasks={allTasksCombined}
           initialTab={modalInitialTab}
-          onClose={() => {
-            const currentId = modalSelectedTask?.id || initialSelectedTaskId || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('taskId') : null);
-            if (currentId) {
-              closedTaskIdRef.current = currentId;
-            }
-            setShowTaskDetailModal(false);
-            setModalRequest(null);
-            setModalSelectedTask(null);
-            if (typeof window !== 'undefined') {
-              try {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('taskId');
-                window.history.replaceState({}, '', url.toString());
-              } catch {}
-            }
-            onCloseTaskDetail?.();
-          }}
+          onClose={handleCloseWorkstation}
           onTaskUpdated={(updatedTask) => {
             setTasks(prev => prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t));
             setModalSelectedTask(updatedTask);
@@ -2280,16 +3025,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           }}
           onArchiveRequest={(reqId) => {
             handleArchiveRequestAndTasks(reqId);
-            setShowTaskDetailModal(false);
-            setModalRequest(null);
-            setModalSelectedTask(null);
-            if (typeof window !== 'undefined') {
-              try {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('taskId');
-                window.history.replaceState({}, '', url.toString());
-              } catch {}
-            }
+            handleCloseWorkstation();
           }}
         />
       )}
@@ -2297,8 +3033,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       {/* 13. CENTERED TASK QUICK ACTIONS MODAL */}
       <TaskQuickActionsModal
         isOpen={!!quickActionsTask}
+        mode={quickActionsMode}
         task={quickActionsTask}
-        onClose={() => setQuickActionsTask(null)}
+        onClose={() => { setQuickActionsTask(null); setQuickActionsMode('full'); }}
         onOpenProofWorkstation={(task) => {
           handleOpenTaskDetail(task);
         }}
@@ -2318,13 +3055,32 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         }}
         onAskRequester={(task) => {
           const matchedCamp = campaigns.find(c => c.id === task.campaignId || c.propertyAddress?.toLowerCase() === task.propertyAddress?.toLowerCase());
-          setQuestionModalCampaign(matchedCamp || { id: task.id, propertyAddress: task.propertyAddress, title: task.title });
+          const parentReq = task.requestId ? requests.find((r) => r.id === task.requestId) : undefined;
+          const resolved = resolveCanonicalRecipient({
+            requesterId: (task as any).requesterId || (task as any).agentId || (matchedCamp as any)?.requesterId,
+            agentName: task.agentName || matchedCamp?.agentName || (parentReq as any)?.agentName,
+            agentEmail: (task as any).agentEmail || matchedCamp?.agentEmail || (parentReq as any)?.agentEmail,
+            agentPhone: (task as any).agentPhone || matchedCamp?.agentPhone || (parentReq as any)?.agentPhone
+          });
+          setQuestionModalCampaign({
+            ...(matchedCamp || { id: task.id, propertyAddress: task.propertyAddress, title: task.title }),
+            taskId: task.id,
+            workspaceId: (task as any).workspaceId || 'ws_wilmington',
+            requesterId: resolved.requesterId,
+            agentName: resolved.name || task.agentName || matchedCamp?.agentName,
+            agentEmail: resolved.email || (task as any).agentEmail || matchedCamp?.agentEmail,
+            agentPhone: resolved.phoneVerified ? resolved.phone : undefined,
+            outreachIntent: 'ask_missing'
+          });
         }}
         onAssignTeamMember={(taskId, assigneeName) => {
           handleAssignTask(taskId, assigneeName);
         }}
         onArchiveTask={(taskId) => {
           handleArchiveTask(taskId);
+        }}
+        onRestoreTask={(taskId) => {
+          handleRestoreTask(taskId);
         }}
       />
     </div>

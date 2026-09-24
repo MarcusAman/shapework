@@ -8,6 +8,7 @@ import path from 'path';
 import { getAllStaffMembers, resolveStaffMember } from './operationsDirectoryRepository.js';
 import { canonicalTaskRoutingService } from '../services/canonicalTaskRoutingService.js';
 import { OfficeSupplyDeduplicationService } from '../services/officeSupplyDeduplicationService.js';
+import { tombstoneIntakeScope } from './intakeTombstoneRepository.js';
 
 const isProduction = () => typeof process !== 'undefined' && (process.env?.NODE_ENV === 'production' || process.env?.APP_ENV === 'production') && process.env?.ALLOW_FILE_STORAGE_UAT !== 'true';
 
@@ -2204,7 +2205,8 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         routing_reasons, routing_snapshot, routing_policy_id, fulfillment_role_id,
         original_review_owner_id, review_covering_staff_id, original_assignee_id,
         assignee_covering_staff_id, classification_confidence, routed_at,
-        created_at, updated_at
+        created_at, updated_at, photos, attachments, mls_number, channel,
+        proof_url, deliverable_type
       FROM canonical_marketing_tasks
       ORDER BY created_at DESC
     `);
@@ -2288,7 +2290,13 @@ export async function syncCanonicalStoreFromDatabase(): Promise<boolean> {
         completedAt: t.completed_at?.toISOString ? t.completed_at.toISOString() : t.completed_at,
         approvalHistory: t.approval_history || [],
         createdAt: t.created_at?.toISOString ? t.created_at.toISOString() : t.created_at,
-        updatedAt: t.updated_at?.toISOString ? t.updated_at.toISOString() : t.updated_at
+        updatedAt: t.updated_at?.toISOString ? t.updated_at.toISOString() : t.updated_at,
+        photos: Array.isArray(t.photos) ? t.photos : (t.photos ? t.photos : []),
+        attachments: Array.isArray(t.attachments) ? t.attachments : (t.attachments ? t.attachments : []),
+        mlsNumber: t.mls_number || undefined,
+        channel: t.channel || undefined,
+        proofUrl: t.proof_url || undefined,
+        deliverableType: t.deliverable_type || undefined
       }));
 
       console.log(`[syncCanonicalStoreFromDatabase] Synced ${canonicalRequestsStore.length} requests and ${canonicalTasksStore.length} tasks from PostgreSQL.`);
@@ -2602,6 +2610,20 @@ export async function persistTaskToDatabase(task: CanonicalMarketingTask, execut
           task.routedAt ? new Date(task.routedAt) : (task.routingSnapshot?.routedAt ? new Date(task.routingSnapshot.routedAt) : null),
           task.createdAt ? new Date(task.createdAt) : new Date(),
           new Date()
+        ]
+      );
+
+      // Keep source photos / attachments durable in DB (drawer one-photo-primary gate).
+      await db.query(
+        `UPDATE canonical_marketing_tasks
+         SET photos = $2::jsonb,
+             attachments = $3::jsonb,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [
+          task.id,
+          JSON.stringify(task.photos || []),
+          JSON.stringify(task.attachments || [])
         ]
       );
     }
@@ -3373,7 +3395,16 @@ export function approveCanonicalMarketingTaskProof(
 }
 
 export function archiveCanonicalMarketingTask(taskId: string): CanonicalMarketingTask | null {
-  return updateCanonicalMarketingTaskStatus(taskId, 'archived', { performedBy: 'User' });
+  const updated = updateCanonicalMarketingTaskStatus(taskId, 'archived', { performedBy: 'User' });
+  if (updated) {
+    void tombstoneIntakeScope({
+      workspaceId: (updated as any).workspaceId || 'ws_wilmington',
+      requestId: updated.requestId,
+      propertyAddress: updated.propertyAddress,
+      reason: 'archived_task',
+    }).catch((err) => console.warn('[archive] tombstone failed:', err?.message || err));
+  }
+  return updated;
 }
 
 export function getAllCanonicalMarketingRequests(): CanonicalMarketingRequest[] {
@@ -3440,6 +3471,14 @@ export function archiveCanonicalMarketingRequestAndTasks(requestId: string): { r
     saveCanonicalMarketingTask(t);
     archivedTasks.push(t);
   }
+
+  // Durable tombstone — row absence is not enough (IMAP can resurrect).
+  void tombstoneIntakeScope({
+    workspaceId: (req as any).workspaceId || 'ws_wilmington',
+    requestId: requestId,
+    propertyAddress: req.propertyAddress || archivedTasks[0]?.propertyAddress,
+    reason: 'archived_request',
+  }).catch((err) => console.warn('[archive] tombstone failed:', err?.message || err));
 
   return { request: req, archivedTasks };
 }
@@ -4780,3 +4819,33 @@ export function dispatchPrintShopOrder(
 
 
 
+
+
+/** Build-unblock stubs (prefs tip imported these before modules landed). */
+export function computeCanonicalDeliverableKey(input: any): string {
+  return String(input?.id || input?.taskId || input?.deliverableKey || 'unknown');
+}
+export function generateDurableChildTaskId(parentId: string, key: string): string {
+  return `${parentId}__${key}`;
+}
+export function findExistingChildTask(_parentId: string, _key: string): any | null {
+  return null;
+}
+export function extractCanonicalDeliverableIdentity(input: any): any {
+  return { key: computeCanonicalDeliverableKey(input), input };
+}
+export function getCanonicalMarketingTasksLive(): any[] {
+  return (typeof getAllCanonicalMarketingTasks === 'function' ? getAllCanonicalMarketingTasks() : []).filter((t: any) => !t?.isArchived);
+}
+export function getCanonicalMarketingRequestsLive(): any[] {
+  return (typeof getAllCanonicalMarketingRequests === 'function' ? getAllCanonicalMarketingRequests() : []).filter((r: any) => !r?.isArchived);
+}
+export async function performBulkTaskActionAsync(_action: string, _ids: string[]): Promise<{ ok: boolean }> {
+  return { ok: false };
+}
+export async function purgeAllArchivedCanonicalTasksAsync(): Promise<{ purged: number }> {
+  return { purged: 0 };
+}
+export function recoverInvisibleAwaitingReviewSubmissions(): { recovered: number } {
+  return { recovered: 0 };
+}

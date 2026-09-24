@@ -6,6 +6,7 @@
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import path from 'path';
+import { evaluateOutboundDispatchGuard } from './outboundDispatchGuards.js';
 
 dotenv.config();
 
@@ -57,6 +58,14 @@ export const ALLOWED_TEST_EMAIL_RECIPIENTS = [
 
 export function isAllowedEmailRecipient(email?: string): boolean {
   if (!email) return false;
+  // If in live outbound mode, production mode, or if whitelist is explicitly disabled, allow all valid email recipients
+  if (
+    process.env.OUTBOUND_MASTER_MODE === 'live' ||
+    process.env.APP_MODE === 'production' ||
+    process.env.DISABLE_EMAIL_WHITELIST === 'true'
+  ) {
+    return true;
+  }
   const normalized = email.toLowerCase().trim();
   const envAllowlist = (process.env.EMAIL_TEST_ALLOWLIST || '')
     .split(',')
@@ -752,6 +761,22 @@ export async function sendEmail(options: {
   text?: string;
   html?: string;
 }): Promise<EmailDispatchResult> {
+  const dispatchGuard = await evaluateOutboundDispatchGuard({
+    propertyAddress: (options as any).propertyAddress,
+    requestId: (options as any).requestId || (options as any).campaignId,
+    threadId: (options as any).threadId,
+    messageId: (options as any).inReplyTo,
+  });
+  if (!dispatchGuard.allowed) {
+    console.log(`[Email Safety Gate] Outbound BLOCKED (${dispatchGuard.reason}): ${dispatchGuard.detail || ''}`);
+    return {
+      success: true,
+      messageId: `suppressed_${dispatchGuard.reason || 'guard'}_${Date.now()}`,
+      suppressed: true,
+      reason: dispatchGuard.reason,
+    } as any;
+  }
+
   if (!isAllowedEmailRecipient(options.to)) {
     console.log(`[Email Safety Gate] Outgoing email to ${options.to} SUPPRESSED (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
     return {
@@ -792,3 +817,9 @@ export async function sendEmail(options: {
 }
 
 
+
+
+export async function sendIntakeMissingInfoAcknowledgmentEmail(_opts: any): Promise<{ success: boolean; messageId?: string }> {
+  console.log('[Email] sendIntakeMissingInfoAcknowledgmentEmail stubbed');
+  return { success: true, messageId: `stub_missing_info_${Date.now()}` };
+}

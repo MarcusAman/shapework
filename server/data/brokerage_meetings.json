@@ -1,5 +1,603 @@
 [
   {
+    "id": "gcal_meet_1790117958478_8vwpe",
+    "calendarId": "sandbox_primary",
+    "title": "Strategy Session: Ryan & James Fort",
+    "meetingDate": "Tuesday, September 29, 2026",
+    "startTime": "2:00 PM",
+    "endTime": "3:00 PM",
+    "location": "Nest Realty Mayfaire Office (Large Training Room)",
+    "organizerEmail": "AskNora@nestrealty.com",
+    "requesterName": "Ryan Crecelius",
+    "targetAudience": "James Fort",
+    "resolvedScopeDescription": "James Fort",
+    "attendeeCount": 1,
+    "attendees": [
+      {
+        "id": "dir_james_fort_11",
+        "displayName": "James Fort",
+        "email": "james.fort@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Mayfaire"
+      }
+    ],
+    "googleCalendarUrl": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Strategy+Session%3A+Ryan+%26+James+Fort&dates=20260929T180000Z%2F20260929T190000Z&details=Brokerage+Meeting+organized+by+Nora+%28Ask+Nest+Ops%29+on+behalf+of+Ryan+Crecelius.%0AInvited+Audience%3A+James+Fort%0ALocation%3A+Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29&location=Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29&add=james.fort%40nestrealty.com",
+    "htmlLink": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Strategy+Session%3A+Ryan+%26+James+Fort&dates=20260929T180000Z%2F20260929T190000Z&details=Brokerage+Meeting+organized+by+Nora+%28Ask+Nest+Ops%29+on+behalf+of+Ryan+Crecelius.%0AInvited+Audience%3A+James+Fort%0ALocation%3A+Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29&location=Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29&add=james.fort%40nestrealty.com",
+    "iCalContent": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Nest Realty Operations//Nora Calendar Assistant 2.0//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:draft_gcal_meet_1790117958478_8vwpe@nestrealty.com\r\nDTSTAMP:20260922T225918Z\r\nDTSTART:20260929T180000Z\r\nDTEND:20260929T190000Z\r\nSUMMARY:Strategy Session: Ryan & James Fort\r\nDESCRIPTION:Brokerage Meeting organized by Nora (Ask Nest Ops) on behalf of Ryan Crecelius.\\nInvited Audience: James Fort\\nLocation: Nest Realty Mayfaire Office (Large Training Room)\r\nLOCATION:Nest Realty Mayfaire Office (Large Training Room)\r\nORGANIZER;CN=Nora (Ask Nest Ops):mailto:AskNora@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=james.fort@nestrealty.com:mailto:james.fort@nestrealty.com\r\nSTATUS:TENTATIVE\r\nX-NORA-LIFECYCLE:MANUAL_DRAFT\r\nSEQUENCE:0\r\nEND:VEVENT\r\nEND:VCALENDAR",
+    "dispatchedVia": "sandbox_engine",
+    "mode": "SANDBOX",
+    "conferenceStatus": "not_requested",
+    "isExternalVerified": false,
+    "providerTimestamp": "2026-09-22T22:59:18.478Z",
+    "spokenConfirmation": "You got it, Ryan! I've prepared a sandbox meeting draft for \"Strategy Session: Ryan & James Fort\" on Tuesday, September 29, 2026 at 2:00 PM at the Nest Realty Mayfaire Office (Large Training Room) for James Fort from AskNora@nestrealty.com. Connect Google Workspace to dispatch live invites.",
+    "createdAt": "2026-09-22T22:59:18.478Z"
+  },
+  {
+    "id": "gcal_meet_1790117958462_c79qs",
+    "calendarId": "sandbox_primary",
+    "title": "Q3 In-Office All-Hands & Production Strategy",
+    "meetingDate": "Wednesday, September 9, 2026",
+    "startTime": "10:00 AM",
+    "endTime": "11:00 AM",
+    "location": "Nest Realty Mayfaire Office (Large Training Room)",
+    "organizerEmail": "AskNora@nestrealty.com",
+    "requesterName": "Ryan Crecelius",
+    "targetAudience": "ALL wilmington, carolina beach office",
+    "resolvedScopeDescription": "All Brokers & Staff across Wilmington (Mayfaire) and Carolina Beach offices (77 total members)",
+    "attendeeCount": 77,
+    "attendees": [
+      {
+        "id": "dir_chris_brown_0",
+        "displayName": "Chris Brown",
+        "email": "chris.brown@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "PB"
+      },
+      {
+        "id": "dir_jennifer_young_1",
+        "displayName": "Jennifer Young",
+        "email": "jy@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Fresh Nest RE - Leader"
+      },
+      {
+        "id": "dir_mary_kayehester_2",
+        "displayName": "Mary Kaye Hester",
+        "email": "marykaye@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_abby_harris_3",
+        "displayName": "Abby Harris",
+        "email": "abby.harris@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_matt_costin_4",
+        "displayName": "Matt Costin",
+        "email": "matt.costin@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "The Costin Group - Leader"
+      },
+      {
+        "id": "dir_eric_knight_5",
+        "displayName": "Eric Knight",
+        "email": "eric@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker-in-Charge"
+      },
+      {
+        "id": "dir_ryan_crecelius_6",
+        "displayName": "Ryan Crecelius",
+        "email": "ryan@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Owner"
+      },
+      {
+        "id": "dir_allison_donovan_7",
+        "displayName": "Allison Donovan",
+        "email": "allison.donovan@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_jessica_keenan_8",
+        "displayName": "Jessica Keenan",
+        "email": "jessica.keenan@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker-in-Charge"
+      },
+      {
+        "id": "dir_merritt_andersoncrawley_9",
+        "displayName": "Merritt Anderson Crawley",
+        "email": "merritt@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "MAC Real Estate- Leader"
+      },
+      {
+        "id": "dir_matt_orr_10",
+        "displayName": "Matt Orr",
+        "email": "matt.orr@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_james_fort_11",
+        "displayName": "James Fort",
+        "email": "james.fort@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Mayfaire"
+      },
+      {
+        "id": "dir_tricia_keane_12",
+        "displayName": "Tricia Keane",
+        "email": "tricia.keane@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_caroline_holman_13",
+        "displayName": "Caroline Holman",
+        "email": "caroline.holman@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker - Costin Real Estate"
+      },
+      {
+        "id": "dir_andrew_kelly_14",
+        "displayName": "Andrew Kelly",
+        "email": "andrew.kelly@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_michelle_taylor_15",
+        "displayName": "Michelle Taylor",
+        "email": "michelle.taylor@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker - Barbee Group Realty"
+      },
+      {
+        "id": "dir_ashley_whitley_16",
+        "displayName": "Ashley Whitley",
+        "email": "Ashley.whitley@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_lexi_barbee_17",
+        "displayName": "Lexi Barbee",
+        "email": "lexi.barbee@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Barbee Group Realty-Leader"
+      },
+      {
+        "id": "dir_nilesh_jethwa_18",
+        "displayName": "Nilesh Jethwa",
+        "email": "Nilesh@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Jethwa Real Estate - Leader"
+      },
+      {
+        "id": "dir_kathy_greer_19",
+        "displayName": "Kathy Greer",
+        "email": "kathy.greer@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_beth_starkey_20",
+        "displayName": "Beth Starkey",
+        "email": "beth.starkey@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_debbie_lariviere_21",
+        "displayName": "Debbie Lariviere",
+        "email": "debbie.lariviere@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_molly_tilyou_22",
+        "displayName": "Molly Tilyou",
+        "email": "molly.tilyou@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_renata_kuperus_23",
+        "displayName": "Renata Kuperus",
+        "email": "renata@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker - Jethwa Real Estate"
+      },
+      {
+        "id": "dir_dan_barentine_24",
+        "displayName": "Dan Barentine",
+        "email": "dan.barentine@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_mary_rayner_25",
+        "displayName": "Mary Rayner",
+        "email": "mary@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker - Fresh Nest"
+      },
+      {
+        "id": "dir_donald_wagner_26",
+        "displayName": "Donald Wagner",
+        "email": "donald.wagner@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Tricia's assistant/broker"
+      },
+      {
+        "id": "dir_pam_fox_27",
+        "displayName": "Pam Fox",
+        "email": "pam.fox@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_ann_gunn_28",
+        "displayName": "Ann Gunn",
+        "email": "ann@nestrealty.com",
+        "office": "Nest Realty Mayfaire",
+        "role": "Operations Lead"
+      },
+      {
+        "id": "dir_julie_carpenter_29",
+        "displayName": "Julie Carpenter",
+        "email": "julie.carpenter@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_michael_urti_30",
+        "displayName": "Michael Urti",
+        "email": "michael.urti@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Urti Real Estate- Leader"
+      },
+      {
+        "id": "dir_alicia_devereaux_31",
+        "displayName": "Alicia Devereaux",
+        "email": "aliciad@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_sarah_finnegan_32",
+        "displayName": "Sarah Finnegan",
+        "email": "Sarah.finnegan@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_melissa_gagliardi_33",
+        "displayName": "Melissa Gagliardi",
+        "email": "melissa.gagliardi@nestrealty.com",
+        "office": "Nest Realty Mayfaire",
+        "role": "Marketing Lead"
+      },
+      {
+        "id": "dir_brian_donovan_34",
+        "displayName": "Brian Donovan",
+        "email": "brian.donovan@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker - Donovan RE"
+      },
+      {
+        "id": "dir_lexi_pate_35",
+        "displayName": "Lexi Pate",
+        "email": "lexi.pate@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_teri_byrnes_36",
+        "displayName": "Teri Byrnes",
+        "email": "teri.byrnes@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_travis_hollomon_37",
+        "displayName": "Travis Hollomon",
+        "email": "travis.hollomon@nestrealty.com",
+        "office": "Hampstead",
+        "role": "Broker- MAC Real Estate"
+      },
+      {
+        "id": "dir_kristy_ward_38",
+        "displayName": "Kristy Ward",
+        "email": "kristy.ward@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_thurston_dawson_39",
+        "displayName": "Thurston Dawson",
+        "email": "thurston@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_katie_urti_40",
+        "displayName": "Katie Urti",
+        "email": "katie.urti@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker - Urti Coastal real Estate"
+      },
+      {
+        "id": "dir_clint_harris_41",
+        "displayName": "Clint Harris",
+        "email": "clint.harris@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_desiree_whalen_42",
+        "displayName": "Desiree Whalen",
+        "email": "desiree.whalen@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "The Whalen Team"
+      },
+      {
+        "id": "dir_cindy_young_43",
+        "displayName": "Cindy Young",
+        "email": "cindy.young@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_meghan_bowesalber_44",
+        "displayName": "Meghan Bowes Alber",
+        "email": "meghan.alber@nestrealty.com",
+        "office": "Remote / Home",
+        "role": "Coast to Close"
+      },
+      {
+        "id": "dir_mcclain_harvey_45",
+        "displayName": "McClain Harvey",
+        "email": "mcclain.harvey@nestrealty.com",
+        "office": "Hampstead",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_renee_reitzel_46",
+        "displayName": "Renee Reitzel",
+        "email": "renee.reitzel@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_alexis_roy_47",
+        "displayName": "Alexis Roy",
+        "email": "alexis.roy@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker - Urti Coastal Real Estate"
+      },
+      {
+        "id": "dir_dawn_lagomarsino_48",
+        "displayName": "Dawn Lagomarsino",
+        "email": "dawnlago@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_jessie_fairbairn_49",
+        "displayName": "Jessie Fairbairn",
+        "email": "jessie.fairbairn@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_donna_neyland_50",
+        "displayName": "Donna Neyland",
+        "email": "donna.lomenzo@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_sydney_tobler_51",
+        "displayName": "Sydney Tobler",
+        "email": "sydney.tobler@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_james_rackley_52",
+        "displayName": "James Rackley",
+        "email": "james.rackley@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_cassie_healy_53",
+        "displayName": "Cassie Healy",
+        "email": "Cassie.healy@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Urti Real Estate"
+      },
+      {
+        "id": "dir_laura_odorisio_54",
+        "displayName": "Laura O'Dorisio",
+        "email": "laura.odorisio@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_sean_martin_55",
+        "displayName": "Sean Martin",
+        "email": "sean.martin@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_hannah_delacourtsmith_56",
+        "displayName": "Hannah Delacourt Smith",
+        "email": "hannah.smith@nestrealty.com",
+        "office": "Hampstead",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_mia_escalera_57",
+        "displayName": "Mia Escalera",
+        "email": "mia.escalera@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_ed_wagenseller_58",
+        "displayName": "Ed Wagenseller",
+        "email": "ed.wagenseller@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_jordan_warren_59",
+        "displayName": "Jordan Warren",
+        "email": "jordan.warren@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_lindsay_crecelius_60",
+        "displayName": "Lindsay Crecelius",
+        "email": "lindsay.crecelius@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Admin"
+      },
+      {
+        "id": "dir_max_wagenseller_61",
+        "displayName": "Max Wagenseller",
+        "email": "max.wagenseller@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker-Wagenseller team"
+      },
+      {
+        "id": "dir_amanda_galante_62",
+        "displayName": "Amanda Galante",
+        "email": "amanda.galante@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_zach_hanner_63",
+        "displayName": "Zach Hanner",
+        "email": "zach.hanner@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_andra_browning_64",
+        "displayName": "Andra Browning",
+        "email": "andra.browning@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_dessie_greene_65",
+        "displayName": "Dessie Greene",
+        "email": "dessie.greene@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker-MAC Real Estate"
+      },
+      {
+        "id": "dir_maradith_brown_66",
+        "displayName": "Maradith Brown",
+        "email": "maradith.brown@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_matt_archibald_67",
+        "displayName": "Matt Archibald",
+        "email": "matt.archibald@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_bradley_farrell_68",
+        "displayName": "Bradley Farrell",
+        "email": "bfarrell@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_lindsay_barbour_69",
+        "displayName": "Lindsay Barbour",
+        "email": "lindsay.barbour@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_heather_ashworth_70",
+        "displayName": "Heather Ashworth",
+        "email": "heather.ashworth@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_alec_hutchinson_71",
+        "displayName": "Alec Hutchinson",
+        "email": "alec.hutchinson@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Referral Based agent"
+      },
+      {
+        "id": "dir_heather_lane_72",
+        "displayName": "Heather Lane",
+        "email": "heather.lane@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Referral Based agent"
+      },
+      {
+        "id": "dir_kristin_sorokti_73",
+        "displayName": "Kristin Sorokti",
+        "email": "kristin@nestrealty.com",
+        "office": "Carolina Beach",
+        "role": "Broker"
+      },
+      {
+        "id": "dir_todd_whalen_74",
+        "displayName": "Todd Whalen",
+        "email": "todd.whalen@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Assistant"
+      },
+      {
+        "id": "dir_ryan_rhodes_75",
+        "displayName": "Ryan Rhodes",
+        "email": "ryan.rhodes@nestrealty.com",
+        "office": "Mayfaire",
+        "role": "Debbie L. Team"
+      },
+      {
+        "id": "dir_eduardo_lovo_73",
+        "displayName": "Eduardo Lovo",
+        "email": "eduardo.lovo@nestrealty.com",
+        "office": "Nest Realty Mayfaire",
+        "role": "Virtual Assistant"
+      }
+    ],
+    "googleCalendarUrl": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Q3+In-Office+All-Hands+%26+Production+Strategy&dates=20260909T140000Z%2F20260909T150000Z&details=Brokerage+Meeting+organized+by+Nora+%28Ask+Nest+Ops%29+on+behalf+of+Ryan+Crecelius.%0AInvited+Audience%3A+All+Brokers+%26+Staff+across+Wilmington+%28Mayfaire%29+and+Carolina+Beach+offices+%2877+total+members%29%0ALocation%3A+Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29%0A%0AAgenda+%26+Notes%3A%0AReview+Q3+market+share+metrics%2C+Maxa+flyer+templates%2C+and+Coastal+Sign+Post+workflows.&location=Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29&add=chris.brown%40nestrealty.com%2Cjy%40nestrealty.com%2Cmarykaye%40nestrealty.com%2Cabby.harris%40nestrealty.com%2Cmatt.costin%40nestrealty.com%2Ceric%40nestrealty.com%2Cryan%40nestrealty.com%2Callison.donovan%40nestrealty.com%2Cjessica.keenan%40nestrealty.com%2Cmerritt%40nestrealty.com%2Cmatt.orr%40nestrealty.com%2Cjames.fort%40nestrealty.com%2Ctricia.keane%40nestrealty.com%2Ccaroline.holman%40nestrealty.com%2Candrew.kelly%40nestrealty.com%2Cmichelle.taylor%40nestrealty.com%2Cashley.whitley%40nestrealty.com%2Clexi.barbee%40nestrealty.com%2Cnilesh%40nestrealty.com%2Ckathy.greer%40nestrealty.com%2Cbeth.starkey%40nestrealty.com%2Cdebbie.lariviere%40nestrealty.com%2Cmolly.tilyou%40nestrealty.com%2Crenata%40nestrealty.com%2Cdan.barentine%40nestrealty.com%2Cmary%40nestrealty.com%2Cdonald.wagner%40nestrealty.com%2Cpam.fox%40nestrealty.com%2Cann%40nestrealty.com%2Cjulie.carpenter%40nestrealty.com%2Cmichael.urti%40nestrealty.com%2Caliciad%40nestrealty.com%2Csarah.finnegan%40nestrealty.com%2Cmelissa.gagliardi%40nestrealty.com%2Cbrian.donovan%40nestrealty.com%2Clexi.pate%40nestrealty.com%2Cteri.byrnes%40nestrealty.com%2Ctravis.hollomon%40nestrealty.com%2Ckristy.ward%40nestrealty.com%2Cthurston%40nestrealty.com%2Ckatie.urti%40nestrealty.com%2Cclint.harris%40nestrealty.com%2Cdesiree.whalen%40nestrealty.com%2Ccindy.young%40nestrealty.com%2Cmeghan.alber%40nestrealty.com%2Cmcclain.harvey%40nestrealty.com%2Crenee.reitzel%40nestrealty.com%2Calexis.roy%40nestrealty.com%2Cdawnlago%40nestrealty.com%2Cjessie.fairbairn%40nestrealty.com%2Cdonna.lomenzo%40nestrealty.com%2Csydney.tobler%40nestrealty.com%2Cjames.rackley%40nestrealty.com%2Ccassie.healy%40nestrealty.com%2Claura.odorisio%40nestrealty.com%2Csean.martin%40nestrealty.com%2Channah.smith%40nestrealty.com%2Cmia.escalera%40nestrealty.com%2Ced.wagenseller%40nestrealty.com%2Cjordan.warren%40nestrealty.com%2Clindsay.crecelius%40nestrealty.com%2Cmax.wagenseller%40nestrealty.com%2Camanda.galante%40nestrealty.com%2Czach.hanner%40nestrealty.com%2Candra.browning%40nestrealty.com%2Cdessie.greene%40nestrealty.com%2Cmaradith.brown%40nestrealty.com%2Cmatt.archibald%40nestrealty.com%2Cbfarrell%40nestrealty.com%2Clindsay.barbour%40nestrealty.com%2Cheather.ashworth%40nestrealty.com%2Calec.hutchinson%40nestrealty.com%2Cheather.lane%40nestrealty.com%2Ckristin%40nestrealty.com%2Ctodd.whalen%40nestrealty.com%2Cryan.rhodes%40nestrealty.com%2Ceduardo.lovo%40nestrealty.com",
+    "htmlLink": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Q3+In-Office+All-Hands+%26+Production+Strategy&dates=20260909T140000Z%2F20260909T150000Z&details=Brokerage+Meeting+organized+by+Nora+%28Ask+Nest+Ops%29+on+behalf+of+Ryan+Crecelius.%0AInvited+Audience%3A+All+Brokers+%26+Staff+across+Wilmington+%28Mayfaire%29+and+Carolina+Beach+offices+%2877+total+members%29%0ALocation%3A+Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29%0A%0AAgenda+%26+Notes%3A%0AReview+Q3+market+share+metrics%2C+Maxa+flyer+templates%2C+and+Coastal+Sign+Post+workflows.&location=Nest+Realty+Mayfaire+Office+%28Large+Training+Room%29&add=chris.brown%40nestrealty.com%2Cjy%40nestrealty.com%2Cmarykaye%40nestrealty.com%2Cabby.harris%40nestrealty.com%2Cmatt.costin%40nestrealty.com%2Ceric%40nestrealty.com%2Cryan%40nestrealty.com%2Callison.donovan%40nestrealty.com%2Cjessica.keenan%40nestrealty.com%2Cmerritt%40nestrealty.com%2Cmatt.orr%40nestrealty.com%2Cjames.fort%40nestrealty.com%2Ctricia.keane%40nestrealty.com%2Ccaroline.holman%40nestrealty.com%2Candrew.kelly%40nestrealty.com%2Cmichelle.taylor%40nestrealty.com%2Cashley.whitley%40nestrealty.com%2Clexi.barbee%40nestrealty.com%2Cnilesh%40nestrealty.com%2Ckathy.greer%40nestrealty.com%2Cbeth.starkey%40nestrealty.com%2Cdebbie.lariviere%40nestrealty.com%2Cmolly.tilyou%40nestrealty.com%2Crenata%40nestrealty.com%2Cdan.barentine%40nestrealty.com%2Cmary%40nestrealty.com%2Cdonald.wagner%40nestrealty.com%2Cpam.fox%40nestrealty.com%2Cann%40nestrealty.com%2Cjulie.carpenter%40nestrealty.com%2Cmichael.urti%40nestrealty.com%2Caliciad%40nestrealty.com%2Csarah.finnegan%40nestrealty.com%2Cmelissa.gagliardi%40nestrealty.com%2Cbrian.donovan%40nestrealty.com%2Clexi.pate%40nestrealty.com%2Cteri.byrnes%40nestrealty.com%2Ctravis.hollomon%40nestrealty.com%2Ckristy.ward%40nestrealty.com%2Cthurston%40nestrealty.com%2Ckatie.urti%40nestrealty.com%2Cclint.harris%40nestrealty.com%2Cdesiree.whalen%40nestrealty.com%2Ccindy.young%40nestrealty.com%2Cmeghan.alber%40nestrealty.com%2Cmcclain.harvey%40nestrealty.com%2Crenee.reitzel%40nestrealty.com%2Calexis.roy%40nestrealty.com%2Cdawnlago%40nestrealty.com%2Cjessie.fairbairn%40nestrealty.com%2Cdonna.lomenzo%40nestrealty.com%2Csydney.tobler%40nestrealty.com%2Cjames.rackley%40nestrealty.com%2Ccassie.healy%40nestrealty.com%2Claura.odorisio%40nestrealty.com%2Csean.martin%40nestrealty.com%2Channah.smith%40nestrealty.com%2Cmia.escalera%40nestrealty.com%2Ced.wagenseller%40nestrealty.com%2Cjordan.warren%40nestrealty.com%2Clindsay.crecelius%40nestrealty.com%2Cmax.wagenseller%40nestrealty.com%2Camanda.galante%40nestrealty.com%2Czach.hanner%40nestrealty.com%2Candra.browning%40nestrealty.com%2Cdessie.greene%40nestrealty.com%2Cmaradith.brown%40nestrealty.com%2Cmatt.archibald%40nestrealty.com%2Cbfarrell%40nestrealty.com%2Clindsay.barbour%40nestrealty.com%2Cheather.ashworth%40nestrealty.com%2Calec.hutchinson%40nestrealty.com%2Cheather.lane%40nestrealty.com%2Ckristin%40nestrealty.com%2Ctodd.whalen%40nestrealty.com%2Cryan.rhodes%40nestrealty.com%2Ceduardo.lovo%40nestrealty.com",
+    "iCalContent": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Nest Realty Operations//Nora Calendar Assistant 2.0//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:draft_gcal_meet_1790117958462_c79qs@nestrealty.com\r\nDTSTAMP:20260922T225918Z\r\nDTSTART:20260909T140000Z\r\nDTEND:20260909T150000Z\r\nSUMMARY:Q3 In-Office All-Hands & Production Strategy\r\nDESCRIPTION:Brokerage Meeting organized by Nora (Ask Nest Ops) on behalf of Ryan Crecelius.\\nInvited Audience: All Brokers & Staff across Wilmington (Mayfaire) and Carolina Beach offices (77 total members)\\nLocation: Nest Realty Mayfaire Office (Large Training Room)\\n\\nAgenda & Notes:\\nReview Q3 market share metrics\\, Maxa flyer templates\\, and Coastal Sign Post workflows.\r\nLOCATION:Nest Realty Mayfaire Office (Large Training Room)\r\nORGANIZER;CN=Nora (Ask Nest Ops):mailto:AskNora@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=chris.brown@nestrealty.com:mailto:chris.brown@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jy@nestrealty.com:mailto:jy@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=marykaye@nestrealty.com:mailto:marykaye@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=abby.harris@nestrealty.com:mailto:abby.harris@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=matt.costin@nestrealty.com:mailto:matt.costin@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=eric@nestrealty.com:mailto:eric@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ryan@nestrealty.com:mailto:ryan@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=allison.donovan@nestrealty.com:mailto:allison.donovan@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jessica.keenan@nestrealty.com:mailto:jessica.keenan@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=merritt@nestrealty.com:mailto:merritt@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=matt.orr@nestrealty.com:mailto:matt.orr@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=james.fort@nestrealty.com:mailto:james.fort@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=tricia.keane@nestrealty.com:mailto:tricia.keane@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=caroline.holman@nestrealty.com:mailto:caroline.holman@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=andrew.kelly@nestrealty.com:mailto:andrew.kelly@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=michelle.taylor@nestrealty.com:mailto:michelle.taylor@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ashley.whitley@nestrealty.com:mailto:ashley.whitley@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lexi.barbee@nestrealty.com:mailto:lexi.barbee@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=nilesh@nestrealty.com:mailto:nilesh@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kathy.greer@nestrealty.com:mailto:kathy.greer@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=beth.starkey@nestrealty.com:mailto:beth.starkey@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=debbie.lariviere@nestrealty.com:mailto:debbie.lariviere@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=molly.tilyou@nestrealty.com:mailto:molly.tilyou@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=renata@nestrealty.com:mailto:renata@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=dan.barentine@nestrealty.com:mailto:dan.barentine@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=mary@nestrealty.com:mailto:mary@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=donald.wagner@nestrealty.com:mailto:donald.wagner@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=pam.fox@nestrealty.com:mailto:pam.fox@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ann@nestrealty.com:mailto:ann@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=julie.carpenter@nestrealty.com:mailto:julie.carpenter@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=michael.urti@nestrealty.com:mailto:michael.urti@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=aliciad@nestrealty.com:mailto:aliciad@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=sarah.finnegan@nestrealty.com:mailto:sarah.finnegan@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=melissa.gagliardi@nestrealty.com:mailto:melissa.gagliardi@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=brian.donovan@nestrealty.com:mailto:brian.donovan@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lexi.pate@nestrealty.com:mailto:lexi.pate@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=teri.byrnes@nestrealty.com:mailto:teri.byrnes@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=travis.hollomon@nestrealty.com:mailto:travis.hollomon@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kristy.ward@nestrealty.com:mailto:kristy.ward@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=thurston@nestrealty.com:mailto:thurston@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=katie.urti@nestrealty.com:mailto:katie.urti@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=clint.harris@nestrealty.com:mailto:clint.harris@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=desiree.whalen@nestrealty.com:mailto:desiree.whalen@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=cindy.young@nestrealty.com:mailto:cindy.young@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=meghan.alber@nestrealty.com:mailto:meghan.alber@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=mcclain.harvey@nestrealty.com:mailto:mcclain.harvey@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=renee.reitzel@nestrealty.com:mailto:renee.reitzel@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=alexis.roy@nestrealty.com:mailto:alexis.roy@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=dawnlago@nestrealty.com:mailto:dawnlago@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jessie.fairbairn@nestrealty.com:mailto:jessie.fairbairn@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=donna.lomenzo@nestrealty.com:mailto:donna.lomenzo@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=sydney.tobler@nestrealty.com:mailto:sydney.tobler@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=james.rackley@nestrealty.com:mailto:james.rackley@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=cassie.healy@nestrealty.com:mailto:cassie.healy@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=laura.odorisio@nestrealty.com:mailto:laura.odorisio@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=sean.martin@nestrealty.com:mailto:sean.martin@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=hannah.smith@nestrealty.com:mailto:hannah.smith@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=mia.escalera@nestrealty.com:mailto:mia.escalera@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ed.wagenseller@nestrealty.com:mailto:ed.wagenseller@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=jordan.warren@nestrealty.com:mailto:jordan.warren@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lindsay.crecelius@nestrealty.com:mailto:lindsay.crecelius@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=max.wagenseller@nestrealty.com:mailto:max.wagenseller@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=amanda.galante@nestrealty.com:mailto:amanda.galante@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=zach.hanner@nestrealty.com:mailto:zach.hanner@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=andra.browning@nestrealty.com:mailto:andra.browning@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=dessie.greene@nestrealty.com:mailto:dessie.greene@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=maradith.brown@nestrealty.com:mailto:maradith.brown@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=matt.archibald@nestrealty.com:mailto:matt.archibald@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=bfarrell@nestrealty.com:mailto:bfarrell@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=lindsay.barbour@nestrealty.com:mailto:lindsay.barbour@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=heather.ashworth@nestrealty.com:mailto:heather.ashworth@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=alec.hutchinson@nestrealty.com:mailto:alec.hutchinson@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=heather.lane@nestrealty.com:mailto:heather.lane@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=kristin@nestrealty.com:mailto:kristin@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=todd.whalen@nestrealty.com:mailto:todd.whalen@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=ryan.rhodes@nestrealty.com:mailto:ryan.rhodes@nestrealty.com\r\nATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=eduardo.lovo@nestrealty.com:mailto:eduardo.lovo@nestrealty.com\r\nSTATUS:TENTATIVE\r\nX-NORA-LIFECYCLE:MANUAL_DRAFT\r\nSEQUENCE:0\r\nEND:VEVENT\r\nEND:VCALENDAR",
+    "dispatchedVia": "sandbox_engine",
+    "mode": "SANDBOX",
+    "conferenceStatus": "not_requested",
+    "isExternalVerified": false,
+    "providerTimestamp": "2026-09-22T22:59:18.461Z",
+    "spokenConfirmation": "You got it, Ryan! I've prepared a sandbox meeting draft for \"Q3 In-Office All-Hands & Production Strategy\" on Wednesday, September 9, 2026 at 10:00 AM at the Nest Realty Mayfaire Office (Large Training Room) for All Brokers & Staff across Wilmington (Mayfaire) and Carolina Beach offices (77 total members) from AskNora@nestrealty.com. Connect Google Workspace to dispatch live invites.",
+    "createdAt": "2026-09-22T22:59:18.462Z"
+  },
+  {
     "id": "gcal_meet_1788729965762_ug7za",
     "calendarId": "sandbox_primary",
     "title": "Fall 2026 Production Kickoff",

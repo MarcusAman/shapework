@@ -293,7 +293,7 @@ describe('Shapework / Nest News — Forensic Link Integrity Suite', () => {
           <item>
             <title>Valid Industry Analysis</title>
             <link>https://cleanpub.com/story</link>
-            <pubDate>Mon, 01 Sep 2026 12:00:00 GMT</pubDate>
+            <pubDate>${new Date().toUTCString()}</pubDate>
           </item>
         </channel>
       </rss>`;

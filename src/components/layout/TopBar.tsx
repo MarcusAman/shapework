@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Plus, Calendar, ChevronDown, Check, Menu, X, LogOut, Zap, FileText, Upload, Mail, Phone, Shield, Megaphone, RefreshCw, BookOpen, Bot, Truck, Camera, Brain, CheckSquare } from 'lucide-react';
+import { Search, Bell, Plus, Calendar, ChevronDown, Check, Menu, X, LogOut, Zap, FileText, Upload, Mail, Phone, Shield, Megaphone, RefreshCw, BookOpen, Bot, Truck, Camera, Brain, CheckSquare, SlidersHorizontal } from 'lucide-react';
 import { Profile } from '../../types/shapework';
 import LocationSelectorDropdown from '../ui/LocationSelectorDropdown';
 import { GlobalEvidenceDrawer, GlobalEvidenceCardData } from '../brokerage-ops/GlobalEvidenceDrawer';
+import {
+  DIRECTORY_BANNER_COUNTS_EVENT,
+  type DirectoryBannerCountsDetail,
+} from '../../utils/directoryWave1Fixes';
 
 interface TopBarProps {
   activeProfile: Profile;
@@ -89,6 +93,45 @@ export default function TopBar({
   const isRoleMapPage = currentTab === 'Role Map' || currentTab === 'Role & Escalation Map';
   const isSettingsPage = currentTab === 'Settings' || currentTab === 'Workspace Settings';
   const isVendorPage = currentTab === 'Vendor Dispatch' || currentTab === 'Vendors' || currentTab === 'Vendor Hub' || currentTab === 'Repair Board' || currentTab === 'Field Equipment' || currentTab?.toLowerCase().includes('vendor');
+  const isNewsPage = currentTab === 'News' || currentTab === 'news' || currentTab === 'Real Estate News' || currentTab === 'Industry News' || (typeof window !== 'undefined' && window.location.pathname.includes('/news'));
+
+  const [newsSyncState, setNewsSyncState] = useState<'idle' | 'syncing' | 'synced'>('idle');
+  const [directoryBannerCounts, setDirectoryBannerCounts] = useState<DirectoryBannerCountsDetail | null>(null);
+
+  useEffect(() => {
+    if (!isDirectoryPage) {
+      setDirectoryBannerCounts(null);
+      return;
+    }
+    const onCounts = (event: Event) => {
+      const detail = (event as CustomEvent<DirectoryBannerCountsDetail>).detail;
+      if (detail && typeof detail.totalActive === 'number') {
+        setDirectoryBannerCounts(detail);
+      }
+    };
+    window.addEventListener(DIRECTORY_BANNER_COUNTS_EVENT, onCounts as EventListener);
+    return () => window.removeEventListener(DIRECTORY_BANNER_COUNTS_EVENT, onCounts as EventListener);
+  }, [isDirectoryPage]);
+
+
+  useEffect(() => {
+    const handleSyncStarted = () => setNewsSyncState('syncing');
+    const handleSyncCompleted = () => {
+      setNewsSyncState('synced');
+      setTimeout(() => setNewsSyncState('idle'), 2000);
+    };
+    const handleSyncFailed = () => setNewsSyncState('idle');
+
+    window.addEventListener('news-sync-started', handleSyncStarted);
+    window.addEventListener('news-sync-completed', handleSyncCompleted);
+    window.addEventListener('news-sync-failed', handleSyncFailed);
+
+    return () => {
+      window.removeEventListener('news-sync-started', handleSyncStarted);
+      window.removeEventListener('news-sync-completed', handleSyncCompleted);
+      window.removeEventListener('news-sync-failed', handleSyncFailed);
+    };
+  }, []);
 
   if (variant === 'minimal') {
     return (
@@ -153,20 +196,38 @@ export default function TopBar({
                 </p>
               </div>
 
-              {/* Integrated KPIs in TopBar */}
-              <div className="hidden sm:flex items-center gap-1.5 pl-2.5 border-l border-[var(--sw-border)] font-sans text-xs">
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">74</strong> Total Active
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">22</strong> Carolina Beach
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">2</strong> Brokers-in-Charge
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
-                  <strong className="text-stone-900 font-bold">7</strong> Leadership & Staff
-                </span>
+              {/* Integrated KPIs in TopBar — live from Directory page (never hardcoded 74) */}
+              <div className="hidden sm:flex items-center gap-1.5 pl-2.5 border-l border-[var(--sw-border)] font-sans text-xs" data-testid="directory-topbar-counts">
+                {directoryBannerCounts ? (
+                  <>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.totalActive}</strong> Total Active
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.carolinaBeachAgents}</strong> Carolina Beach
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.bic}</strong> Brokers-in-Charge
+                    </span>
+                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200/80 font-medium text-stone-700 text-[11px]">
+                      <strong className="text-stone-900 font-bold">{directoryBannerCounts.leadership + directoryBannerCounts.staff}</strong> Leadership & Staff
+                    </span>
+                    {directoryBannerCounts.source === 'error' && (
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 font-medium text-amber-800 text-[11px]">
+                        Live roster unavailable
+                      </span>
+                    )}
+                    {directoryBannerCounts.source === 'demo' && (
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-medium text-slate-600 text-[11px]">
+                        Local demo roster
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-lg bg-stone-50 border border-stone-200/80 font-medium text-stone-500 text-[11px]">
+                    Loading roster…
+                  </span>
+                )}
               </div>
             </div>
           ) : isMarketIntelligencePage ? (
@@ -275,6 +336,20 @@ export default function TopBar({
               </h1>
               <p className="text-[11px] text-stone-500 hidden xl:block truncate max-w-2xl">
                 Automated work orders for Coastal Sign Post Co., HDR Media shoot calendar, approved vendor directory, and Supra Bluetooth Lockbox fleet tracking.
+              </p>
+            </div>
+          ) : isNewsPage ? (
+            <div className="flex flex-col text-left min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-[#00635C]">
+                  Executive Intelligence Hub
+                </span>
+              </div>
+              <h1 className="font-serif font-black text-sm md:text-base text-slate-900 tracking-tight leading-tight mt-0.5">
+                News & Market Dispatch
+              </h1>
+              <p className="hidden xl:block text-[11px] text-slate-500 font-sans pt-0.5 truncate max-w-xl">
+                Curated industry shifts, local Cape Fear developments, and actionable intelligence for Nest Realty.
               </p>
             </div>
           ) : isAskNestOpsPage ? (
@@ -412,6 +487,32 @@ export default function TopBar({
             >
               <Mail className="w-3.5 h-3.5" />
               <span>Invite Staff to Document an SOP</span>
+            </button>
+          </div>
+        ) : isNewsPage ? (
+          <div className="flex items-center gap-2 select-none shrink-0">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('trigger-news-sync'))}
+              disabled={newsSyncState === 'syncing'}
+              className="px-3.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-xl text-xs font-semibold text-stone-700 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Sync latest real estate feeds"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#00635C] ${newsSyncState === 'syncing' ? 'animate-spin' : ''}`} />
+              <span>
+                {newsSyncState === 'syncing' ? 'Syncing...' : newsSyncState === 'synced' ? 'Synced!' : 'Sync Feeds'}
+              </span>
+              {newsSyncState === 'synced' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-news-sources-drawer'))}
+              className="px-3.5 py-1.5 bg-white hover:bg-stone-50 border border-stone-200/90 rounded-xl text-xs font-semibold text-stone-700 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Configure News Sources"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#00635C]" />
+              <span>Sources</span>
             </button>
           </div>
         ) : (

@@ -19,10 +19,16 @@ import { initialCatalogConnectors } from '../data/integrationCatalog';
 import { apiClient } from '../utils/apiClient';
 import { getWorkspaceDirectory, clearAllDirectoryCaches } from '../utils/directoryCache';
 import { getProductProfile, PILOT_TEAM_EMAILS } from '../config/productProfiles';
+import { isMarketingOpsRole } from '../utils/customerWorkboardRoles';
 
 let cachedModePromise: Promise<any> | null = null;
 let cachedDbStatePromise: Map<string, Promise<any>> = new Map();
 let cachedAuthSessionPromise: Promise<any> | null = null;
+
+export function invalidateCachedAuthSession() {
+  cachedAuthSessionPromise = null;
+}
+
 
 export function useWorkspaceConsoleState() {
   const getTabFromPath = useCallback((path: string): string => {
@@ -402,31 +408,54 @@ export function useWorkspaceConsoleState() {
         if (data.profiles) {
           setProfiles(data.profiles);
           
-          let loggedInUser = null;
+          let loggedInUser: any = null;
           try {
+            // Cache the PARSED session user, never the Response — Response.body can only be
+            // consumed once. A second sync that re-reads .json() throws and falls through to
+            // profiles[0] (Adam admin on nest-realty-demo).
             if (!cachedAuthSessionPromise) {
-              cachedAuthSessionPromise = apiClient.get('/api/auth/session', { workspaceId }).catch(err => {
-                cachedAuthSessionPromise = null;
-                throw err;
-              });
+              cachedAuthSessionPromise = apiClient
+                .get('/api/auth/session', { workspaceId })
+                .then(async (sessRes) => {
+                  if (!sessRes.ok) return null;
+                  const sessData = await sessRes.json();
+                  return sessData?.user || null;
+                })
+                .catch((err) => {
+                  cachedAuthSessionPromise = null;
+                  throw err;
+                });
             }
-            const sessRes = await cachedAuthSessionPromise;
-            if (sessRes.ok) {
-              const sessData = await sessRes.json();
-              if (sessData && sessData.user) {
-                loggedInUser = sessData.user;
-              }
-            }
+            loggedInUser = await cachedAuthSessionPromise;
           } catch {
             cachedAuthSessionPromise = null;
+            loggedInUser = null;
           }
 
           if (loggedInUser) {
-            setActiveProfile(loggedInUser);
+            const matched = (data.profiles || []).find(
+              (p: any) =>
+                p.id === loggedInUser.id ||
+                (p.email &&
+                  loggedInUser.email &&
+                  String(p.email).toLowerCase() === String(loggedInUser.email).toLowerCase())
+            );
+            setActiveProfile(
+              matched
+                ? { ...matched, ...loggedInUser, name: loggedInUser.name || matched.name }
+                : loggedInUser
+            );
           } else if (data.profiles && data.profiles.length > 0) {
             const currentToken = localStorage.getItem('shapework_session_token') || '';
-            const userProfile = data.profiles.find((p: any) => p.email === currentToken || p.id === currentToken) || data.profiles[0];
-            setActiveProfile(userProfile);
+            const looksLikeJwt = currentToken.split('.').length === 3;
+            const userProfile = looksLikeJwt
+              ? null
+              : data.profiles.find((p: any) => p.email === currentToken || p.id === currentToken);
+            if (userProfile) {
+              setActiveProfile(userProfile);
+            } else if (!looksLikeJwt) {
+              setActiveProfile(data.profiles[0]);
+            }
           } else {
             setActiveProfile({
               id: 'usr_marcus',
@@ -1640,16 +1669,20 @@ Ann Gunn (Operations Lead) recommended tasks:
 
   useEffect(() => {
     const cleanEmail = (activeProfile?.email || '').toLowerCase().trim();
+    // Landing default for marketing ops is handled at login (/app/tasks) and when
+    // a tab is disallowed below — do NOT yank them off Ask Nora after they click it.
     const isRestricted = PILOT_TEAM_EMAILS.includes(cleanEmail) || (!activeProfile?.role?.includes('admin') && cleanEmail.endsWith('@nestrealty.com'));
     if (isRestricted) {
       const profile = getProductProfile(activeProfile?.email, activeProfile?.role, workspaceId || 'nest-realty-demo');
-      const profileTabs = (profile?.modules || []).filter(m => m.enabled).map(m => m.tab);
+      const profileTabs = (profile?.modules || [])
+        .filter(m => m.enabled)
+        .flatMap(m => [m.tab, m.name].filter(Boolean));
 
       const aliasesAndSubtabs = [
         "Pitch & 'Aha!' Demo", 'Pitch Demo',
         'Pre-MLS Board', 'Pocket Matches',
         'Vendor Dispatch', 'Repair Board',
-        'Ask Nest Ops', 'Workboard', 'Nest Ops Hub', 'Today', 'Command Center', 'Today in the Brokerage', 'Overview',
+        'Ask Nora', 'Ask Nest Ops', 'Workboard', 'Nest Ops Hub', 'Today', 'Command Center', 'Today in the Brokerage', 'Overview',
         'My Connections',
         'Work Queue', 'Work',
         'Approvals', 'Agent Approval Portal', 'Approval Portal',
@@ -1681,7 +1714,7 @@ Ann Gunn (Operations Lead) recommended tasks:
       const isAllowed = allowedTabs.some(t => t.toLowerCase() === cLower || (cLower.includes('intelligence') && t.toLowerCase().includes('intelligence')));
 
       if (currentTab && !isAllowed) {
-        setCurrentTab('Workboard');
+        setCurrentTab(isMarketingOpsRole(activeProfile?.role) ? 'Tasks' : 'Workboard');
       }
     }
   }, [activeProfile, currentTab, setCurrentTab, workspaceId]);

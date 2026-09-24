@@ -94,6 +94,7 @@ describe('Marketing Intake Console Polish & Deliverable Lightbox Suite', () => {
       const html = renderToStaticMarkup(
         <MarketingHomeInbox
           campaigns={mockCampaigns}
+          initialViewMode="table"
           onSelectCampaign={() => {}}
         />
       );

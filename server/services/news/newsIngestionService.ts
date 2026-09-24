@@ -333,11 +333,15 @@ export class NewsIngestionService {
    * Synchronize all sources with concurrency control and deduplication
    */
   public async syncAll(
-    existingItems: NewsItem[], 
+    existingItems: NewsItem[] | Promise<NewsItem[]>, 
     workspaceId: string = 'ws_wilmington'
   ): Promise<{ addedCount: number; items: NewsItem[]; metrics: NewsIngestionMetrics }> {
+    const resolvedExisting = Array.isArray(existingItems)
+      ? existingItems
+      : (existingItems ? await existingItems : []);
+
     if (this.isSyncing) {
-      return { addedCount: 0, items: existingItems, metrics: this.lastMetrics };
+      return { addedCount: 0, items: resolvedExisting, metrics: this.lastMetrics };
     }
 
     this.isSyncing = true;
@@ -347,7 +351,7 @@ export class NewsIngestionService {
     const existingClusters: EventClusterReference[] = [];
     const sourceCountMap = new Map<string, number>();
 
-    for (const item of existingItems) {
+    for (const item of resolvedExisting) {
       itemsMap.set(item.id, item);
       if (item.editorialDecision === 'publish') {
         const cnt = sourceCountMap.get(item.sourceName) || 0;
@@ -481,7 +485,7 @@ export class NewsIngestionService {
    * Initialize background ingestion loop (every 45 minutes)
    */
   public startBackgroundScheduler(
-    getItemsFn: () => NewsItem[],
+    getItemsFn: () => NewsItem[] | Promise<NewsItem[]>,
     saveItemsFn: (items: NewsItem[]) => Promise<void>
   ): void {
     if (this.syncTimer) return;
@@ -489,7 +493,8 @@ export class NewsIngestionService {
     // Initial sync
     setTimeout(async () => {
       try {
-        const { items } = await this.syncAll(getItemsFn());
+        const existing = await getItemsFn();
+        const { items } = await this.syncAll(existing);
         await saveItemsFn(items);
       } catch (e: any) {
         console.error('[News Scheduler] Initial sync failed:', e.message);
@@ -499,7 +504,8 @@ export class NewsIngestionService {
     // Periodic 45-minute sync
     this.syncTimer = setInterval(async () => {
       try {
-        const { items } = await this.syncAll(getItemsFn());
+        const existing = await getItemsFn();
+        const { items } = await this.syncAll(existing);
         await saveItemsFn(items);
       } catch (e: any) {
         console.error('[News Scheduler] Periodic sync failed:', e.message);

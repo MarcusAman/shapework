@@ -1773,3 +1773,7 @@ export function queryUnifiedContext(
   const raw = rawQueryUnifiedContext(query, options);
   return enrichContextResultWithReasoning(raw);
 }
+
+export function polishKnowledgeDisplay(input: any): any {
+  return input;
+}

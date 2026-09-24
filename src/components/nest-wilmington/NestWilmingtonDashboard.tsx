@@ -138,6 +138,14 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
         <RoleEscalationMapPage 
           data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
           model={rawModel || fallbackModel} 
+          state={state}
+          onNavigateToSop={(sopId) => {
+            if (state?.setCurrentTab) {
+              state.setCurrentTab('Knowledge Library');
+            } else {
+              setActiveNav('sops');
+            }
+          }}
         />
       );
     }
@@ -175,6 +183,14 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
       <RoleEscalationMapPage 
         data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
         model={rawModel || fallbackModel} 
+        state={state}
+        onNavigateToSop={(sopId) => {
+          if (state?.setCurrentTab) {
+            state.setCurrentTab('Knowledge Library');
+          } else {
+            setActiveNav('sops');
+          }
+        }}
       />
     );
   };
@@ -313,6 +329,14 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
               <RoleEscalationMapPage 
                 data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
                 model={rawModel || fallbackModel} 
+                state={state}
+                onNavigateToSop={(sopId) => {
+                  if (state?.setCurrentTab) {
+                    state.setCurrentTab('Knowledge Library');
+                  } else {
+                    setActiveNav('sops');
+                  }
+                }}
               />
             ) : (
               renderPage()
@@ -373,6 +397,14 @@ export default function NestWilmingtonDashboard({ currentTab, state, embedded = 
               <RoleEscalationMapPage 
                 data={rolesData || buildRoleEscalationMap(rawModel || fallbackModel as any)} 
                 model={rawModel || fallbackModel} 
+                state={state}
+                onNavigateToSop={(sopId) => {
+                  if (state?.setCurrentTab) {
+                    state.setCurrentTab('Knowledge Library');
+                  } else {
+                    setActiveNav('sops');
+                  }
+                }}
               />
             ) : (
               renderPage()

@@ -32,12 +32,23 @@ import {
   XCircle,
   Building
 } from 'lucide-react';
+import { CallRecordingPanel } from './CallRecordingPanel';
 import type {
   CanonicalActivityEvent,
   ActivityEventType,
   CommunicationStatus,
   ChannelType
 } from '../../../server/services/activityHistoryService.js';
+
+export interface ActivityTimelineSourceMedia {
+  callId?: string | null;
+  audioUrl?: string | null;
+  transcript?: string | null;
+  emailSubject?: string | null;
+  emailBody?: string | null;
+  emailFrom?: string | null;
+  agentName?: string | null;
+}
 
 export interface ActivityAndContactTimelineProps {
   events: CanonicalActivityEvent[];
@@ -47,6 +58,8 @@ export interface ActivityAndContactTimelineProps {
   loading?: boolean;
   onRefresh?: () => void;
   className?: string;
+  /** Call/email proof for Details — Peak-End: show this before audit/tech */
+  sourceMedia?: ActivityTimelineSourceMedia | null;
 }
 
 type FilterCategory =
@@ -120,6 +133,24 @@ export function formatRelativeTime(isoString: string): string {
   }
 }
 
+/**
+ * Normalizes event summary to human-readable form:
+ * Suppresses duplicate rejection prefixes and raw staff IDs on the normal timeline card.
+ */
+export function formatCleanEventSummary(summary?: string | null): string {
+  if (!summary) return '';
+  const s = String(summary).trim();
+  if (
+    s.includes('self_approval_rejected') ||
+    s.toLowerCase().includes('self-approval attempt rejected') ||
+    s.toLowerCase().includes('self-approval rejected') ||
+    s.toLowerCase().includes('producer approval is not permitted')
+  ) {
+    return 'Approval attempt blocked — producer approval is not permitted.';
+  }
+  return s.replace(/\s*\(dir_[a-z0-9_]+\)/gi, '').trim();
+}
+
 export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProps> = ({
   events = [],
   currentTaskId,
@@ -127,11 +158,13 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
   viewRole = 'manager',
   loading = false,
   onRefresh,
-  className = ''
+  className = '',
+  sourceMedia = null
 }) => {
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc'); // Chronological by default
   const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(new Set());
+  const [techExpandedIds, setTechExpandedIds] = useState<Set<string>>(new Set());
 
   const toggleExpand = (id: string) => {
     setExpandedEventIds(prev => {
@@ -429,12 +462,30 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
       };
     }
 
+    // Creation
+    if (evt.eventType === 'task.created') {
+      return {
+        icon: <Clock className="w-3.5 h-3.5 text-slate-600" />,
+        dotBg: 'bg-slate-500',
+        badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+        badgeText: 'Task Created'
+      };
+    }
+    if (evt.eventType === 'request.created') {
+      return {
+        icon: <Clock className="w-3.5 h-3.5 text-slate-600" />,
+        dotBg: 'bg-slate-500',
+        badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+        badgeText: 'Request Created'
+      };
+    }
+
     // Default
     return {
       icon: <Clock className="w-3.5 h-3.5 text-slate-600" />,
       dotBg: 'bg-slate-400',
       badgeClass: 'bg-slate-50 text-slate-700 border-slate-200',
-      badgeText: evt.eventType.replace('_', ' ')
+      badgeText: evt.eventType.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     };
   };
 
@@ -512,6 +563,21 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
             const isRequestLevel = !evt.taskId || (currentTaskId && evt.taskId !== currentTaskId);
             const isExpanded = expandedEventIds.has(evt.id);
             const hasMetadata = evt.metadata && Object.keys(evt.metadata).length > 0;
+            const hasAdminDetails = Boolean(hasMetadata || evt.channel === 'internal' || evt.actorId || evt.idempotencyKey);
+            const meta = (evt.metadata || {}) as Record<string, any>;
+            const isPhoneEvent = evt.channel === 'phone' || evt.eventType.startsWith('call.') || Boolean(evt.callId) || visuals.badgeText === 'Phone Intake';
+            const isEmailEvent = evt.channel === 'email' || evt.eventType.startsWith('email.') || evt.eventType.startsWith('outreach.');
+            const eventCallId = evt.callId || meta.callId || sourceMedia?.callId || null;
+            const eventAudio = meta.recordingUrl || meta.audioUrl || meta.recording_url || sourceMedia?.audioUrl || null;
+            const eventTranscript = meta.transcript || meta.rawExcerpt || sourceMedia?.transcript || null;
+            const eventEmailBody = meta.body || meta.emailBody || meta.text || meta.rawExcerpt || sourceMedia?.emailBody || null;
+            const eventEmailSubject = meta.subject || meta.emailSubject || sourceMedia?.emailSubject || null;
+            const eventEmailFrom = meta.from || meta.emailFrom || sourceMedia?.emailFrom || sourceMedia?.agentName || null;
+            const hasCallProof = isPhoneEvent && Boolean(eventCallId || eventAudio || eventTranscript);
+            const hasEmailProof = isEmailEvent && Boolean(eventEmailBody || eventEmailSubject);
+            const hasProofDetails = hasCallProof || hasEmailProof;
+            const canShowDetails = hasAdminDetails || hasProofDetails;
+            const isTechOpen = techExpandedIds.has(evt.id);
 
             return (
               <div
@@ -538,7 +604,7 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
                       </div>
 
                       <span className="font-bold text-xs text-slate-900 leading-tight">
-                        {evt.summary}
+                        {formatCleanEventSummary(evt.summary)}
                       </span>
 
                       {/* Event Type Badge */}
@@ -552,13 +618,6 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
                       {isRequestLevel && currentTaskId && (
                         <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded">
                           Request activity
-                        </span>
-                      )}
-
-                      {/* Imported Historical Label */}
-                      {evt.isImportedHistorical && (
-                        <span className="text-[9px] font-mono bg-slate-100 text-slate-500 px-1 rounded border border-slate-200" title="Projected historical evidence">
-                          Imported
                         </span>
                       )}
                     </div>
@@ -582,7 +641,7 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
                         By: <strong className="text-slate-700 font-semibold">{evt.actorDisplayName}</strong>
                       </span>
 
-                      {evt.channel && (
+                      {evt.channel && evt.channel !== 'internal' && (
                         <>
                           <span className="text-slate-300">·</span>
                           <span className="capitalize text-slate-600 font-medium">
@@ -602,11 +661,12 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
                     </div>
 
                     {/* Expandable Details Toggle */}
-                    {hasMetadata && (
+                    {canShowDetails && (
                       <button
                         type="button"
                         onClick={() => toggleExpand(evt.id)}
                         className="text-xs text-[#00635C] hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+                        data-testid="activity-event-details-toggle"
                       >
                         <span>{isExpanded ? 'Hide Details' : 'Details'}</span>
                         {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -614,23 +674,104 @@ export const ActivityAndContactTimeline: React.FC<ActivityAndContactTimelineProp
                     )}
                   </div>
 
-                  {/* Expandable Safe Metadata Excerpt */}
-                  {isExpanded && hasMetadata && (
-                    <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg text-xs space-y-1 font-mono text-slate-700">
-                      {Object.entries(evt.metadata).map(([k, v]) => {
-                        if (k === 'isImportedHistorical' || v === undefined || v === null) return null;
-                        return (
-                          <div key={k} className="flex items-start gap-2">
-                            <span className="font-bold text-slate-500 shrink-0">{k}:</span>
-                            <span className="text-slate-800 break-all">
-                              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                            </span>
+                  {/* Details: PROOF FIRST (call/email), technical last/collapsed — Critiquito Peak-End */}
+                  {isExpanded && canShowDetails && (
+                    <div className="mt-2 space-y-3" data-testid="activity-event-details-panel">
+                      {hasCallProof && (
+                        <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-3 space-y-2" data-testid="activity-details-call-proof">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 font-sans">
+                            Call recording &amp; transcript
                           </div>
-                        );
-                      })}
-                      {evt.idempotencyKey && (
-                        <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-200/60 truncate">
-                          idempotency: {evt.idempotencyKey}
+                          <CallRecordingPanel
+                            callId={eventCallId}
+                            fallbackAudioUrl={eventAudio}
+                            fallbackTranscript={eventTranscript}
+                          />
+                        </div>
+                      )}
+
+                      {hasEmailProof && (
+                        <div className="rounded-xl border border-sky-200/80 bg-sky-50/40 p-3 space-y-2" data-testid="activity-details-email-proof">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-sky-900 font-sans">
+                            Email thread
+                          </div>
+                          {(eventEmailFrom || eventEmailSubject) && (
+                            <div className="text-xs space-y-0.5 font-sans">
+                              {eventEmailFrom && (
+                                <div><span className="text-slate-500">From:</span> <strong className="text-slate-800">{eventEmailFrom}</strong></div>
+                              )}
+                              {eventEmailSubject && (
+                                <div><span className="text-slate-500">Subject:</span> <strong className="text-slate-800">{eventEmailSubject}</strong></div>
+                              )}
+                            </div>
+                          )}
+                          {eventEmailBody ? (
+                            <div className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto bg-white border border-sky-100 rounded-lg p-3 font-sans">
+                              {String(eventEmailBody)}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-500 font-sans italic">No email body stored on this event.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {!hasProofDetails && (
+                        <p className="text-[11px] text-slate-500 font-sans px-0.5">
+                          No call recording or email body attached to this event.
+                        </p>
+                      )}
+
+                      {hasAdminDetails && (
+                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTechExpandedIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(evt.id)) next.delete(evt.id);
+                                else next.add(evt.id);
+                                return next;
+                              });
+                            }}
+                            className="w-full flex items-center justify-between px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 cursor-pointer font-sans"
+                            data-testid="activity-details-tech-toggle"
+                          >
+                            <span>Audit &amp; technical details</span>
+                            <span className="text-[#00635C] font-semibold normal-case tracking-normal">{isTechOpen ? 'Hide' : 'Show'}</span>
+                          </button>
+                          {isTechOpen && (
+                            <div className="px-2.5 pb-2.5 space-y-1.5 font-mono text-xs text-slate-700 border-t border-slate-200/60 pt-2">
+                              {evt.channel === 'internal' && (
+                                <div className="flex items-start gap-2">
+                                  <span className="font-bold text-slate-500 shrink-0">channel:</span>
+                                  <span className="text-slate-800">internal</span>
+                                </div>
+                              )}
+                              {evt.actorId && (
+                                <div className="flex items-start gap-2">
+                                  <span className="font-bold text-slate-500 shrink-0">actorId:</span>
+                                  <span className="text-slate-800">{evt.actorId}</span>
+                                </div>
+                              )}
+                              {hasMetadata && Object.entries(evt.metadata).map(([k, v]) => {
+                                if (k === 'isImportedHistorical' || v === undefined || v === null) return null;
+                                if (['transcript', 'rawExcerpt', 'body', 'emailBody', 'text'].includes(k)) return null;
+                                return (
+                                  <div key={k} className="flex items-start gap-2">
+                                    <span className="font-bold text-slate-500 shrink-0">{k}:</span>
+                                    <span className="text-slate-800 break-all">
+                                      {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              {evt.idempotencyKey && (
+                                <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-200/60 truncate">
+                                  idempotency: {evt.idempotencyKey}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

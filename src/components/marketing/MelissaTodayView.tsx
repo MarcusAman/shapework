@@ -46,7 +46,7 @@ export const MelissaTodayView: React.FC<MelissaTodayViewProps> = ({
           status: (t.status === 'completed' || t.status === 'approved' ? 'complete' : t.status === 'agent_review' ? 'ready_for_review' : 'in_progress') as any,
           executionMode: (t.assignedTo === 'Eduardo Lovo' || t.assignedToRole?.includes('Virtual Assistant') ? 'assign_to_va' : 'direct_delivery') as MarketingExecutionMode,
           executorType: (t.assignedTo === 'Eduardo Lovo' || t.assignedToRole?.includes('Virtual Assistant') ? 'virtual_assistant' : 'staff') as any,
-          requestedDueAt: t.dueAt || 'Today 5:00 PM',
+          requestedDueAt: t.dueAt || t.neededByDate || 'Deadline not specified',
           propertyAddress: t.propertyAddress || t.requestTitle || 'Wilmington Listing',
           agentName: t.agentName || 'Marcus Aman',
           createdAt: t.createdAt || new Date().toISOString()

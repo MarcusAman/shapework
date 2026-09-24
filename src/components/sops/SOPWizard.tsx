@@ -15,7 +15,7 @@ import {
   ArrowRight,
   X
 } from 'lucide-react';
-import { SOPField, SOPStep, SOPDecision } from './sopTemplates';
+import { SOPField, SOPStep, SOPDecision, SOP_CATEGORY_TEMPLATES } from './sopTemplates';
 import { OrgPosition } from '../../services/orgChartService';
 import AIFieldAssistant from './AIFieldAssistant';
 
@@ -29,7 +29,7 @@ interface SOPWizardProps {
   ownershipValidation: string[];
   decisionPathErrors: string[];
   publishErrors: string[];
-  handleSaveSop: (statusOverride?: 'draft' | 'published') => Promise<void>;
+  handleSaveSop: (statusOverride?: 'draft' | 'published' | 'for_comment' | 'awaiting_bic_review' | 'awaiting_owner_review') => Promise<void>;
   setCurrentView: (view: 'library' | 'create_options' | 'wizard' | 'builder' | 'run' | 'details') => void;
   state: any;
   
@@ -116,7 +116,13 @@ export default function SOPWizard({
       const res = await fetch('/api/ops/ai/draft-sop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief: aiBrief })
+        body: JSON.stringify({ 
+          brief: aiBrief,
+          category: sopForm.category || sopForm.relatedCategories?.[0],
+          jurisdiction: sopForm.stateJurisdiction || 'NC',
+          title: sopForm.title,
+          department: sopForm.department
+        })
       });
       if (!res.ok) {
         throw new Error('Failed to generate AI SOP draft. Please refine your brief.');
@@ -400,122 +406,291 @@ export default function SOPWizard({
 
           {/* Phase 1: Define */}
           {wizardStep === 1 && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               
-              {/* Optional Rough Description start section */}
-              <div className="bg-[#E5EFEA]/40 border border-[#00635C]/30 rounded-2xl p-5 space-y-2.5">
-                <h4 className="text-xs font-serif font-bold uppercase text-[#01362D] tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#00635C]" />
-                  Build a Draft From My Description
-                </h4>
+              {/* Step 1.1: Category Starter Template & Regulatory Jurisdiction */}
+              <div className="p-4 sm:p-5 bg-white border border-stone-200/90 rounded-2xl space-y-4 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-100 pb-3">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#00635C] font-bold block">
+                      Step 1.1 · Category Starter & Jurisdiction
+                    </span>
+                    <h4 className="text-xs font-serif font-bold text-stone-900 mt-0.5">
+                      Select Process Category & State Jurisdiction
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-semibold text-stone-600 whitespace-nowrap">State Jurisdiction:</label>
+                    <select
+                      value={sopForm.stateJurisdiction || 'NC'}
+                      onChange={(e) => setSopForm({ ...sopForm, stateJurisdiction: e.target.value })}
+                      className="p-1.5 text-xs font-semibold bg-stone-50 border border-stone-300 rounded-lg text-[#00635C] focus:outline-none focus:ring-2 focus:ring-[#00635C]/20"
+                    >
+                      <option value="NC">NC (North Carolina — Default)</option>
+                      <option value="SC">SC (South Carolina)</option>
+                      <option value="VA">VA (Virginia)</option>
+                      <option value="Federal / Multi-State">Federal / Multi-State</option>
+                      <option value="General">General</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Category Starter Pills */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-700 mb-2">
+                    Starter Template Category
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {SOP_CATEGORY_TEMPLATES.map((catTmpl) => {
+                      const isSelected = (sopForm.category || sopForm.relatedCategories?.[0]) === catTmpl.category;
+                      return (
+                        <button
+                          key={catTmpl.category}
+                          type="button"
+                          onClick={() => {
+                            const updated = {
+                              ...sopForm,
+                              category: catTmpl.category,
+                              relatedCategories: [catTmpl.category],
+                              department: catTmpl.defaultDepartment || sopForm.department,
+                              ownerRole: catTmpl.defaultOwnerRole || sopForm.ownerRole,
+                              stateJurisdiction: sopForm.stateJurisdiction || catTmpl.jurisdiction || 'NC',
+                              sopOwner: sopForm.sopOwner || { type: 'department', name: catTmpl.defaultDepartment || 'Operations' }
+                            };
+                            setSopForm(updated);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-[#00635C] text-white border-[#00635C] shadow-xs'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-800 border-stone-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs">{catTmpl.category}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                          <span className={`text-[10px] block mt-1 line-clamp-2 ${isSelected ? 'text-[#E5EFEA]' : 'text-stone-500'}`}>
+                            {catTmpl.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* SOP Owner Selector (Department vs Person) */}
+                <div className="pt-2 border-t border-stone-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                      SOP Owner Type
+                    </label>
+                    <div className="flex rounded-xl bg-stone-100 p-0.5 border border-stone-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSopForm({
+                            ...sopForm,
+                            sopOwner: { type: 'department', name: sopForm.department || 'Operations' }
+                          });
+                        }}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                          (!sopForm.sopOwner || sopForm.sopOwner.type === 'department')
+                            ? 'bg-white text-[#00635C] shadow-2xs font-bold'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        Department
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSopForm({
+                            ...sopForm,
+                            sopOwner: { type: 'person', name: sopForm.ownerRole || 'Operations Lead' }
+                          });
+                        }}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                          sopForm.sopOwner?.type === 'person'
+                            ? 'bg-white text-[#00635C] shadow-2xs font-bold'
+                            : 'text-stone-600 hover:text-stone-900'
+                        }`}
+                      >
+                        Role / Person
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">
+                      {sopForm.sopOwner?.type === 'person' ? 'Assigned Owner Role' : 'Governing Department'}
+                    </label>
+                    {sopForm.sopOwner?.type === 'person' ? (
+                      <input
+                        type="text"
+                        value={sopForm.sopOwner?.name || sopForm.ownerRole || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSopForm({
+                            ...sopForm,
+                            sopOwner: { type: 'person', name: val },
+                            ownerRole: val
+                          });
+                        }}
+                        placeholder="e.g. Transaction Coordinator, Operations Lead"
+                        className="w-full p-2 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C]"
+                      />
+                    ) : (
+                      <select
+                        value={sopForm.department || 'Operations'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSopForm({
+                            ...sopForm,
+                            department: val,
+                            sopOwner: { type: 'department', name: val }
+                          });
+                        }}
+                        className="w-full p-2 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer"
+                      >
+                        <option value="Operations">Operations</option>
+                        <option value="Compliance">Compliance</option>
+                        <option value="Finance">Finance & Accounting</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Transactions">Transactions & Escrow</option>
+                        <option value="Leadership">Leadership & BIC</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 1.2: Core Operational Fields */}
+              <div className="p-4 sm:p-5 bg-white border border-stone-200/90 rounded-2xl space-y-4 shadow-2xs">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[#00635C] font-bold block">
+                    Step 1.2 · Operational Fields & Bounds
+                  </span>
+                  <h4 className="text-xs font-serif font-bold text-stone-900 mt-0.5">
+                    Define Scope, Trigger, and Expected Outcomes
+                  </h4>
+                </div>
+
+                <div className="space-y-3.5 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">SOP Title</label>
+                    <input
+                      type="text"
+                      value={sopForm.title}
+                      onChange={(e) => setSopForm({ ...sopForm, title: e.target.value })}
+                      placeholder="e.g. Listing Launch SOP"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Purpose</label>
+                    <div className="space-y-1">
+                      <textarea
+                        value={sopForm.purpose}
+                        onChange={(e) => setSopForm({ ...sopForm, purpose: e.target.value })}
+                        placeholder="Detail why this standard process exists..."
+                        className="w-full h-20 p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
+                      />
+                      <AIFieldAssistant field="purpose" value={sopForm.purpose} onChange={(val) => setSopForm({ ...sopForm, purpose: val })} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Expected Outcome</label>
+                    <div className="space-y-1">
+                      <textarea
+                        value={sopForm.expectedOutcome}
+                        onChange={(e) => setSopForm({ ...sopForm, expectedOutcome: e.target.value })}
+                        placeholder="Detail what is achieved once this SOP is executed..."
+                        className="w-full h-20 p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
+                      />
+                      <AIFieldAssistant field="expectedOutcome" value={sopForm.expectedOutcome} onChange={(val) => setSopForm({ ...sopForm, expectedOutcome: val })} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-700 mb-1">Scope</label>
+                      <input
+                        type="text"
+                        value={sopForm.scope || ''}
+                        onChange={(e) => setSopForm({ ...sopForm, scope: e.target.value })}
+                        placeholder="All listings/standard agents"
+                        className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-700 mb-1">Exclusions</label>
+                      <input
+                        type="text"
+                        value={sopForm.exclusions || ''}
+                        onChange={(e) => setSopForm({ ...sopForm, exclusions: e.target.value })}
+                        placeholder="Commercial/rentals"
+                        className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Intake Trigger Condition</label>
+                    <input
+                      type="text"
+                      value={sopForm.trigger || ''}
+                      onChange={(e) => setSopForm({ ...sopForm, trigger: e.target.value })}
+                      placeholder="New Listing launch request received"
+                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 1.3: AI Draft Generator (Generate Last) */}
+              <div className="bg-[#E5EFEA]/40 border border-[#00635C]/30 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#00635C] font-bold block">
+                      Step 1.3 · Procedural Synthesis (Generate Last)
+                    </span>
+                    <h4 className="text-xs font-serif font-bold uppercase text-[#01362D] tracking-wider flex items-center gap-1.5 mt-0.5">
+                      <Sparkles className="w-4 h-4 text-[#00635C]" />
+                      Describe Procedure & Synthesize Draft
+                    </h4>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-[#00635C]/10 text-[#00635C] text-[10px] font-mono font-bold">
+                    Optional
+                  </span>
+                </div>
                 <p className="text-xs text-stone-600 leading-normal font-sans">
-                  Enter a rough description of the procedure. Shapework AI will draft the entire SOP including steps, decisions, and required fields.
+                  Provide a rough description of the operational procedure. Shapework AI will analyze your category, jurisdiction, and operational fields to synthesize a 4-stage procedural framework.
                 </p>
                 <textarea
                   value={aiBrief}
                   onChange={(e) => setAiBrief(e.target.value)}
-                  placeholder="e.g. For marketing launch, agent uploads photos. Melissa prepares flyer templates. Upload drive link to Google Drive folder..."
+                  placeholder="e.g. For marketing launch, agent uploads MLS listing photography link. Operations Lead verifies MLS compliance and prepares print collateral. Client approval confirmed before social media distribution..."
                   className="w-full h-24 p-3 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] font-sans shadow-2xs"
                 />
-                <button
-                  type="button"
-                  disabled={aiLoading || !aiBrief.trim()}
-                  onClick={handleBuildDraft}
-                  className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
-                >
-                  {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span>Generate SOP Draft</span>
-                </button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={aiLoading || !aiBrief.trim()}
+                    onClick={handleBuildDraft}
+                    className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
+                  >
+                    {aiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    <span>Generate SOP Draft with AI</span>
+                  </button>
+                  <span className="text-[11px] text-stone-500 italic">
+                    Or click "Next Step" below to configure steps manually.
+                  </span>
+                </div>
                 {aiError && <span className="text-xs text-red-600 block mt-1">{aiError}</span>}
               </div>
 
-              {/* General Fields */}
-              <div className="space-y-4 pt-3 border-t border-stone-100">
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">SOP Title</label>
-                  <input
-                    type="text"
-                    value={sopForm.title}
-                    onChange={(e) => setSopForm({ ...sopForm, title: e.target.value })}
-                    placeholder="e.g. Listing Launch SOP"
-                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Department</label>
-                  <select
-                    value={sopForm.department}
-                    onChange={(e) => setSopForm({ ...sopForm, department: e.target.value })}
-                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] cursor-pointer shadow-2xs"
-                  >
-                    <option value="Operations">Operations</option>
-                    <option value="Compliance">Compliance</option>
-                    <option value="Accounting">Accounting</option>
-                    <option value="Marketing">Marketing</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Purpose</label>
-                  <div className="space-y-1">
-                    <textarea
-                      value={sopForm.purpose}
-                      onChange={(e) => setSopForm({ ...sopForm, purpose: e.target.value })}
-                      placeholder="Detail why this standard process exists..."
-                      className="w-full h-20 p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
-                    />
-                    <AIFieldAssistant field="purpose" value={sopForm.purpose} onChange={(val) => setSopForm({ ...sopForm, purpose: val })} />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Expected Outcome</label>
-                  <div className="space-y-1">
-                    <textarea
-                      value={sopForm.expectedOutcome}
-                      onChange={(e) => setSopForm({ ...sopForm, expectedOutcome: e.target.value })}
-                      placeholder="Detail what is achieved once this SOP is executed..."
-                      className="w-full h-20 p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
-                    />
-                    <AIFieldAssistant field="expectedOutcome" value={sopForm.expectedOutcome} onChange={(val) => setSopForm({ ...sopForm, expectedOutcome: val })} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Scope</label>
-                    <input
-                      type="text"
-                      value={sopForm.scope || ''}
-                      onChange={(e) => setSopForm({ ...sopForm, scope: e.target.value })}
-                      placeholder="All listings/standard agents"
-                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-700 mb-1">Exclusions</label>
-                    <input
-                      type="text"
-                      value={sopForm.exclusions || ''}
-                      onChange={(e) => setSopForm({ ...sopForm, exclusions: e.target.value })}
-                      placeholder="Commercial/rentals"
-                      className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 mb-1">Intake Trigger Condition</label>
-                  <input
-                    type="text"
-                    value={sopForm.trigger || ''}
-                    onChange={(e) => setSopForm({ ...sopForm, trigger: e.target.value })}
-                    placeholder="New Listing launch request received"
-                    className="w-full p-2.5 border border-stone-300 rounded-xl bg-white text-xs text-stone-900 placeholder:text-stone-400 font-sans focus:outline-none focus:ring-2 focus:ring-[#00635C]/20 focus:border-[#00635C] shadow-2xs"
-                  />
-                </div>
-              </div>
             </div>
           )}
 
@@ -1281,14 +1456,37 @@ export default function SOPWizard({
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             ) : (
-              <div className="flex gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleSaveSop('draft')}
-                  className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors cursor-pointer"
+                  className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors cursor-pointer text-xs font-semibold"
                 >
                   Save Draft
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveSop('for_comment')}
+                  className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl transition-colors cursor-pointer text-xs font-semibold"
+                  title="Share draft with team for feedback before formal review"
+                >
+                  Draft for Comment
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cat = (sopForm.category || sopForm.relatedCategories?.[0] || sopForm.department || '').toLowerCase();
+                    const isBicReview = cat.includes('transact') || cat.includes('compliance') || cat.includes('legal') || cat.includes('escrow') || cat.includes('contract');
+                    handleSaveSop(isBicReview ? 'awaiting_bic_review' : 'awaiting_owner_review');
+                  }}
+                  className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl transition-colors cursor-pointer text-xs font-semibold"
+                  title="Submit for formal BIC / Owner review"
+                >
+                  Submit for Formal Review
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1298,7 +1496,7 @@ export default function SOPWizard({
                       handleSaveSop('published');
                     }
                   }}
-                  className="px-5 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl transition-colors cursor-pointer shadow-xs font-bold flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#00635C] hover:bg-[#00514B] text-white rounded-xl transition-colors cursor-pointer shadow-xs font-bold text-xs flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
                   <span>Publish v{sopForm.version}</span>

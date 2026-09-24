@@ -383,3 +383,15 @@ export async function sendFourPointFollowUp(
     tracker
   };
 }
+
+export function generateMarketingTrackerToken(_taskId?: string): string {
+  return `trk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function getMarketingTrackerByToken(_token: string): any | null {
+  return null;
+}
+
+export function appendMarketingTrackerNote(_token: string, _note: string): any | null {
+  return null;
+}

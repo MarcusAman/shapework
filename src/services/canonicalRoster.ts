@@ -32,6 +32,7 @@ export interface CanonicalStaffMember {
   outOfOfficeReason?: string;
   primarySop?: string;
   openTaskCount: number;
+  firstName?: string;
 }
 
 /**
@@ -58,10 +59,8 @@ export const CANONICAL_WORKSPACE_ROSTER: CanonicalStaffMember[] = [
     eligibleForAssignment: true,
     outOfOffice: false,
     isOutOfOffice: false,
-    coveringStaffId: 'dir_ann_gunn_28',
-    coveringStaffName: 'Ann Gunn',
-    backupStaffId: 'dir_ann_gunn_28',
-    backupStaffName: 'Ann Gunn',
+    backupStaffId: 'dir_melissa_gagliardi_33',
+    backupStaffName: 'Melissa Gagliardi',
     primarySop: 'SOP-MKT-003',
     openTaskCount: 0
   },
@@ -231,7 +230,12 @@ const LEGACY_ID_MAP: Record<string, string> = {
   'usr_eduardo': 'dir_eduardo_lovo_73',
   'dir_staff_ann_gunn': 'dir_ann_gunn_28',
   'usr_melissa': 'dir_melissa_gagliardi_33',
+  'usr_melissa_mg': 'dir_melissa_gagliardi_33',
+  'usr_melissa_full': 'dir_melissa_gagliardi_33',
   'staff_melissa_cooper': 'dir_melissa_gagliardi_33',
+  'melissa@nestrealty.com': 'dir_melissa_gagliardi_33',
+  'melissa.gagliardi@nestrealty.com': 'dir_melissa_gagliardi_33',
+  'mg@nestrealty.com': 'dir_melissa_gagliardi_33',
   'staff_ryan_crecelius': 'dir_ryan_crecelius_6',
   'staff_marcus_aman': 'dir_marcus_aman',
   'dir_marcus_aman_0': 'dir_marcus_aman',
@@ -290,19 +294,7 @@ export function getCanonicalStaffRoster(options: RosterFilterOptions = {}): Cano
     // Derive open task counts from canonical tasks if provided
     let openCount = 0;
     if (options.tasks && options.tasks.length > 0) {
-      const memberFirst = member.name.split(' ')[0].toLowerCase();
-      const isEduardo = member.name === 'Eduardo Lovo';
-      openCount = options.tasks.filter(t => {
-        const isArchived = Boolean(t.isArchived || t.status === 'archived');
-        if (isArchived) return false;
-        const assigned = (t.assignedTo || '').toLowerCase();
-        const assignedId = (t.assignedToId || '').toLowerCase();
-        if (assignedId === member.id.toLowerCase() || (LEGACY_ID_MAP[assignedId] === member.id)) return true;
-        if (isEduardo) {
-          return assigned.includes('eduardo') || assigned === 'va' || assigned.includes('virtual assistant');
-        }
-        return assigned.includes(memberFirst);
-      }).length;
+      openCount = options.tasks.filter(t => isTaskInMemberWorkspace(t, member, { workspaceId: targetWs })).length;
     }
 
     return {
@@ -310,6 +302,149 @@ export function getCanonicalStaffRoster(options: RosterFilterOptions = {}): Cano
       openTaskCount: openCount
     };
   });
+}
+
+export interface TaskWorkspaceFilterOptions {
+  coverageFilter?: 'all' | 'direct' | 'coverage';
+  isArchivedMode?: boolean;
+  workspaceId?: string;
+}
+
+/**
+ * Determines whether a task belongs to a team member's workspace view.
+ * Includes:
+ * 1. Tasks directly assigned to the member (by canonical ID or display name).
+ * 2. Tasks covered by the member.
+ * 3. Tasks awaiting review where the member is the designated review owner (or Marketing Director).
+ * Preserves Eduardo's assignment on submitted tasks while including them in Melissa's Awaiting Review workspace.
+ */
+export function isTaskInMemberWorkspace(
+  task: any,
+  member: { id?: string; name: string; role?: string; displayName?: string },
+  options: TaskWorkspaceFilterOptions = {}
+): boolean {
+  if (!task) return false;
+
+  const isArchived = Boolean(task.isArchived || task.status === 'archived');
+  if (options.isArchivedMode ? !isArchived : isArchived) return false;
+
+  const wsId = options.workspaceId || task.workspaceId || 'ws_wilmington';
+  const targetMemberStaff = resolveCanonicalStaffMember(member.id || member.name, wsId);
+  const targetMemberId = (targetMemberStaff?.id || member.id || '').toLowerCase();
+  const targetMemberName = (targetMemberStaff?.name || member.displayName || member.name || '').toLowerCase();
+  const targetFirstName = targetMemberName.split(' ')[0] || '';
+
+  const isEduardoTarget = targetMemberName.includes('eduardo') || targetMemberId.includes('eduardo');
+
+  // Intake Queue Isolation: Tasks in 'request_received' or 'intake_received' status belonging
+  // to Melissa Gagliardi (Marketing Director) or Ann Gunn (Operations Lead) must remain in their
+  // respective intake queues. Eduardo Lovo (VA) only receives tasks after formal assignment.
+  const taskStatus = (task.status || '').toLowerCase();
+  if (isEduardoTarget) {
+    if (taskStatus === 'request_received' || taskStatus === 'intake_received') {
+      const directAssignee = (task.assignedTo || '').toLowerCase();
+      const directAssigneeId = (task.assignedToId || '').toLowerCase();
+      if (!directAssignee.includes('eduardo') && !directAssigneeId.includes('eduardo')) {
+        return false;
+      }
+    }
+  }
+
+  // 1. Direct assignment resolution
+  const assignedStaff = resolveCanonicalStaffMember(task.assignedToId || task.assignedTo, wsId);
+  const rawAssigned = (task.assignedTo || '').toLowerCase();
+  const rawAssignedId = (task.assignedToId || '').toLowerCase();
+  const rawRole = (task.assignedToRole || '').toLowerCase();
+
+  const isDirectlyAssigned = Boolean(
+    (assignedStaff && targetMemberStaff && assignedStaff.id === targetMemberStaff.id) ||
+    (targetMemberId && rawAssignedId && (targetMemberId === rawAssignedId || LEGACY_ID_MAP[rawAssignedId] === targetMemberId)) ||
+    (targetMemberName && rawAssigned && (rawAssigned === targetMemberName || rawAssigned.includes(targetMemberName))) ||
+    (targetFirstName && rawAssigned && rawAssigned.includes(targetFirstName)) ||
+    (isEduardoTarget && (rawAssigned.includes('eduardo') || rawRole.includes('virtual assistant') || rawRole.includes('va')))
+  );
+
+  // 2. Coverage resolution — configured backup ≠ active coverage.
+  // Only divert work when coverage is explicitly active or the assignee/review owner is OOO.
+  const rawCovering = (task.coveringStaff || task.coveringStaffName || '').toLowerCase();
+  const rawCoveringId = (task.coveringStaffId || '').toLowerCase();
+  const coveringStaff = resolveCanonicalStaffMember(task.coveringStaffId || task.coveringStaffName || task.coveringStaff, wsId);
+
+  const assigneeIsOOO = Boolean(
+    (assignedStaff as any)?.isOutOfOffice || (assignedStaff as any)?.outOfOffice || (assignedStaff as any)?.status === 'out_of_office'
+  );
+  // reviewOwnerStaff is resolved below; compute provisional owner for OOO gate
+  const provisionalReviewOwner = resolveCanonicalStaffMember(
+    task.reviewOwnerId || task.reviewerId || task.reviewOwnerName || task.reviewOwner || task.reviewerName || task.reviewer,
+    wsId
+  );
+  const reviewOwnerIsOOO = Boolean(
+    (provisionalReviewOwner as any)?.isOutOfOffice ||
+    (provisionalReviewOwner as any)?.outOfOffice ||
+    (provisionalReviewOwner as any)?.status === 'out_of_office'
+  );
+  const coverageIsActive = Boolean(
+    task.coverageActive === true ||
+    task.isCoverageActive === true ||
+    String(task.coverageMode || '').toLowerCase() === 'active' ||
+    task.assigneeCoveringStaffId ||
+    task.reviewCoveringStaffId ||
+    assigneeIsOOO ||
+    reviewOwnerIsOOO
+  );
+
+  const isCovering = coverageIsActive && Boolean(
+    (coveringStaff && targetMemberStaff && coveringStaff.id === targetMemberStaff.id) ||
+    (targetMemberId && rawCoveringId && (targetMemberId === rawCoveringId || LEGACY_ID_MAP[rawCoveringId] === targetMemberId)) ||
+    (targetMemberName && rawCovering && (rawCovering === targetMemberName || rawCovering.includes(targetMemberName))) ||
+    (targetFirstName && rawCovering && rawCovering.includes(targetFirstName))
+  );
+
+  // 3. Review ownership resolution for tasks awaiting review / review-owner tasks
+  const isAwaitingReview = Boolean(
+    task.reviewState === 'awaiting_review' ||
+    taskStatus === 'proof_submitted' ||
+    taskStatus === 'awaiting_review' ||
+    taskStatus === 'ready_for_review' ||
+    taskStatus === 'agent_review'
+  );
+
+  const rawReviewOwner = (task.reviewOwnerName || task.reviewOwner || task.reviewerName || task.reviewer || '').toLowerCase();
+  const rawReviewOwnerId = (task.reviewOwnerId || task.reviewerId || '').toLowerCase();
+  const reviewOwnerStaff = resolveCanonicalStaffMember(
+    task.reviewOwnerId || task.reviewerId || task.reviewOwnerName || task.reviewOwner || task.reviewerName || task.reviewer,
+    wsId
+  );
+
+  const matchesExplicitReviewOwner = Boolean(
+    (reviewOwnerStaff && targetMemberStaff && reviewOwnerStaff.id === targetMemberStaff.id) ||
+    (targetMemberId && rawReviewOwnerId && (targetMemberId === rawReviewOwnerId || LEGACY_ID_MAP[rawReviewOwnerId] === targetMemberId)) ||
+    (targetMemberName && rawReviewOwner && (rawReviewOwner === targetMemberName || rawReviewOwner.includes(targetMemberName))) ||
+    (targetFirstName && rawReviewOwner && rawReviewOwner.includes(targetFirstName))
+  );
+
+  const isTargetMarketingDirector = Boolean(
+    targetMemberId === 'dir_melissa_gagliardi_33' ||
+    targetMemberName.includes('melissa') ||
+    targetMemberStaff?.role?.toLowerCase() === 'marketing director'
+  );
+  const taskCat = (task.category || '').toLowerCase();
+  const isOps = Boolean(taskCat.includes('operat') || taskCat.includes('sign') || (task.departmentId || '').toLowerCase() === 'operations');
+  const isMarketingCategory = !isOps;
+  const isDefaultDirectorReview = isTargetMarketingDirector && isMarketingCategory && (!reviewOwnerStaff || reviewOwnerStaff.id === targetMemberStaff?.id);
+
+  const isReviewOwnerForMember = matchesExplicitReviewOwner || (isAwaitingReview && isDefaultDirectorReview);
+
+  // 4. Apply coverage filter
+  const filter = options.coverageFilter || 'all';
+  if (filter === 'direct') {
+    return isDirectlyAssigned || isReviewOwnerForMember;
+  }
+  if (filter === 'coverage') {
+    return isCovering;
+  }
+
+  return isDirectlyAssigned || isCovering || isReviewOwnerForMember;
 }
 
 /**
@@ -388,4 +523,30 @@ export function sanitizeTaskAssignment<T extends Record<string, any>>(task: T): 
     };
   }
   return task;
+}
+
+/**
+ * Resolves the canonical Marketing Director for the workspace.
+ * Uses workspace roster role, title, or department director capability dynamically.
+ * Never hardcodes Melissa's name or ID.
+ */
+export function getCanonicalMarketingDirector(
+  workspaceId: string = 'ws_wilmington'
+): (CanonicalStaffMember & { firstName: string }) | null {
+  const roster = getCanonicalStaffRoster({ workspaceId, includeInactive: true });
+
+  // 1. Role or title explicitly Marketing Director
+  const directMatch = roster.find(m =>
+    m.role?.toLowerCase() === 'marketing director' ||
+    m.title?.toLowerCase().includes('marketing director') ||
+    (m.department === 'Marketing' && m.role?.toLowerCase().includes('director'))
+  );
+  const match = directMatch || roster.find(m =>
+    m.role?.toLowerCase().includes('marketing') && m.role?.toLowerCase().includes('director')
+  );
+  if (!match) return null;
+  return {
+    ...match,
+    firstName: match.displayName?.split(' ')[0] || match.name?.split(' ')[0] || 'Melissa'
+  };
 }

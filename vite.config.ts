@@ -10,6 +10,8 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
         html2canvas: 'html2canvas-pro',
+        // Vite 6 externalizes node builtins; force browser buffer polyfill for client build
+        buffer: path.resolve(__dirname, 'node_modules/buffer'),
       },
     },
     build: {

@@ -6,8 +6,12 @@ import EvidenceDrawer from '../ui/EvidenceDrawer';
 import { useWorkspaceConsoleState } from '../../state/useWorkspaceConsoleState';
 import ErrorBoundary from '../system/ErrorBoundary';
 import WorkspaceAccessGate from '../system/WorkspaceAccessGate';
+import {
+  clearSandboxIdentity,
+  isAllowedCustomerRole,
+  uniqueProfilesByEmail,
+} from '../../utils/sandboxIdentity';
 
-const allowedCustomerRoles = ['owner', 'admin', 'broker', 'agent', 'operations_manager', 'transaction_coordinator', 'compliance_officer', 'staff', 'guest'];
 
 export default function WorkspaceConsole() {
   const state = useWorkspaceConsoleState();
@@ -111,7 +115,7 @@ export default function WorkspaceConsole() {
     );
   }
 
-  if (!allowedCustomerRoles.includes(activeProfile?.role || '')) {
+  if (!isAllowedCustomerRole(activeProfile?.role || '')) {
     return (
       <div className="min-h-screen bg-[#012822] flex items-center justify-center font-sans p-6 text-left text-[#F6F7F1] select-none">
         <div className="max-w-md w-full bg-[#013028] border border-emerald-500/20 rounded-2xl p-8 shadow-2xl space-y-6">
@@ -137,7 +141,7 @@ export default function WorkspaceConsole() {
                 onChange={(e) => handleRoleSwitch(e.target.value)}
                 className="w-full px-3 py-2 bg-[#01241E] border border-white/15 text-white rounded-lg text-xs font-semibold focus:outline-none"
               >
-                {profiles.map((p: any) => (
+                {uniqueProfilesByEmail(profiles).map((p: any) => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({p.role.replace('_', ' ')})
                   </option>
@@ -148,6 +152,7 @@ export default function WorkspaceConsole() {
           <div>
             <button
               onClick={() => {
+                clearSandboxIdentity();
                 window.location.pathname = '/login';
               }}
               className="w-full py-2.5 bg-[#00635C] hover:bg-[#004d47] text-white border border-emerald-400/30 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
@@ -170,7 +175,7 @@ export default function WorkspaceConsole() {
         sidebarCollapsed={sidebarCollapsed}
         setSidebarCollapsed={setSidebarCollapsed}
         activeProfile={activeProfile}
-        profiles={profiles}
+        profiles={uniqueProfilesByEmail(profiles)}
         onSwitchProfile={handleRoleSwitch}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}

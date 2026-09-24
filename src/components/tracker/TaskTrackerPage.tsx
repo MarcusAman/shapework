@@ -36,10 +36,10 @@ interface TrackerNote {
 interface TaskTrackerRecord {
   token: string;
   ticketId: string;
-  callId: string;
+  callId?: string;
   callerName: string;
-  phone: string;
-  email: string;
+  phone?: string;
+  email?: string;
   propertyAddress: string;
   category: string;
   fourPointSummary: {
@@ -52,15 +52,25 @@ interface TaskTrackerRecord {
   currentStepIndex: number;
   stages: TrackerTimelineStage[];
   notes: TrackerNote[];
-  callbackRequested: boolean;
+  callbackRequested?: boolean;
   callbackRequestedAt?: string;
   createdAt: string;
   targetSla: string;
   slaRemainingMinutes: number;
+  isMarketingRequest?: boolean;
+  deliverables?: string[];
+  assignedLead?: string;
+  assignedProducer?: string;
+  photos?: Array<{ id: string; name: string; url: string; type?: string; sizeBytes?: number }>;
+  externalLinks?: Array<{ url: string; title: string; type: string }>;
 }
 
 export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp }) => {
-  const token = tokenProp || (typeof window !== 'undefined' ? window.location.pathname.split('/tracker/')[1]?.split('?')[0] : '');
+  const token = tokenProp || (typeof window !== 'undefined' 
+    ? (window.location.pathname.split('/track/marketing/')[1]?.split('?')[0] 
+       || window.location.pathname.split('/tracker/')[1]?.split('?')[0] 
+       || window.location.pathname.split('/track/')[1]?.split('?')[0]) 
+    : '');
   const [tracker, setTracker] = useState<TaskTrackerRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,11 +79,19 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [requestingCallback, setRequestingCallback] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const isMissingToken = !token || token === 'status' || token === 'marketing';
 
   const fetchTracker = async () => {
-    if (!token) return;
+    if (isMissingToken) {
+      setError('missing_token');
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch(`/api/tracker/${token}`);
+      const res = await fetch(`/api/tracker/${encodeURIComponent(token)}`);
       const data = await res.json();
       if (data.success && data.tracker) {
         setTracker(data.tracker);
@@ -90,9 +108,47 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
 
   useEffect(() => {
     fetchTracker();
+    if (isMissingToken) return;
     const interval = setInterval(fetchTracker, 15000); // Polling every 15s for real-time status
     return () => clearInterval(interval);
   }, [token]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !token) return;
+
+    setUploadingPhoto(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const res = await fetch(`/api/tracker/${token}/assets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type,
+            fileBase64: base64
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.tracker) {
+          setTracker(data.tracker);
+          setToastMsg('✓ Photo uploaded and linked to marketing package!');
+          setTimeout(() => setToastMsg(null), 4000);
+        } else {
+          setToastMsg('Failed to upload photo.');
+          setTimeout(() => setToastMsg(null), 4000);
+        }
+        setUploadingPhoto(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setToastMsg('Upload error. Please try again.');
+      setTimeout(() => setToastMsg(null), 4000);
+      setUploadingPhoto(false);
+    }
+  };
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,22 +215,33 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
   }
 
   if (error || !tracker) {
+    const isMissing = error === 'missing_token';
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+          <div className={`w-12 h-12 rounded-full ${isMissing ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-600'} flex items-center justify-center mx-auto`}>
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h2 className="text-lg font-bold text-slate-900">Tracker Record Not Found</h2>
+          <h2 className="text-lg font-bold text-slate-900">
+            {isMissing ? 'Open your Nest workspace' : 'Tracker Record Not Found'}
+          </h2>
           <p className="text-xs text-slate-500">
-            This tracking link may have expired or is invalid. Please check your SMS or call our operations hotline.
+            {isMissing
+              ? 'This email did not include a task-specific tracking link. Open your Nest workboard to see live marketing status.'
+              : 'This tracking link may have expired or is invalid. Please check your SMS or call our operations hotline.'}
           </p>
           <a
-            href="tel:+19105072047"
+            href={isMissing ? 'https://shapework.co/app/workboard' : 'tel:+19105072047'}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#00635C] text-white rounded-xl text-xs font-bold shadow-sm"
           >
-            <Phone className="w-4 h-4" />
-            <span>Call Hotline: +1 (910) 507-2047</span>
+            {isMissing ? (
+              <span>Open Nest Workboard</span>
+            ) : (
+              <>
+                <Phone className="w-4 h-4" />
+                <span>Call Hotline: +1 (910) 507-2047</span>
+              </>
+            )}
           </a>
         </div>
       </div>
@@ -295,14 +362,83 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
           </div>
         </div>
 
+        {/* Deliverables Section (for marketing requests) */}
+        {tracker.deliverables && tracker.deliverables.length > 0 && (
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-400">Requested Deliverables</h2>
+            <div className="flex flex-wrap gap-2">
+              {tracker.deliverables.map((deliv, idx) => (
+                <span key={idx} className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00635C]" />
+                  <span>{deliv}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Property Photos & Linked Assets */}
+        {((tracker.photos && tracker.photos.length > 0) || (tracker.externalLinks && tracker.externalLinks.length > 0)) && (
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <h2 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-900">
+                Property Photos & Assets ({((tracker.photos?.length || 0) + (tracker.externalLinks?.length || 0))})
+              </h2>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="text-[11px] font-bold text-[#00635C] hover:underline cursor-pointer"
+              >
+                {uploadingPhoto ? 'Uploading...' : '+ Upload Photo'}
+              </button>
+            </div>
+
+            {/* Photos Thumbnail Grid */}
+            {tracker.photos && tracker.photos.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                {tracker.photos.map((p, idx) => (
+                  <div key={p.id || idx} className="relative group aspect-square rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs">
+                    <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-1.5 text-[9px] text-white truncate font-medium">
+                      {p.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* External Links List */}
+            {tracker.externalLinks && tracker.externalLinks.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {tracker.externalLinks.map((l, idx) => (
+                  <a
+                    key={idx}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 transition"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span>{l.title}</span>
+                    </span>
+                    <span className="text-[10px] text-[#00635C] font-bold">Open Link ↗</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 4-Point Operational Action Summary Callout */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3.5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <h2 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-900 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#00635C]" />
-              <span>Nora 4-Point Action Summary</span>
+              <span>{tracker.isMarketingRequest ? 'Collateral Production Specs' : 'Nora 4-Point Action Summary'}</span>
             </h2>
-            <span className="text-[10px] font-mono text-slate-400">Post-Call Brief</span>
+            <span className="text-[10px] font-mono text-slate-400">{tracker.isMarketingRequest ? 'Marketing Suite' : 'Post-Call Brief'}</span>
           </div>
 
           <div className="space-y-2.5">
@@ -326,7 +462,7 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
               <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700 flex items-center gap-1">
-                <span>3️⃣ Assigned Department Lead</span>
+                <span>3️⃣ Assigned Lead</span>
               </div>
               <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <UserCheck className="w-3.5 h-3.5 text-purple-600" />
@@ -356,30 +492,31 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
             <MessageSquare className="w-4 h-4 text-[#00635C] mb-1.5" />
             <div>
               <span className="font-bold text-xs text-slate-900 block">Add Note</span>
-              <span className="text-[10px] text-slate-500">Provide extra details or photos</span>
+              <span className="text-[10px] text-slate-500">Provide instructions or feedback</span>
             </div>
           </button>
 
           <button
             type="button"
-            onClick={handleRequestCallback}
-            disabled={requestingCallback || tracker.callbackRequested}
-            className={`p-3.5 rounded-2xl border shadow-xs text-left transition-all cursor-pointer flex flex-col justify-between ${
-              tracker.callbackRequested 
-                ? 'bg-amber-50 border-amber-200 text-amber-800' 
-                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-900'
-            }`}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPhoto}
+            className="p-3.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl shadow-xs text-left transition-all cursor-pointer flex flex-col justify-between"
           >
-            <PhoneCall className={`w-4 h-4 mb-1.5 ${tracker.callbackRequested ? 'text-amber-600' : 'text-[#00635C]'}`} />
+            <FileText className="w-4 h-4 text-[#00635C] mb-1.5" />
             <div>
-              <span className="font-bold text-xs block">
-                {tracker.callbackRequested ? 'Callback Requested' : 'Request Callback'}
+              <span className="font-bold text-xs text-slate-900 block">
+                {uploadingPhoto ? 'Uploading...' : 'Upload Photos'}
               </span>
-              <span className="text-[10px] text-slate-500">
-                {tracker.callbackRequested ? 'Lead notified' : 'Have lead call you'}
-              </span>
+              <span className="text-[10px] text-slate-500">Attach listing photography</span>
             </div>
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
 
         {/* Activity & Notes Stream */}

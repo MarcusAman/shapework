@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Play,
@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   Share2,
   Users,
-  Quote
+  Quote,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 
 interface MorningPulseData {
@@ -50,55 +52,143 @@ interface MorningPulseData {
 export const NoraMorningPulseStudio: React.FC = () => {
   const [pulse, setPulse] = useState<MorningPulseData | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
+  const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(58);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [broadcastSuccess, setBroadcastSuccess] = useState(false);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioBlobUrlRef = useRef<string | null>(null);
+
   useEffect(() => {
     fetchMorningPulse();
+  }, []);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      if (audioBlobUrlRef.current) {
+        URL.revokeObjectURL(audioBlobUrlRef.current);
+      }
+    };
   }, []);
 
   const fetchMorningPulse = async () => {
     try {
       const res = await fetch('/api/nora/morning-pulse');
       const data = await res.json();
-      if (data.success) setPulse(data.pulse);
+      if (data.success) {
+        setPulse(data.pulse);
+        if (data.pulse?.audioBriefing?.durationSeconds) {
+          setAudioDuration(data.pulse.audioBriefing.durationSeconds);
+        }
+      }
     } catch (e) {
       console.error(e);
     }
   };
 
-  useEffect(() => {
-    let interval: any;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setPlaybackProgress(prev => {
-          if (prev >= 100) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 2;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+  const togglePlayAudio = async () => {
+    setAudioError(null);
 
-  const togglePlayAudio = () => {
-    if (!isPlaying && 'speechSynthesis' in window && pulse) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(pulse.audioBriefing.transcript);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.05;
-      utterance.onend = () => {
-        setIsPlaying(false);
-        setPlaybackProgress(0);
-      };
-      window.speechSynthesis.speak(utterance);
-    } else if (isPlaying && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    // If playing, pause
+    if (isPlaying) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    // If audio already loaded in memory
+    if (audioRef.current && audioBlobUrlRef.current) {
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+        return;
+      } catch (e) {
+        console.warn('[Audio Play Error]:', e);
+      }
+    }
+
+    if (!pulse?.audioBriefing?.transcript) return;
+
+    setIsLoadingAudio(true);
+    try {
+      const res = await fetch('/api/elevenlabs/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: pulse.audioBriefing.transcript,
+          voiceId: 'l006hw6wZaEYAv80cbzj' // Official Nora Custom Real Estate Voice
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`ElevenLabs audio stream unavailable (HTTP ${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      audioBlobUrlRef.current = blobUrl;
+
+      const audio = new Audio(blobUrl);
+      audioRef.current = audio;
+
+      audio.onloadedmetadata = () => {
+        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+          setAudioDuration(audio.duration);
+        }
+      };
+
+      audio.ontimeupdate = () => {
+        if (audio.duration) {
+          const pct = (audio.currentTime / audio.duration) * 100;
+          setPlaybackProgress(Math.min(100, Math.max(0, pct)));
+          setCurrentAudioTime(audio.currentTime);
+        }
+      };
+
+      audio.onended = () => {
+        setIsPlaying(false);
+        setPlaybackProgress(100);
+      };
+
+      audio.onerror = () => {
+        setIsPlaying(false);
+        setIsLoadingAudio(false);
+        setAudioError('ElevenLabs audio stream error. Please retry.');
+      };
+
+      await audio.play();
+      setIsPlaying(true);
+    } catch (err: any) {
+      console.error('[ElevenLabs Morning Pulse Error]:', err);
+      // Strictly NO fallback to robotic browser voice
+      setAudioError(err.message || 'ElevenLabs audio temporarily unavailable. Click retry.');
+      setIsPlaying(false);
+    } finally {
+      setIsLoadingAudio(false);
+    }
+  };
+
+  const handleSeek = (percentage: number) => {
+    const clampedPct = Math.max(0, Math.min(100, percentage));
+    setPlaybackProgress(clampedPct);
+    if (audioRef.current && audioRef.current.duration) {
+      const newTime = (clampedPct / 100) * audioRef.current.duration;
+      audioRef.current.currentTime = newTime;
+      setCurrentAudioTime(newTime);
+    } else {
+      setCurrentAudioTime((clampedPct / 100) * audioDuration);
+    }
   };
 
   const handleBroadcast = async () => {
@@ -174,33 +264,76 @@ export const NoraMorningPulseStudio: React.FC = () => {
 
       {/* Neural Audio Briefing Player */}
       <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-sm space-y-3">
+        {/* Error Alert Badge (Strict No-Robot Voice Policy) */}
+        {audioError && (
+          <div className="flex items-center justify-between bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 text-xs text-rose-700">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{audioError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={togglePlayAudio}
+              className="font-bold underline text-rose-800 hover:text-rose-900 ml-2 cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={togglePlayAudio}
-              className="w-10 h-10 rounded-full bg-[#00635C] hover:bg-[#00524C] text-white flex items-center justify-center shadow-md transition-all"
+              disabled={isLoadingAudio}
+              className="w-10 h-10 rounded-full bg-[#00635C] hover:bg-[#00524C] text-white flex items-center justify-center shadow-md transition-all cursor-pointer disabled:opacity-75"
+              title={isLoadingAudio ? 'Loading ElevenLabs voice...' : isPlaying ? 'Pause briefing' : 'Play briefing with ElevenLabs Nora'}
             >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              {isLoadingAudio ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : isPlaying ? (
+                <Pause className="w-4 h-4" />
+              ) : (
+                <Play className="w-4 h-4 ml-0.5" />
+              )}
             </button>
             <div>
-              <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                <Volume2 className="w-3.5 h-3.5 text-[#00635C]" />
-                Nora 60-Second Daily Voice Briefing
-              </h4>
-              <p className="text-[10px] text-stone-600">
-                {pulse.audioBriefing.voiceActor} • {pulse.audioBriefing.durationSeconds}s duration
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-[#00635C]" />
+                  Nora 60-Second Daily Voice Briefing
+                </h4>
+                <span className="text-[9px] font-mono bg-emerald-50 text-[#00635C] border border-emerald-200/60 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  ElevenLabs Nora
+                </span>
+              </div>
+              <p className="text-[10px] text-stone-600 mt-0.5">
+                ElevenLabs High-Fidelity Voice • {Math.round(audioDuration)}s duration
               </p>
             </div>
           </div>
           <span className="text-xs font-mono font-semibold text-stone-600">
-            {isPlaying ? `${Math.round((playbackProgress / 100) * pulse.audioBriefing.durationSeconds)}s` : '0:58'}
+            {Math.floor((currentAudioTime || (playbackProgress / 100) * audioDuration) / 60)}:
+            {Math.round((currentAudioTime || (playbackProgress / 100) * audioDuration) % 60) < 10 ? '0' : ''}
+            {Math.round((currentAudioTime || (playbackProgress / 100) * audioDuration) % 60)}
+            {' / '}
+            {Math.floor(audioDuration / 60)}:{Math.round(audioDuration % 60) < 10 ? '0' : ''}{Math.round(audioDuration % 60)}
           </span>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">
+        {/* Interactive Scrub Progress Bar */}
+        <div 
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const pct = (clickX / rect.width) * 100;
+            handleSeek(pct);
+          }}
+          className="w-full bg-stone-100 hover:bg-stone-200 h-2 rounded-full overflow-hidden cursor-pointer transition-all"
+          title="Click to seek"
+        >
           <div
-            className="bg-[#00635C] h-full transition-all duration-300 rounded-full"
+            className="bg-[#00635C] h-full transition-all duration-150 rounded-full"
             style={{ width: `${playbackProgress}%` }}
           />
         </div>

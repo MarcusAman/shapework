@@ -1019,3 +1019,12 @@ export async function resolveTelephonyMediaForCall(
       : (call.status === 'in_progress' ? 'processing' : 'unavailable')
   };
 }
+
+export function formatEasternCallTimestamp(input?: string | Date | null): string {
+  if (!input) return '';
+  try {
+    return new Date(input).toLocaleString('en-US', { timeZone: 'America/New_York' });
+  } catch {
+    return String(input);
+  }
+}
