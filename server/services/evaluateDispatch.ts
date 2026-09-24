@@ -11,6 +11,7 @@ import {
 } from '../../src/lib/outboundAllowlistGate.js';
 import { isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
+import { isInlineDataProof, resolveProofPrecedence } from '../../src/lib/proofPrecedence.js';
 
 export const DISPATCH_REASON = {
   role: 'Only the task reviewer may approve and notify.',
@@ -60,7 +61,19 @@ export type EvaluateDispatchInput = {
   driveFolderUrl?: string | null;
   assetUrls?: string[] | null;
   attachments?: unknown[] | null;
+  /**
+   * Outbound master mode. Tests inject this so the kill switch does not
+   * depend on editing .env. When omitted, the process env is used.
+   */
+  outboundMode?: string | null;
 };
+
+/** Process-wide test injection. Production never sets this. */
+let injectedOutboundMode: string | null = null;
+
+export function setDispatchOutboundModeForTests(mode: string | null): void {
+  injectedOutboundMode = mode;
+}
 
 function cleanList(values?: Array<string | null | undefined> | null): string[] {
   return Array.from(
@@ -95,11 +108,18 @@ export function filterDispatchCc(
   return filterDispatchRecipients(cc, recipientStatus);
 }
 
-function outboundTurnedOff(): boolean {
-  const mode = String(process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold')
+function readOutboundMode(input: EvaluateDispatchInput): string {
+  const injected = input.outboundMode ?? injectedOutboundMode;
+  if (injected != null && String(injected).trim() !== '') {
+    return String(injected).toLowerCase().trim();
+  }
+  return String(process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold')
     .toLowerCase()
     .trim();
-  return mode === 'disabled';
+}
+
+function outboundTurnedOff(input: EvaluateDispatchInput): boolean {
+  return readOutboundMode(input) === 'disabled';
 }
 
 function explicitBadProof(url?: string | null): boolean {
@@ -111,33 +131,34 @@ function explicitBadProof(url?: string | null): boolean {
   return true;
 }
 
-function hasRealFolder(url?: string | null): boolean {
+function isDriveFolderUrl(url?: string | null): boolean {
   const value = String(url || '').trim();
   if (!value || /1DRV_/i.test(value)) return false;
+  if (!/\/folders\//i.test(value)) return false;
   return isRealGoogleDriveUrl(value);
 }
 
-function hasSendableFile(input: EvaluateDispatchInput, folderUrl: string): boolean {
-  const proofs = [input.proofUrl, input.task?.proofUrl, folderUrl];
-  if (proofs.some((url) => isDurableHttpsProofUrl(url))) return true;
-  if (proofs.some((url) => String(url || '').trim().startsWith('/uploads/'))) return true;
-  const urls = [...(input.assetUrls || [])];
-  if (urls.some((url) => {
-    const value = String(url || '').trim();
-    if (!value || /^data:|^blob:|^file:/i.test(value)) return false;
-    return value.startsWith('/') || isDurableHttpsProofUrl(value);
-  })) return true;
+/** A file is an https file link or a real upload. A folder URL is not a file. data: is never a file. */
+function isSendableFileUrl(url?: string | null): boolean {
+  const value = String(url || '').trim();
+  if (!value || isInlineDataProof(value)) return false;
+  if (/\/folders\//i.test(value)) return false;
+  if (value.startsWith('/uploads/')) return true;
+  return isDurableHttpsProofUrl(value);
+}
+
+function attachmentFileUrl(item: unknown): string {
+  if (!item) return '';
+  if (typeof item === 'string') return item.trim();
+  const record = item as { url?: string; previewUrl?: string; driveUrl?: string; downloadUrl?: string };
+  return String(record.driveUrl || record.downloadUrl || record.url || record.previewUrl || '').trim();
+}
+
+function hasSendableFile(input: EvaluateDispatchInput, proof: string): boolean {
+  if (isSendableFileUrl(proof)) return true;
+  if ((input.assetUrls || []).some((url) => isSendableFileUrl(url))) return true;
   const attachments = [...(input.attachments || []), ...(input.task?.attachments || [])];
-  return attachments.some((item) => {
-    if (!item) return false;
-    if (typeof item === 'string') {
-      const value = item.trim();
-      return Boolean(value) && !/^data:|^blob:/i.test(value);
-    }
-    const url = String((item as { url?: string }).url || '').trim();
-    if (!url) return true;
-    return !/^data:|^blob:/i.test(url);
-  });
+  return attachments.some((item) => isSendableFileUrl(attachmentFileUrl(item)));
 }
 
 export function dispatchBlockStatus(reason: string): number {
@@ -197,18 +218,19 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
   const effectiveTo = filterDispatchRecipients(email ? [email] : [], recipientStatus);
   const effectiveCc = filterDispatchRecipients(input.cc, recipientStatus);
   const folderUrl = String(input.driveFolderUrl || input.task?.driveFolderUrl || '').trim();
-  const suppliedProof = String(input.proofUrl || '').trim();
+  const suppliedProof = resolveProofPrecedence(input.proofUrl, input.task?.proofUrl);
 
+  // Fixed order: role, recipient, proof, Drive folder AND a file, kill switch.
   let reason = '';
   if (full && !actorIsTaskReviewer(input.actor, input.task)) {
     reason = DISPATCH_REASON.role;
-  } else if (full && explicitBadProof(suppliedProof)) {
-    reason = DISPATCH_REASON.proof;
-  } else if (full && !hasRealFolder(folderUrl) && !hasSendableFile(input, folderUrl)) {
-    reason = DISPATCH_REASON.file;
   } else if (recipientStatus === 'unresolved') {
     reason = DISPATCH_REASON.recipient;
-  } else if (outboundTurnedOff()) {
+  } else if (full && explicitBadProof(suppliedProof)) {
+    reason = DISPATCH_REASON.proof;
+  } else if (full && !(isDriveFolderUrl(folderUrl) && hasSendableFile(input, suppliedProof))) {
+    reason = DISPATCH_REASON.file;
+  } else if (outboundTurnedOff(input)) {
     reason = DISPATCH_REASON.outbound;
   }
 

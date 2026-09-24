@@ -89,6 +89,7 @@ import type { CanonicalActivityEvent } from '../../../server/services/activityHi
 import { resolveCanonicalStaffMember, getCanonicalMarketingDirector } from '../../services/canonicalRoster';
 import { getRequesterActionLabel, resolveCanonicalRecipient, CANONICAL_AGENT_DIRECTORY } from '../../services/canonicalRecipientService';
 import { dispatchRecipientConfirmed, type DispatchVerdictView } from '../../lib/dispatchVerdict';
+import { firstNonInlineProof, proofInputValue, resolveProofPrecedence } from '../../lib/proofPrecedence';
 import { confirmRequesterWrite } from '../../lib/confirmRequesterWrite';
 import { resolveTaskAssets } from '../../utils/assetResolver';
 import {
@@ -583,7 +584,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Sync inputs when active task changes
   useEffect(() => {
     if (activeTask) {
-      setManualProofUrl(activeTask.proofUrl || '');
+      setManualProofUrl(proofInputValue(activeTask.proofUrl));
       setProductionNotes(activeTask.proofNotes || activeTask.notes || '');
       setUrlValidationError(null);
       setStagedAssets([]);
@@ -777,7 +778,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             recipientName: activeTask.agentName,
             channels: ['email'],
             intent: 'delivery_complete',
-            proofUrl: activeTask.proofUrl,
+            proofUrl: resolveProofPrecedence(manualProofUrl, activeTask.proofUrl),
             driveFolderUrl: (activeTask as { driveFolderUrl?: string }).driveFolderUrl,
             domain: 'marketing',
           }),
@@ -1331,7 +1332,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     try {
       const check = manualProofUrl.trim() ? validateProofUrl(manualProofUrl) : null;
       const normalizedManual = check?.normalizedUrl || manualProofUrl.trim();
-      const primaryProofUrl = normalizedManual || stagedAssets[0]?.previewUrl || activeTask.proofUrl || (activeTask.photos && activeTask.photos[0]?.url) || (activeTask.attachments && activeTask.attachments[0]?.url) || '';
+      const primaryProofUrl = firstNonInlineProof(
+        normalizedManual,
+        stagedAssets[0]?.previewUrl,
+        activeTask.proofUrl,
+        activeTask.photos && activeTask.photos[0]?.url,
+        activeTask.attachments && activeTask.attachments[0]?.url
+      );
       const assetMeta = stagedAssets[0] ? {
         assetId: stagedAssets[0].id,
         deliverableName: stagedAssets[0].deliverableName,
@@ -1460,7 +1467,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             recipientName: agent.name,
             channels: ['email'],
             intent: 'delivery_complete',
-            proofUrl: activeTask.proofUrl,
+            proofUrl: resolveProofPrecedence(manualProofUrl, activeTask.proofUrl),
             domain: 'marketing',
           }),
         });
@@ -1513,7 +1520,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
     if (onAskRequester) {
-      const primaryProofUrl = manualProofUrl.trim() || stagedAssets[0]?.previewUrl || activeTask.proofUrl || (activeTask.photos && activeTask.photos[0]?.url) || (activeTask.attachments && activeTask.attachments[0]?.url) || '';
+      const primaryProofUrl = firstNonInlineProof(
+        manualProofUrl.trim(),
+        stagedAssets[0]?.previewUrl,
+        activeTask.proofUrl,
+        activeTask.photos && activeTask.photos[0]?.url,
+        activeTask.attachments && activeTask.attachments[0]?.url
+      );
       const assetMeta = stagedAssets[0] ? {
         assetId: stagedAssets[0].id,
         deliverableName: stagedAssets[0].deliverableName,
@@ -1557,7 +1570,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       ...activeTask,
       status: 'approved',
       reviewState: 'approved',
-      proofUrl: manualProofUrl.trim() || activeTask?.proofUrl,
+      proofUrl: resolveProofPrecedence(manualProofUrl.trim(), activeTask?.proofUrl),
     })) {
       setUrlValidationError(creativeOutboundBlockReason(activeTask) || 'Stage a finished proof before outbound.');
       return;
@@ -1592,7 +1605,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     setSaveStatus('saving');
 
     try {
-      const primaryProofUrl = manualProofUrl.trim() || stagedAssets[0]?.previewUrl || activeTask.proofUrl || (activeTask.photos && activeTask.photos[0]?.url) || (activeTask.attachments && activeTask.attachments[0]?.url) || '';
+      const primaryProofUrl = firstNonInlineProof(
+        manualProofUrl.trim(),
+        stagedAssets[0]?.previewUrl,
+        activeTask.proofUrl,
+        activeTask.photos && activeTask.photos[0]?.url,
+        activeTask.attachments && activeTask.attachments[0]?.url
+      );
       const assetMeta = stagedAssets[0] ? {
         assetId: stagedAssets[0].id,
         deliverableName: stagedAssets[0].deliverableName,
@@ -3464,7 +3483,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                         );
                       })}
                     </div>
-                  ) : activeTask.proofUrl ? (
+                  ) : proofInputValue(activeTask.proofUrl) ? (
                     (() => {
                       const proofUrl = activeTask.proofUrl;
                       const isUploadedServerAsset = proofUrl.startsWith('/uploads/') || !proofUrl.startsWith('http');

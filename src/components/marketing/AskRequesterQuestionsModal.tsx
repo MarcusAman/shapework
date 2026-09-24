@@ -36,6 +36,7 @@ import {
   dispatchRecipientConfirmed,
   type DispatchVerdictView,
 } from '../../lib/dispatchVerdict';
+import { resolveProofPrecedence } from '../../lib/proofPrecedence';
 
 export interface AskRequesterQuestionsModalProps {
   isOpen: boolean;
@@ -121,8 +122,6 @@ const QUESTION_CATALOG: QuestionItem[] = [
   }
 ];
 
-const MELISSA_CC = 'melissa.gagliardi@nestrealty.com';
-
 function isPlaceholderDriveLink(url: string): boolean {
   return /\/folders\/1DRV_/i.test(url) || /\/folders\/folder_/i.test(url) || /\/folders\/sub_/i.test(url);
 }
@@ -168,7 +167,6 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     (campaign?.outreachIntent === 'delivery_complete' ? 'delivery_complete' : 'ask_missing');
   const isDelivery = intent === 'delivery_complete';
   const domain = String(campaign?.domain || campaign?.taskDomain || 'marketing');
-  const showMelissaCc = isDelivery && domain !== 'operational';
 
   const recipient: VerifiedRecipient = useMemo(() => {
     if (!campaign) {
@@ -191,7 +189,13 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [selectedChannel, setSelectedChannel] = useState<'email' | 'text' | 'both'>('email');
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>(['photos']);
   const [customQuestionText, setCustomQuestionText] = useState<string>('');
-  const [customMessage, setCustomMessage] = useState<string>('');
+  const deliveryDraft = [
+    `${recipient.firstName || recipient.name.split(' ')[0] || 'there'}, we have your requested marketing assets ready. Click the Google Drive link below to view.`,
+    ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
+    '',
+    'Respond to this text if you need any revisions.',
+  ].join('\n');
+  const [customMessage, setCustomMessage] = useState<string>(isDelivery ? deliveryDraft : '');
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [hasManuallyEditedMessage, setHasManuallyEditedMessage] = useState<boolean>(false);
   const [hasManuallyEditedSubject, setHasManuallyEditedSubject] = useState<boolean>(false);
@@ -219,7 +223,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             recipientName: campaign.agentName,
             channels: ['email'],
             intent,
-            proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl,
+            proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl),
             driveFolderUrl: campaign.driveFolderUrl,
             domain,
           }),
@@ -275,7 +279,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             stagedAssets: campaign.approvePayload?.stagedAssets || [],
-            proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl,
+            proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl),
             attachments: campaign.attachments || [],
             propertyAddress: campaign.propertyAddress,
             agentName: campaign.agentName || campaign.recipientName,
@@ -393,11 +397,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       propertyAddress,
       intent,
       subject: emailSubject,
-      ccEmails: showMelissaCc ? [MELISSA_CC] : [],
+      ccEmails: activeDispatchVerdict?.effectiveCc || [],
       domain,
       workspaceId: campaign.workspaceId || 'ws_wilmington',
       driveFolderUrl: campaign.driveFolderUrl || undefined,
-      proofUrl: campaign.proofUrl || campaign.approvePayload?.proofUrl || undefined,
+      proofUrl: resolveProofPrecedence(campaign.approvePayload?.proofUrl, campaign.proofUrl) || undefined,
       assetUrls: isDelivery ? [] : collectDeliveryAssetLinks(campaign),
       attachments: (campaign.attachments || []).filter((a: any) => a?.url)
     };
@@ -436,12 +440,12 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
 
   const isEmailAvailable = recipientConfirmed;
   const isTextAvailable = recipient.phoneVerified;
-  const channelReady =
-    selectedChannel === 'email'
-      ? isEmailAvailable
-      : selectedChannel === 'text'
-        ? isTextAvailable
-        : isEmailAvailable && isTextAvailable;
+  const dispatchAllowed = activeDispatchVerdict?.allowed === true;
+  const effectiveTo = activeDispatchVerdict?.effectiveTo || [];
+  const effectiveCc = activeDispatchVerdict?.effectiveCc || [];
+  const dispatchBlockReason = activeDispatchVerdict && activeDispatchVerdict.allowed === false
+    ? activeDispatchVerdict.reason
+    : '';
   const isOutboundBlocked = !isOutboundEnabled;
   let actionButtonLabel = 'Save Outreach Draft';
   if (!isOutboundBlocked) {
@@ -601,7 +605,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 <div className="min-w-0">
                   <div className="font-semibold text-slate-900">{recipient.name}</div>
                   <div className="text-[11px] text-slate-600 font-mono mt-0.5 space-y-0.5">
-                    {recipient.maskedEmail ? (
+                    {isDelivery ? (
+                      <div data-testid="outreach-effective-to">
+                        {effectiveTo.length ? effectiveTo.join(', ') : '—'}
+                      </div>
+                    ) : recipient.maskedEmail ? (
                       <div className="flex items-center gap-1">
                         <Mail className="w-3 h-3 text-slate-400" />
                         <span>{recipient.maskedEmail}</span>
@@ -609,7 +617,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                     ) : (
                       <span className="text-amber-700 font-sans text-[10px]">{recipient.emailExplanation}</span>
                     )}
-                    {recipient.maskedPhone && (
+                    {!isDelivery && recipient.maskedPhone && (
                       <div className="flex items-center gap-1">
                         <Phone className="w-3 h-3 text-slate-400" />
                         <span>{recipient.maskedPhone}</span>
@@ -648,13 +656,11 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
                 </div>
               )}
 
-              {showMelissaCc && selectedChannel !== 'text' && (
-                <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-cc-melissa">
+              {isDelivery && selectedChannel !== 'text' && (
+                <div className="px-4 py-2.5 flex gap-3 items-start" data-testid="outreach-effective-cc">
                   <span className="w-12 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 pt-0.5">Cc</span>
-                  <div>
-                    <div className="font-semibold text-slate-900">Melissa Gagliardi</div>
-                    <div className="text-[11px] text-slate-600 font-mono">{MELISSA_CC}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Auto-CC on marketing complete outreach</div>
+                  <div className="text-[11px] text-slate-600 font-mono">
+                    {effectiveCc.length ? effectiveCc.join(', ') : '—'}
                   </div>
                 </div>
               )}
@@ -796,12 +802,17 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             Cancel
           </button>
 
+          {dispatchBlockReason ? (
+            <span data-testid="dispatch-block-reason" className="text-xs text-slate-700">
+              {dispatchBlockReason}
+            </span>
+          ) : <span />}
           <button
             type="button"
-            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate || !channelReady}
+            disabled={isSubmitting || !customMessage.trim() || isBlockedByDuplicate || !dispatchAllowed}
             onClick={handleAction}
             data-testid="ask-agent-submit-btn"
-            data-send-ready={recipientConfirmed ? 'true' : 'false'}
+            data-send-ready={dispatchAllowed ? 'true' : 'false'}
             data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
             className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >

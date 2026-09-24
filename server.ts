@@ -6434,7 +6434,7 @@ export async function getOrFetchCanonicalMarketingTask(taskId: string): Promise<
           attachments: Array.isArray(t.attachments) ? t.attachments : (t.attachments ? t.attachments : []),
           mlsNumber: t.mls_number || undefined,
           channel: t.channel || undefined,
-          proofUrl: t.proof_url || undefined,
+          proofUrl: t.proof_url && !/^data:|^blob:|^file:/i.test(String(t.proof_url).trim()) ? t.proof_url : undefined,
           deliverableType: t.deliverable_type || undefined
         } as CanonicalMarketingTask;
         saveCanonicalMarketingTask(task);
@@ -7307,15 +7307,20 @@ app.post('/api/marketing/tasks/:id/submit-proof', requireAuth, resolveWorkspaceC
       if (!cleanProof && s0?.id) cleanProof = `/uploads/${s0.id}`;
     }
     // Fallback to task's existing proofUrl or attached photo if frontend did not send one
+    const inlineProof = (value: string) => /^(?:data|blob|file):/i.test(value);
+    if (inlineProof(cleanProof)) cleanProof = '';
     if (!cleanProof) {
       const existingTask = getCanonicalMarketingTaskById(req.params.id);
-      if (existingTask?.proofUrl) {
-        cleanProof = existingTask.proofUrl.trim();
+      const existingProof = String(existingTask?.proofUrl || '').trim();
+      if (existingProof && !inlineProof(existingProof)) {
+        cleanProof = existingProof;
       } else if (existingTask?.photos && existingTask.photos.length > 0) {
-        cleanProof = existingTask.photos[0].trim();
+        const photo = String(existingTask.photos[0] || '').trim();
+        if (photo && !inlineProof(photo)) cleanProof = photo;
       } else if ((existingTask as any)?.attachments && (existingTask as any).attachments.length > 0) {
         const att = (existingTask as any).attachments[0];
-        cleanProof = typeof att === 'string' ? att.trim() : (att.url || att.previewUrl || '').trim();
+        const attUrl = typeof att === 'string' ? att.trim() : String(att.url || att.previewUrl || '').trim();
+        if (attUrl && !inlineProof(attUrl)) cleanProof = attUrl;
       } else if (assetMetadata?.assetId) {
         cleanProof = `/uploads/${assetMetadata.assetId}`;
       }
@@ -8258,9 +8263,10 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     const metaAssetPath = assetMetadata?.assetId
       ? (String(assetMetadata.assetId).startsWith('/') ? String(assetMetadata.assetId) : `/uploads/${assetMetadata.assetId}`)
       : '';
-    const incomingProofUrl = (typeof proofUrl === 'string' && proofUrl.trim())
-      ? proofUrl.trim()
-      : (stagedUrl || metaAssetPath || '');
+    const pastedBody = typeof proofUrl === 'string' ? proofUrl.trim() : '';
+    const stagedFile = /^(?:data|blob|file):/i.test(stagedUrl) ? '' : stagedUrl;
+    const rawIncomingProofUrl = pastedBody || stagedFile || metaAssetPath;
+    const incomingProofUrl = /^(?:data|blob|file):/i.test(rawIncomingProofUrl) ? '' : rawIncomingProofUrl;
     if (!deliverOnly && incomingProofUrl) {
       const urlChanged = !task.proofUrl || task.proofUrl !== incomingProofUrl;
       const missingHistory = !Array.isArray(task.proofHistory) || task.proofHistory.length === 0;
@@ -8360,7 +8366,6 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     }
 
     // 3. Resolve Intended Recipient from Task & Canonical Request
-    const { isProhibitedEmail } = await import('./server/services/canonicalRecipientService.js');
     const parentReq = task.requestId ? getCanonicalMarketingRequestById(task.requestId) : null;
     const propertyAddress = task.propertyAddress || parentReq?.propertyAddress || task.title || 'Listing Property';
     const agentEmail = task.agentEmail || parentReq?.agentEmail || (parentReq as any)?.requesterEmail || null;
@@ -8374,7 +8379,6 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     const dispatchVerdict = await evaluateDispatch({
       task: {
         ...task,
-        proofUrl: task.proofUrl || incomingProofUrl,
         driveFolderUrl: driveUrl || task.driveFolderUrl,
       },
       actor: sessionUser,
@@ -8386,21 +8390,11 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
       channel: 'email',
       cc: ['melissa.gagliardi@nestrealty.com'],
       intent: 'delivery_complete',
-      proofUrl: task.proofUrl || incomingProofUrl,
+      proofUrl: pastedBody || undefined,
       driveFolderUrl: driveUrl || task.driveFolderUrl,
     });
     if (!dispatchVerdict.allowed) {
       return res.status(dispatchBlockStatus(dispatchVerdict.reason)).json(dispatchRejectBody(dispatchVerdict));
-    }
-    if (!agentEmail || isProhibitedEmail(agentEmail)) {
-      return res.status(400).json({
-        success: false,
-        allowed: false,
-        reason: dispatchVerdict.reason || 'This recipient is not allowed.',
-        gateReason: dispatchVerdict.reason || 'This recipient is not allowed.',
-        error: 'RECIPIENT_UNCONFIRMED',
-        message: 'Intended requester email is missing or unconfirmed. Please confirm requester before dispatching collateral.'
-      });
     }
 
     // 4. Dispatch Approved Collateral Email to Agent

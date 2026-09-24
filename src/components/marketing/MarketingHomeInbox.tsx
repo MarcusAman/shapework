@@ -79,6 +79,7 @@ import {
 import { getDerivedCampaignState, getDerivedAssetState } from '../../shared/marketingStateModel';
 import { AskRequesterQuestionsModal } from './AskRequesterQuestionsModal';
 import { resolveCanonicalRecipient } from '../../services/canonicalRecipientService';
+import { proofInputValue } from '../../lib/proofPrecedence';
 import { NestOrbVisualizer } from '../shared/NestOrbVisualizer';
 import { MaxaBrowserAgentModal } from './MaxaBrowserAgentModal';
 import { RequestActionModal } from './RequestActionModal';
@@ -3011,7 +3012,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
               outreachIntent: intent,
               approvePayload: opts?.approvePayload || null,
               driveFolderUrl: (task as any).driveFolderUrl || parentReq?.driveFolderUrl,
-              proofUrl: (task as any).proofUrl || proofFromPayload,
+              proofUrl: proofInputValue((task as any).proofUrl),
               attachments: (task as any).attachments || parentReq?.attachments || [],
               photos: (task as any).photos || [],
               proofs: (task as any).proofs || [],

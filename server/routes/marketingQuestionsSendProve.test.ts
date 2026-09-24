@@ -15,7 +15,7 @@ import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
 import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import { WorkspaceTaskDrawer } from '../../src/components/marketing/WorkspaceTaskDrawer.js';
 import { confirmRequesterWrite } from '../../src/lib/confirmRequesterWrite.js';
-import { DISPATCH_REASON } from '../services/evaluateDispatch.js';
+import { DISPATCH_REASON, dispatchBlockCode, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
 import { resolveServerCanonicalRecipient } from '../services/canonicalRecipientService.js';
 import {
   getAllCanonicalMarketingTasks,
@@ -26,6 +26,7 @@ import type { Server } from 'http';
 
 const TASK_ID = 'tsk_send_questions_prove_trifold';
 const HTTPS_PROOF = 'https://drive.google.com/file/d/1AbCrealFile999xyz/view';
+const DRIVE_FOLDER = 'https://drive.google.com/drive/folders/1AbCrealFolder999xyz';
 const STORE = path.join(process.cwd(), 'server/data/canonical_marketing_store_test.json');
 
 describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
@@ -96,6 +97,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       domain: 'marketing',
       workspaceId: 'ws_wilmington',
       proofUrl: HTTPS_PROOF,
+      driveFolderUrl: DRIVE_FOLDER,
       ...overrides,
     };
   }
@@ -171,11 +173,10 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     expect(created[0][1].recipient).toBe('marcus.aman@gmail.com');
   });
 
-  it('blocks an empty Drive with no file, and a pasted https proof stays valid', async () => {
+  it('requires an https Drive folder and a file; an upload alone or a folder alone is blocked', async () => {
     const beforeKeys = new Set(memoryOutbox.keys());
-    const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), {
-      'x-user-email': 'melissa.gagliardi@nestrealty.com',
-    });
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), melissa);
     expect(empty.status, JSON.stringify(empty.data)).toBe(400);
     expect(empty.data.reason).toBe(DISPATCH_REASON.file);
     expect(empty.data.code).toBe('NO_SENDABLE_FILE');
@@ -183,22 +184,29 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     const emptyRows = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
     expect(emptyRows.length).toBe(0);
 
-    saveCanonicalMarketingTask({
-      id: TASK_ID,
-      title: 'Tri-fold brochure',
-      status: 'in_progress',
-      reviewState: 'awaiting_review',
+    const uploadOnly = await post(payload({
       proofUrl: undefined,
-      propertyAddress: '7174 Peachtree Way, Wilmington, NC 28403',
-      agentName: 'Marcus Aman',
-      agentEmail: 'marcus.aman@gmail.com',
-      workspaceId: 'ws_wilmington',
-      reviewOwnerId: 'dir_melissa_gagliardi_33',
-      reviewOwnerName: 'Melissa Gagliardi',
-    } as any);
-    const pasted = await post(payload({ driveFolderUrl: undefined, proofUrl: HTTPS_PROOF }), {
-      'x-user-email': 'melissa.gagliardi@nestrealty.com',
-    });
+      driveFolderUrl: undefined,
+      attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png', filename: 'Test_marcusgmail.png' }],
+    }), melissa);
+    expect(uploadOnly.status, JSON.stringify(uploadOnly.data)).toBe(400);
+    expect(uploadOnly.data.reason).toBe(DISPATCH_REASON.file);
+    expect(uploadOnly.data.code).toBe('NO_SENDABLE_FILE');
+
+    const folderOnly = await post(payload({
+      proofUrl: undefined,
+      driveFolderUrl: DRIVE_FOLDER,
+      attachments: [],
+      assetUrls: [],
+    }), melissa);
+    expect(folderOnly.status, JSON.stringify(folderOnly.data)).toBe(400);
+    expect(folderOnly.data.reason).toBe(DISPATCH_REASON.file);
+
+    const fileOnly = await post(payload({ driveFolderUrl: undefined, proofUrl: HTTPS_PROOF }), melissa);
+    expect(fileOnly.status, JSON.stringify(fileOnly.data)).toBe(400);
+    expect(fileOnly.data.reason).toBe(DISPATCH_REASON.file);
+
+    const pasted = await post(payload({ driveFolderUrl: DRIVE_FOLDER, proofUrl: HTTPS_PROOF }), melissa);
     expect(pasted.status, JSON.stringify(pasted.data)).toBe(200);
     expect(pasted.data.task?.proofUrl).toBe(HTTPS_PROOF);
   });
@@ -282,6 +290,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       headers: Record<string, string>;
       body: Record<string, unknown>;
       mode?: string;
+      outboundMode?: string;
       allowed: boolean;
       reason: string;
       status: number;
@@ -312,6 +321,54 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         status: 400,
       },
       {
+        name: 'upload without drive folder',
+        headers: melissa,
+        body: payload({
+          proofUrl: undefined,
+          driveFolderUrl: undefined,
+          attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png' }],
+        }),
+        allowed: false,
+        reason: DISPATCH_REASON.file,
+        status: 400,
+      },
+      {
+        name: 'drive folder with zero files',
+        headers: melissa,
+        body: payload({ proofUrl: undefined, driveFolderUrl: DRIVE_FOLDER, attachments: [], assetUrls: [] }),
+        allowed: false,
+        reason: DISPATCH_REASON.file,
+        status: 400,
+      },
+      {
+        name: 'qa.random example.com no proof',
+        headers: melissa,
+        body: payload({
+          recipientName: 'QA Random',
+          recipientEmail: 'qa.random@example.com',
+          recipientPhone: undefined,
+          channels: ['email'],
+          proofUrl: undefined,
+        }),
+        allowed: false,
+        reason: DISPATCH_REASON.recipient,
+        status: 400,
+      },
+      {
+        name: 'qa.random gmail no proof',
+        headers: melissa,
+        body: payload({
+          recipientName: 'QA Random',
+          recipientEmail: 'qa.random@gmail.com',
+          recipientPhone: undefined,
+          channels: ['email'],
+          proofUrl: undefined,
+        }),
+        allowed: false,
+        reason: DISPATCH_REASON.recipient,
+        status: 400,
+      },
+      {
         name: 'recipient not allowed',
         headers: melissa,
         body: payload({
@@ -333,7 +390,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           recipientPhone: undefined,
           channels: ['email'],
         }),
-        mode: 'disabled',
+        outboundMode: 'disabled',
         allowed: false,
         reason: DISPATCH_REASON.outbound,
         status: 400,
@@ -352,15 +409,23 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     for (const row of cases) {
       if (row.mode) process.env.OUTBOUND_MASTER_MODE = row.mode;
       else process.env.OUTBOUND_MASTER_MODE = 'hold';
+      setDispatchOutboundModeForTests(row.outboundMode || null);
       try {
         const check = await postCheck(row.body, row.headers);
         const send = await post(row.body, row.headers);
         expect(check.data.allowed, row.name).toBe(row.allowed);
-        expect(check.data.reason, row.name).toBe(row.reason);
-        expect(send.status, `${row.name} ${JSON.stringify(send.data)}`).toBe(row.status);
-        expect(send.data.allowed, row.name).toBe(row.allowed);
-        expect(send.data.gateReason ?? send.data.reason, row.name).toBe(check.data.reason);
-        expect(send.data.reason === check.data.reason || send.data.gateReason === check.data.reason, row.name).toBe(true);
+        expect(check.data.reason, `${row.name} ${JSON.stringify(check.data)}`).toBe(row.reason);
+        expect(check.status, row.name).toBe(row.status);
+        if (!row.allowed) {
+          expect(send.status, `${row.name} ${JSON.stringify(send.data)}`).toBe(check.status);
+          expect(send.data.code, row.name).toBe(check.data.code);
+          expect(send.data.reason, `${row.name} ${JSON.stringify(send.data)}`).toBe(check.data.reason);
+          expect(send.data.code, row.name).toBe(dispatchBlockCode(row.reason));
+          expect(String(send.data.error || '')).not.toContain('Prohibited recipient');
+        } else {
+          expect(send.status, `${row.name} ${JSON.stringify(send.data)}`).toBe(row.status);
+          expect(send.data.allowed, row.name).toBe(row.allowed);
+        }
         if (row.recipientStatus) {
           expect(check.data.recipientStatus).toBe(row.recipientStatus);
           expect(check.data.effectiveTo).toEqual(['marcus.aman@gmail.com']);
@@ -368,6 +433,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         }
       } finally {
         process.env.OUTBOUND_MASTER_MODE = 'hold';
+        setDispatchOutboundModeForTests(null);
       }
     }
   });
@@ -443,6 +509,50 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     }
   });
 
+  it('never stores a data: image as proofUrl', () => {
+    saveCanonicalMarketingTask({
+      id: TASK_ID,
+      title: 'Tri-fold brochure',
+      status: 'in_progress',
+      reviewState: 'awaiting_review',
+      proofUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      proofVersion: 4,
+      proofHistory: [{ version: 4, proofUrl: 'data:image/png;base64,iVBORw0KGgo=' }],
+      workspaceId: 'ws_wilmington',
+      reviewOwnerId: 'dir_melissa_gagliardi_33',
+      reviewOwnerName: 'Melissa Gagliardi',
+    } as any);
+    const task = getCanonicalMarketingTaskById(TASK_ID);
+    expect(task?.proofUrl || '').not.toMatch(/^data:/);
+    expect(task?.proofUrl || null).toBeFalsy();
+    expect(JSON.stringify(task?.proofHistory || [])).not.toContain('data:');
+  });
+
+  it('uses a pasted https proof ahead of the stored proof', async () => {
+    const stored = 'https://drive.google.com/file/d/1StoredProofOnly111abc/view';
+    saveCanonicalMarketingTask({
+      id: TASK_ID,
+      title: 'Tri-fold brochure',
+      status: 'in_progress',
+      reviewState: 'awaiting_review',
+      proofUrl: stored,
+      driveFolderUrl: DRIVE_FOLDER,
+      propertyAddress: '7174 Peachtree Way, Wilmington, NC 28403',
+      agentName: 'Marcus Aman',
+      agentEmail: 'marcus.aman@gmail.com',
+      workspaceId: 'ws_wilmington',
+      reviewOwnerId: 'dir_melissa_gagliardi_33',
+      reviewOwnerName: 'Melissa Gagliardi',
+    } as any);
+    const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
+    const check = await postCheck(payload({ proofUrl: HTTPS_PROOF, driveFolderUrl: DRIVE_FOLDER }), melissa);
+    expect(check.data.allowed, JSON.stringify(check.data)).toBe(true);
+    const send = await post(payload({ proofUrl: HTTPS_PROOF, driveFolderUrl: DRIVE_FOLDER }), melissa);
+    expect(send.status, JSON.stringify(send.data)).toBe(200);
+    expect(send.data.task?.proofUrl).toBe(HTTPS_PROOF);
+    expect(getCanonicalMarketingTaskById(TASK_ID)?.proofUrl).toBe(HTTPS_PROOF);
+  });
+
   it('keeps a Nest roster person on the directory and does not mint Marcus', async () => {
     const eduardo = await resolveServerCanonicalRecipient({ requesterEmail: 'eduardo.lovo@nestrealty.com' });
     expect(eduardo?.id).toBe('dir_eduardo_lovo_73');
@@ -512,6 +622,21 @@ describe('Approve & Notify drawer reads the server verdict', () => {
     expect(html).not.toContain('Requester needs confirmation');
   });
 
+  it('does not prefill the proof input from a data: proofUrl', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(WorkspaceTaskDrawer, {
+        isOpen: true,
+        activeTask: {
+          ...task,
+          proofUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ',
+        },
+        onClose: () => {},
+        currentUser: melissa,
+      })
+    );
+    expect(html).not.toContain('data:image/png');
+  });
+
   it('leaves Approve & Notify disabled until a server verdict arrives', () => {
     const html = renderToStaticMarkup(
       React.createElement(WorkspaceTaskDrawer, {
@@ -523,6 +648,73 @@ describe('Approve & Notify drawer reads the server verdict', () => {
     );
     const button = html.match(/<button[^>]*data-action="Approve &amp; send to agent"[^>]*>/);
     expect(button?.[0]).toContain('disabled');
+  });
+});
+
+describe('Notify modal reads dispatch-check To, CC, and allowed', () => {
+  const campaign = {
+    id: TASK_ID,
+    agentName: 'Marcus Aman',
+    agentEmail: 'marcus.aman@gmail.com',
+    phone: '(252) 717-0595',
+    propertyAddress: '7174 Peachtree Way',
+    outreachIntent: 'delivery_complete',
+    proofUrl: 'data:image/png;base64,iVBORw0KGgo=',
+    approvePayload: { proofUrl: HTTPS_PROOF },
+  };
+
+  it('renders To and CC only from the verdict and blocks Send while allowed is false', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AskRequesterQuestionsModal, {
+        isOpen: true,
+        onClose: () => {},
+        intent: 'delivery_complete',
+        isOutboundEnabled: true,
+        dispatchVerdict: {
+          allowed: false,
+          reason: 'Proof link must use https.',
+          recipientStatus: 'allowlisted_prove',
+          recipientId: null,
+          effectiveTo: ['marcus.aman@gmail.com'],
+          effectiveCc: [],
+        },
+        campaign,
+      })
+    );
+    expect(html).toContain('data-testid="outreach-effective-to"');
+    expect(html).toContain('marcus.aman@gmail.com');
+    expect(html).toContain('data-testid="outreach-effective-cc"');
+    expect(html).not.toContain('melissa.gagliardi@nestrealty.com');
+    expect(html).toContain('Send &amp; complete');
+    expect(html).toContain('Proof link must use https.');
+    expect(html).toContain('data-send-ready="false"');
+    const button = html.match(/<button[^>]*data-testid="ask-agent-submit-btn"[^>]*>/);
+    expect(button?.[0]).toContain('disabled=""');
+  });
+
+  it('enables Send & complete only when dispatch-check allowed is true', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AskRequesterQuestionsModal, {
+        isOpen: true,
+        onClose: () => {},
+        intent: 'delivery_complete',
+        isOutboundEnabled: true,
+        dispatchVerdict: {
+          allowed: true,
+          reason: '',
+          recipientStatus: 'allowlisted_prove',
+          recipientId: null,
+          effectiveTo: ['marcus.aman@gmail.com'],
+          effectiveCc: [],
+        },
+        campaign,
+      })
+    );
+    expect(html).not.toContain('melissa.gagliardi@nestrealty.com');
+    expect(html).toContain('data-send-ready="true"');
+    const button = html.match(/<button[^>]*data-testid="ask-agent-submit-btn"[^>]*>/);
+    expect(button?.[0]).not.toContain('disabled=""');
+    expect(html).not.toContain('data-testid="dispatch-block-reason"');
   });
 });
 

@@ -12,10 +12,9 @@ import { isLocalProveAllowlistTo } from '../../src/lib/outboundAllowlistGate.js'
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
 import {
   resolveServerCanonicalRecipient,
-  isProhibitedPhone,
-  isProhibitedEmail,
   isHotlineNumber
 } from '../services/canonicalRecipientService.js';
+import { resolveProofPrecedence } from '../../src/lib/proofPrecedence.js';
 import { recordActivityEvent, getActivityHistoryForTask } from '../services/activityHistoryService.js';
 import {
   ensureAskNoraDeliveryDrivePack,
@@ -309,11 +308,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', asyn
       ...(intent === 'delivery_complete' && body.domain !== 'operational' ? [melissaCc] : []),
     ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
     const verdict = await evaluateDispatch({
-      task: {
-        ...(task || { id: taskId }),
-        proofUrl: body.proofUrl ?? task?.proofUrl,
-        driveFolderUrl: body.driveFolderUrl ?? task?.driveFolderUrl,
-      },
+      task: task || { id: taskId },
       actor,
       recipient: {
         email: body.recipientEmail || task?.agentEmail,
@@ -326,7 +321,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', asyn
           : 'email',
       cc: proposedCc,
       intent,
-      proofUrl: body.proofUrl ?? task?.proofUrl,
+      proofUrl: body.proofUrl,
       driveFolderUrl: body.driveFolderUrl ?? task?.driveFolderUrl,
       assetUrls: body.assetUrls,
       attachments: body.attachments,
@@ -392,12 +387,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
         error: 'Prohibited recipient: The NORA hotline number (910) 507-2047 cannot be used as an agent text destination.'
       });
     }
-    if (wantsEmail && recipientEmail && isProhibitedEmail(recipientEmail)) {
-      return res.status(400).json({
-        success: false,
-        error: `Prohibited recipient: Placeholder email "${recipientEmail}" cannot receive messages.`
-      });
-    }
+    // Recipient, proof, Drive, and kill-switch refusals come only from evaluateDispatch.
     // Strip hotline from phone before directory resolve so it cannot poison email-only sends
     const safeRecipientPhone =
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
@@ -420,6 +410,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       actor = (req as any).authUser || (req as any).user || null;
     }
 
+    const proofForSend = resolveProofPrecedence(proofUrl, taskRecord?.proofUrl);
     const verdict = await evaluateDispatch({
       task: taskRecord || { id: String(taskId || campaignId), workspaceId },
       actor,
@@ -510,7 +501,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', async (r
       const deliveryResult = await persistApproveNotifyProof(req, res, {
         taskId: taskId || campaignId,
         campaignId,
-        proofUrl,
+        proofUrl: proofForSend || undefined,
         driveFolderUrl,
         workspaceId,
         propertyAddress,
