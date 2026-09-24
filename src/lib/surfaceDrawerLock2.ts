@@ -419,3 +419,25 @@ export function sanitizeTriageReasonForDisplay(raw?: string | null): string {
   }
   return SURFACE_DRAWER_TRIAGE_BODY;
 }
+
+/** Lock #2.2 — dense meta badge row: ONE row, TWO zones only (no empty third column). */
+export const SURFACE_META_ROW_SPLIT_CLASS = 'surface-meta-row-split';
+export const SURFACE_META_ROW_LEFT_CLASS = 'surface-meta-row-left';
+export const SURFACE_META_ROW_RIGHT_CLASS = 'surface-meta-row-right';
+
+/**
+ * Class hooks for the Mode B dense meta row.
+ * LEFT packs start (Event · When · Maps badges); RIGHT packs end (Requester · Assignee · Reviewer).
+ */
+export function resolveSurfaceMetaRowSplitClasses(): {
+  row: string;
+  left: string;
+  right: string;
+} {
+  return {
+    row: `${SURFACE_META_ROW_SPLIT_CLASS} flex w-full items-center justify-between gap-x-3 gap-y-1 flex-wrap`,
+    left: `${SURFACE_META_ROW_LEFT_CLASS} flex flex-wrap items-center gap-1.5 justify-start min-w-0`,
+    right: `${SURFACE_META_ROW_RIGHT_CLASS} flex flex-wrap items-center gap-x-2.5 gap-y-0.5 justify-end shrink-0 ml-auto text-[11px] text-slate-600 leading-tight`,
+  };
+}
+

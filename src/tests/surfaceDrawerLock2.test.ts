@@ -28,7 +28,11 @@ import {
   resolveSurfaceDrawerShell,
   resolveSurfaceDrawerTriageBody,
   resolveSurfacePrimaryPhoto,
+  resolveSurfaceMetaRowSplitClasses,
   sanitizeTriageReasonForDisplay,
+  SURFACE_META_ROW_LEFT_CLASS,
+  SURFACE_META_ROW_RIGHT_CLASS,
+  SURFACE_META_ROW_SPLIT_CLASS,
   type SurfaceDrawerTaskLike,
 } from '../lib/surfaceDrawerLock2';
 
@@ -457,5 +461,37 @@ describe('Surface drawer lock #2.2 — WorkspaceTaskDrawer wiring', () => {
     expect(drawerSrc).toContain('resolveSurfacePrimaryPhoto');
     // Human Done when is enforced by helper unit; drawer renders surfaceAppleFold.doneWhen
     expect(drawerSrc).toContain('surfaceAppleFold.doneWhen');
+  });
+});
+
+describe('Surface drawer lock #2.2 — dense meta row two-zone split', () => {
+  it('helpers expose surface-meta-row-split + left/right zone class hooks', () => {
+    expect(SURFACE_META_ROW_SPLIT_CLASS).toBe('surface-meta-row-split');
+    expect(SURFACE_META_ROW_LEFT_CLASS).toBe('surface-meta-row-left');
+    expect(SURFACE_META_ROW_RIGHT_CLASS).toBe('surface-meta-row-right');
+    const cls = resolveSurfaceMetaRowSplitClasses();
+    expect(cls.row).toContain('surface-meta-row-split');
+    expect(cls.row).toMatch(/justify-between/);
+    expect(cls.left).toContain('surface-meta-row-left');
+    expect(cls.left).toMatch(/justify-start/);
+    expect(cls.right).toContain('surface-meta-row-right');
+    expect(cls.right).toMatch(/justify-end/);
+    expect(cls.right).toMatch(/ml-auto/);
+    // Two zones only — no third empty column class
+    expect(cls.row + cls.left + cls.right).not.toMatch(/meta-row-center|third-col|col-span-3/);
+  });
+});
+
+describe('Surface drawer lock #2.2 — WorkspaceTaskDrawer meta row wiring', () => {
+  it('wires two-zone dense meta row (Event·When·Maps left, people right)', () => {
+    expect(drawerSrc).toContain('resolveSurfaceMetaRowSplitClasses');
+    expect(drawerSrc).toContain('surfaceMetaRowSplit.row');
+    expect(drawerSrc).toContain('surfaceMetaRowSplit.left');
+    expect(drawerSrc).toContain('surfaceMetaRowSplit.right');
+    expect(drawerSrc).toContain('data-testid="surface-meta-row-split"');
+    expect(drawerSrc).toContain('data-zone="surface-meta-row-left"');
+    expect(drawerSrc).toContain('data-zone="surface-meta-row-right"');
+    expect(drawerSrc).toContain('data-testid="drawer-spec-badges"');
+    expect(drawerSrc).toContain('data-testid="chunk-who-when"');
   });
 });

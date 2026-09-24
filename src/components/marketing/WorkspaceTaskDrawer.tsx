@@ -114,6 +114,7 @@ import {
   resolveSurfaceDrawerShell,
   resolveSurfaceDrawerTriageBody,
   resolveSurfacePrimaryPhoto,
+  resolveSurfaceMetaRowSplitClasses,
   type SurfaceDrawerShell,
 } from '../../lib/surfaceDrawerLock2';
 
@@ -1004,6 +1005,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         : activeTask.photos;
     return resolveSurfacePrimaryPhoto({ ...activeTask, photos: photos || [] });
   }, [activeTask, resolvedAssets]);
+  const surfaceMetaRowSplit = useMemo(() => resolveSurfaceMetaRowSplitClasses(), []);
 
   // Check if proof exists
   const hasValidUploadedProof = stagedAssets.length > 0;
@@ -2272,69 +2274,76 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             </div>
             )}
 
-            {!isSurfaceTriage && (
-            <div className="flex flex-wrap items-center gap-1.5" data-testid="drawer-spec-badges">
-              {listingSpecBadges.visible.map((b) => (
-                <button
-                  key={b.key}
-                  type="button"
-                  title={`Copy ${b.label}`}
-                  onClick={() => handleCopyText(b.value, b.label)}
-                  className="inline-flex items-center gap-1 max-w-full px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] text-slate-700 shadow-2xs cursor-pointer transition nest-press"
-                >
-                  <span className="text-slate-400 font-semibold uppercase tracking-wide">{b.label}</span>
-                  <span className="font-bold truncate text-slate-900">
-                    {copiedField === b.label ? '✓ Copied' : b.value}
-                  </span>
-                  <Copy className="w-3 h-3 text-slate-400 shrink-0" />
-                </button>
-              ))}
-              {listingSpecBadges.overflow > 0 && (
-                <span
-                  className="inline-flex items-center px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500"
-                  title={listingSpecBadges.all.slice(4).map((b) => `${b.label}: ${b.value}`).join(' · ')}
-                >
-                  +{listingSpecBadges.overflow}
-                </span>
-              )}
-              {surfaceGates.showMaps && activeTask.propertyAddress && (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeTask.propertyAddress)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-[#00635C] hover:bg-emerald-50"
-                  data-testid="surface-drawer-maps"
-                >
-                  <MapPin className="w-3 h-3" />
-                  Maps
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-              )}
-            </div>
-            )}
+            {/* Lock #2.2 — ONE dense meta row, TWO zones: Event·When·Maps | people */}
             <div
-              className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-slate-600 leading-tight"
-              data-testid="chunk-who-when"
+              className={surfaceMetaRowSplit.row}
+              data-testid="surface-meta-row-split"
             >
-              <span>
-                <span className="text-slate-400 font-medium">Requester </span>
-                <strong className="text-slate-800">{verifiedRecipient.name || activeTask.agentName || '—'}</strong>
-              </span>
-              <span className="text-slate-300">·</span>
-              <span>
-                <span className="text-slate-400 font-medium">Assignee </span>
-                <strong className="text-slate-800">{activeTask.assignedTo || 'Unassigned'}</strong>
-              </span>
-              <span className="text-slate-300">·</span>
-              <span>
-                <span className="text-slate-400 font-medium">Reviewer </span>
-                <strong className="text-slate-800" data-testid="chunk-reviewer-name">{coveringManagerDisplay}</strong>
-              </span>
-              {((activeTask.priority || '').toLowerCase() === 'urgent' || (activeTask.priority || '').toLowerCase() === 'high') && (
-                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
-                  Urgent
-                </span>
+              {!isSurfaceTriage && (
+              <div className={surfaceMetaRowSplit.left} data-testid="drawer-spec-badges" data-zone="surface-meta-row-left">
+                {listingSpecBadges.visible.map((b) => (
+                  <button
+                    key={b.key}
+                    type="button"
+                    title={`Copy ${b.label}`}
+                    onClick={() => handleCopyText(b.value, b.label)}
+                    className="inline-flex items-center gap-1 max-w-full px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] text-slate-700 shadow-2xs cursor-pointer transition nest-press"
+                  >
+                    <span className="text-slate-400 font-semibold uppercase tracking-wide">{b.label}</span>
+                    <span className="font-bold truncate text-slate-900">
+                      {copiedField === b.label ? '✓ Copied' : b.value}
+                    </span>
+                    <Copy className="w-3 h-3 text-slate-400 shrink-0" />
+                  </button>
+                ))}
+                {listingSpecBadges.overflow > 0 && (
+                  <span
+                    className="inline-flex items-center px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500"
+                    title={listingSpecBadges.all.slice(4).map((b) => `${b.label}: ${b.value}`).join(' · ')}
+                  >
+                    +{listingSpecBadges.overflow}
+                  </span>
+                )}
+                {surfaceGates.showMaps && activeTask.propertyAddress && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeTask.propertyAddress)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-[#00635C] hover:bg-emerald-50"
+                    data-testid="surface-drawer-maps"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    Maps
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                )}
+              </div>
               )}
+              <div
+                className={surfaceMetaRowSplit.right}
+                data-testid="chunk-who-when"
+                data-zone="surface-meta-row-right"
+              >
+                <span>
+                  <span className="text-slate-400 font-medium">Requester </span>
+                  <strong className="text-slate-800">{verifiedRecipient.name || activeTask.agentName || '—'}</strong>
+                </span>
+                <span className="text-slate-300">·</span>
+                <span>
+                  <span className="text-slate-400 font-medium">Assignee </span>
+                  <strong className="text-slate-800">{activeTask.assignedTo || 'Unassigned'}</strong>
+                </span>
+                <span className="text-slate-300">·</span>
+                <span>
+                  <span className="text-slate-400 font-medium">Reviewer </span>
+                  <strong className="text-slate-800" data-testid="chunk-reviewer-name">{coveringManagerDisplay}</strong>
+                </span>
+                {((activeTask.priority || '').toLowerCase() === 'urgent' || (activeTask.priority || '').toLowerCase() === 'high') && (
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                    Urgent
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </header>
