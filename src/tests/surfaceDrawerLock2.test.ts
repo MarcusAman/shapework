@@ -15,6 +15,7 @@ import {
   isChasePhotosNext,
   isPlaceholderDrawerAddress,
   isSurfaceDrawerTriageTask,
+  isSurfaceHumanDoneWhen,
   resolveSurfaceAppleFold,
   resolveSurfaceAppleFoldBlocker,
   resolveSurfaceAppleFoldDoneWhen,
@@ -26,6 +27,7 @@ import {
   resolveSurfaceDrawerNext,
   resolveSurfaceDrawerShell,
   resolveSurfaceDrawerTriageBody,
+  resolveSurfacePrimaryPhoto,
   sanitizeTriageReasonForDisplay,
   type SurfaceDrawerTaskLike,
 } from '../lib/surfaceDrawerLock2';
@@ -379,10 +381,81 @@ describe('Surface drawer lock #2.1 — WorkspaceTaskDrawer Apple wiring', () => 
     expect(drawerSrc).toContain('resolveSurfaceAppleFold');
     expect(drawerSrc).toContain('surfaceGates.showAppleFold');
     expect(drawerSrc).toContain('surfaceGates.collapseBriefBehindDetails');
-    expect(drawerSrc).toContain('data-testid="surface-apple-fold"');
+    expect(drawerSrc).toMatch(/surface-apple-fold/);
     expect(drawerSrc).toContain('data-testid="surface-apple-request"');
     expect(drawerSrc).toContain('data-testid="surface-apple-done-when"');
     expect(drawerSrc).toContain('data-testid="surface-apple-blocker"');
     expect(drawerSrc).toContain('data-testid="surface-details-disclosure"');
+  });
+});
+
+describe('Surface drawer lock #2.2 — B1 dense meta / human Done when / one-photo-primary', () => {
+  const b1 = task({
+    propertyAddress: '742 Lumina Ave, Wrightsville Beach, NC',
+    packageType: 'Luxury Collateral',
+    status: 'in_progress',
+    category: 'marketing_collateral',
+    dueAt: '2026-09-26T17:00:00Z',
+    photos: [
+      { id: 'p1', url: '/uploads/hero.jpg', name: 'Hero' },
+      { id: 'p2', url: '/uploads/two.jpg', name: 'Two' },
+      { id: 'p3', url: '/uploads/three.jpg', name: 'Three' },
+    ],
+  });
+
+  it('Done when is plain-language human acceptance — not a system/status string', () => {
+    const done = resolveSurfaceAppleFoldDoneWhen(b1);
+    expect(done.toLowerCase()).toContain('done when');
+    expect(isSurfaceHumanDoneWhen(done)).toBe(true);
+    // Reject system/status chrome
+    expect(done).not.toMatch(/proof approved/i);
+    expect(done).not.toMatch(/status/i);
+    expect(done).not.toMatch(/T\d{2}:\d{2}:\d{2}/);
+    expect(done).not.toMatch(/needed by/i);
+    // Names the deliverable in human terms
+    expect(done).toMatch(/Luxury Collateral/i);
+  });
+
+  it('B1 gates: dense Apple fold + one-photo-primary; Mode A/B2 off', () => {
+    const g = resolveSurfaceDrawerGates({
+      shell: 'B1_creative',
+      pagerIndex: 0,
+      pagerTotal: 2,
+      task: b1,
+      hasProof: false,
+    });
+    expect(g.showAppleFold).toBe(true);
+    expect(g.denseAppleFold).toBe(true);
+    expect(g.showOnePhotoPrimary).toBe(true);
+    expect(g.collapseBriefBehindDetails).toBe(true);
+    expect(g.showApproveNotify).toBe(false);
+
+    const a = resolveSurfaceDrawerGates({ shell: 'A_triage', pagerIndex: 0, pagerTotal: 1 });
+    expect(a.denseAppleFold).toBe(false);
+    expect(a.showOnePhotoPrimary).toBe(false);
+    const b2 = resolveSurfaceDrawerGates({ shell: 'B2_deal_risk', pagerIndex: 0, pagerTotal: 2 });
+    expect(b2.denseAppleFold).toBe(false);
+    expect(b2.showOnePhotoPrimary).toBe(false);
+  });
+
+  it('resolveSurfacePrimaryPhoto surfaces one primary asset + moreCount', () => {
+    const primary = resolveSurfacePrimaryPhoto(b1);
+    expect(primary).not.toBeNull();
+    expect(primary!.url).toBe('/uploads/hero.jpg');
+    expect(primary!.name).toMatch(/Hero/i);
+    expect(primary!.moreCount).toBe(2);
+    expect(resolveSurfacePrimaryPhoto(task({ photos: [] }))).toBeNull();
+  });
+});
+
+describe('Surface drawer lock #2.2 — WorkspaceTaskDrawer wiring', () => {
+  it('wires dense Apple fold + human Done when + one-photo-primary', () => {
+    expect(drawerSrc).toContain('surfaceGates.denseAppleFold');
+    expect(drawerSrc).toContain('surfaceGates.showOnePhotoPrimary');
+    expect(drawerSrc).toContain('surface-apple-fold-dense');
+    expect(drawerSrc).toContain('surface-one-photo-primary');
+    expect(drawerSrc).toContain('resolveSurfacePrimaryPhoto');
+    // Human Done when is enforced by helper unit; drawer renders surfaceAppleFold.doneWhen
+    expect(drawerSrc).toContain('surfaceAppleFold.doneWhen');
   });
 });

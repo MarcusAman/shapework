@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Surface drawer lock #2 — one drawer, two modes (Marcus GO).
+ * Surface drawer lock #2 / #2.1 / #2.2 — one drawer, two modes (Marcus GO).
  * Mode A: triage / unrouted / low confidence
  * Mode B: routed shells (B1 creative · B2 deal risk · B3 ops)
  */
@@ -217,6 +217,10 @@ export type SurfaceDrawerGates = {
   showAppleFold: boolean;
   /** Lock #2.1 — Brief & copy / Headline / Remarks / NCREC behind Details ▸ */
   collapseBriefBehindDetails: boolean;
+  /** Lock #2.2 — compress Apple fold vertical chrome */
+  denseAppleFold: boolean;
+  /** Lock #2.2 — work area primary is one photo, not multi-asset gallery */
+  showOnePhotoPrimary: boolean;
 };
 
 /**
@@ -253,6 +257,8 @@ export function resolveSurfaceDrawerGates(opts: {
       hideCapsPlaybookDump: true,
       showAppleFold: false,
       collapseBriefBehindDetails: false,
+      denseAppleFold: false,
+      showOnePhotoPrimary: false,
     };
   }
 
@@ -270,10 +276,12 @@ export function resolveSurfaceDrawerGates(opts: {
       hideCapsPlaybookDump: true,
       showAppleFold: false,
       collapseBriefBehindDetails: false,
+      denseAppleFold: false,
+      showOnePhotoPrimary: false,
     };
   }
 
-  // B1 Marketing / Listing / Offer — Apple cut (#2.1)
+  // B1 Marketing / Listing / Offer — Apple cut (#2.1) + denser #2.2
   return {
     showPager: pagerOk,
     showUpload: !chase,
@@ -288,6 +296,8 @@ export function resolveSurfaceDrawerGates(opts: {
     hideCapsPlaybookDump: true,
     showAppleFold: true,
     collapseBriefBehindDetails: true,
+    denseAppleFold: true,
+    showOnePhotoPrimary: true,
   };
 }
 
@@ -309,12 +319,59 @@ export function resolveSurfaceAppleFoldRequest(task: SurfaceDrawerTaskLike): str
   return `Request ${deliverable}.`;
 }
 
+/**
+ * Lock #2.2 — Done when must read as a human acceptance criterion,
+ * never a system/status string (no "proof approved", ISO times, "needed by").
+ */
+export function isSurfaceHumanDoneWhen(text: string): boolean {
+  const t = String(text || '').trim();
+  if (!t || !/^done when\b/i.test(t)) return false;
+  if (/proof approved/i.test(t)) return false;
+  if (/\bstatus\b/i.test(t)) return false;
+  if (/needed by/i.test(t)) return false;
+  if (/T\d{2}:\d{2}:\d{2}/.test(t)) return false;
+  if (/delivered to (system|pipeline|queue)/i.test(t)) return false;
+  return true;
+}
+
 export function resolveSurfaceAppleFoldDoneWhen(task: SurfaceDrawerTaskLike): string {
-  const due = String(task.dueAt || task.neededByDate || task.targetSla || '').trim();
-  if (due && !/^deadline not specified$/i.test(due) && !/^not provided$/i.test(due)) {
-    return `Done when proof approved · needed by ${due}`;
+  const deliverable = resolveSurfaceDrawerDeliverableTitle(task);
+  const addr = String(task.propertyAddress || '').trim();
+  if (addr && !isPlaceholderDrawerAddress(addr)) {
+    return `Done when ${deliverable} for ${addr} looks right and the agent can use it`;
   }
-  return 'Done when finished proof is approved and delivered';
+  return `Done when ${deliverable} looks right and the agent can use it`;
+}
+
+/** Lock #2.2 — single primary photo for work area (not multi-asset gallery). */
+export type SurfacePrimaryPhoto = {
+  url: string;
+  name: string;
+  moreCount: number;
+};
+
+export function resolveSurfacePrimaryPhoto(
+  task: SurfaceDrawerTaskLike | null | undefined
+): SurfacePrimaryPhoto | null {
+  if (!task) return null;
+  const raw = Array.isArray(task.photos) ? task.photos : [];
+  const normalized: Array<{ url: string; name: string }> = [];
+  for (let i = 0; i < raw.length; i++) {
+    const photo: any = raw[i];
+    const url = typeof photo === 'string' ? photo : String(photo?.url || '').trim();
+    if (!url) continue;
+    const name =
+      typeof photo === 'string'
+        ? `Photo ${normalized.length + 1}`
+        : String(photo?.name || photo?.caption || `Photo ${normalized.length + 1}`);
+    normalized.push({ url, name });
+  }
+  if (normalized.length === 0) return null;
+  return {
+    url: normalized[0].url,
+    name: normalized[0].name,
+    moreCount: Math.max(0, normalized.length - 1),
+  };
 }
 
 export function resolveSurfaceAppleFoldBlocker(task: SurfaceDrawerTaskLike): string | null {

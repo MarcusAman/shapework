@@ -113,6 +113,7 @@ import {
   resolveSurfaceDrawerNext,
   resolveSurfaceDrawerShell,
   resolveSurfaceDrawerTriageBody,
+  resolveSurfacePrimaryPhoto,
   type SurfaceDrawerShell,
 } from '../../lib/surfaceDrawerLock2';
 
@@ -996,6 +997,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     () => resolveSurfaceAppleFold(activeTask, surfaceShell),
     [activeTask, surfaceShell]
   );
+  const surfacePrimaryPhoto = useMemo(() => {
+    const photos =
+      Array.isArray(resolvedAssets?.photos) && resolvedAssets.photos.length > 0
+        ? resolvedAssets.photos
+        : activeTask.photos;
+    return resolveSurfacePrimaryPhoto({ ...activeTask, photos: photos || [] });
+  }, [activeTask, resolvedAssets]);
 
   // Check if proof exists
   const hasValidUploadedProof = stagedAssets.length > 0;
@@ -2776,42 +2784,80 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   </div>
                 )}
 
-                {/* Lock #2.1 B1 Apple fold — Request · Next · Done when · Blocker */}
+                {/* Lock #2.1/#2.2 B1 Apple fold — dense Request · Next · Done when · Blocker */}
                 {surfaceGates.showAppleFold && (
                   <div
-                    className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2.5"
-                    data-testid="surface-apple-fold"
+                    className={
+                      surfaceGates.denseAppleFold
+                        ? 'bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-xs'
+                        : 'bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2.5'
+                    }
+                    data-testid={surfaceGates.denseAppleFold ? 'surface-apple-fold-dense' : 'surface-apple-fold'}
+                    data-dense-meta={surfaceGates.denseAppleFold ? 'true' : 'false'}
                   >
                     <p
-                      className="text-sm text-slate-900 font-semibold leading-snug m-0"
+                      className={
+                        surfaceGates.denseAppleFold
+                          ? 'text-[13px] text-slate-900 font-semibold leading-snug m-0'
+                          : 'text-sm text-slate-900 font-semibold leading-snug m-0'
+                      }
                       data-testid="surface-apple-request"
                     >
                       {surfaceAppleFold.request}
                     </p>
-                    <p
-                      className="text-[12px] text-slate-700 font-medium m-0"
-                      data-testid="surface-drawer-next"
-                    >
-                      Next: {surfaceAppleFold.next}
-                    </p>
-                    <p
-                      className="text-[11px] text-slate-400 font-medium m-0"
-                      data-testid="surface-apple-done-when"
-                    >
-                      {surfaceAppleFold.doneWhen}
-                    </p>
-                    {surfaceAppleFold.blocker && (
-                      <div
-                        className="space-y-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2"
-                        data-testid="surface-apple-blocker"
-                      >
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
-                          Blocker
-                        </span>
-                        <p className="text-sm text-rose-950 leading-relaxed font-medium m-0">
-                          {surfaceAppleFold.blocker}
+                    {surfaceGates.denseAppleFold ? (
+                      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <p
+                          className="text-[11px] text-slate-700 font-medium m-0"
+                          data-testid="surface-drawer-next"
+                        >
+                          <span className="text-slate-400 font-bold uppercase tracking-wide text-[9px] mr-1">Next</span>
+                          {surfaceAppleFold.next}
                         </p>
+                        <p
+                          className="text-[11px] text-slate-500 font-medium m-0"
+                          data-testid="surface-apple-done-when"
+                        >
+                          {surfaceAppleFold.doneWhen}
+                        </p>
+                        {surfaceAppleFold.blocker && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-800"
+                            data-testid="surface-apple-blocker"
+                          >
+                            <span className="uppercase tracking-wide text-rose-600 font-bold">Blocker</span>
+                            {surfaceAppleFold.blocker}
+                          </span>
+                        )}
                       </div>
+                    ) : (
+                      <>
+                        <p
+                          className="text-[12px] text-slate-700 font-medium m-0"
+                          data-testid="surface-drawer-next"
+                        >
+                          Next: {surfaceAppleFold.next}
+                        </p>
+                        <p
+                          className="text-[11px] text-slate-400 font-medium m-0"
+                          data-testid="surface-apple-done-when"
+                        >
+                          {surfaceAppleFold.doneWhen}
+                        </p>
+                        {surfaceAppleFold.blocker && (
+                          <div
+                            className="space-y-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2"
+                            data-testid="surface-apple-blocker"
+                          >
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                              Blocker
+                            </span>
+                            <p className="text-sm text-rose-950 leading-relaxed font-medium m-0">
+                              {surfaceAppleFold.blocker}
+                            </p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -3121,6 +3167,42 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                       </div>
                     </div>
                     )
+                  ) : surfaceGates.showOnePhotoPrimary && surfacePrimaryPhoto ? (
+                    <div
+                      className="space-y-2"
+                      data-testid="surface-one-photo-primary"
+                    >
+                      <div
+                        onClick={() => setLightboxItem({
+                          title: surfacePrimaryPhoto.name,
+                          previewUrl: surfacePrimaryPhoto.url,
+                          downloadUrl: surfacePrimaryPhoto.url
+                        })}
+                        className="relative w-full aspect-[16/10] max-h-56 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 group cursor-pointer"
+                      >
+                        <img
+                          src={surfacePrimaryPhoto.url}
+                          alt={surfacePrimaryPhoto.name}
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-slate-900/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-white bg-slate-900/55 px-2 py-0.5 rounded-md truncate">
+                            {surfacePrimaryPhoto.name}
+                          </span>
+                          {surfacePrimaryPhoto.moreCount > 0 && (
+                            <span className="text-[10px] font-bold text-white bg-slate-900/60 px-2 py-0.5 rounded-md shrink-0">
+                              +{surfacePrimaryPhoto.moreCount} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                       {(resolvedAssets.photos.length > 0 ? resolvedAssets.photos : (activeTask.photos || [])).map((photo: any, pIdx: number) => {
