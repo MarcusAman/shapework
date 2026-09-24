@@ -153,9 +153,9 @@ export const SEEDED_USERS = [
   { id: 'usr_matt_full', email: 'matt.orr@nestrealty.com', name: 'Matt Orr', role: 'agent', workspaceId: 'ws_wilmington' },
   { id: 'usr_matt_nest', email: 'matt@nestrealty.com', name: 'Matt Orr', role: 'agent', workspaceId: 'ws_wilmington' },
   { id: 'usr_ryan', email: 'ryan@nestrealty.com', name: 'Ryan Crecelius', role: 'owner', workspaceId: 'ws_wilmington' },
-  { id: 'usr_melissa_mg', email: 'mg@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', workspaceId: 'ws_wilmington' },
-  { id: 'usr_melissa', email: 'melissa@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', workspaceId: 'ws_wilmington' },
-  { id: 'usr_melissa_full', email: 'melissa.gagliardi@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_coordinator', workspaceId: 'ws_wilmington' },
+  { id: 'usr_melissa_mg', email: 'mg@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_director', workspaceId: 'ws_wilmington' },
+  { id: 'usr_melissa', email: 'melissa@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_director', workspaceId: 'ws_wilmington' },
+  { id: 'usr_melissa_full', email: 'melissa.gagliardi@nestrealty.com', name: 'Melissa Gagliardi', role: 'marketing_director', workspaceId: 'ws_wilmington' },
   { id: 'usr_ann', email: 'ann@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', workspaceId: 'ws_wilmington' },
   { id: 'usr_ann_full', email: 'ann.gunn@nestrealty.com', name: 'Ann Gunn', role: 'operations_lead', workspaceId: 'ws_wilmington' },
   { id: 'usr_james', email: 'james@nestrealty.com', name: 'James Fort', role: 'transaction_coordinator', workspaceId: 'ws_wilmington' },
@@ -184,9 +184,9 @@ export const SEEDED_MEMBERSHIPS = [
   { id: 'm_matt_full', userId: 'usr_matt_full', workspaceId: 'ws_wilmington', role: 'agent' },
   { id: 'm_matt_nest', userId: 'usr_matt_nest', workspaceId: 'ws_wilmington', role: 'agent' },
   { id: 'm_ryan', userId: 'usr_ryan', workspaceId: 'ws_wilmington', role: 'owner' },
-  { id: 'm_melissa_mg', userId: 'usr_melissa_mg', workspaceId: 'ws_wilmington', role: 'marketing_coordinator' },
-  { id: 'm_melissa', userId: 'usr_melissa', workspaceId: 'ws_wilmington', role: 'marketing_coordinator' },
-  { id: 'm_melissa_full', userId: 'usr_melissa_full', workspaceId: 'ws_wilmington', role: 'marketing_coordinator' },
+  { id: 'm_melissa_mg', userId: 'usr_melissa_mg', workspaceId: 'ws_wilmington', role: 'marketing_director' },
+  { id: 'm_melissa', userId: 'usr_melissa', workspaceId: 'ws_wilmington', role: 'marketing_director' },
+  { id: 'm_melissa_full', userId: 'usr_melissa_full', workspaceId: 'ws_wilmington', role: 'marketing_director' },
   { id: 'm_ann', userId: 'usr_ann', workspaceId: 'ws_wilmington', role: 'operations_lead' },
   { id: 'm_ann_full', userId: 'usr_ann_full', workspaceId: 'ws_wilmington', role: 'operations_lead' },
   { id: 'm_james', userId: 'usr_james', workspaceId: 'ws_wilmington', role: 'transaction_coordinator' },
@@ -328,11 +328,21 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   }
 
   if (!token && (req.headers['x-workspace-id'] || req.headers['x-user-role'] || req.query.workspaceId)) {
-    token = (req.headers['x-user-email'] as string) || ((process.env.NODE_ENV === 'test' || APP_MODE === 'production' || APP_MODE === 'uat' || process.env.APP_ENV === 'production') ? '' : 'ryan@nestrealty.com');
+    // Only honor an explicit identity header — never invent Ryan/dev default (blocks /login browser prove).
+    token = (req.headers['x-user-email'] as string) || '';
   }
 
-  // Dashboard & Pilot Workspace auto-session fallback (development only, never in production, UAT, or test)
-  if (!token && !cookieHeader && process.env.NODE_ENV !== 'test' && APP_MODE !== 'production' && APP_MODE !== 'uat' && process.env.APP_ENV !== 'production') {
+  // Opt-in ONLY: silent Ryan auto-session broke /login (unauth /api/auth/session → Ryan → client leaves login).
+  // Set ALLOW_DEV_AUTO_SESSION=true only for non-auth local demos. Default off.
+  if (
+    !token &&
+    !cookieHeader &&
+    process.env.ALLOW_DEV_AUTO_SESSION === 'true' &&
+    process.env.NODE_ENV !== 'test' &&
+    APP_MODE !== 'production' &&
+    APP_MODE !== 'uat' &&
+    process.env.APP_ENV !== 'production'
+  ) {
     token = (req.headers['x-user-email'] as string) || 'ryan@nestrealty.com';
   }
 
@@ -403,8 +413,9 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     const resolvedUser = liveUsers.find(u => u.id === uId || u.email === uEmail) || SEEDED_USERS.find(u => u.id === uId || u.email === uEmail);
 
     if (resolvedUser) {
+      const { passwordHash: _ph, ...safeUser } = resolvedUser as any;
       req.authUser = {
-        ...resolvedUser,
+        ...safeUser,
         role: payload.role || resolvedUser.role,
         workspaceId: payload.workspaceId || (resolvedUser as any).workspaceId || CANONICAL_WILMINGTON_WORKSPACE_ID
       };
@@ -427,8 +438,9 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     || SEEDED_USERS.find(u => `token_${u.id}` === token || u.id === token || u.email === token);
 
   if (resolvedUser) {
+    const { passwordHash: _ph2, ...safeUser } = resolvedUser as any;
     req.authUser = {
-      ...resolvedUser,
+      ...safeUser,
       workspaceId: (resolvedUser as any).workspaceId || CANONICAL_WILMINGTON_WORKSPACE_ID
     };
     (req as any).user = req.authUser;
