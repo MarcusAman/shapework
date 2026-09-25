@@ -216,6 +216,16 @@ describe('googleRoutes session guard', () => {
     expect(driveApi).not.toHaveBeenCalled();
   });
 
+  it('does not exempt a path like /foo-callback from the session guard', async () => {
+    const hyphen = await fetch(`${baseUrl}/api/integrations/google/foo-callback`);
+    expect(hyphen.status).toBe(401);
+    const nested = await fetch(`${baseUrl}/api/integrations/google/foo/callback`);
+    expect(nested.status).toBe(401);
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(gmailApi).not.toHaveBeenCalled();
+    expect(driveApi).not.toHaveBeenCalled();
+  });
+
   it('keeps the OAuth callback on its state check instead of manage_integrations', async () => {
     const res = await call(
       { method: 'GET', path: '/callback' },

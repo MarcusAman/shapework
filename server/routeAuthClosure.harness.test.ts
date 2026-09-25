@@ -2,9 +2,10 @@
  * Extends the route-auth harness. Routes are discovered from server.ts and
  * from every router it mounts — the list is not hand-picked.
  *
- * Every route that can reach sendEmail, the Gmail/Drive/Chat APIs, a token
- * store read, or an integration connection write must reject a request with
- * no session. The only allowlist entries are OAuth callbacks.
+ * Every route that can reach sendEmail, the Gmail/Drive/Chat/Calendar APIs,
+ * scheduleBrokerageMeeting, a token store read, or an integration connection
+ * write must reject a request with no session. The only allowlist entries are
+ * OAuth callbacks.
  */
 import fs from 'fs';
 import path from 'path';
@@ -27,12 +28,13 @@ import { generateOAuthState as generateQuickBooksOAuthState, activeStates as qui
 import { rechatAuth, rechatActiveStates } from './integrations/rechat/rechatAuth.js';
 import { GoogleChatService } from './services/googleChatService.js';
 import { resolveSessionActor } from './integrations/google/googleChatRoutes.js';
+import * as brokerageCalendarService from './services/brokerageCalendarService.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SERVER_TS = path.join(ROOT, 'server.ts');
 const WORKSPACE = 'ws_wilmington';
 
-const CAPABILITY = /sendEmail|sendGmailEmail|sendOutlookEmail|dispatchEmailViaResend|deliverResendEmail|google\.gmail\b|google\.drive\b|google\.chat\b|getOAuthTokenRecord|getAllOAuthTokenRecords|tokenStore\.(?:getTokens|saveTokens)|upsertConnection|workspaceIntegrationConnections|integration_connections|\.connected\s*=\s*true/;
+const CAPABILITY = /sendEmail|sendGmailEmail|sendOutlookEmail|dispatchEmailViaResend|deliverResendEmail|google\.gmail\b|google\.drive\b|google\.chat\b|google\.calendar\b|scheduleBrokerageMeeting|getOAuthTokenRecord|getAllOAuthTokenRecords|tokenStore\.(?:getTokens|saveTokens)|upsertConnection|workspaceIntegrationConnections|integration_connections|\.connected\s*=\s*true/;
 
 type MountedRoute = { method: string; path: string; mount: string; file: string };
 
@@ -387,6 +389,7 @@ describe('route auth closure', () => {
   const gmailApi = vi.spyOn(google, 'gmail').mockReturnValue({} as never);
   const driveApi = vi.spyOn(google, 'drive').mockReturnValue({} as never);
   const chatApi = vi.spyOn(google, 'chat').mockReturnValue({} as never);
+  const calendarApi = vi.spyOn(google, 'calendar').mockReturnValue({} as never);
   const upsertConnection = vi.spyOn(IntegrationStateStore.prototype, 'upsertConnection');
   const readRechatTokens = vi.spyOn(tokenStore, 'getTokens');
   const saveRechatTokens = vi.spyOn(tokenStore, 'saveTokens');
@@ -426,6 +429,7 @@ describe('route auth closure', () => {
     gmailApi.mockRestore();
     driveApi.mockRestore();
     chatApi.mockRestore();
+    calendarApi.mockRestore();
     upsertConnection.mockRestore();
     readRechatTokens.mockRestore();
     saveRechatTokens.mockRestore();
@@ -438,6 +442,7 @@ describe('route auth closure', () => {
     gmailApi.mockClear();
     driveApi.mockClear();
     chatApi.mockClear();
+    calendarApi.mockClear();
     upsertConnection.mockClear();
     readRechatTokens.mockClear();
     saveRechatTokens.mockClear();
@@ -450,6 +455,7 @@ describe('route auth closure', () => {
       gmailApi.mock.calls.length ||
       driveApi.mock.calls.length ||
       chatApi.mock.calls.length ||
+      calendarApi.mock.calls.length ||
       upsertConnection.mock.calls.length ||
       readRechatTokens.mock.calls.length ||
       saveRechatTokens.mock.calls.length
@@ -639,6 +645,73 @@ describe('route auth closure', () => {
     expect(triggerDenied.status).toBe(403);
     expect(sendEmail).not.toHaveBeenCalled();
     expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it('requires a session and manage_integrations before brokerage calendar routes', async () => {
+    const schedule = vi.spyOn(brokerageCalendarService, 'scheduleBrokerageMeeting').mockResolvedValue({ id: 'probe-should-not-schedule' } as never);
+    const calendarRoutes = [
+      ['POST', '/api/calendar/brokerage-meeting'],
+      ['GET', '/api/calendar/brokerage-meetings'],
+      ['GET', '/api/calendar/diagnostics'],
+      ['GET', '/api/calendar/available-calendars'],
+      ['POST', '/api/calendar/select-target'],
+      ['GET', '/api/calendar/pending-action'],
+      ['POST', '/api/calendar/pending-action/confirm'],
+      ['POST', '/api/calendar/pending-action/cancel'],
+      ['DELETE', '/api/calendar/pending-action'],
+    ] as const;
+    try {
+      for (const [method, routePath] of calendarRoutes) {
+        schedule.mockClear();
+        const res = await probe(method, routePath);
+        expect(res.status, routePath).toBe(401);
+        expect(schedule, routePath).not.toHaveBeenCalled();
+      }
+
+      const limited = { 'x-session-token': sessionToken(limitedUser), 'x-shapework-csrf': 'probe' };
+      for (const [method, routePath] of calendarRoutes) {
+        schedule.mockClear();
+        const res = await probe(method, routePath, limited);
+        expect(res.status, routePath).toBe(403);
+        expect(schedule, routePath).not.toHaveBeenCalled();
+      }
+
+      schedule.mockClear();
+      const impersonated = await postJson(
+        '/api/calendar/brokerage-meeting',
+        { 'x-session-token': sessionToken(managerUser), 'x-shapework-csrf': 'probe' },
+        {
+          title: 'Probe',
+          meetingDate: '2026-10-01',
+          startTime: '10:00 AM',
+          requesterName: 'Ryan Crecelius',
+          userId: 'ryan',
+        },
+      );
+      expect(impersonated.status).toBe(400);
+      expect(impersonated.text).toMatch(/session user/i);
+      expect(schedule).not.toHaveBeenCalled();
+
+      schedule.mockClear();
+      const own = await postJson(
+        '/api/calendar/brokerage-meeting',
+        { 'x-session-token': sessionToken(managerUser), 'x-shapework-csrf': 'probe' },
+        { title: 'Probe', meetingDate: '2026-10-01', startTime: '10:00 AM' },
+      );
+      expect(own.status).toBe(200);
+      expect(schedule).toHaveBeenCalledWith(expect.objectContaining({
+        requesterName: 'Platform Admin',
+        requesterEmail: 'admin@shapework.co',
+      }));
+
+      const routerSource = fs.readFileSync(path.join(ROOT, 'server/routes/brokerageCalendarRoutes.ts'), 'utf8');
+      expect(routerSource).not.toMatch(/Ryan Crecelius|\|\| 'ryan'/);
+
+      const credentials = await probe('GET', '/api/auth/credentials');
+      expect(credentials.status).toBe(401);
+    } finally {
+      schedule.mockRestore();
+    }
   });
 
   it('requires a session for provider status and returns no token material', async () => {

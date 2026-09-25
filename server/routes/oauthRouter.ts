@@ -642,7 +642,7 @@ oauthRouter.get('/:provider/status', requireAuth, (req, res) => {
 });
 
 // GET /api/auth/credentials - Retrieve Configuration Status of All Providers
-oauthRouter.get('/credentials', (req, res) => {
+oauthRouter.get('/credentials', requireAuth, (req, res) => {
   const allCreds = getAllOAuthCredentials();
   const summary = SUPPORTED_PROVIDERS.map(p => {
     const cred = allCreds.find(c => c.provider === p);

@@ -147,10 +147,22 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+const GOOGLE_OAUTH_CALLBACK_PATHS = new Set([
+  '/callback',
+  '/api/integrations/google/callback',
+  '/api/oauth/google/callback',
+  '/api/auth/google/callback',
+]);
+
+function withoutQueryOrTrailingSlash(value: string): string {
+  const bare = value.split('?')[0];
+  return bare.length > 1 && bare.endsWith('/') ? bare.slice(0, -1) : bare;
+}
+
 function isGoogleOAuthCallback(req: { path?: string; originalUrl?: string }): boolean {
-  const path = req.path || '';
-  const original = (req.originalUrl || '').split('?')[0];
-  return /(?:^|\/)callback\/?$/.test(path) || /(?:^|\/)callback\/?$/.test(original);
+  const path = withoutQueryOrTrailingSlash(req.path || '');
+  const original = withoutQueryOrTrailingSlash(req.originalUrl || '');
+  return GOOGLE_OAUTH_CALLBACK_PATHS.has(path) || GOOGLE_OAUTH_CALLBACK_PATHS.has(original);
 }
 
 export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: string) => Promise<void>): Router {
