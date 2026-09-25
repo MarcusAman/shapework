@@ -2701,7 +2701,7 @@ Agent: ${task.agentName} (${task.agentPhone})`;
           initialTab={drawerInitialTab as any}
           onClose={() => setIsDrawerOpen(false)}
           onSelectTask={(id) => openTaskDrawer(id)}
-          onSubmitProof={async (taskId, proofUrl, notes, assetMetadata) => {
+          onSubmitProof={async (taskId, proofUrl, notes, assetMetadata, stagedAssets) => {
             // F-01: Only move to Awaiting Review after durable submit-proof succeeds.
             const currentTask = tasks.find(t => t.id === taskId);
             const resolvedProof = proofUrl || currentTask?.proofUrl || (currentTask?.photos && currentTask.photos[0]) || '';
@@ -2725,7 +2725,8 @@ Agent: ${task.agentName} (${task.agentPhone})`;
                   body: JSON.stringify({
                     proofUrl: resolvedProof,
                     notes,
-                    assetMetadata
+                    assetMetadata,
+                    stagedAssets
                   })
                 });
                 const data = await res.json().catch(() => ({}));

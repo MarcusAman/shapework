@@ -73,6 +73,7 @@ async function persistApproveNotifyProof(
     recipientStatus?: DispatchVerdict['recipientStatus'];
     effectiveTo?: string[];
     effectiveCc?: string[];
+    preparedProof?: import('../services/marketingProofAssets.js').PreparedMarketingProof;
   }
 ): Promise<{ handled: boolean }> {
   const { requireAuth } = await import('../auth/auth.js');
@@ -149,11 +150,18 @@ async function persistApproveNotifyProof(
   }
 
   const expectedProofVersion = task.proofVersion || 0;
-  if (proofCandidate && task.proofUrl !== proofCandidate) {
+  const { captureMarketingProofState } = await import('../services/marketingProofPersistence.js');
+  const previousProofState = captureMarketingProofState(task);
+  const { prepareMarketingProofAssets, sameMarketingProofAssets } = await import('../services/marketingProofAssets.js');
+  const { currentMarketingProofAssets } = await import('../services/askNoraDriveDelivery.js');
+  const preparedProof = args.preparedProof || await prepareMarketingProofAssets(task, { proofUrl: proofCandidate });
+  if (proofCandidate && (task.proofUrl !== proofCandidate || !sameMarketingProofAssets(currentMarketingProofAssets(task), preparedProof.assets))) {
     task.proofUrl = proofCandidate;
     task.proofVersion = (task.proofVersion || 0) + 1;
-    task.proofHistory = [...(task.proofHistory || []), { version: task.proofVersion, proofUrl: proofCandidate, uploadedBy: sessionUser?.name || 'Reviewer', uploadedAt: new Date().toISOString() }];
+    task.proofHistory = [...(task.proofHistory || []), { version: task.proofVersion, proofUrl: proofCandidate,
+      assets: preparedProof.assets, notes: preparedProof.notes, uploadedBy: sessionUser?.name || 'Reviewer', uploadedAt: new Date().toISOString() }];
   }
+  if (preparedProof.notes !== undefined) task.proofNotes = preparedProof.notes;
   if (!task.agentEmail && args.resolvedRecipient.email) {
     task.agentEmail = args.resolvedRecipient.email;
   }
@@ -166,7 +174,7 @@ async function persistApproveNotifyProof(
   const saved = approved || getCanonicalMarketingTaskById(task.id) || task;
 
   const { persistMarketingProofApproval } = await import('../services/marketingProofPersistence.js');
-  await persistMarketingProofApproval(saved, expectedProofVersion);
+  await persistMarketingProofApproval(saved, expectedProofVersion, { consumedDraftSavedAt: preparedProof.consumedDraftSavedAt, previousProofState });
 
   const masterMode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
   const outboundHeld =
@@ -292,6 +300,7 @@ export interface SendQuestionsPayload {
   actorName?: string;
   workspaceId?: string;
   forceConfirmRecent?: boolean;
+  stagedAssets?: any[];
   /** ask_missing (default) | delivery_complete — marketing delivery always CCs Melissa */
   intent?: 'ask_missing' | 'delivery_complete';
   subject?: string;
@@ -326,8 +335,10 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', requ
       ...(Array.isArray(body.ccEmails) ? body.ccEmails : []),
       ...(intent === 'delivery_complete' && body.domain !== 'operational' ? [melissaCc] : []),
     ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
+    const { prepareMarketingProofAssets, marketingProofPreviewTask } = await import('../services/marketingProofAssets.js');
+    const preparedProof = intent === 'delivery_complete' ? await prepareMarketingProofAssets(task, { proofUrl: body.proofUrl, assets: body.stagedAssets }) : null;
     const verdict = await evaluateDispatch({
-      task: task || { id: taskId },
+      task: preparedProof ? marketingProofPreviewTask(task, preparedProof) : task,
       actor,
       recipient: {
         email: body.recipientEmail || task?.agentEmail,
@@ -340,7 +351,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', requ
           : 'email',
       cc: proposedCc,
       intent,
-      proofUrl: body.proofUrl,
+      proofUrl: preparedProof?.proofUrl || body.proofUrl,
       driveFolderUrl: body.driveFolderUrl ?? task?.driveFolderUrl,
       assetUrls: body.assetUrls,
       attachments: body.attachments,
@@ -446,9 +457,12 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       actor = (req as any).authUser || (req as any).user || null;
     }
 
-    const proofForSend = resolveProofPrecedence(proofUrl, taskRecord?.proofUrl);
+    const { prepareMarketingProofAssets, marketingProofPreviewTask } = await import('../services/marketingProofAssets.js');
+    const preparedProof = isDeliveryComplete && taskRecord
+      ? await prepareMarketingProofAssets(taskRecord, { proofUrl: proofUrl || undefined, assets: (req.body as SendQuestionsPayload).stagedAssets }) : null;
+    const proofForSend = preparedProof?.proofUrl || resolveProofPrecedence(proofUrl, taskRecord?.proofUrl);
     const verdict = await evaluateDispatch({
-      task: taskRecord || { id: String(taskId || campaignId), workspaceId },
+      task: preparedProof ? marketingProofPreviewTask(taskRecord, preparedProof) : taskRecord || { id: String(taskId || campaignId), workspaceId },
       actor,
       recipient: {
         email: recipientEmail,
@@ -458,7 +472,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       channel: wantsSms && wantsEmail ? 'both' : wantsSms ? 'sms' : 'email',
       cc: proposedCc,
       intent,
-      proofUrl,
+      proofUrl: proofForSend || proofUrl,
       driveFolderUrl,
       assetUrls,
       attachments,
@@ -546,6 +560,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
         recipientStatus: verdict.recipientStatus,
         effectiveTo: verdict.effectiveTo,
         effectiveCc: verdict.effectiveCc,
+        preparedProof: preparedProof || undefined,
       });
       if (deliveryResult.handled) return;
     }
@@ -765,7 +780,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
     }
 
     const assetLinksText = assetLinks.length
-      ? `\n\nApproved assets:\n${assetLinks[0]}`
+      ? `\n\nApproved assets:\n${assetLinks.join('\n')}`
       : (isDeliveryComplete ? '\n\nYour assets are attached to this email / were emailed — reply if you need them resent.' : '');
 
     const agentLabel = String(resolvedRecipient.name || resolvedRecipient.firstName || 'there').trim();

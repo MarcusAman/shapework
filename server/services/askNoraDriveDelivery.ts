@@ -11,8 +11,19 @@ import { createHash } from 'node:crypto';
 import { GoogleDriveService } from './googleDriveService.js';
 import { validateProofUrl } from '../../src/utils/assetInspection.js';
 
-export function buildMarketingDispatchKey(task: { id?: string | null; workspaceId?: string | null; proofUrl?: string | null; proofVersion?: number; agentEmail?: string | null }, intent = 'delivery_complete'): string {
-  const proof = intent === 'delivery_complete' ? `${task.proofVersion || 1}:${task.proofUrl || ''}` : '';
+export type MarketingProofAssetRef = { assetId: string; url: string; filename: string; contentType?: string; sha256Checksum: string };
+type ProofAssetTask = { proofUrl?: string | null; proofVersion?: number; proofHistory?: Array<{ version?: number; proofUrl?: string; assets?: MarketingProofAssetRef[] }> };
+
+export function currentMarketingProofAssets(task: ProofAssetTask, proofUrl = task.proofUrl): MarketingProofAssetRef[] {
+  if (!proofUrl || proofUrl !== task.proofUrl) return [];
+  return [...(task.proofHistory || [])].reverse()
+    .find(entry => entry.version === task.proofVersion && entry.proofUrl === proofUrl)?.assets || [];
+}
+
+export function buildMarketingDispatchKey(task: ProofAssetTask & { id?: string | null; workspaceId?: string | null; agentEmail?: string | null }, intent = 'delivery_complete'): string {
+  const assets = currentMarketingProofAssets(task);
+  const packageIdentity = assets.length ? `:${JSON.stringify(assets.map(asset => [asset.assetId, asset.url, asset.sha256Checksum]))}` : '';
+  const proof = intent === 'delivery_complete' ? `${task.proofVersion || 1}:${task.proofUrl || ''}${packageIdentity}` : '';
   const recipient = String(task.agentEmail || '').trim().toLowerCase();
   return `outreach_sent_${createHash('sha256').update(`${task.workspaceId || ''}:${task.id || ''}:${intent}:${proof}:${recipient}`).digest('hex')}`;
 }
@@ -29,23 +40,33 @@ export function internalProofFilename(value?: string | null): string | null {
 }
 
 /** Resolve only the current finished proof, scoped to the task's tenant and association. */
-export async function resolveDurableDeliveryAssets(task: {
+export async function resolveDurableDeliveryAssets(task: ProofAssetTask & {
   id?: string | null; workspaceId?: string | null; proofUrl?: string | null;
   attachments?: unknown[] | null; proofs?: Array<{ url?: string }>;
 }, suppliedProof?: string | null): Promise<Array<{ filename: string; content: Buffer; contentType: string; assetId: string; sha256Checksum: string; url: string }>> {
   if (!task.id || !task.workspaceId) return [];
   const proof = String(suppliedProof || task.proofUrl || '').trim();
-  const filename = internalProofFilename(proof);
-  if (!filename) return [];
+  const selected = currentMarketingProofAssets(task, proof);
+  const refs = [{ url: proof }, ...selected].filter(ref => internalProofFilename(ref.url));
+  if (!refs.length || selected.some(ref => !internalProofFilename(ref.url))) return [];
   const { getDurableAssetByFilenameAsync } = await import('../persistence/durableAssetRepository.js');
-  const asset = await getDurableAssetByFilenameAsync(filename, { workspaceId: task.workspaceId, taskId: task.id });
-  if (!asset || asset.workspaceId !== task.workspaceId) return [];
-  if (asset.taskId && asset.taskId !== task.id) return [];
-  const canonicalRefs = [task.proofUrl, ...(task.attachments || []).map((a: any) => a?.url), ...(task.proofs || []).map(a => a.url)];
-  if (asset.taskId !== task.id && !canonicalRefs.some(url => internalProofFilename(url) === filename)) return [];
-  const content = Buffer.from(asset.dataBase64 || '', 'base64');
-  if (!content.length || createHash('sha256').update(content).digest('hex') !== asset.sha256Checksum) return [];
-  return [{ filename: asset.filename, content, contentType: asset.contentType || 'application/octet-stream', assetId: asset.id, sha256Checksum: asset.sha256Checksum, url: asset.url || proof }];
+  const canonicalRefs = [task.proofUrl, ...(task.attachments || []).map((a: any) => a?.url), ...(task.proofs || []).map(a => a.url), ...selected.map(ref => ref.url)];
+  const results = [];
+  const seen = new Set<string>();
+  for (const ref of refs) {
+    const filename = internalProofFilename(ref.url)!;
+    if (seen.has(filename)) continue;
+    seen.add(filename);
+    const asset = await getDurableAssetByFilenameAsync(filename, { workspaceId: task.workspaceId, taskId: task.id });
+    if (!asset || asset.workspaceId !== task.workspaceId || (asset.taskId && asset.taskId !== task.id)) return [];
+    if (asset.taskId !== task.id && !canonicalRefs.some(url => internalProofFilename(url) === filename)) return [];
+    const pinned = selected.find(value => internalProofFilename(value.url) === filename);
+    if (pinned && (pinned.assetId !== asset.id || pinned.sha256Checksum !== asset.sha256Checksum)) return [];
+    const content = Buffer.from(asset.dataBase64 || '', 'base64');
+    if (!content.length || createHash('sha256').update(content).digest('hex') !== asset.sha256Checksum) return [];
+    results.push({ filename: asset.filename, content, contentType: asset.contentType || 'application/octet-stream', assetId: asset.id, sha256Checksum: asset.sha256Checksum, url: asset.url || ref.url });
+  }
+  return results;
 }
 
 export function isPlaceholderDriveUrl(url?: string | null): boolean {

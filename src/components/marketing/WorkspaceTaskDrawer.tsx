@@ -78,6 +78,7 @@ import {
 import { ProofUploadWizard, UploadedProofAsset } from './ProofUploadWizard';
 import { ProofLightboxViewer, LightboxAssetItem } from './ProofLightboxViewer';
 import { AssetImage } from './AssetImage';
+import { applicableMarketingProofDraft, marketingDraftFingerprint } from '../../lib/marketingProofDraft';
 import { MlsNumberBadge } from './MlsNumberBadge';
 import { validateProofUrl } from '../../utils/assetInspection';
 import { resolveTaskEventDetails } from '../../utils/eventScheduleExtraction';
@@ -276,7 +277,7 @@ interface WorkspaceTaskDrawerProps {
   tasksList?: WorkspaceDrawerTask[];
   onClose: () => void;
   onSelectTask?: (taskId: string) => void;
-  onSubmitProof?: (taskId: string, proofUrl: string, notes?: string, assetMetadata?: any) => Promise<void> | void;
+  onSubmitProof?: (taskId: string, proofUrl: string, notes?: string, assetMetadata?: any, stagedAssets?: UploadedProofAsset[]) => Promise<void> | void;
   onRequestRevisions?: (taskId: string, feedbackNotes: string) => Promise<void> | void;
   onApproveProof?: (taskId: string, note?: string) => Promise<void> | void;
   onApproveAndDispatch?: (taskId: string, note?: string, opts?: { proofUrl?: string; stagedAssets?: any[]; assetMetadata?: any; selfComplete?: boolean }) => Promise<any> | any;
@@ -329,6 +330,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ taskId: string; agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string | null } | null>(null);
   const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<(DispatchVerdictView & { taskId: string; recipientEmail: string }) | null>(null);
   const dispatchCheckGen = useRef(0);
+  const [dispatchCheckFailure, setDispatchCheckFailure] = useState<{ taskId: string; recipientEmail: string } | null>(null);
+  const [dispatchCheckRetry, setDispatchCheckRetry] = useState(0);
   const [isConfirmRequesterOpen, setIsConfirmRequesterOpen] = useState(false);
 
   const activeTask = useMemo(() => {
@@ -338,7 +341,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     const detailTask = taskDetail?.task;
     const matchingDetail = detailTask?.id === rawActiveTask.id &&
       (!rawActiveTask.workspaceId || detailTask.workspaceId === rawActiveTask.workspaceId);
-    const request = matchingDetail && taskDetail?.request?.id === (rawActiveTask.requestId || detailTask.requestId) &&
+    const request = matchingDetail && taskDetail?.request && taskDetail.request.id === (rawActiveTask.requestId || detailTask.requestId) &&
       (!detailTask.workspaceId || taskDetail.request.workspaceId === detailTask.workspaceId)
       ? taskDetail.request : null;
     const contactTask = matchingDetail ? detailTask : null;
@@ -487,18 +490,27 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const [productionNotes, setProductionNotes] = useState<string>('');
   const [urlValidationError, setUrlValidationError] = useState<string | null>(null);
 
-  // Notes Auto-Save status (Doherty Threshold: immediate feedback)
-  const [notesSaveStatus, setNotesSaveStatus] = useState<'saved' | 'saving'>('saved');
-  const notesDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  // Saved means the task draft was actually persisted, not that a debounce elapsed.
+  const [notesSaveStatus, setNotesSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [savedDraftFingerprint, setSavedDraftFingerprint] = useState('');
+  const [draftSaveBase, setDraftSaveBase] = useState<{ baseProofVersion: number; baseProofUrl: string; expectedDraftSavedAt: string | null }>({
+    baseProofVersion: 0, baseProofUrl: '', expectedDraftSavedAt: null,
+  });
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const draftEditedRef = useRef(false);
+  const draftHydratedRef = useRef('');
+  const draftSaveGeneration = useRef(0);
+  const latestDraftInput = useRef({ taskId: '', fingerprint: '' });
+
+  const markDraftUnsaved = () => {
+    draftEditedRef.current = true;
+    setSaveStatus('unsaved');
+    setNotesSaveStatus('unsaved');
+  };
 
   const handleNotesChange = (val: string) => {
     setProductionNotes(val);
-    setNotesSaveStatus('saving');
-    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
-    notesDebounceRef.current = setTimeout(() => {
-      setNotesSaveStatus('saved');
-      setSaveStatus('saved');
-    }, 500);
+    markDraftUnsaved();
   };
 
   // Requirements checklist state (4-state interactive)
@@ -545,7 +557,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   } | null>(null);
 
   // Actions & Save states
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -605,10 +617,21 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Sync inputs when active task changes
   useEffect(() => {
     if (activeTask) {
-      setManualProofUrl(proofInputValue(activeTask.proofUrl));
-      setProductionNotes(activeTask.proofNotes || activeTask.notes || '');
+      const draft = applicableMarketingProofDraft(activeTask);
+      const proof = draft?.proofUrl ?? proofInputValue(activeTask.proofUrl);
+      const notes = draft?.notes ?? activeTask.proofNotes ?? activeTask.notes ?? '';
+      const assets = draft?.assets || [];
+      setManualProofUrl(proof);
+      setProductionNotes(notes);
       setUrlValidationError(null);
-      setStagedAssets([]);
+      setStagedAssets(assets);
+      setSavedDraftFingerprint(marketingDraftFingerprint(proof, notes, assets));
+      setDraftSaveBase({ baseProofVersion: activeTask.proofVersion || 0, baseProofUrl: activeTask.proofUrl || '',
+        expectedDraftSavedAt: (activeTask as any).routingSnapshot?.proofDraft?.savedAt || null });
+      draftEditedRef.current = false;
+      draftHydratedRef.current = draft ? `${activeTask.id}:${draft.savedAt}` : '';
+      draftSaveGeneration.current += 1;
+      setIsSavingDraft(false);
       setSubmitSuccessMessage(null);
       setDeliveryStatus('idle');
       setDeliveryMessage(null);
@@ -638,6 +661,27 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       setTriageError(null);
     }
   }, [activeTask?.id]);
+
+  // List rows can omit draft metadata. Hydrate once detail arrives, without replacing local edits.
+  useEffect(() => {
+    const detail = taskDetail?.task;
+    if (detail?.id !== activeTask?.id || (activeTask?.workspaceId && detail.workspaceId !== activeTask.workspaceId)) return;
+    const draft = applicableMarketingProofDraft(detail);
+    const key = `${detail.id}:${draft?.savedAt || detail.updatedAt || detail.proofVersion || 0}`;
+    if (draftEditedRef.current || draftHydratedRef.current === key) return;
+    draftHydratedRef.current = key;
+    const proof = draft?.proofUrl ?? proofInputValue(detail.proofUrl);
+    const notes = draft?.notes ?? detail.proofNotes ?? detail.notes ?? '';
+    const assets = draft?.assets || [];
+    setManualProofUrl(proof);
+    setProductionNotes(notes);
+    setStagedAssets(assets);
+    setSavedDraftFingerprint(marketingDraftFingerprint(proof, notes, assets));
+    setDraftSaveBase({ baseProofVersion: detail.proofVersion || 0, baseProofUrl: detail.proofUrl || '',
+      expectedDraftSavedAt: detail.routingSnapshot?.proofDraft?.savedAt || null });
+    setSaveStatus('saved');
+    setNotesSaveStatus('saved');
+  }, [taskDetail, activeTask?.id, activeTask?.workspaceId]);
 
   // Triage resolution state
   const [triageCategory, setTriageCategory] = useState<string>('');
@@ -716,13 +760,52 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   };
 
   // Track dirty state to prevent accidental dismissal
-  const isDirty = Boolean(
-    !isSubmittedMilestone && (
-      (manualProofUrl && manualProofUrl !== (activeTask?.proofUrl || '')) ||
-      (productionNotes && productionNotes !== (activeTask?.proofNotes || activeTask?.notes || '')) ||
-      stagedAssets.length > 0
-    )
-  );
+  const currentDraftFingerprint = marketingDraftFingerprint(manualProofUrl, productionNotes, stagedAssets);
+  latestDraftInput.current = { taskId: activeTask?.id || '', fingerprint: currentDraftFingerprint };
+  const isDirty = !isSubmittedMilestone && currentDraftFingerprint !== savedDraftFingerprint;
+
+  const handleSaveDraft = async () => {
+    if (!activeTask?.id || isSavingDraft || !isDirty) return;
+    const taskId = activeTask.id;
+    const fingerprint = currentDraftFingerprint;
+    const generation = ++draftSaveGeneration.current;
+    setIsSavingDraft(true);
+    setSaveStatus('saving');
+    setNotesSaveStatus('saving');
+    setUrlValidationError(null);
+    try {
+      const response = await fetch(`/api/marketing/tasks/${encodeURIComponent(taskId)}/draft`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proofUrl: manualProofUrl, notes: productionNotes, stagedAssets, ...draftSaveBase }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success || data.task?.id !== taskId) throw new Error(data.error || 'Draft could not be saved. Please try again.');
+      if (generation !== draftSaveGeneration.current || latestDraftInput.current.taskId !== taskId) return;
+      const saved = applicableMarketingProofDraft(data.task);
+      if (!saved) throw new Error('The saved draft could not be verified. Please try again.');
+      const unchanged = latestDraftInput.current.fingerprint === fingerprint;
+      setSavedDraftFingerprint(marketingDraftFingerprint(saved.proofUrl, saved.notes, saved.assets));
+      setDraftSaveBase({ baseProofVersion: data.task.proofVersion || 0, baseProofUrl: data.task.proofUrl || '', expectedDraftSavedAt: saved.savedAt });
+      draftEditedRef.current = !unchanged;
+      draftHydratedRef.current = `${taskId}:${saved.savedAt}`;
+      if (unchanged) {
+        setManualProofUrl(saved.proofUrl);
+        setProductionNotes(saved.notes);
+        setStagedAssets(saved.assets);
+      }
+      setTaskDetail((previous: any) => ({ ...(previous?.task?.id === taskId ? previous : {}), task: data.task }));
+      setSaveStatus(unchanged ? 'saved' : 'unsaved');
+      setNotesSaveStatus(unchanged ? 'saved' : 'unsaved');
+      onSave?.(data.task);
+    } catch (error) {
+      if (generation !== draftSaveGeneration.current || latestDraftInput.current.taskId !== taskId) return;
+      setUrlValidationError(error instanceof Error ? error.message : 'Draft could not be saved. Please try again.');
+      setSaveStatus('error');
+      setNotesSaveStatus('unsaved');
+    } finally {
+      if (generation === draftSaveGeneration.current) setIsSavingDraft(false);
+    }
+  };
 
   const handleAttemptClose = () => {
     if (isDirty) {
@@ -793,6 +876,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     const recipientEmail = String(activeTask.agentEmail || '').trim();
     if (!recipientEmail) return;
     const taskId = activeTask.id;
+    setDispatchCheckFailure(null);
     const proofUrl = userPastedProofUrl(activeTask, manualProofUrl);
     (async () => {
       try {
@@ -811,13 +895,21 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         });
         const data = await res.json().catch(() => null);
         if (gen !== dispatchCheckGen.current) return;
-        if (data?.recipientStatus) setFetchedDispatchVerdict({ ...data, taskId, recipientEmail });
+        if (data?.recipientStatus) {
+          setFetchedDispatchVerdict({ ...data, taskId, recipientEmail });
+        } else {
+          setFetchedDispatchVerdict(null);
+          setDispatchCheckFailure({ taskId, recipientEmail });
+        }
       } catch {
-        if (gen === dispatchCheckGen.current) setFetchedDispatchVerdict(null);
+        if (gen === dispatchCheckGen.current) {
+          setFetchedDispatchVerdict(null);
+          setDispatchCheckFailure({ taskId, recipientEmail });
+        }
       }
     })();
     return () => { dispatchCheckGen.current += 1; };
-  }, [dispatchVerdict, isOpen, activeTask?.id, activeTask?.agentEmail, activeTask?.agentName, activeTask?.proofUrl]);
+  }, [dispatchVerdict, isOpen, activeTask?.id, activeTask?.agentEmail, activeTask?.agentName, activeTask?.proofUrl, dispatchCheckRetry]);
 
   if (!isOpen || !activeTask) return null;
 
@@ -899,6 +991,26 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   });
 
   const isRecipientConfirmed = dispatchRecipientConfirmed(activeDispatchVerdict?.recipientStatus);
+  const deliveryCheckFailed = !dispatchVerdict && dispatchCheckFailure?.taskId === activeTask.id &&
+    dispatchCheckFailure?.recipientEmail === String(activeTask.agentEmail || '').trim();
+  const deliveryCheckPending = Boolean(activeTask.agentEmail) && !activeDispatchVerdict && !deliveryCheckFailed;
+  const deliveryPolicyMessage = activeDispatchVerdict?.outboundPolicy?.mode === 'disabled'
+    ? 'Email delivery is disabled'
+    : activeDispatchVerdict?.recipientBlockReason === 'test_recipient_policy'
+      ? 'Test recipient blocked by delivery settings'
+      : activeDispatchVerdict?.outboundPolicy?.allowed === false
+        ? 'Email delivery is paused'
+        : null;
+  const needsRequesterConfirmation = !isRecipientConfirmed && !deliveryPolicyMessage && !deliveryCheckFailed && !deliveryCheckPending;
+  const deliveryReadinessMessage = deliveryPolicyMessage || (deliveryCheckFailed
+    ? 'Could not check delivery readiness'
+    : deliveryCheckPending ? 'Checking delivery readiness…'
+      : needsRequesterConfirmation ? 'Requester needs confirmation' : null);
+  const deliveryReadinessDetail = deliveryPolicyMessage
+    ? `${deliveryPolicyMessage}. You can still save a draft. Delivery settings must allow this recipient before sending.`
+    : deliveryReadinessMessage;
+  const canStartDelivery = isRecipientConfirmed && !deliveryReadinessMessage;
+
 
   // Revision and Proof state derivation
   const isRevision = Boolean(
@@ -1203,10 +1315,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   // Proof URL change handler with live validation
   const handleProofUrlChange = (value: string) => {
     setManualProofUrl(value);
-    setSaveStatus('saving');
+    markDraftUnsaved();
     if (!value.trim()) {
       setUrlValidationError(null);
-      setSaveStatus('saved');
       return;
     }
     const check = validateProofUrl(value);
@@ -1215,7 +1326,6 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       setSaveStatus('error');
     } else {
       setUrlValidationError(null);
-      setSaveStatus('saved');
     }
   };
 
@@ -1381,7 +1491,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       } : undefined;
 
       if (onSubmitProof) {
-        await onSubmitProof(activeTask.id, primaryProofUrl, productionNotes, assetMeta);
+        await onSubmitProof(activeTask.id, primaryProofUrl, productionNotes, assetMeta, stagedAssets);
       } else if (typeof fetch !== 'undefined') {
         const res = await fetch(`/api/marketing/tasks/${activeTask.id}/submit-proof`, {
           method: 'POST',
@@ -1549,6 +1659,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       setUrlValidationError('Approve & Notify refused: only the task reviewer may approve and notify the agent.');
       return;
     }
+    if (!canStartDelivery) {
+      setUrlValidationError(deliveryReadinessDetail || 'Requester needs confirmation before external delivery.');
+      return;
+    }
     if (!hasAnyProof) {
       setUrlValidationError('Upload a finished proof before approving delivery.');
       return;
@@ -1609,8 +1723,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
 
-    if (!isRecipientConfirmed) {
-      setUrlValidationError('Requester needs confirmation before external delivery.');
+    if (!canStartDelivery) {
+      setUrlValidationError(deliveryReadinessDetail || 'Requester needs confirmation before external delivery.');
       return;
     }
 
@@ -1653,7 +1767,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       // Path A reviewer approving Eduardo's revised proof may still stage via submit-proof when modified.
       if (isProofModified && !isDirectorSelfComplete) {
         if (onSubmitProof) {
-          await onSubmitProof(activeTask.id, primaryProofUrl, productionNotes, assetMeta);
+          await onSubmitProof(activeTask.id, primaryProofUrl, productionNotes, assetMeta, stagedAssets);
         } else if (typeof fetch !== 'undefined') {
           const res = await fetch(`/api/marketing/tasks/${activeTask.id}/submit-proof`, {
             method: 'POST',
@@ -3486,7 +3600,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => setStagedAssets(prev => prev.filter(a => a.id !== asset.id))}
+                                  onClick={() => { setStagedAssets(prev => prev.filter(a => a.id !== asset.id)); markDraftUnsaved(); }}
                                   className="text-rose-600 hover:text-rose-800 text-[11px] font-bold cursor-pointer"
                                 >
                                   Remove
@@ -3790,7 +3904,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                       ) : (
                         <>
                           <Check className="w-3 h-3" />
-                          <span>Saved</span>
+                          <span>{notesSaveStatus === 'saved' && !isDirty ? 'Saved' : 'Not saved'}</span>
                         </>
                       )}
                     </span>
@@ -3852,14 +3966,21 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             >
               Close
             </button>
-            <div className="flex items-center gap-1.5 text-xs">
-              {saveStatus === 'saved' && (
+            {roleGateCaps.canUpload && !['completed', 'archived'].includes(activeTask.status || '') && (
+              <button type="button" onClick={handleSaveDraft} disabled={!isDirty || isSavingDraft || isSubmitting}
+                data-testid="save-task-draft"
+                className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                Save draft
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 text-xs" data-testid="draft-save-status" aria-live="polite">
+              {saveStatus === 'saved' && !isDirty && !isSavingDraft && (
                 <span className="text-emerald-700 font-medium flex items-center gap-1">
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Saved</span>
                 </span>
               )}
-              {saveStatus === 'saving' && (
+              {(saveStatus === 'saving' || isSavingDraft) && (
                 <span className="text-slate-500 font-medium flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 animate-spin text-slate-400" />
                   <span>Saving...</span>
@@ -3870,6 +3991,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   <AlertCircle className="w-3.5 h-3.5" />
                   <span>Save failed</span>
                 </span>
+              )}
+              {isDirty && !isSavingDraft && saveStatus !== 'saving' && saveStatus !== 'error' && (
+                <span className="text-amber-700 font-medium">Unsaved changes</span>
               )}
             </div>
           </div>
@@ -3968,20 +4092,20 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 {surfaceGates.showEmailFooter && (
                 <div
                   className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border shadow-2xs ${
-                    !isRecipientConfirmed ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    !canStartDelivery ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'
                   }`}
-                  title={isRecipientConfirmed ? `To: ${verifiedRecipient.name} (${verifiedRecipient.email || 'No email'}) • Proof v${currentProofVersion}` : 'Requester needs confirmation before external delivery'}
+                  title={deliveryReadinessDetail || `To: ${verifiedRecipient.name} (${verifiedRecipient.email || 'No email'}) • Proof v${currentProofVersion}`}
                   data-testid="surface-drawer-email-footer"
                 >
-                  <Mail className={`w-3.5 h-3.5 shrink-0 ${!isRecipientConfirmed ? 'text-amber-600' : 'text-slate-400'}`} />
+                  <Mail className={`w-3.5 h-3.5 shrink-0 ${!canStartDelivery ? 'text-amber-600' : 'text-slate-400'}`} />
                   <span className="truncate max-w-[220px] sm:max-w-xs font-medium">
-                    {isRecipientConfirmed ? (
+                    {!deliveryReadinessMessage ? (
                       <>To: <strong className="text-slate-900">{verifiedRecipient.name}</strong> ({verifiedRecipient.email || 'No email'}) • Proof v{currentProofVersion}</>
                     ) : (
-                      <span className="font-semibold text-amber-900">Requester needs confirmation</span>
+                      <span className="font-semibold text-amber-900">{deliveryReadinessMessage}</span>
                     )}
                   </span>
-                  {!isRecipientConfirmed && (
+                  {needsRequesterConfirmation && (
                     <button
                       type="button"
                       onClick={() => setIsConfirmRequesterOpen(true)}
@@ -4017,13 +4141,18 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 )}
 
                 {/* Confirm-requester only in footer — upload cue lives in header */}
-                {!isRecipientConfirmed && !isCurrentProofApproved && (
+                {!canStartDelivery && !isCurrentProofApproved && (
                   <div
                     className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 flex items-center gap-1.5 max-w-full overflow-hidden"
                     data-testid="approve-disabled-reason"
                   >
                     <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span className="font-semibold truncate max-w-[240px]">Confirm requester first</span>
+                    <span className="font-semibold" title={deliveryReadinessDetail || undefined}>
+                      {needsRequesterConfirmation ? 'Confirm requester first' : deliveryReadinessMessage}
+                    </span>
+                    {deliveryCheckFailed && (
+                      <button type="button" className="font-semibold underline shrink-0" onClick={() => setDispatchCheckRetry(value => value + 1)}>Retry check</button>
+                    )}
                   </div>
                 )}
 
@@ -4033,13 +4162,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     <button
                       type="button"
                       onClick={openDeliveryOutreach}
-                      disabled={isSubmitting || !isRecipientConfirmed}
+                      disabled={isSubmitting || !canStartDelivery}
                       className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                        !isRecipientConfirmed
+                        !canStartDelivery
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                           : 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
                       }`}
-                      title={!isRecipientConfirmed ? 'Requester needs confirmation before external delivery' : 'Retry sending approved proof to agent'}
+                      title={!canStartDelivery ? (deliveryReadinessDetail || 'Requester needs confirmation before external delivery') : 'Retry sending approved proof to agent'}
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>{isSubmitting ? 'Retrying dispatch...' : 'Retry send to agent'}</span>
@@ -4048,14 +4177,14 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                     <button
                       type="button"
                       onClick={openDeliveryOutreach}
-                      disabled={isSubmitting || !isRecipientConfirmed}
+                      disabled={isSubmitting || !canStartDelivery}
                       data-action="Send to agent"
                       className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                        !isRecipientConfirmed
+                        !canStartDelivery
                           ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                           : 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                       }`}
-                      title={!isRecipientConfirmed ? 'Requester needs confirmation before external delivery' : 'Send approved proof to agent (Send to agent)'}
+                      title={!canStartDelivery ? (deliveryReadinessDetail || 'Requester needs confirmation before external delivery') : 'Send approved proof to agent (Send to agent)'}
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>{isSubmitting ? 'Sending to agent...' : 'Send to Agent'}</span>
@@ -4065,18 +4194,18 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   <button
                     type="button"
                     onClick={openDeliveryOutreach}
-                    disabled={isSubmitting || !isRecipientConfirmed || !hasAnyProof}
+                    disabled={isSubmitting || !canStartDelivery || !hasAnyProof}
                     data-action="Approve & send to agent"
                     data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
                     aria-label="Approve for Delivery (Approve & Send to Agent)"
                     className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                      !isRecipientConfirmed || !hasAnyProof || isSubmitting
+                      !canStartDelivery || !hasAnyProof || isSubmitting
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                     }`}
                     title={
-                      !isRecipientConfirmed
-                        ? 'Requester needs confirmation before external delivery'
+                      !canStartDelivery
+                        ? (deliveryReadinessDetail || 'Requester needs confirmation before external delivery')
                         : !hasAnyProof
                           ? 'Upload a finished proof before approving delivery.'
                           : 'Review the finished proof and notify the requester.'
@@ -4161,6 +4290,9 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         currentProofVersion={activeTask.proofVersion || 0}
         currentUser={currentUser}
         onAssetConfirmed={(asset) => {
+          markDraftUnsaved();
+          // A newly uploaded proof replaces the automatic old-proof input; explicit pasted links stay intentional.
+          if (manualProofUrl === proofInputValue(activeTask.proofUrl)) setManualProofUrl('');
           setStagedAssets(prev => {
             const next = [...prev, asset];
             try {
@@ -4174,10 +4306,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             return next;
           });
           setUrlValidationError(null);
-          setSaveStatus('saved');
           setActiveViewMode('workstation');
           setActiveTab('proof');
-          setSaveStatus('saved');
         }}
       />
 

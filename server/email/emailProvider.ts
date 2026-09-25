@@ -583,6 +583,9 @@ export async function sendTaskCompletionEmail(options: {
   const effectiveActionUrl = toAbsolutePublicUrl(options.downloadUrl || proofUrl ||
     (driveFolderUrl && driveFolderUrl !== 'https://drive.google.com' ? driveFolderUrl : ''));
   const trackerUrl = toAbsolutePublicUrl(options.trackerUrl);
+  const assetLinks = (Array.isArray(options.assetLinks) ? options.assetLinks : [])
+    .map((link: any) => ({ label: String(link.label || 'Approved file'), url: toAbsolutePublicUrl(link.url) }))
+    .filter((link: { url: string }) => link.url);
   if (!effectiveActionUrl && !options.attachments?.length) {
     return { success: false, smtpAccepted: false, retrySafe: true, error: 'A valid asset link or attachment is required.' };
   }
@@ -597,7 +600,9 @@ export async function sendTaskCompletionEmail(options: {
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `Great news! <strong>${taskTitle}</strong> for <strong>${propertyAddress}</strong> has been approved by <strong>${completedByName}</strong>.`,
-      `Your approved marketing assets are ready. Use the link below or open the attached files.`
+      `Your approved marketing assets are ready. Use the link below or open the attached files.`,
+      ...(assetLinks.length > 1 ? [assetLinks.map((link: { label: string; url: string }) =>
+        `<a href="${escapeEmailHtml(link.url)}">${escapeEmailHtml(link.label)}</a>`).join('<br/>')] : []),
     ],
     infoBox: {
       title: 'Listing Asset Package',
@@ -618,7 +623,7 @@ export async function sendTaskCompletionEmail(options: {
     requestId: options.requestId,
     taskId: options.taskId,
     subject: `Approved assets ready: ${taskTitle} for ${propertyAddress}`,
-    text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been approved by ${completedByName}.\n\n${effectiveActionUrl ? `Access your files: ${effectiveActionUrl}` : 'Your approved files are attached.'}${trackerUrl ? `\n\nView your request: ${trackerUrl}` : ''}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
+    text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been approved by ${completedByName}.\n\n${effectiveActionUrl ? `Access your files: ${effectiveActionUrl}` : 'Your approved files are attached.'}${assetLinks.length > 1 ? `\n\nApproved files:\n${assetLinks.map((link: { label: string; url: string }) => `${link.label}: ${link.url}`).join('\n')}` : ''}${trackerUrl ? `\n\nView your request: ${trackerUrl}` : ''}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent
   });
 }

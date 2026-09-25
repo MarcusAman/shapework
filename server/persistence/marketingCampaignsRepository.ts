@@ -2049,6 +2049,7 @@ export interface CanonicalMarketingTask {
     deliverableName?: string;
     fileMetadata?: any;
     validationStatus?: string;
+    assets?: import('../services/askNoraDriveDelivery.js').MarketingProofAssetRef[];
   }>;
   proofs?: Array<{ id?: string; name?: string; url?: string; uploadedAt?: string; uploadedBy?: string; version?: number }>;
   reviewHistory?: Array<{
@@ -3269,7 +3270,9 @@ export function submitCanonicalMarketingTaskProof(
     deliverableName?: string;
     fileMetadata?: any;
     validationStatus?: string;
-  }
+    assets?: import('../services/askNoraDriveDelivery.js').MarketingProofAssetRef[];
+  },
+  options: { persistDatabase?: boolean } = {}
 ): CanonicalMarketingTask | null {
   const task = getCanonicalMarketingTaskById(taskId);
   if (!task) return null;
@@ -3285,11 +3288,14 @@ export function submitCanonicalMarketingTaskProof(
     throw new Error('PROOF_REQUIRED: A valid proof URL or managed asset is required to submit for approval. Notes alone are not sufficient.');
   }
 
-  // Idempotency: If exact same proof is re-submitted while already awaiting_review, return existing state
+  const currentAssets = [...(task.proofHistory || [])].reverse().find(entry =>
+    entry.version === task.proofVersion && entry.proofUrl === task.proofUrl)?.assets || [];
+  // A changed secondary file is a new proof even when the primary URL and notes match.
   if (
     task.reviewState === 'awaiting_review' &&
     task.proofUrl === cleanProof &&
-    (task.proofNotes || '') === (notes || '')
+    (task.proofNotes || '') === (notes || '') &&
+    JSON.stringify(currentAssets) === JSON.stringify(assetMetadata?.assets ?? currentAssets)
   ) {
     return task;
   }
@@ -3333,7 +3339,8 @@ export function submitCanonicalMarketingTaskProof(
     assetId: assetMetadata?.assetId,
     deliverableName: assetMetadata?.deliverableName,
     fileMetadata: assetMetadata?.fileMetadata,
-    validationStatus: assetMetadata?.validationStatus
+    validationStatus: assetMetadata?.validationStatus,
+    assets: assetMetadata?.assets
   });
 
   if (!task.reviewHistory) task.reviewHistory = [];
@@ -3354,7 +3361,7 @@ export function submitCanonicalMarketingTaskProof(
     note: notes
   });
 
-  return saveCanonicalMarketingTask(task);
+  return saveCanonicalMarketingTask(task, options);
 }
 
 export function requestCanonicalMarketingTaskRevisions(

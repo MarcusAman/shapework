@@ -13,8 +13,9 @@ import { isDurableHttpsProofUrl, isRealGoogleDriveUrl, internalProofFilename, re
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
 import { pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
 import { GoogleDriveService } from './googleDriveService.js';
-import { checkOutbound } from '../email/outboundGate.js';
+import { checkOutbound, resolveOutboundMasterMode } from '../email/outboundGate.js';
 import { GOOGLE_DRIVE_NOT_CONNECTED } from './driveConnectionReason.js';
+import type { DispatchOutboundPolicy, DispatchRecipientBlockReason } from '../../src/lib/dispatchVerdict.js';
 
 export { GOOGLE_DRIVE_NOT_CONNECTED } from './driveConnectionReason.js';
 
@@ -46,6 +47,10 @@ export type DispatchVerdict = {
   allowed: boolean;
   reason: string;
   recipientStatus: DispatchRecipientStatus;
+  /** Explains a recipient miss without treating outbound policy as directory identity. */
+  recipientBlockReason: DispatchRecipientBlockReason;
+  /** Actual transport policy, separate from the full role/proof/recipient verdict. */
+  outboundPolicy: DispatchOutboundPolicy;
   /** Real directory id, or null. Never a made-up dir_* for an allowlist-only To. */
   recipientId: string | null;
   /** Post-filter To. Outbox recipients must use this array as-is. */
@@ -220,6 +225,8 @@ export function dispatchRejectBody(verdict: DispatchVerdict) {
     error: verdict.reason,
     code: dispatchBlockCode(verdict.reason),
     recipientStatus: verdict.recipientStatus,
+    recipientBlockReason: verdict.recipientBlockReason,
+    outboundPolicy: verdict.outboundPolicy,
     recipientId: verdict.recipientId,
     effectiveTo: verdict.effectiveTo,
     effectiveCc: verdict.effectiveCc,
@@ -246,6 +253,13 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     recipientStatus = 'allowlisted_prove';
     recipientId = null;
   }
+  const recipientBlockReason: DispatchRecipientBlockReason = recipientStatus !== 'unresolved'
+    ? null
+    : !email
+      ? 'missing_email'
+      : EXPLICIT_OUTBOUND_ALLOWLIST.some(address => address.toLowerCase() === email.toLowerCase())
+        ? 'test_recipient_policy'
+        : 'directory_unresolved';
 
   const requestedTo = email ? [email] : [];
   const effectiveTo = filterDispatchRecipients(requestedTo, recipientStatus);
@@ -311,6 +325,12 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     allowed: reason === '',
     reason,
     recipientStatus,
+    recipientBlockReason,
+    outboundPolicy: {
+      mode: resolveOutboundMasterMode(outboundMode),
+      allowed: outboundGate.allowed,
+      reason: outboundGate.reason,
+    },
     recipientId,
     effectiveTo,
     effectiveCc,

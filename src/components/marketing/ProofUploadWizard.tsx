@@ -138,7 +138,7 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [durablePreviewUrl, setDurablePreviewUrl] = useState<string | null>(null);
+  const [uploadDataUrl, setUploadDataUrl] = useState<string | null>(null);
 
   const resetWizard = useCallback((revoke = true) => {
     setStep(hasLockedDeliverable || deliverableChoices.length === 1 ? 2 : 1);
@@ -148,7 +148,7 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
       URL.revokeObjectURL(filePreviewUrl);
     }
     setFilePreviewUrl(null);
-    setDurablePreviewUrl(null);
+    setUploadDataUrl(null);
     setInspectedMetadata(null);
     setErrorMessage(null);
   }, [filePreviewUrl]);
@@ -181,20 +181,24 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
     const objectUrl = URL.createObjectURL(file);
     setFilePreviewUrl(objectUrl);
 
-    // Read as Data URL for durable preview that survives dialog closure without ERR_FILE_NOT_FOUND
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setDurablePreviewUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setDurablePreviewUrl(objectUrl);
-    }
+    setUploadDataUrl(null);
+    setInspectedMetadata(null);
 
     try {
+      // Every accepted format needs actual bytes for upload. Blob URLs are local previews only.
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        const fail = () => reject(new Error('Could not read this file. Choose it again and retry.'));
+        reader.onload = () => {
+          const result = reader.result;
+          if (typeof result === 'string' && result.startsWith('data:') && result.includes(';base64,')) resolve(result);
+          else fail();
+        };
+        reader.onerror = fail;
+        reader.onabort = fail;
+        reader.readAsDataURL(file);
+      });
+      setUploadDataUrl(dataUrl);
       const arrayBuffer = await file.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
       const isPdf = file.type === 'application/pdf';
@@ -285,34 +289,35 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
   };
 
   const handleConfirmAsset = async () => {
-    if (!selectedFile || (!filePreviewUrl && !durablePreviewUrl)) return;
+    if (!selectedFile || !uploadDataUrl) {
+      setErrorMessage('Could not read this file. Choose it again and retry.');
+      return;
+    }
     setIsProcessing(true);
 
-    let finalPreviewUrl = durablePreviewUrl || filePreviewUrl || '';
+    let finalPreviewUrl = '';
     let durableAssetId: string | undefined;
     setErrorMessage(null);
 
-    // Attempt to upload to durable backend storage if base64 data is present
+    // Confirm only after the backend has durably saved the selected file.
     try {
-      if (durablePreviewUrl && (durablePreviewUrl.startsWith('data:') || durablePreviewUrl.length > 500)) {
-        const uploadRes = await fetch('/api/marketing/upload-asset', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            taskId,
-            filename: selectedFile.name,
-            fileBase64: durablePreviewUrl,
-            contentType: selectedFile.type
-          })
-        });
-        const uploadData = await uploadRes.json();
-        if (!uploadRes.ok || !uploadData.success || !uploadData.url || !uploadData.assetId) {
-          throw new Error(uploadData.error || 'The file could not be saved. Please retry.');
-        }
-        finalPreviewUrl = uploadData.url;
-        durableAssetId = uploadData.assetId;
+      const uploadRes = await fetch('/api/marketing/upload-asset', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId,
+          filename: selectedFile.name,
+          fileBase64: uploadDataUrl,
+          contentType: selectedFile.type
+        })
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.success || !uploadData.url || !uploadData.assetId) {
+        throw new Error(uploadData.error || 'The file could not be saved. Please retry.');
       }
+      finalPreviewUrl = uploadData.url;
+      durableAssetId = uploadData.assetId;
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'The file could not be saved. Please retry.');
       return;
@@ -348,8 +353,8 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
     };
 
     onAssetConfirmed(confirmedAsset);
-    // Reset state without revoking the confirmed asset's URL
-    resetWizard(false);
+    // The confirmed server URL is durable; discard the local blob preview.
+    resetWizard(true);
     onClose();
   };
 
@@ -754,6 +759,7 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmAsset}
+                disabled={isProcessing}
                 className="px-5 py-2 bg-[#00635C] hover:bg-[#004d47] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />

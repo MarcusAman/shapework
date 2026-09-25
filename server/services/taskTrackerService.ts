@@ -327,6 +327,30 @@ export async function generateMarketingTrackerToken(taskId: string): Promise<str
   return ensureMarketingPortalToken(taskId);
 }
 
+/** A portal selector authorizes only a file in the task's current approved package. */
+export async function resolveMarketingTrackerDeliverable(token: string, selector: { version?: unknown; assetId?: unknown } = {}) {
+  const { resolveMarketingPortalTask, hasApprovedCurrentProof, internalAssetFilename, safeExternalAssetUrl } = await import('./marketingPortalAccess.js');
+  const task = await resolveMarketingPortalTask(token);
+  if (!task || !hasApprovedCurrentProof(task)) return null;
+  const version = String(task.proofVersion || 1);
+  if (selector.version !== undefined && (typeof selector.version !== 'string' || selector.version !== version)) return null;
+  if (selector.assetId !== undefined && (typeof selector.assetId !== 'string' || !selector.assetId || selector.version === undefined)) return null;
+  const { currentMarketingProofAssets, resolveDurableDeliveryAssets } = await import('./askNoraDriveDelivery.js');
+  const selected = currentMarketingProofAssets(task);
+  if (selector.assetId !== undefined && !selected.some(asset => asset.assetId === selector.assetId)) return null;
+  const filename = internalAssetFilename(task.proofUrl!);
+  const assets = filename || selected.length ? await resolveDurableDeliveryAssets(task) : [];
+  if ((filename || selected.length) && !assets.length) return null;
+  if (selector.assetId !== undefined || filename) {
+    const asset = selector.assetId !== undefined
+      ? assets.find(value => value.assetId === selector.assetId)
+      : assets.find(value => internalAssetFilename(value.url) === filename);
+    return asset ? { asset } : null;
+  }
+  const url = safeExternalAssetUrl(task.proofUrl!);
+  return url ? { url } : null;
+}
+
 export async function getMarketingTrackerByToken(token: string): Promise<any | null> {
   const { resolveMarketingPortalTask, hasApprovedCurrentProof, internalAssetFilename, safeExternalAssetUrl } = await import('./marketingPortalAccess.js');
   const task = await resolveMarketingPortalTask(token);
@@ -344,6 +368,23 @@ export async function getMarketingTrackerByToken(token: string): Promise<any | n
     'The approved assets have been sent to your email address.',
   ];
   const notes = task.routingSnapshot?.clientNotes || [];
+  const approvedDeliverables: Array<{ name: string; url: string }> = [];
+  if (hasApprovedCurrentProof(task)) {
+    const { currentMarketingProofAssets } = await import('./askNoraDriveDelivery.js');
+    const files = currentMarketingProofAssets(task);
+    const primary = files.find(file => internalAssetFilename(file.url) === internalAssetFilename(task.proofUrl!) && internalAssetFilename(file.url));
+    const candidates = [{ url: task.proofUrl!, name: primary?.filename || task.title, assetId: primary?.assetId },
+      ...files.map(file => ({ url: file.url, name: file.filename, assetId: file.assetId }))];
+    const seen = new Set<string>();
+    for (const file of candidates) {
+      const key = internalAssetFilename(file.url) || safeExternalAssetUrl(file.url);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const query = new URLSearchParams({ version: String(task.proofVersion || 1) });
+      if (file.assetId) query.set('assetId', file.assetId);
+      approvedDeliverables.push({ name: file.name, url: `/api/track/marketing/${encoded}/deliverable?${query}` });
+    }
+  }
   return {
     token, ticketId: `MK-${task.id.slice(-6).toUpperCase()}`, callId: task.id,
     callerName: task.agentName || 'Agent', phone: task.agentPhone || '', email: task.agentEmail || '',
@@ -359,7 +400,7 @@ export async function getMarketingTrackerByToken(token: string): Promise<any | n
       estimatedDelivery: task.dueAt ? `Due ${new Date(task.dueAt).toLocaleDateString()}` : 'Timing will be confirmed by marketing.',
     },
     isMarketingRequest: true, deliverables: [task.title], assignedLead: 'Melissa Gagliardi', assignedProducer: task.assignedTo,
-    approvedDeliverables: hasApprovedCurrentProof(task) ? [{ name: task.title, url: `/api/track/marketing/${encoded}/deliverable` }] : [],
+    approvedDeliverables,
     canRequestRevision: delivered,
     photos: (task.photos || []).flatMap((photo, i) => {
       const url = internalAssetFilename(photo.url)

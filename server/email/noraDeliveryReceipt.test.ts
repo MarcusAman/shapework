@@ -46,4 +46,14 @@ describe('Nora delivery SMTP receipt', () => {
     expect(toAbsolutePublicUrl('/api/marketing/assets/download/token')).toBe('https://nest.example/api/marketing/assets/download/token');
     for (const url of ['//attacker.example/a', 'data:text/plain,a', 'javascript:alert(1)', 'http://localhost/a', 'https://localhost/a', 'https://user:pass@example.com/a']) expect(toAbsolutePublicUrl(url)).toBe('');
   });
+  it('includes every approved download in HTML and plain text with one primary CTA', async () => {
+    const assetLinks = [1, 2, 3].map(index => ({ label: `Photo ${index}.jpg`, url: `https://nest.example/api/marketing/assets/download/file-${index}` }));
+    await sendTaskCompletionEmail({ toEmail: 'agent@nestrealty.com', agentName: 'Agent', propertyAddress: '123 Main St', taskTitle: 'Listing photos', proofUrl: assetLinks[0].url, assetLinks });
+    const mail = mocks.sendMail.mock.calls[0][0];
+    for (const link of assetLinks) {
+      expect(mail.html).toContain(link.url);
+      expect(mail.text).toContain(link.url);
+    }
+    expect(mail.html.match(/data-nora-cta=/g)).toHaveLength(1);
+  });
 });

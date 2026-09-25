@@ -3,6 +3,13 @@
  * The allowlist rule itself lives only in evaluateDispatch.
  */
 export type DispatchRecipientStatus = 'directory' | 'allowlisted_prove' | 'unresolved';
+export type DispatchRecipientBlockReason = 'missing_email' | 'directory_unresolved' | 'test_recipient_policy' | null;
+export type DispatchOutboundPolicy = {
+  mode: 'disabled' | 'hold' | 'live';
+  /** Transport eligibility only; the full dispatch verdict still controls sending. */
+  allowed: boolean;
+  reason: string;
+};
 
 export type DispatchVerdictView = {
   allowed: boolean;
@@ -11,6 +18,8 @@ export type DispatchVerdictView = {
   recipientId?: string | null;
   effectiveTo?: string[];
   effectiveCc?: string[];
+  recipientBlockReason?: DispatchRecipientBlockReason;
+  outboundPolicy?: DispatchOutboundPolicy;
 };
 
 export function dispatchAssuranceLabel(

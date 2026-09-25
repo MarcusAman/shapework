@@ -2957,14 +2957,14 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             const next = allTasksCombined.find(t => t.id === id);
             if (next) handleOpenTaskDetail(next, modalInitialTab);
           }}
-          onSubmitProof={async (taskId, proofUrl, notes, assetMetadata) => {
+          onSubmitProof={async (taskId, proofUrl, notes, assetMetadata, stagedAssets) => {
             const currentTask = allTasksCombined.find(t => t.id === taskId);
             const resolvedProof = proofUrl || currentTask?.proofUrl || (currentTask?.photos && currentTask.photos[0]?.url) || '';
             try {
               const res = await fetch(`/api/marketing/tasks/${taskId}/submit-proof`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ proofUrl: resolvedProof, notes, assetMetadata })
+                body: JSON.stringify({ proofUrl: resolvedProof, notes, assetMetadata, stagedAssets })
               });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) {

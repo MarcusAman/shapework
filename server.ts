@@ -159,6 +159,7 @@ import { MmsTextToRequestService } from './server/services/mmsTextToRequestServi
 import { oauthRouter } from './server/routes/oauthRouter.js';
 import { telephonyRouter } from './server/routes/telephonyRouter.js';
 import { marketingQuestionsRouter } from './server/routes/marketingQuestionsRoute.js';
+import { createMarketingTaskDraftRouter } from './server/routes/marketingTaskDraftRoute.js';
 import { ownerMetricsRouter } from './server/routes/ownerMetricsRouter.js';
 import { propertyCompsRouter } from './server/routes/propertyCompsRoute.js';
 import { noraContractSentinelRouter } from './server/routes/noraContractSentinelRoute.js';
@@ -7328,12 +7329,21 @@ app.post('/api/marketing/tasks/recover-awaiting-review', requireAuth, resolveWor
   }
 });
 
+app.use('/api/marketing/tasks', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, createMarketingTaskDraftRouter());
+
 app.post('/api/marketing/tasks/:id/submit-proof', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req, res) => {
   try {
     const scopedTask = await getOrFetchCanonicalMarketingTask(req.params.id);
     if (!scopedTask || scopedTask.workspaceId !== (req as any).workspace?.id) return res.status(404).json({ success: false, error: 'Task not found.' });
+    const { refreshMarketingDeliveryState } = await import('./server/services/marketingDeliveryLock.js');
+    if (!await refreshMarketingDeliveryState(scopedTask)) return res.status(404).json({ success: false, error: 'Task not found.' });
+    const { captureMarketingProofState } = await import('./server/services/marketingProofPersistence.js');
+    const previousProofState = captureMarketingProofState(scopedTask);
     const { proofUrl, notes, stagedAssets, assetMetadata } = req.body || {};
-    let cleanProof = (proofUrl || '').trim();
+    const expectedProofVersion = scopedTask.proofVersion || 0;
+    const { prepareMarketingProofAssets } = await import('./server/services/marketingProofAssets.js');
+    const draftProof = await prepareMarketingProofAssets(scopedTask, { proofUrl, notes, assets: Array.isArray(stagedAssets) ? stagedAssets : undefined });
+    let cleanProof = draftProof.proofUrl;
     if (!cleanProof && Array.isArray(stagedAssets) && stagedAssets.length > 0) {
       const s0 = stagedAssets[0];
       cleanProof = String(s0?.previewUrl || s0?.downloadUrl || s0?.url || s0?.fileUrl || '').trim();
@@ -7414,8 +7424,14 @@ app.post('/api/marketing/tasks/:id/submit-proof', requireAuth, resolveWorkspaceC
 
     const sessionUser = (req as any).authUser || (req as any).user;
     const actor = sessionUser ? { id: sessionUser.id, name: sessionUser.name || sessionUser.email } : undefined;
-    const updated = submitCanonicalMarketingTaskProof(req.params.id, finalProofUrl, notes, actor, assetMetadata);
+    const preparedProof = await prepareMarketingProofAssets(scopedTask, {
+      proofUrl: finalProofUrl, notes: draftProof.notes, assets: draftProof.assets,
+    });
+    const updated = submitCanonicalMarketingTaskProof(req.params.id, finalProofUrl, preparedProof.notes, actor,
+      { ...assetMetadata, assets: preparedProof.assets }, { persistDatabase: false });
     if (!updated) return res.status(404).json({ success: false, error: 'Task not found' });
+    const { persistMarketingProofApproval } = await import('./server/services/marketingProofPersistence.js');
+    await persistMarketingProofApproval(updated, expectedProofVersion, { submission: true, consumedDraftSavedAt: preparedProof.consumedDraftSavedAt, previousProofState });
 
     const { recordActivityEvent } = await import('./server/services/activityHistoryService.js');
     await recordActivityEvent({
@@ -7453,7 +7469,6 @@ app.post('/api/marketing/tasks/:id/submit-proof', requireAuth, resolveWorkspaceC
       }
     }
 
-    await persistTaskToDatabase(updated);
     return res.json({ success: true, task: updated });
   } catch (err: any) {
     return res.status(400).json({ success: false, error: err.message });
@@ -8151,21 +8166,23 @@ app.post('/api/marketing/tasks/:id/submit-manager-review', requireAuth, resolveW
 const activeTaskDispatchLocks = new Set<string>();
 
 
-async function resolveAgentCollateralDownloadUrl(task: any): Promise<string> {
+async function resolveAgentCollateralDownloadUrls(task: any): Promise<Array<{ label: string; url: string }>> {
   const { toAbsolutePublicUrl } = await import('./server/email/emailProvider.js');
-  const { resolveDurableDeliveryAssets } = await import('./server/services/askNoraDriveDelivery.js');
+  const { resolveDurableDeliveryAssets, currentMarketingProofAssets } = await import('./server/services/askNoraDriveDelivery.js');
   const { internalAssetFilename, safeExternalAssetUrl } = await import('./server/services/marketingPortalAccess.js');
-  if (internalAssetFilename(task.proofUrl || '')) {
-    const assets = await resolveDurableDeliveryAssets(task);
-    if (!assets.length) throw new Error('The approved file is unavailable in this workspace.');
-    const token = await createAssetDownloadTokenAsync({ assetId: assets[0].assetId, filename: assets[0].filename, workspaceId: task.workspaceId, taskId: task.id, expiresInHours: 168 });
+  const assets = await resolveDurableDeliveryAssets(task);
+  const links: Array<{ label: string; url: string }> = [];
+  if ((internalAssetFilename(task.proofUrl || '') || currentMarketingProofAssets(task).length) && !assets.length) throw new Error('The approved files are unavailable in this workspace.');
+  for (const asset of assets) {
+    const token = await createAssetDownloadTokenAsync({ assetId: asset.assetId, filename: asset.filename, workspaceId: task.workspaceId, taskId: task.id, expiresInHours: 168 });
     const url = toAbsolutePublicUrl(`/api/marketing/assets/download/${token.token}`);
     if (!url) throw new Error('Public download address is unavailable.');
-    return url;
+    links.push({ label: asset.filename, url });
   }
   const external = safeExternalAssetUrl(task.proofUrl || '');
-  if (!external) throw new Error('An approved, accessible deliverable is required.');
-  return external;
+  if (external) links.unshift({ label: 'Approved assets', url: external });
+  if (!links.length) throw new Error('An approved, accessible deliverable is required.');
+  return links;
 }
 
 async function deliverApprovedMarketingTask(task: any, sessionUser: any, verdict: any, skipAgentEmail = false): Promise<any> {
@@ -8180,7 +8197,8 @@ async function deliverApprovedMarketingTask(task: any, sessionUser: any, verdict
   if (skipAgentEmail) return { smtpAccepted: false, error: 'DELIVERY_RECEIPT_REQUIRED', smtpResponse: 'No successful send is recorded for this proof version.' };
   if (!verdict.effectiveTo.length) return { smtpAccepted: false, smtpResponse: 'No authorized recipient.' };
   const { sendTaskCompletionEmail } = await import('./server/email/emailProvider.js');
-  const url = await resolveAgentCollateralDownloadUrl(task);
+  const assetLinks = await resolveAgentCollateralDownloadUrls(task);
+  const url = assetLinks[0].url;
   const { toAbsolutePublicUrl } = await import('./server/email/emailProvider.js');
   const { generateMarketingTrackerToken } = await import('./server/services/taskTrackerService.js');
   const portalToken = await generateMarketingTrackerToken(task.id);
@@ -8189,7 +8207,7 @@ async function deliverApprovedMarketingTask(task: any, sessionUser: any, verdict
   if (!await beginMarketingDeliveryAttempt(task, key)) return { smtpAccepted: false, error: 'DELIVERY_OUTCOME_UNCONFIRMED', smtpResponse: 'A previous send needs confirmation before retrying.' };
   const result = await sendTaskCompletionEmail({
     toEmail: verdict.effectiveTo[0], agentName: task.agentName || 'Agent', propertyAddress: task.propertyAddress || task.title,
-    taskTitle: task.title, proofUrl: url, trackerUrl, cc: verdict.effectiveCc, completedByName: sessionUser.name || 'Melissa Gagliardi',
+    taskTitle: task.title, proofUrl: url, assetLinks, trackerUrl, cc: verdict.effectiveCc, completedByName: sessionUser.name || 'Melissa Gagliardi',
     workspaceId: task.workspaceId, requestId: task.requestId, taskId: task.id,
   });
   if (result.smtpAccepted && result.messageId) {
@@ -8287,6 +8305,8 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     if (!await refreshMarketingDeliveryState(task)) return res.status(404).json({ success: false, error: 'Task not found.' });
 
     const expectedProofVersion = task.proofVersion || 0;
+    const { captureMarketingProofState } = await import('./server/services/marketingProofPersistence.js');
+    const previousProofState = captureMarketingProofState(task);
     const sessionUser = (req as any).authUser || (req as any).user;
 
     // 0. Blueprint role gate — only task.reviewerId may Approve & Notify (UI hide insufficient)
@@ -8322,14 +8342,21 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     const pastedBody = typeof proofUrl === 'string' ? proofUrl.trim() : '';
     const stagedFile = /^(?:data|blob|file):/i.test(stagedUrl) ? '' : stagedUrl;
     const rawIncomingProofUrl = pastedBody || stagedFile || metaAssetPath;
-    const incomingProofUrl = /^(?:data|blob|file):/i.test(rawIncomingProofUrl) ? '' : rawIncomingProofUrl;
+    const { prepareMarketingProofAssets, sameMarketingProofAssets } = await import('./server/services/marketingProofAssets.js');
+    const { currentMarketingProofAssets } = await import('./server/services/askNoraDriveDelivery.js');
+    const preparedProof = !deliverOnly ? await prepareMarketingProofAssets(task, {
+      proofUrl: /^(?:data|blob|file):/i.test(rawIncomingProofUrl) ? '' : rawIncomingProofUrl,
+      notes: note, assets: Array.isArray(stagedAssets) ? stagedAssets : undefined,
+    }) : null;
+    const incomingProofUrl = preparedProof?.proofUrl || '';
     if (!deliverOnly && incomingProofUrl) {
       const urlChanged = !task.proofUrl || task.proofUrl !== incomingProofUrl;
       const missingHistory = !Array.isArray(task.proofHistory) || task.proofHistory.length === 0;
-      if (urlChanged || missingHistory || (selfComplete && !task.proofVersion)) {
+      const assetsChanged = !sameMarketingProofAssets(currentMarketingProofAssets(task), preparedProof?.assets || []);
+      if (urlChanged || assetsChanged || missingHistory || (selfComplete && !task.proofVersion)) {
         task.proofUrl = incomingProofUrl;
-        task.proofNotes = note || task.proofNotes;
-        if (urlChanged || missingHistory || !task.proofVersion) {
+        task.proofNotes = preparedProof?.notes ?? task.proofNotes;
+        if (urlChanged || assetsChanged || missingHistory || !task.proofVersion) {
           task.proofVersion = (task.proofVersion || 0) + 1;
         }
         if (!task.proofHistory) task.proofHistory = [];
@@ -8347,7 +8374,8 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
             assetId: assetMetadata?.assetId || stagedAssets?.[0]?.id,
             deliverableName: assetMetadata?.deliverableName || stagedAssets?.[0]?.deliverableName,
             fileMetadata: assetMetadata?.fileMetadata || stagedAssets?.[0],
-            validationStatus: assetMetadata?.validationStatus || stagedAssets?.[0]?.validationStatus
+            validationStatus: assetMetadata?.validationStatus || stagedAssets?.[0]?.validationStatus,
+            assets: preparedProof?.assets,
           });
         }
         // Director self-complete: do not park in awaiting_review.
@@ -8360,6 +8388,7 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
     }
 
     // 2. Approve Proof if not already approved
+    if (preparedProof?.notes !== undefined) task.proofNotes = preparedProof.notes;
     if (!deliverOnly && !isTaskProofApproved(task)) {
       if (!task.proofUrl && !incomingProofUrl) {
         return res.status(400).json({
@@ -8383,7 +8412,7 @@ app.post('/api/marketing/tasks/:id/approve-and-dispatch', requireAuth, resolveWo
 
     if (!deliverOnly) {
       const { persistMarketingProofApproval } = await import('./server/services/marketingProofPersistence.js');
-      await persistMarketingProofApproval(task, expectedProofVersion);
+      await persistMarketingProofApproval(task, expectedProofVersion, { consumedDraftSavedAt: preparedProof?.consumedDraftSavedAt, previousProofState });
     }
 
     // 3. Resolve Intended Recipient from Task & Canonical Request
@@ -9613,19 +9642,15 @@ app.get('/api/track/marketing/:token/media/:index', async (req, res) => {
 
 app.get('/api/track/marketing/:token/deliverable', async (req, res) => {
   try {
-    const task = await resolveMarketingTrackerTask(req.params.token);
-    const { hasApprovedCurrentProof, internalAssetFilename, safeExternalAssetUrl } = await import('./server/services/marketingPortalAccess.js');
-    if (!task || !hasApprovedCurrentProof(task)) return res.status(404).json({ error: 'Approved deliverable not found.' });
-    const filename = internalAssetFilename(task.proofUrl!);
-    if (filename) {
-      const asset = await getDurableAssetByFilenameAsync(filename, { workspaceId: task.workspaceId!, taskId: task.id });
-      if (!asset) return res.status(404).json({ error: 'Asset not found.' });
-      return sendMarketingAsset(res, asset, true);
+    const { resolveMarketingTrackerDeliverable } = await import('./server/services/taskTrackerService.js');
+    const result = await resolveMarketingTrackerDeliverable(req.params.token, { version: req.query.version, assetId: req.query.assetId });
+    if (!result) return res.status(404).json({ error: 'Approved deliverable not found.' });
+    if (result.asset) {
+      return sendMarketingAsset(res, { ...result.asset, dataBase64: result.asset.content.toString('base64') }, true);
     }
-    const url = safeExternalAssetUrl(task.proofUrl!);
-    if (!url) return res.status(404).json({ error: 'Deliverable not found.' });
+    res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    return res.redirect(url);
+    return res.redirect(result.url!);
   } catch { return res.status(503).json({ error: 'Asset storage unavailable.' }); }
 });
 

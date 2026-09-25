@@ -268,6 +268,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             ...((proofForCheck || internalProof) ? { proofUrl: proofForCheck || internalProof } : {}),
             driveFolderUrl: driveFolderUrl || undefined,
             attachments: campaign.attachments || [],
+            stagedAssets: campaign.approvePayload?.stagedAssets,
             domain,
           }),
         });
@@ -473,6 +474,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       proofUrl: pastedProof || internalProof || undefined,
       forceConfirmRecent: !isDelivery && duplicateConfirmed,
       assetUrls: isDelivery ? [] : collectDeliveryAssetLinks(campaign),
+      stagedAssets: isDelivery ? campaign.approvePayload?.stagedAssets : undefined,
       attachments: (campaign.attachments || []).filter((a: any) => a?.url)
     };
 
