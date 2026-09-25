@@ -12,8 +12,8 @@ import { sopRepository } from './sopRepository.js';
 async function getDbPool() {
   if (typeof window !== 'undefined') return null;
   try {
-    const { dbPool } = await import('./repositories.js');
-    return dbPool;
+    const { getDbPool: openPool } = await import('./repositories.js');
+    return openPool();
   } catch {
     return null;
   }

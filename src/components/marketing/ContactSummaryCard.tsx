@@ -96,6 +96,13 @@ export const ContactSummaryCard: React.FC<ContactSummaryCardProps> = ({
             Queued
           </span>
         );
+      case 'held':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+            <Clock className="w-3 h-3 text-amber-700" />
+            Held
+          </span>
+        );
       case 'provider_accepted':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">

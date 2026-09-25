@@ -25,8 +25,164 @@ import { decryptToken } from '../shared/integrationCredentialVault.js';
 import { GoogleCalendarDiagnosticService } from '../../services/googleCalendarDiagnosticService.js';
 import { CalendarRepository } from '../../persistence/calendarRepository.js';
 
+/**
+ * OAuth redirect for Google Workspace. Used by both
+ * GET /api/integrations/google/callback and GET /api/auth/google/callback
+ * (the redirect URI registered with Google).
+ */
+export function handleGoogleOAuthCallback(
+  dbState: any,
+  persistStateCallback: (wsId?: string) => Promise<void>
+) {
+  return async (req: AuthenticatedRequest, res: Response) => {
+    const { code, state, error, error_description } = req.query;
+    const codeStr = String(code || '').trim();
+    const stateStr = String(state || '');
+
+    const appOrigin = process.env.PUBLIC_APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+
+    const sendCompletionPage = (status: 'success' | 'error', errorMsg?: string) => {
+      const safeError = errorMsg ? escapeHtml(errorMsg) : '';
+      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+      res.status(status === 'success' ? 200 : 400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Google Authentication</title>
+          <script>
+            window.opener?.postMessage({
+              type: 'SHAPEWORK_GOOGLE_OAUTH_COMPLETE',
+              provider: 'google',
+              status: '${status}',
+              error: ${safeError ? JSON.stringify(safeError) : 'null'}
+            }, ${JSON.stringify(appOrigin)});
+            window.close();
+          </script>
+        </head>
+        <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+          <h2>${status === 'success' ? 'Authentication Successful' : 'Authentication Failed'}</h2>
+          <p>${status === 'success' ? 'You can close this window now.' : safeError || 'An unknown error occurred.'}</p>
+        </body>
+        </html>
+      `);
+    };
+
+    if (error) {
+      console.error(`[Google Callback] OAuth error: ${error} - ${error_description}`);
+      return sendCompletionPage('error', String(error_description || error));
+    }
+
+    if (!codeStr) {
+      return sendCompletionPage('error', 'Missing authorization code.');
+    }
+
+    const stateData = googleActiveStates.get(stateStr);
+    if (!stateData) {
+      console.error('[Google Callback] State validation failed (not found or expired).');
+      return sendCompletionPage('error', 'OAuth state validation mismatch. Re-authorize Google connection.');
+    }
+
+    const sessionUserId = (req as any).authUser?.id;
+    if (sessionUserId !== stateData.userId) {
+      console.error('[Google Callback] User mismatch: session user !== state initiator');
+      return sendCompletionPage('error', 'Session mismatch. The user completing authorization does not match the initiator.');
+    }
+
+    if (!validateGoogleOAuthState(stateStr, stateData.workspaceId, stateData.userId)) {
+      return sendCompletionPage('error', 'OAuth state validation mismatch. Re-authorize Google connection.');
+    }
+
+    try {
+      const result = await exchangeGoogleCode(codeStr, req);
+
+      const store = new IntegrationStateStore(dbState);
+      const existingConn = await store.getConnection(stateData.workspaceId, 'google_workspace');
+      const preservedRefreshToken = result.encryptedRefreshToken || existingConn?.encryptedRefreshToken;
+      const candidate = {
+        id: `conn_google_${stateData.workspaceId}`,
+        workspaceId: stateData.workspaceId,
+        provider: 'google_workspace' as const,
+        status: 'connected' as const,
+        connectedByUserId: stateData.userId,
+        connectedAt: new Date().toISOString(),
+        providerAccountId: result.providerAccountId,
+        providerAccountEmail: result.email,
+        scopes: result.scopes,
+        encryptedAccessToken: result.encryptedAccessToken,
+        encryptedRefreshToken: preservedRefreshToken,
+        accessTokenExpiresAt: result.accessTokenExpiresAt
+      };
+
+      const verification = await verifyGoogleConnection(candidate, dbState, async () => {});
+      if (!verification.verified) {
+        return sendCompletionPage('error', verification.error || 'Live verification check failed after exchange.');
+      }
+
+      await store.upsertConnection(candidate);
+
+      logIntegrationAudit(
+        dbState,
+        stateData.workspaceId,
+        'System Callback',
+        'System',
+        `Google Workspace connected by user ${stateData.userId} (${result.email})`,
+        'Google Workspace'
+      );
+
+      await persistStateCallback(stateData.workspaceId);
+      sendCompletionPage('success');
+    } catch (err: any) {
+      console.error('[Google Callback] Token exchange failed:', err.message);
+      sendCompletionPage('error', `Failed to exchange Google OAuth authorization token: ${err.message}`);
+    }
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+const GOOGLE_OAUTH_CALLBACK_PATHS = new Set([
+  '/callback',
+  '/api/integrations/google/callback',
+  '/api/oauth/google/callback',
+  '/api/auth/google/callback',
+]);
+
+function withoutQueryOrTrailingSlash(value: string): string {
+  const bare = value.split('?')[0];
+  return bare.length > 1 && bare.endsWith('/') ? bare.slice(0, -1) : bare;
+}
+
+function isGoogleOAuthCallback(req: { path?: string; originalUrl?: string }): boolean {
+  const path = withoutQueryOrTrailingSlash(req.path || '');
+  const original = withoutQueryOrTrailingSlash(req.originalUrl || '');
+  return GOOGLE_OAUTH_CALLBACK_PATHS.has(path) || GOOGLE_OAUTH_CALLBACK_PATHS.has(original);
+}
+
 export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: string) => Promise<void>): Router {
   const router = Router();
+
+  // Session plus manage_integrations for every route on this router.
+  // The OAuth callback is the only exception; it keeps its state checks.
+  router.use((req, res, next) => {
+    if (isGoogleOAuthCallback(req)) return next();
+    const authed = req as AuthenticatedRequest;
+    requireAuth(authed, res, () => {
+      void resolveWorkspaceContext(authed, res, () => {
+        requireWorkspaceMembership(authed, res, () => {
+          requirePermission('manage_integrations')(authed, res, () => {
+            csrfProtection(req, res, next);
+          });
+        });
+      });
+    });
+  });
 
   /**
    * GET /api/integrations/google/connect (or /api/oauth/google/start)
@@ -78,108 +234,9 @@ export function getGoogleRouter(dbState: any, persistStateCallback: (wsId?: stri
 
   /**
    * GET /api/integrations/google/callback (or /api/oauth/google/callback)
-   * OAuth redirect callback endpoint.
+   * OAuth redirect callback endpoint. /api/auth/google/callback uses this same handler.
    */
-  router.get('/callback', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    const { code, state, error, error_description } = req.query;
-    const codeStr = String(code || '');
-    const stateStr = String(state || '');
-    
-    const appOrigin = process.env.PUBLIC_APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
-
-    // Helper to send popup completion message and close
-    const sendCompletionPage = (status: 'success' | 'error', errorMsg?: string) => {
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Google Authentication</title>
-          <script>
-            window.opener?.postMessage({
-              type: 'SHAPEWORK_GOOGLE_OAUTH_COMPLETE',
-              provider: 'google',
-              status: '${status}',
-              error: ${errorMsg ? JSON.stringify(errorMsg) : 'null'}
-            }, ${JSON.stringify(appOrigin)});
-            window.close();
-          </script>
-        </head>
-        <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-          <h2>${status === 'success' ? 'Authentication Successful' : 'Authentication Failed'}</h2>
-          <p>${status === 'success' ? 'You can close this window now.' : errorMsg || 'An unknown error occurred.'}</p>
-        </body>
-        </html>
-      `);
-    };
-
-    if (error) {
-      console.error(`[Google Callback] OAuth error: ${error} - ${error_description}`);
-      return sendCompletionPage('error', String(error_description || error));
-    }
-
-    const stateData = googleActiveStates.get(stateStr);
-    if (!stateData) {
-      console.error('[Google Callback] State validation failed (not found or expired).');
-      return sendCompletionPage('error', 'OAuth state validation mismatch. Re-authorize Google connection.');
-    }
-
-    // Verify session user matches OAuth initiator
-    const sessionUserId = (req as any).authUser?.id;
-    if (sessionUserId !== stateData.userId) {
-      console.error('[Google Callback] User mismatch: session user !== state initiator');
-      return sendCompletionPage('error', 'Session mismatch. The user completing authorization does not match the initiator.');
-    }
-
-    // Consume the state token to prevent reuse/replay attacks
-    validateGoogleOAuthState(stateStr, stateData.workspaceId, stateData.userId);
-
-    try {
-      const result = await exchangeGoogleCode(codeStr, req);
-
-      const store = new IntegrationStateStore(dbState);
-      const existingConn = await store.getConnection(stateData.workspaceId, 'google_workspace');
-      const preservedRefreshToken = result.encryptedRefreshToken || existingConn?.encryptedRefreshToken;
-
-      const conn = await store.upsertConnection({
-        id: `conn_google_${stateData.workspaceId}`,
-        workspaceId: stateData.workspaceId,
-        provider: 'google_workspace',
-        status: 'connected',
-        connectedByUserId: stateData.userId,
-        connectedAt: new Date().toISOString(),
-        providerAccountId: result.providerAccountId,
-        providerAccountEmail: result.email,
-        scopes: result.scopes,
-        encryptedAccessToken: result.encryptedAccessToken,
-        encryptedRefreshToken: preservedRefreshToken,
-        accessTokenExpiresAt: result.accessTokenExpiresAt
-      });
-
-      // Perform a real health verification check immediately to prove it works
-      const verification = await verifyGoogleConnection(conn, dbState, () => persistStateCallback(stateData.workspaceId));
-      if (!verification.verified) {
-        conn.status = 'error';
-        conn.lastError = verification.error || 'Live verification check failed after exchange.';
-        await persistStateCallback(stateData.workspaceId);
-        return sendCompletionPage('error', conn.lastError);
-      }
-
-      logIntegrationAudit(
-        dbState,
-        stateData.workspaceId,
-        'System Callback',
-        'System',
-        `Google Workspace connected by user ${stateData.userId} (${result.email})`,
-        'Google Workspace'
-      );
-
-      await persistStateCallback(stateData.workspaceId);
-      sendCompletionPage('success');
-    } catch (err: any) {
-      console.error('[Google Callback] Token exchange failed:', err.message);
-      sendCompletionPage('error', `Failed to exchange Google OAuth authorization token: ${err.message}`);
-    }
-  });
+  router.get('/callback', requireAuth, handleGoogleOAuthCallback(dbState, persistStateCallback));
 
   /**
    * GET /api/integrations/google/status

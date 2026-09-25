@@ -15,7 +15,7 @@ import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
 import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import { WorkspaceTaskDrawer } from '../../src/components/marketing/WorkspaceTaskDrawer.js';
 import { confirmRequesterWrite } from '../../src/lib/confirmRequesterWrite.js';
-import { DISPATCH_REASON, dispatchBlockCode, driveCreateFailureReason, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
+import { DISPATCH_REASON, GOOGLE_DRIVE_NOT_CONNECTED, dispatchBlockCode, driveCreateFailureReason, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
 import { setDriveFilesListForTests } from '../services/googleDriveService.js';
 import {
   __setAskNoraDriveDepsForTests,
@@ -45,9 +45,15 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
   const outboundMaster = process.env.OUTBOUND_MASTER_MODE;
   const outboundMode = process.env.OUTBOUND_MODE;
   const allowDispatch = process.env.ALLOW_EXTERNAL_DISPATCH;
+  const appMode = process.env.APP_MODE;
+  const appEnv = process.env.APP_ENV;
+  const isProduction = process.env.IS_PRODUCTION;
 
   beforeAll(async () => {
     process.env.OUTBOUND_MASTER_MODE = 'hold';
+    process.env.APP_MODE = 'development';
+    process.env.APP_ENV = 'development';
+    process.env.IS_PRODUCTION = 'false';
     installDefaultDriveList();
     storeSnapshot = fs.existsSync(STORE) ? fs.readFileSync(STORE, 'utf8') : '';
     const app = express();
@@ -68,6 +74,12 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     resetAskNoraListingFolderRegistry();
     if (outboundMaster === undefined) delete process.env.OUTBOUND_MASTER_MODE;
     else process.env.OUTBOUND_MASTER_MODE = outboundMaster;
+    if (appMode === undefined) delete process.env.APP_MODE;
+    else process.env.APP_MODE = appMode;
+    if (appEnv === undefined) delete process.env.APP_ENV;
+    else process.env.APP_ENV = appEnv;
+    if (isProduction === undefined) delete process.env.IS_PRODUCTION;
+    else process.env.IS_PRODUCTION = isProduction;
     const items = getAllCanonicalMarketingTasks();
     const idx = items.findIndex((t) => t.id === TASK_ID);
     if (idx >= 0) items.splice(idx, 1);
@@ -191,7 +203,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
     const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), melissa);
     expect(empty.status, JSON.stringify(empty.data)).toBe(400);
-    expect(empty.data.reason).toBe(CREATE_FAILED);
+    expect(empty.data.reason).toBe(GOOGLE_DRIVE_NOT_CONNECTED);
     expect(empty.data.code).toBe('DRIVE_FOLDER_CREATE_FAILED');
     expect(getCanonicalMarketingTaskById(TASK_ID)?.reviewState).toBe('awaiting_review');
     const emptyRows = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
@@ -203,7 +215,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png', filename: 'Test_marcusgmail.png' }],
     }), melissa);
     expect(uploadOnly.status, JSON.stringify(uploadOnly.data)).toBe(400);
-    expect(uploadOnly.data.reason).toBe(CREATE_FAILED);
+    expect(uploadOnly.data.reason).toBe(GOOGLE_DRIVE_NOT_CONNECTED);
     expect(uploadOnly.data.code).toBe('DRIVE_FOLDER_CREATE_FAILED');
 
     setDriveFilesListForTests(async () => ({ data: { files: [] } }));
@@ -219,7 +231,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
 
     const fileOnly = await post(payload({ driveFolderUrl: undefined, proofUrl: HTTPS_PROOF }), melissa);
     expect(fileOnly.status, JSON.stringify(fileOnly.data)).toBe(400);
-    expect(fileOnly.data.reason).toBe(CREATE_FAILED);
+    expect(fileOnly.data.reason).toBe(GOOGLE_DRIVE_NOT_CONNECTED);
 
     const pasted = await post(payload({ driveFolderUrl: DRIVE_FOLDER, proofUrl: HTTPS_PROOF }), melissa);
     expect(pasted.status, JSON.stringify(pasted.data)).toBe(200);
@@ -334,7 +346,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         headers: melissa,
         body: payload({ proofUrl: undefined, driveFolderUrl: undefined }),
         allowed: false,
-        reason: CREATE_FAILED,
+        reason: GOOGLE_DRIVE_NOT_CONNECTED,
         status: 400,
       },
       {
@@ -346,7 +358,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png' }],
         }),
         allowed: false,
-        reason: CREATE_FAILED,
+        reason: GOOGLE_DRIVE_NOT_CONNECTED,
         status: 400,
       },
       {
@@ -423,7 +435,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           assetUrls: [],
         }),
         allowed: false,
-        reason: CREATE_FAILED,
+        reason: GOOGLE_DRIVE_NOT_CONNECTED,
         status: 400,
       },
       {

@@ -72,14 +72,9 @@ import { registerNoraDailyDigestRoutes } from './server/routes/noraDailyDigestRo
 import { NoraTrainingAcademyService } from './server/services/noraTrainingAcademyService.js';
 import { NoraVideoStudioService } from './server/services/noraVideoStudioService.js';
 import { NoraBrowserAgentService } from './server/services/noraBrowserAgentService.js';
-import { GoogleChatService } from './server/services/googleChatService.js';
-import { GoogleDriveService } from './server/services/googleDriveService.js';
-import { GoogleDocsService } from './server/services/googleDocsService.js';
-import { GoogleSlidesService } from './server/services/googleSlidesService.js';
-import { GoogleSheetsService } from './server/services/googleSheetsService.js';
-import { GoogleGmailService } from './server/services/googleGmailService.js';
-import { GoogleYouTubeService } from './server/services/googleYouTubeService.js';
-import { GoogleSandboxTestService } from './server/services/googleSandboxTestService.js';
+import { getGoogleChatRouter } from './server/integrations/google/googleChatRoutes.js';
+import { getBrokerageCalendarRouter } from './server/routes/brokerageCalendarRoutes.js';
+import { selectListenHost } from './server/http/listenHost.js';
 import { googleChatMcpClient } from './server/integrations/google/googleChatMcpClient.js';
 import { NoraCapabilitiesAuditService } from './server/services/noraCapabilitiesAuditService.js';
 import { ShowingTimeLockboxService } from './server/services/showingTimeLockboxService.js';
@@ -235,6 +230,7 @@ import { getApiNationDotloopRouter } from './server/integrations/apinationDotloo
 import { getQuickBooksRouter } from './server/integrations/quickbooks/quickbooksRoutes.js';
 import { getBasecampRouter } from './server/integrations/basecamp/basecampRoutes.js';
 import { getGoogleRouter } from './server/integrations/google/googleRoutes.js';
+import { getOnDemandSlaRouter } from './server/routes/onDemandSlaRoutes.js';
 import { getMicrosoftRouter } from './server/integrations/microsoft/microsoftRoutes.js';
 import { IntegrationStateStore } from './server/integrations/shared/integrationStateStore.js';
 import { getGoogleAccessToken } from './server/integrations/google/googleOAuth.js';
@@ -265,13 +261,14 @@ import { dispatchActionForStep, setOnStepCompleted } from './server/headless/act
 import { createOutcomeForStep } from './server/headless/outcomeService.js';
 import { createOwnerBriefItem } from './server/headless/ownerBriefService.js';
 import { loadStateFromStorage, saveStateToStorage, dbPool, getDbPool, storageDriver, dbInitPromise } from './server/persistence/repositories.js';
-import { loadWorkspaceState, saveWorkspaceState, seedDatabaseIfEmpty, ensureSuperAdminsExist, ensurePilotUsersExist, PILOT_TEAM_USERS } from './server/persistence/dbSync.js';
+import { loadWorkspaceState, saveWorkspaceState, seedDatabaseIfEmpty, ensureSuperAdminsExist, ensurePilotUsersExist, PILOT_TEAM_USERS, bindPersistOnFinish } from './server/persistence/dbSync.js';
 import { convertKeysToCamel, convertKeysToSnake } from './server/persistence/databaseRepositories.js';
 import { parseNestRechatRow } from './server/persistence/nestRechatParser.js';
 import { csrfProtection } from './server/auth/csrf.js';
 import { verifyRetellWebhookSignature } from './server/security/retellWebhookVerifier.js';
 import { signJwt } from './server/auth/jwt.js';
-import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver, requireInternal, requireStaffOrOidcAuth } from './server/auth/auth.js';
+import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver, requireInternal, requireStaffOrOidcAuth, rejectMissingSessionActor } from './server/auth/auth.js';
+import { defaultDenyApi } from './server/auth/defaultDenyApi.js';
 import { hashPassword, verifyPassword, loginRateLimiter, resetRateLimiter, activationRateLimiter } from './server/auth/password.js';
 import { sendPasswordResetEmail } from './server/email/emailProvider.js';
 import { createPasswordResetToken, verifyAndConsumePasswordResetToken } from './server/auth/passwordReset.js';
@@ -317,7 +314,7 @@ if (process.env.APP_MODE === 'production' && process.env.NODE_ENV !== 'productio
 }
 
 // Initialize Express
-const app = express();
+export const app = express();
 
 // HTTP Response Compression (Gzip / Deflate for fast mobile network payloads)
 app.use(compression());
@@ -495,6 +492,10 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Default-deny session gate. Mounted before every /api handler and router.
+// Only PUBLIC_API_ROUTES skip it; those routes keep their own checks.
+app.use(defaultDenyApi);
 
 // Production Health & Readiness Probes (Google Cloud Run / Kubernetes / Monitoring)
 app.get(['/healthz', '/api/health'], (req, res) => {
@@ -2039,7 +2040,7 @@ import('./server/auth/auth').then(({ SEEDED_USERS, SEEDED_MEMBERSHIPS, ROLE_PERM
   });
 
 // Helper to save state changes
-const persistState = async (targetWorkspaceId?: string) => {
+const persistState = async (targetWorkspaceId?: string, options?: { reconcileDeletes?: boolean; mutatedStateKeys?: string[] }) => {
   const wsId = targetWorkspaceId || (dbState as any).activeWorkspaceId || 'nest-realty-demo';
   
   syncRuntimeToLegacy(dbState);
@@ -2050,7 +2051,7 @@ const persistState = async (targetWorkspaceId?: string) => {
   saveStateToStorage(dbState);
   if (storageDriver === 'database' && dbPool && wsId) {
     try {
-      await saveWorkspaceState(dbPool, wsId, dbState);
+      await saveWorkspaceState(dbPool, wsId, dbState, options);
     } catch (err) {
       console.error('[Database] Failed to persist state to database:', err);
     }
@@ -2059,14 +2060,12 @@ const persistState = async (targetWorkspaceId?: string) => {
 dbState.saveStateToStorage = (wsId?: string) => persistState(wsId);
 initJobQueue(dbState, (wsId?: string) => persistState(wsId));
 
-// Middleware to auto-persist state changes
+// Middleware to auto-persist state changes.
+// Login never reconciles deletes. Other routes reconcile a collection only
+// when this request changed that collection's ids.
 app.use((req, res, next) => {
-  res.on('finish', async () => {
-    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-      const wsId = (req as any).workspaceId || 'nest-realty-demo';
-      await persistState(wsId);
-    }
-  });
+  const wsId = (req as any).workspaceId || 'nest-realty-demo';
+  bindPersistOnFinish(req, res, wsId, () => dbState, (id, options) => persistState(id, options));
   next();
 });
 
@@ -2577,11 +2576,9 @@ app.get('/api/workspace/team', async (req, res) => {
 app.put('/api/workspace/team/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const isTestMode = process.env.NODE_ENV === 'test';
-    const authHeader = (req.headers['authorization'] || '').toLowerCase();
-    const verifiedUser = (req as any).authUser || (req as any).user;
-    const actorRole = verifiedUser?.role || (isTestMode && (authHeader.includes('usr_ryan') || req.headers['x-admin-override'] === 'true') ? 'admin' : '');
-    const isActorAdmin = actorRole === 'admin' || actorRole === 'owner' || (isTestMode && (authHeader.includes('ryan') || authHeader.includes('usr_ryan') || req.headers['x-user-role'] === 'admin' || req.headers['x-user-role'] === 'owner'));
+    if (!rejectMissingSessionActor(req as any, res)) return;
+    const actorRole = (req as any).authUser?.role || (req as any).user?.role || '';
+    const isActorAdmin = actorRole === 'admin' || actorRole === 'owner';
 
     if (!isActorAdmin) {
       return res.status(403).json({ success: false, error: 'Access denied: Admin privileges required to edit team members.' });
@@ -2857,6 +2854,24 @@ app.post('/api/auth/invitations', requireAuth, resolveWorkspaceContext, requireW
     });
   } catch (err: any) {
     res.status(500).json({ error: 'Internal Server Error', message: err.message });
+  }
+});
+
+// Public Invitation Token Validation Endpoint
+app.get('/api/auth/invitations/validate', async (req: any, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Invitation token is missing.' });
+  }
+  try {
+    const { getInvitationDetails } = await import('./server/auth/invitationService.js');
+    const result = await getInvitationDetails(token);
+    if (!result.valid) {
+      return res.status(400).json({ success: false, error: result.error || 'Invalid or expired invitation link.' });
+    }
+    return res.json({ success: true, invitation: result.invitation });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -5298,6 +5313,8 @@ app.post('/api/directory/sync/preview', requireAuth, resolveWorkspaceContext, re
 });
 
 app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('directory.sync'), async (req, res) => {
+  const sessionActor = rejectMissingSessionActor(req as any, res);
+  if (!sessionActor) return;
   const wsId = (req as any).workspace?.id || 'nest-realty-demo';
   const { deactivateIds } = req.body;
   const columnMapping = req.body.columnMapping || req.body.columnMappings;
@@ -5363,7 +5380,7 @@ app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requ
       job = {
         id: 'job_directory_import',
         workspace_id: wsId,
-        requested_by: (req as any).authUser?.id || 'usr_ryan',
+        requested_by: sessionActor.id,
         request_text: 'Import Directory Roster',
         workflow_key: 'directory_roster_import',
         workflow_name: 'Directory Roster Import',
@@ -5407,7 +5424,7 @@ app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requ
         sourceType: source?.type || 'google_sheets',
         sourceIdentifier: source?.type === 'file' ? source.filename : (source?.type === 'google_sheets' ? (source.spreadsheetUrl || '1ESWBGGQTz614hT_t1WNLtDHAZz7pApRy') : 'pasted_text'),
         selectedSheet: source?.tabName || 'default',
-        initiatedBy: (req as any).authUser?.id || 'usr_ryan',
+        initiatedBy: sessionActor.id,
         rowsFound: parsed.allRowsCount,
         addedCount: added,
         updatedCount: updated,
@@ -5429,8 +5446,8 @@ app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requ
     dbState.auditEvents.unshift({
       id: `audit_${Date.now()}`,
       workspaceId: wsId,
-      actorName: (req as any).authUser?.name || 'Ryan Crecelius',
-      actorEmail: (req as any).authUser?.email || 'ryan@nestrealty.com',
+      actorName: sessionActor.name,
+      actorEmail: sessionActor.email,
       actionType: 'import_directory_roster',
       description: `Imported roster directory: ${added} added, ${updated} updated, ${deactivated} deactivated.`,
       timestamp: new Date().toISOString()
@@ -7842,7 +7859,10 @@ app.post('/api/marketing/requests/:id/inquire-agent', requireAuth, resolveWorksp
       }
     }
 
-    const agentEmail = request.agentEmail || 'matt.orr@nestrealty.com';
+    const agentEmail = String(request.agentEmail || '').trim();
+    if (!agentEmail) {
+      return res.status(400).json({ success: false, error: 'No recipient email on this request.' });
+    }
     const agentName = request.agentName || 'Agent';
     const agentPhone = request.agentPhone || '+12527170595';
     const propertyAddress = request.propertyAddress || request.title || 'Listing Property';
@@ -8006,7 +8026,10 @@ app.post('/api/marketing/requests/:id/resend-photo-request', requireAuth, resolv
     const request = getCanonicalMarketingRequestById(req.params.id);
     if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
 
-    const agentEmail = request.agentEmail || 'matt.orr@nestrealty.com';
+    const agentEmail = String(request.agentEmail || '').trim();
+    if (!agentEmail) {
+      return res.status(400).json({ success: false, error: 'No recipient email on this request.' });
+    }
     const agentName = request.agentName || 'Listing Broker';
     const propertyAddress = request.propertyAddress || request.title || 'Listing Property';
     const mlsNumber = request.mlsNumber || request.metadata?.mlsNumber;
@@ -8020,28 +8043,38 @@ app.post('/api/marketing/requests/:id/resend-photo-request', requireAuth, resolv
       mlsNumber
     });
 
+    const { classifyOutboundEmailResult } = await import('./server/email/outboundSendOutcome.js');
+    const classified = classifyOutboundEmailResult(result);
     const { recordActivityEvent } = await import('./server/services/activityHistoryService.js');
     await recordActivityEvent({
       workspaceId: request.workspaceId || 'ws_wilmington',
       requestId: request.id,
-      eventType: 'outreach.sent',
+      eventType: classified.activityEvent,
       actorType: 'nora',
       actorDisplayName: 'Ask Nora',
       channel: 'email',
       direction: 'outbound',
-      communicationStatus: result.success ? 'sent' : 'blocked',
-      summary: `NORA dispatched photo upload request to ${agentName} (${agentEmail}) for ${propertyAddress}`,
+      communicationStatus: classified.communicationStatus,
+      summary: classified.success
+        ? `NORA dispatched photo upload request to ${agentName} (${agentEmail}) for ${propertyAddress}`
+        : `NORA photo upload request ${classified.outcome} for ${agentName} (${agentEmail}): ${classified.reason || classified.outcome}`,
       metadata: {
         recipient: agentEmail,
         messageId: result.messageId,
-        propertyAddress
+        propertyAddress,
+        outcome: classified.outcome,
+        reason: classified.reason,
       },
       idempotencyKey: `act:photo_req:${request.id}:${Date.now()}`
     }).catch(() => {});
 
     return res.json({
-      success: true,
-      message: `Nora photo upload request dispatched to ${agentName} (${agentEmail})`,
+      success: classified.success,
+      outcome: classified.outcome,
+      reason: classified.reason,
+      message: classified.success
+        ? `Nora photo upload request dispatched to ${agentName} (${agentEmail})`
+        : `Nora photo upload request ${classified.outcome}${classified.reason ? `: ${classified.reason}` : ''}`,
       result
     });
   } catch (err: any) {
@@ -8167,8 +8200,7 @@ app.post('/api/marketing/tasks/:id/ensure-drive', requireAuth, resolveWorkspaceC
     if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
     const { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack } = await import('./server/services/askNoraDriveDelivery.js');
     const { driveCreateFailureReason } = await import('./server/services/evaluateDispatch.js');
-    // Hydrate proofs from request body when task record is thin (common on first open)
-    if (!task.proofUrl && req.body?.proofUrl) task.proofUrl = String(req.body.proofUrl);
+    // Client-pasted proofUrl is never copied onto the task. Only a folder this server created or listed may be stored.
     if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {
       task.attachments = req.body.attachments;
     }
@@ -8623,17 +8655,8 @@ app.get('/api/marketing/sla/summary', async (req, res) => {
   }
 });
 
-// POST /api/marketing/sla/evaluate-all - Trigger on-demand SLA scan and dispatch overdue alerts
-app.post('/api/marketing/sla/evaluate-all', async (req, res) => {
-  try {
-    const { runSlaGuardrailCheck, getSlaGuardrailSummary } = await import('./server/services/taskSlaGuardrailService.js');
-    const result = await runSlaGuardrailCheck();
-    const summary = getSlaGuardrailSummary();
-    return res.json({ success: true, result, summary });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+// POST /api/marketing/sla/evaluate-all - On-demand SLA scan. Scheduler uses the internal job route.
+app.use('/api/marketing/sla', getOnDemandSlaRouter());
 
 // POST /api/marketing/inbox/scan-now - Trigger immediate IMAP scan of AskNora@nestrealty.com inbox
 app.post('/api/marketing/inbox/scan-now', requireStaffOrOidcAuth, async (req, res) => {
@@ -8954,8 +8977,8 @@ app.get('/api/marketing/vendor-work-orders', requireAuth, resolveWorkspaceContex
   return res.json({ success: true, workOrders });
 });
 
-// GET/POST Trigger asknora@nestrealty.com Email Inbox Sync & Marketing Task Extraction
-app.all('/api/marketing/email-intake/sync', async (req, res) => {
+// POST Trigger asknora@nestrealty.com Email Inbox Sync & Marketing Task Extraction
+app.post('/api/marketing/email-intake/sync', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), csrfProtection, async (req, res) => {
   try {
     const { syncNoraEmailInbox } = await import('./server/integrations/google/noraEmailIntakeService.js');
     const result = await syncNoraEmailInbox();
@@ -9031,7 +9054,7 @@ app.get('/api/marketing/mms-messages', (req, res) => {
 });
 
 // POST/GET Inbound Voice Webhook for 910-507-2047 -> Dials Retell AI via SIP
-app.all(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbound-voice'], (req, res) => {
+const handleTwilioVoice = (req: any, res: any) => {
   const to = req.body?.To || req.query?.To || '+19105072047';
   const cleanTo = to.replace(/[^0-9+]/g, '');
   const from = req.body?.From || req.query?.From || '';
@@ -9046,7 +9069,9 @@ app.all(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbou
 </Response>`;
   res.setHeader('Content-Type', 'text/xml');
   return res.send(twiml);
-});
+};
+app.post(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbound-voice'], handleTwilioVoice);
+app.get(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbound-voice'], handleTwilioVoice);
 
 // POST Inbound MMS Webhook & Text-to-Request Ingestion (Twilio, Retell & Simulator)
 app.post(['/api/telephony/inbound-mms', '/api/mms/inbound', '/api/twilio/sms', '/api/twilio/mms'], async (req, res) => {
@@ -9228,7 +9253,7 @@ app.post('/api/marketing/assets/tokens/revoke', async (req, res) => {
 });
 
 // POST Simulate Agent MMS Text-to-Request
-app.post('/api/marketing/mms-messages/simulate', async (req, res) => {
+app.post('/api/marketing/mms-messages/simulate', requireAuth, async (req, res) => {
   try {
     const { fromPhone, body, mediaUrls, audioVoiceMemoUrl } = req.body;
     const result = await MmsTextToRequestService.processInboundMms({
@@ -9554,8 +9579,14 @@ app.post('/api/marketing/calls/sync', requireAuth, resolveWorkspaceContext, requ
   }
 });
 
-// POST Purge All Marketing Data & Inbound Calls (Fresh Reset)
-app.post('/api/marketing/purge-all-data', async (req, res) => {
+// POST Purge All Marketing Data & Inbound Calls (Fresh Reset). Admin only.
+app.post('/api/marketing/purge-all-data', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res, next) => {
+  const role = (req as any).membership?.role || (req as any).authUser?.role;
+  if (role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden', message: 'Admin privileges required.' });
+  }
+  next();
+}, csrfProtection, async (req, res) => {
   try {
     const { purgedTasks, purgedRequests } = purgeAllCanonicalMarketingData();
     purgeAllCallsInMemory();
@@ -9920,6 +9951,7 @@ app.post('/api/marketing/campaigns/:id/compliance', requireAuth, resolveWorkspac
 
 // POST Record Human Approval Flow (Operator/Admin/Reviewer Only)
 app.post('/api/marketing/campaigns/:id/approve', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  if (!rejectMissingSessionActor(req as any, res)) return;
   if (!isMarketingOperatorOrAdmin(req)) {
     return res.status(403).json({ success: false, error: 'Forbidden: Insufficient permissions to approve marketing campaign.' });
   }
@@ -9945,7 +9977,7 @@ app.post('/api/marketing/campaigns/:id/approve', requireAuth, resolveWorkspaceCo
   campaign.status = status;
   campaign.approvals.unshift({
     id: `appr_${Date.now()}`,
-    reviewerName: reviewerName || req.authUser?.name || 'Ryan Crecelius',
+    reviewerName: reviewerName || req.authUser?.name || req.authUser?.email,
     role: role || 'Broker-in-Charge',
     status,
     comments: comments || (decision === 'approve' ? 'Approved for distribution.' : 'Revisions requested.'),
@@ -9955,7 +9987,7 @@ app.post('/api/marketing/campaigns/:id/approve', requireAuth, resolveWorkspaceCo
   campaign.auditTrail.unshift({
     id: `audit_${Date.now()}`,
     action: decision === 'approve' ? 'CAMPAIGN_APPROVED' : 'CHANGES_REQUESTED',
-    performedBy: reviewerName || req.authUser?.name || 'Ryan Crecelius (BIC)',
+    performedBy: reviewerName || req.authUser?.name || req.authUser?.email,
     timestamp: new Date().toISOString(),
     details: decision === 'approve' ? 'Approved full marketing package for export and syndication.' : `Requested changes: ${comments}`
   });
@@ -10367,15 +10399,8 @@ app.post('/api/nora/marketing-intake', ensurePolicyLoadedMiddleware, requireAuth
     const { noraMarketingIntakeOrchestrator } = await import('./server/services/noraMarketingIntakeOrchestrator.js');
     
     // Derive trusted workspace and requester directory member from authenticated session
-    const authenticatedUser = req.user || (req as any).authUser || (process.env.NODE_ENV === 'test' ? {
-      id: req.headers['x-user-id'] || 'dir_ryan_crecelius_0',
-      email: req.headers['x-user-email'] || 'ryan@nestrealty.com',
-      name: req.headers['x-user-name'] || 'Ryan Crecelius'
-    } : null);
-
-    if (!authenticatedUser) {
-      return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
-    }
+    const authenticatedUser = rejectMissingSessionActor(req as any, res);
+    if (!authenticatedUser) return;
 
     const workspaceId = (req as any).workspace?.id || ((req as any).authUser?.workspaceId) || (process.env.NODE_ENV === 'test' ? req.headers['x-workspace-id'] : null) || 'ws_wilmington';
 
@@ -10451,184 +10476,8 @@ app.post('/api/nora/marketing-intake', ensurePolicyLoadedMiddleware, requireAuth
   }
 });
 
-// POST /api/calendar/brokerage-meeting - Schedule Brokerage Meeting via AskNora@nestrealty.com
-app.post('/api/calendar/brokerage-meeting', async (req: any, res) => {
-  try {
-    const { scheduleBrokerageMeeting } = await import('./server/services/brokerageCalendarService.js');
-    const workspaceId = req.body.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const result = await scheduleBrokerageMeeting({
-      ...(req.body || {}),
-      workspaceId,
-      dbState
-    });
-    return res.json({ success: true, meeting: result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/calendar/brokerage-meetings - List Scheduled Brokerage Meetings
-app.get('/api/calendar/brokerage-meetings', async (req: any, res) => {
-  try {
-    const { CalendarRepository } = await import('./server/persistence/calendarRepository.js');
-    const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const meetings = await CalendarRepository.listScheduledMeetings(String(workspaceId));
-    return res.json({ success: true, meetings, count: meetings.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/calendar/diagnostics - Google Calendar Connection & Readiness Diagnostic
-app.get('/api/calendar/diagnostics', async (req: any, res) => {
-  try {
-    const { GoogleCalendarDiagnosticService } = await import('./server/services/googleCalendarDiagnosticService.js');
-    const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const report = await GoogleCalendarDiagnosticService.runDiagnostics(String(workspaceId), dbState);
-    return res.json({ success: true, diagnostics: report });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/calendar/available-calendars - List Google Calendars for AskNora account
-app.get('/api/calendar/available-calendars', async (req: any, res) => {
-  try {
-    const { GoogleCalendarDiagnosticService } = await import('./server/services/googleCalendarDiagnosticService.js');
-    const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const result = await GoogleCalendarDiagnosticService.listAvailableCalendars(String(workspaceId), dbState);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/calendar/select-target - Select and persist target calendar
-app.post('/api/calendar/select-target', async (req: any, res) => {
-  try {
-    const { CalendarRepository } = await import('./server/persistence/calendarRepository.js');
-    const { GoogleCalendarDiagnosticService } = await import('./server/services/googleCalendarDiagnosticService.js');
-    const workspaceId = req.body.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const { selectedCalendarId, selectedCalendarName, accessRole, timezone, autoMeetEnabled, isDedicatedNoraCalendar } = req.body;
-
-    if (!selectedCalendarId || !selectedCalendarName) {
-      return res.status(400).json({ success: false, error: 'selectedCalendarId and selectedCalendarName are required.' });
-    }
-
-    const saved = await CalendarRepository.saveCalendarSettings({
-      workspaceId: String(workspaceId),
-      selectedCalendarId,
-      selectedCalendarName,
-      accessRole: accessRole || 'writer',
-      timezone: timezone || 'America/New_York',
-      autoMeetEnabled: autoMeetEnabled !== false,
-      isDedicatedNoraCalendar: isDedicatedNoraCalendar !== false,
-      lastVerifiedAt: new Date().toISOString()
-    });
-
-    const diagnostics = await GoogleCalendarDiagnosticService.runDiagnostics(String(workspaceId), dbState);
-    await persistState(String(workspaceId));
-
-    return res.json({ success: true, calendarSettings: saved, diagnostics });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/calendar/pending-action - Retrieve active pending meeting action
-app.get('/api/calendar/pending-action', async (req: any, res) => {
-  try {
-    const { PendingActionManager } = await import('./server/agent/pendingActionManager.js');
-    const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const userId = req.user?.id || req.query.userId || 'ryan';
-    const sessionId = req.query.sessionId || 'default-session';
-    const action = PendingActionManager.getPendingAction(String(workspaceId), String(userId), String(sessionId));
-    return res.json({ success: true, pendingAction: action });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/calendar/pending-action/confirm - Confirm and dispatch pending meeting
-app.post('/api/calendar/pending-action/confirm', async (req: any, res) => {
-  try {
-    const { PendingActionManager } = await import('./server/agent/pendingActionManager.js');
-    const { scheduleBrokerageMeeting } = await import('./server/services/brokerageCalendarService.js');
-    const { VerifiedLinkService } = await import('./server/services/verifiedLinkService.js');
-    const workspaceId = req.body.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const userId = req.user?.id || req.body.userId || 'ryan';
-    const sessionId = req.body.sessionId || 'default-session';
-    const action = PendingActionManager.getPendingAction(String(workspaceId), String(userId), String(sessionId));
-
-    if (!action) {
-      return res.status(404).json({ success: false, error: 'No active pending meeting action found to confirm.' });
-    }
-
-    const f = action.fields;
-    const idempotencyKey = action.idempotencyKey || `gcal_sched_${workspaceId}_${action.id}_${action.version}`;
-
-    const meetingResult = await scheduleBrokerageMeeting({
-      title: f.title || `Meeting with ${f.targetAudience || 'Team'}`,
-      meetingDate: f.meetingDate,
-      startTime: f.startTime,
-      durationMinutes: f.durationMinutes || 60,
-      location: f.location || (f.locationType === 'google_meet' ? 'Google Meet (Virtual Video Call)' : 'Nest Realty Mayfaire Office'),
-      targetAudience: f.targetAudience,
-      specificNames: f.attendeeNames,
-      requesterName: 'Ryan Crecelius',
-      notes: f.notes,
-      workspaceId: String(workspaceId),
-      idempotencyKey,
-      pendingActionId: action.id,
-      dbState
-    });
-
-    if (meetingResult.googleCalendarUrl && meetingResult.mode === 'LIVE') {
-      VerifiedLinkService.registerVerifiedResource({
-        provider: 'google_calendar',
-        resourceId: meetingResult.id,
-        url: meetingResult.googleCalendarUrl,
-        provenance: 'provider_response',
-        verifiedAt: new Date().toISOString(),
-        workspaceId: String(workspaceId),
-        status: 'available'
-      });
-    }
-
-    PendingActionManager.clearPendingAction(String(workspaceId), String(userId), String(sessionId));
-    return res.json({ success: true, status: 'ACTION_COMPLETED', meeting: meetingResult });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/calendar/pending-action/cancel - Cancel pending meeting action
-app.post('/api/calendar/pending-action/cancel', async (req: any, res) => {
-  try {
-    const { PendingActionManager } = await import('./server/agent/pendingActionManager.js');
-    const workspaceId = req.body.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const userId = req.user?.id || req.body.userId || 'ryan';
-    const sessionId = req.body.sessionId || 'default-session';
-    PendingActionManager.clearPendingAction(String(workspaceId), String(userId), String(sessionId));
-    return res.json({ success: true, status: 'ACTION_CANCELLED', message: 'Pending meeting action has been cancelled.' });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// DELETE /api/calendar/pending-action - Clear pending meeting action (e.g. New Chat)
-app.delete('/api/calendar/pending-action', async (req: any, res) => {
-  try {
-    const { PendingActionManager } = await import('./server/agent/pendingActionManager.js');
-    const workspaceId = req.query.workspaceId || req.headers['x-workspace-id'] || 'ws_wilmington';
-    const userId = req.user?.id || req.query.userId || 'ryan';
-    const sessionId = req.query.sessionId || 'default-session';
-    PendingActionManager.clearPendingAction(String(workspaceId), String(userId), String(sessionId));
-    return res.json({ success: true, message: 'Pending action store cleared for session.' });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+// Brokerage calendar. Session plus manage_integrations; CSRF on mutations.
+app.use('/api/calendar', getBrokerageCalendarRouter(dbState, persistState));
 
 // POST /api/voice-agent/browser-research - Nora Autonomous Web Research & VM Browser Agent
 app.post('/api/voice-agent/browser-research', async (req, res) => {
@@ -10793,573 +10642,7 @@ app.get('/api/voice-agent/browser-research', async (req, res) => {
 // ==========================================
 // GOOGLE CHAT & BROKERAGE DIRECTORY ENGINE
 // ==========================================
-
-// GET /api/google-chat/spaces - List active spaces & DMs
-app.get('/api/google-chat/spaces', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const spaces = await GoogleChatService.getSpacesAndDMs(wsId);
-    return res.json({ success: true, spaces, count: spaces.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/google-chat/messages/:spaceId - Get message thread for a space
-app.get('/api/google-chat/messages/:spaceId', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const messages = await GoogleChatService.getMessages(req.params.spaceId, wsId);
-    return res.json({ success: true, spaceId: req.params.spaceId, messages, count: messages.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/google-chat/send - Send a message + trigger autonomous Nora AI if tagged or in Nora DM
-app.post('/api/google-chat/send', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { spaceId, senderName = 'Ryan Crecelius', senderEmail = 'ryan@nestrealty.com', text, attachments } = req.body || {};
-    if (!spaceId || !text) {
-      return res.status(400).json({ success: false, error: 'spaceId and text are required' });
-    }
-    const result = await GoogleChatService.sendMessage({
-      spaceId,
-      senderName,
-      senderEmail,
-      text,
-      attachments,
-      workspaceId: wsId
-    });
-    return res.json({ success: true, ...result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/google-chat/roster - Full 77-member searchable Google Workspace roster
-app.get('/api/google-chat/roster', async (req, res) => {
-  try {
-    const roster = GoogleChatService.getRoster();
-    const query = (req.query.q as string || '').toLowerCase().trim();
-    const filtered = query
-      ? roster.filter(p =>
-          p.displayName.toLowerCase().includes(query) ||
-          p.email.toLowerCase().includes(query) ||
-          p.role.toLowerCase().includes(query) ||
-          p.officeNames.some(o => o.toLowerCase().includes(query))
-        )
-      : roster;
-    return res.json({ success: true, roster: filtered, count: filtered.length, totalMembers: roster.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/google-chat/create-dm - Start or get 1-on-1 DM with a broker
-app.post('/api/google-chat/create-dm', async (req, res) => {
-  try {
-    const { recipientEmail, currentUserName = 'Ryan Crecelius', currentUserEmail = 'ryan@nestrealty.com' } = req.body || {};
-    if (!recipientEmail) {
-      return res.status(400).json({ success: false, error: 'recipientEmail is required' });
-    }
-    const space = GoogleChatService.createOrGetDirectMessage(recipientEmail, currentUserName, currentUserEmail);
-    return res.json({ success: true, space });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE DRIVE & GOOGLE WORKSPACE HUB APIS
-// ==========================================
-
-// GET /api/integrations/google/drive/scaffolds - List all active listing Drive scaffolds
-app.get('/api/integrations/google/drive/scaffolds', async (req: any, res) => {
-  try {
-    const scaffolds = GoogleDriveService.getScaffolds();
-    return res.json({ success: true, scaffolds, count: scaffolds.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/drive/scaffold - Create new property folder scaffold in Google Drive
-app.post('/api/integrations/google/drive/scaffold', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { propertyAddress, agentName = 'Ryan Crecelius', agentEmail = 'ryan@nestrealty.com', deliverables } = req.body || {};
-    if (!propertyAddress) {
-      return res.status(400).json({ success: false, error: 'propertyAddress is required' });
-    }
-    const scaffold = await GoogleDriveService.scaffoldListingFolder({
-      propertyAddress,
-      agentName,
-      agentEmail,
-      deliverables,
-      workspaceId: wsId
-    });
-    return res.status(201).json({ success: true, scaffold });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/drive/search - Search files and documents in Drive
-app.get('/api/integrations/google/drive/search', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const query = (req.query.q as string) || '';
-    const files = await GoogleDriveService.searchDriveDocuments(query, wsId);
-    return res.json({ success: true, files, count: files.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/hub/status - Google Workspace Hub status
-app.get('/api/integrations/google/hub/status', async (req: any, res) => {
-  try {
-    const linkedFolders = GoogleDriveService.getLinkedFolders();
-    const scaffolds = GoogleDriveService.getScaffolds();
-    return res.json({
-      success: true,
-      connectedAccount: 'AskNora@nestrealty.com',
-      status: 'active',
-      linkedFolders,
-      totalScaffolds: scaffolds.length,
-      lastSync: new Date().toISOString()
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/hub/sync-folder - Trigger RAG vector sync for a linked Drive folder
-app.post('/api/integrations/google/hub/sync-folder', async (req: any, res) => {
-  try {
-    const { folderId } = req.body || {};
-    if (!folderId) {
-      return res.status(400).json({ success: false, error: 'folderId is required' });
-    }
-    const result = await GoogleDriveService.syncFolder(folderId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE DOCS API (v1) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/docs/templates - List NC real estate styled templates
-app.get('/api/integrations/google/docs/templates', (req, res) => {
-  try {
-    const templates = GoogleDocsService.getTemplates();
-    return res.json({ success: true, templates, count: templates.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/docs - List all generated Google Docs
-app.get('/api/integrations/google/docs', (req, res) => {
-  try {
-    const docs = GoogleDocsService.getGeneratedDocs();
-    return res.json({ success: true, docs, count: docs.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/docs/create - Generate a styled Google Doc
-app.post('/api/integrations/google/docs/create', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const {
-      title,
-      templateType = 'nc_offer_2t_brief',
-      propertyAddress,
-      clientName,
-      agentName = 'Ryan Crecelius',
-      agentEmail = 'ryan@nestrealty.com',
-      customFields,
-      folderId
-    } = req.body || {};
-
-    if (!title) {
-      return res.status(400).json({ success: false, error: 'title is required' });
-    }
-
-    const doc = await GoogleDocsService.createDocument({
-      title,
-      templateType,
-      propertyAddress,
-      clientName,
-      agentName,
-      agentEmail,
-      customFields,
-      folderId,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, doc });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/docs/:docId - Retrieve document content
-app.get('/api/integrations/google/docs/:docId', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const content = await GoogleDocsService.getDocumentContent(req.params.docId, wsId);
-    return res.json({ success: true, documentId: req.params.docId, ...content });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/docs/:docId/merge - Merge placeholders in Google Doc
-app.post('/api/integrations/google/docs/:docId/merge', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { fields } = req.body || {};
-    if (!fields || typeof fields !== 'object') {
-      return res.status(400).json({ success: false, error: 'fields object is required' });
-    }
-    const result = await GoogleDocsService.mergeTemplateFields(req.params.docId, fields, wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE SLIDES API (v1) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/slides/list - List all generated Google Slides presentation decks
-app.get('/api/integrations/google/slides/list', (req, res) => {
-  try {
-    const decks = GoogleSlidesService.getPresentationDecks();
-    return res.json({ success: true, decks, count: decks.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/slides/generate - Generate an 8-slide luxury presentation deck
-app.post('/api/integrations/google/slides/generate', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const {
-      propertyAddress,
-      listPrice = '$1,895,000',
-      specs = { beds: 4, baths: 3.5, sqft: 3420 },
-      agentName = 'Ryan Crecelius',
-      agentTitle = 'Broker / Owner & Regional Leader (BIC)',
-      agentEmail = 'ryan@nestrealty.com',
-      folderId
-    } = req.body || {};
-
-    if (!propertyAddress) {
-      return res.status(400).json({ success: false, error: 'propertyAddress is required' });
-    }
-
-    const deck = await GoogleSlidesService.generateListingDeck({
-      propertyAddress,
-      listPrice,
-      specs,
-      agentName,
-      agentTitle,
-      agentEmail,
-      folderId,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, deck });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/slides/:deckId - Retrieve presentation deck details
-app.get('/api/integrations/google/slides/:deckId', (req, res) => {
-  try {
-    const deck = GoogleSlidesService.getDeckById(req.params.deckId);
-    if (!deck) {
-      return res.status(404).json({ success: false, error: 'Presentation deck not found' });
-    }
-    return res.json({ success: true, deck });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE SHEETS API (v4) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/sheets/metadata - Retrieve master spreadsheet status and tab counts
-app.get('/api/integrations/google/sheets/metadata', (req, res) => {
-  try {
-    const metadata = GoogleSheetsService.getMetadata();
-    return res.json({ success: true, ...metadata });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/sheets/export - Synchronize local database to Google Sheets
-app.post('/api/integrations/google/sheets/export', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const result = await GoogleSheetsService.exportToGoogleSheets(wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/sheets/pull - Pull updates from Google Sheets
-app.post('/api/integrations/google/sheets/pull', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const result = await GoogleSheetsService.pullFromGoogleSheets(wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GMAIL API (v1) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/gmail/drafts - List staged drafts for Human-in-the-Loop review
-app.get('/api/integrations/google/gmail/drafts', (req, res) => {
-  try {
-    const drafts = GoogleGmailService.getDrafts();
-    return res.json({ success: true, drafts, count: drafts.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/gmail/stage-draft - Stage a new AI email draft
-app.post('/api/integrations/google/gmail/stage-draft', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { recipient, recipientName, subject, body, category, orderId, propertyAddress } = req.body || {};
-    if (!recipient || !subject || !body) {
-      return res.status(400).json({ success: false, error: 'recipient, subject, and body are required' });
-    }
-
-    const draft = await GoogleGmailService.stageDraft({
-      recipient,
-      recipientName: recipientName || recipient,
-      subject,
-      body,
-      category,
-      orderId,
-      propertyAddress,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, draft });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/gmail/send-draft - Approve & Send email via Gmail API
-app.post('/api/integrations/google/gmail/send-draft', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { draftId } = req.body || {};
-    if (!draftId) {
-      return res.status(400).json({ success: false, error: 'draftId is required' });
-    }
-
-    const result = await GoogleGmailService.sendDraft(draftId, wsId);
-    return res.json(result);
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/gmail/parse-vendor-reply - Inbound vendor thread parser & auto-task completion
-app.post('/api/integrations/google/gmail/parse-vendor-reply', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const { emailText, senderEmail } = req.body || {};
-    if (!emailText || !senderEmail) {
-      return res.status(400).json({ success: false, error: 'emailText and senderEmail are required' });
-    }
-
-    const result = await GoogleGmailService.parseInboundVendorReply({
-      emailText,
-      senderEmail,
-      workspaceId: wsId
-    });
-
-    return res.json({ success: true, ...result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/gmail/search - Search Gmail message threads
-app.get('/api/integrations/google/gmail/search', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const query = (req.query.q as string) || '';
-    const threads = await GoogleGmailService.searchThreads(query, wsId);
-    return res.json({ success: true, threads, count: threads.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// YOUTUBE DATA API (v3) INTEGRATIONS
-// ==========================================
-
-// GET /api/integrations/google/youtube/videos - List all published YouTube videos
-app.get('/api/integrations/google/youtube/videos', (req, res) => {
-  try {
-    const videos = GoogleYouTubeService.getVideos();
-    return res.json({ success: true, videos, count: videos.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/youtube/publish - Publish a new listing walkthrough video
-app.post('/api/integrations/google/youtube/publish', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const {
-      propertyAddress,
-      listPrice,
-      specs = { beds: 4, baths: 3.5, sqft: 3200 },
-      agentName = 'Ryan Crecelius',
-      agentTitle = 'Broker / Owner & Regional Leader (BIC)',
-      videoTitle,
-      description,
-      privacyStatus = 'unlisted',
-      playlistCategory = 'Luxury Coastal Tours'
-    } = req.body || {};
-
-    if (!propertyAddress || !listPrice) {
-      return res.status(400).json({ success: false, error: 'propertyAddress and listPrice are required' });
-    }
-
-    const video = await GoogleYouTubeService.publishListingVideo({
-      propertyAddress,
-      listPrice,
-      specs,
-      agentName,
-      agentTitle,
-      videoTitle,
-      description,
-      privacyStatus,
-      playlistCategory,
-      workspaceId: wsId
-    });
-
-    return res.status(201).json({ success: true, video });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/youtube/playlists - List channel playlists
-app.get('/api/integrations/google/youtube/playlists', (req, res) => {
-  try {
-    const playlists = GoogleYouTubeService.getPlaylists();
-    return res.json({ success: true, playlists, count: playlists.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/youtube/analytics/:videoId - Fetch video engagement analytics
-app.get('/api/integrations/google/youtube/analytics/:videoId', (req, res) => {
-  try {
-    const analytics = GoogleYouTubeService.getVideoAnalytics(req.params.videoId);
-    return res.json({ success: true, analytics });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/youtube/search - Search brokerage YouTube channel
-app.get('/api/integrations/google/youtube/search', async (req: any, res) => {
-  try {
-    const wsId = req.query.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const query = (req.query.q as string) || '';
-    const videos = await GoogleYouTubeService.searchChannelVideos(query, wsId);
-    return res.json({ success: true, videos, count: videos.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ==========================================
-// GOOGLE INTEGRATION SANDBOX TEST HARNESS
-// ==========================================
-
-// POST /api/integrations/google/sandbox/run-test - Run single test or full 7-API diagnostic
-app.post('/api/integrations/google/sandbox/run-test', async (req: any, res) => {
-  try {
-    const wsId = req.body?.workspaceId || req.workspace?.id || 'nest-realty-demo';
-    const service = req.body?.service || 'all';
-
-    if (service === 'all') {
-      const report = await GoogleSandboxTestService.runFullDiagnostic(wsId);
-      return res.json({ success: true, report });
-    }
-
-    const validServices = ['drive', 'docs', 'slides', 'sheets', 'gmail', 'chat', 'youtube'];
-    if (!validServices.includes(service)) {
-      return res.status(400).json({ success: false, error: `Invalid service. Choose from: ${validServices.join(', ')} or 'all'.` });
-    }
-
-    const result = await GoogleSandboxTestService.runServiceTest(service as any, wsId);
-    return res.json({ success: true, result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/integrations/google/sandbox/history - Get diagnostic history & target configuration
-app.get('/api/integrations/google/sandbox/history', (req, res) => {
-  try {
-    const history = GoogleSandboxTestService.getHistory();
-    const targetEmail = GoogleSandboxTestService.getTargetEmail();
-    return res.json({ success: true, targetEmail, history, count: history.length });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/integrations/google/sandbox/target - Configure target test email
-app.post('/api/integrations/google/sandbox/target', (req, res) => {
-  try {
-    const { email, name } = req.body || {};
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ success: false, error: 'Valid email is required.' });
-    }
-    GoogleSandboxTestService.setTargetEmail(email, name);
-    return res.json({ success: true, targetEmail: email, targetName: name });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
+app.use('/api/google-chat', getGoogleChatRouter());
 
 // ==========================================
 // NORA CAPABILITIES, SKILLS & AUDIT REGISTRY
@@ -11579,7 +10862,9 @@ app.post('/api/marketing/campaigns/:id/generate', requireAuth, resolveWorkspaceC
   if (!canAccessCampaignRecord(req, campaign, true)) return res.status(403).json({ success: false, error: 'Forbidden' });
 
   const { requestedAssetTypes } = req.body || {};
-  const jobRes = createGenerationJob(campaign.id, (req as any).workspaceId, (req as any).user?.name || 'Ryan Crecelius', requestedAssetTypes);
+  const generationActor = rejectMissingSessionActor(req as any, res);
+  if (!generationActor) return;
+  const jobRes = createGenerationJob(campaign.id, (req as any).workspaceId, generationActor.name, requestedAssetTypes);
   const job = jobRes.job;
 
   // Run generation workflow in background
@@ -13844,7 +13129,7 @@ app.get('/api/agent/history', requireAuth, resolveWorkspaceContext, requireWorks
 });
 
 // RYAN SHIELD AUTOMATED SLA BREACH ALERT DISPATCH ENDPOINT
-app.post('/api/ryan-shield/dispatch-sla-alert', async (req: any, res) => {
+app.post('/api/ryan-shield/dispatch-sla-alert', requireAuth, async (req: any, res) => {
   try {
     const { recipientEmail = 'ryan.crecelius@nestrealty.com' } = req.body;
     
@@ -14323,8 +13608,10 @@ app.get('/api/sops/authoring-requests', requireAuth, resolveWorkspaceContext, re
 app.post('/api/sops/authoring-requests', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.write'), async (req: any, res) => {
   try {
     const workspaceId = (req.body.workspaceId as string) || req.workspaceId || 'nest-realty-wilmington';
-    const requestedByUserId = req.user?.id || req.authUser?.userId || 'usr_ryan';
-    const requestedByName = req.user?.name || req.authUser?.name || 'Ryan Crecelius';
+    const requestedBy = rejectMissingSessionActor(req as any, res);
+    if (!requestedBy) return;
+    const requestedByUserId = requestedBy.id;
+    const requestedByName = requestedBy.name;
 
     const { employeeEmail, employeeName, processName } = req.body;
     if (!processName || !employeeEmail) {
@@ -14461,7 +13748,9 @@ app.post('/api/sops/authoring-requests/:id/bic-approve', requireAuth, resolveWor
 app.post('/api/sops/authoring-requests/:id/approve-and-publish', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.publish'), async (req: any, res) => {
   try {
     const { sopDraftId, starterDraftId } = req.body;
-    const publisherUser = req.user?.email || req.authUser?.name || 'Ryan Crecelius';
+    const publisher = rejectMissingSessionActor(req as any, res);
+    if (!publisher) return;
+    const publisherUser = publisher.email || publisher.name;
 
     const existingReq = await sopAuthoringRequestRepository.getById(req.params.id);
     if (existingReq?.requiresBicReview && existingReq.status !== 'bic_approved' && req.user?.role !== 'bic' && req.user?.role !== 'owner') {
@@ -14487,7 +13776,7 @@ app.post('/api/sops/authoring-requests/:id/approve-and-publish', requireAuth, re
     const updatedReq = await sopAuthoringRequestRepository.updateRequest(req.params.id, {
       status: 'published',
       publishedAt: new Date().toISOString(),
-      publisherUserId: req.user?.id || req.authUser?.userId || 'usr_ryan',
+      publisherUserId: publisher.id,
       priorStarterDraftId: starterDraftId
     });
 
@@ -17098,7 +16387,10 @@ app.post('/api/ops/sops', requireAuth, resolveWorkspaceContext, requireWorkspace
   }
 
   if (!sop.createdBy) {
-    sop.createdBy = user?.name || user?.email || sop.author || 'Ryan Crecelius (Principal Broker)';
+    if (!user?.id && !user?.email) {
+      return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+    }
+    sop.createdBy = user.name || user.email || sop.author;
   }
   if (!sop.author) {
     sop.author = sop.createdBy;
@@ -17290,7 +16582,10 @@ app.post('/api/ops/sops/generate-ai', requireAuth, resolveWorkspaceContext, requ
 app.post('/api/ops/sops/upload-document', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, checkAiRateLimit, async (req, res) => {
   const wsId = (req as any).workspace?.id || req.body?.workspaceId || 'nest-realty-demo';
   const user = (req as any).authUser;
-  const userId = user?.name || user?.email || 'Ryan Crecelius (Principal Broker)';
+  if (!user?.id && !user?.email) {
+    return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+  }
+  const userId = user.name || user.email;
   const tenantId = user?.tenantId || 'tenant_nest_uat';
   const { fileContent, fileName = 'Uploaded_SOP_Document.pdf', mode = 'create', existingSopId, autoSave = false } = req.body;
 
@@ -18380,13 +17675,15 @@ app.post('/api/ops/positions/:id/assign', requireAuth, resolveWorkspaceContext, 
   }
 
   // Audit event log
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_pos_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'position_seat_reassigned',
     resourceType: 'PositionSeat',
     resourceId: id,
@@ -18445,13 +17742,15 @@ app.post('/api/ops/directory/sync-rechat', requireAuth, resolveWorkspaceContext,
   });
 
   // Log sync audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_rechat_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'rechat_roster_synced',
     resourceType: 'Directory',
     resourceId: 'rechat_sync',
@@ -18542,13 +17841,15 @@ app.post('/api/ops/integrations/basecamp/sync', requireAuth, resolveWorkspaceCon
   });
 
   // Log audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_basecamp_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'basecamp_todos_synced',
     resourceType: 'Integration',
     resourceId: 'basecamp',
@@ -18617,13 +17918,15 @@ app.post('/api/ops/integrations/dotloop/sync', requireAuth, resolveWorkspaceCont
   });
 
   // Log audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_dotloop_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'dotloop_loops_synced',
     resourceType: 'Integration',
     resourceId: 'dotloop',
@@ -19026,13 +18329,15 @@ app.post('/api/ops/integrations/calendar/sync', requireAuth, resolveWorkspaceCon
   const wsId = (req as any).workspace?.id || 'nest-realty-demo';
 
   // Log sync audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_calendar_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'calendar_events_synced',
     resourceType: 'Integration',
     resourceId: 'google_calendar',
@@ -19437,12 +18742,14 @@ app.post('/api/ops/analytics/bottlenecks', requireAuth, resolveWorkspaceContext,
   const aiRecommendation = 'Pre-verify disclosures with TC Ann Gunn prior to BIC submission. Reduces BIC audit SLA duration by 55% and increases overall SLA compliance by +18%.';
 
   if (applyOptimization) {
+    const auditActor = rejectMissingSessionActor(req as any, res);
+    if (!auditActor) return;
     if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
     dbState.opsAuditLogs.unshift({
       id: `log_ai_opt_${Date.now()}`,
       organizationId: 'nest-realty',
       workspaceId: wsId,
-      actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
+      actorUserId: auditActor.email || auditActor.id,
       actorName: 'Ryan Crecelius (Broker Owner)',
       action: 'sop_template_ai_optimized',
       resourceType: 'SOP',
@@ -22043,6 +21350,59 @@ app.delete('/api/surveys/:id', (req, res) => {
   return res.json({ success: true, message: 'Survey deleted' });
 });
 
+// Public Survey Access Endpoints
+app.get('/api/public/surveys/:slug', (req, res) => {
+  const { slug } = req.params;
+  const survey = inMemorySurveys.find(s => s.id === slug || s.slug === slug || s.id === `survey_${slug}`);
+  const target = survey || inMemorySurveys[0];
+  if (!target) {
+    return res.status(404).json({ success: false, error: 'Survey not found.' });
+  }
+  return res.json({
+    success: true,
+    survey: target,
+    version: { id: 'v1', versionNumber: 1, schema: target.schema || { pages: [] } }
+  });
+});
+
+app.post('/api/public/surveys/:slug/submit', async (req, res) => {
+  const { slug } = req.params;
+  const answers = req.body || {};
+  const id = `resp_${Date.now()}`;
+  return res.json({
+    success: true,
+    id,
+    scores: { overallScore: 85, categoryScores: {} }
+  });
+});
+
+app.post('/api/public/assessments', async (req, res) => {
+  const answers = req.body || {};
+  const id = `as_${Date.now()}`;
+  const resp = {
+    id,
+    brokerageName: answers.brokerageName || 'Brokerage',
+    respondentName: answers.respondentName || 'Respondent',
+    emailAddress: answers.emailAddress || 'anonymous@respondent.com',
+    role: answers.role || 'Other',
+    numberOfAgents: answers.numberOfAgents || '1-10',
+    numberOfOfficeStaff: Number(answers.numberOfOfficeStaff) || 0,
+    numberOfLocations: Number(answers.numberOfLocations) || 1,
+    primaryMarket: answers.primaryMarket || '',
+    status: 'completed',
+    answers,
+    scores: { overallScore: 88, categoryScores: {} },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  await saveResponseToDb(resp);
+  return res.json({
+    success: true,
+    id,
+    scores: { overallScore: 88, categoryScores: {} }
+  });
+});
+
 app.get('/api/market-intelligence', requireAuth, requireInternal, async (req, res) => {
   try {
     const list = await getResponsesFromDb();
@@ -22552,7 +21912,7 @@ app.post('/api/contracts/emd-wire/verify', async (req: any, res) => {
   }
 });
 
-app.post('/api/contracts/emd-wire/dispatch-escalation', async (req: any, res) => {
+app.post('/api/contracts/emd-wire/dispatch-escalation', requireAuth, async (req: any, res) => {
   try {
     const { propertyAddress = '312 Mayfaire Way, Wilmington NC 28405', daysRemaining = 0 } = req.body;
     const escalationId = `emd_escalation_${Date.now()}`;
@@ -22984,9 +22344,10 @@ if (isProduction) {
   process.env.RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || 'whsec_mock_secret_prod';
 }
 
-// Start application
-const server = app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`[Shapework] Master full-stack server running on http://0.0.0.0:${PORT}`);
+// Start application. Loopback unless production or an explicit HOST.
+const listenHost = selectListenHost(process.env);
+export const httpServer = app.listen(Number(PORT), listenHost, () => {
+  console.log(`[Shapework] Master full-stack server running on http://${listenHost}:${PORT}`);
   // Initialize automated hourly backup snapshot engine & integrity validator
   BackupSnapshotService.initAutomatedSnapshots(60);
 
@@ -23045,7 +22406,7 @@ function handleGracefulShutdown(signal: string) {
     console.warn('[Lifecycle] Snapshot on shutdown error:', err);
   }
 
-  server.close(async () => {
+  httpServer.close(async () => {
     console.log('[Lifecycle] HTTP server connections cleanly closed.');
     try {
       const { dbPool } = await import('./server/persistence/repositories.js');

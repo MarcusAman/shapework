@@ -89,7 +89,7 @@ import type { CanonicalActivityEvent } from '../../../server/services/activityHi
 import { resolveCanonicalStaffMember, getCanonicalMarketingDirector } from '../../services/canonicalRoster';
 import { getRequesterActionLabel, resolveCanonicalRecipient, CANONICAL_AGENT_DIRECTORY } from '../../services/canonicalRecipientService';
 import { dispatchRecipientConfirmed, type DispatchVerdictView } from '../../lib/dispatchVerdict';
-import { firstNonInlineProof, proofInputValue, resolveProofPrecedence } from '../../lib/proofPrecedence';
+import { firstNonInlineProof, proofInputValue, resolveProofPrecedence, userPastedProofUrl } from '../../lib/proofPrecedence';
 import { confirmRequesterWrite } from '../../lib/confirmRequesterWrite';
 import { resolveTaskAssets } from '../../utils/assetResolver';
 import {
@@ -325,6 +325,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const rawActiveTask = propActiveTask || propTask || null;
   const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string | null } | null>(null);
   const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
+  const dispatchCheckGen = useRef(0);
   const [isConfirmRequesterOpen, setIsConfirmRequesterOpen] = useState(false);
 
   const activeTask = useMemo(() => {
@@ -766,30 +767,33 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
   useEffect(() => {
     if (dispatchVerdict || !isOpen || !activeTask?.id) return;
-    let cancelled = false;
+    const recipientEmail = String(activeTask.agentEmail || '').trim();
+    if (!recipientEmail) return;
+    const gen = ++dispatchCheckGen.current;
     const taskId = activeTask.id;
+    const proofUrl = userPastedProofUrl(activeTask, manualProofUrl);
     (async () => {
       try {
         const res = await fetch(`/api/marketing/requests/${encodeURIComponent(taskId)}/dispatch-check`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            recipientEmail: activeTask.agentEmail,
+            recipientEmail,
             recipientName: activeTask.agentName,
             channels: ['email'],
             intent: 'delivery_complete',
-            proofUrl: resolveProofPrecedence(manualProofUrl, activeTask.proofUrl),
+            ...(proofUrl ? { proofUrl } : {}),
             driveFolderUrl: (activeTask as { driveFolderUrl?: string }).driveFolderUrl,
             domain: 'marketing',
           }),
         });
         const data = await res.json().catch(() => null);
-        if (!cancelled && data?.recipientStatus) setFetchedDispatchVerdict(data);
+        if (gen !== dispatchCheckGen.current) return;
+        if (data?.recipientStatus) setFetchedDispatchVerdict(data);
       } catch {
-        if (!cancelled) setFetchedDispatchVerdict(null);
+        if (gen === dispatchCheckGen.current) setFetchedDispatchVerdict(null);
       }
     })();
-    return () => { cancelled = true; };
   }, [dispatchVerdict, isOpen, activeTask?.id, activeTask?.agentEmail, activeTask?.agentName, activeTask?.proofUrl]);
 
   if (!isOpen || !activeTask) return null;
@@ -1458,6 +1462,8 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   const handleConfirmRequester = async (agent: { id: string; name: string; email: string; phone?: string }) => {
     let verdict: DispatchVerdictView | null = null;
     if (activeTask) {
+      const gen = ++dispatchCheckGen.current;
+      const proofUrl = userPastedProofUrl(activeTask, manualProofUrl);
       try {
         const res = await fetch(`/api/marketing/requests/${encodeURIComponent(activeTask.id)}/dispatch-check`, {
           method: 'POST',
@@ -1467,17 +1473,17 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
             recipientName: agent.name,
             channels: ['email'],
             intent: 'delivery_complete',
-            proofUrl: resolveProofPrecedence(manualProofUrl, activeTask.proofUrl),
+            ...(proofUrl ? { proofUrl } : {}),
             domain: 'marketing',
           }),
         });
         const data = await res.json().catch(() => null);
-        if (data?.recipientStatus) {
+        if (gen === dispatchCheckGen.current && data?.recipientStatus) {
           verdict = data;
           setFetchedDispatchVerdict(data);
         }
       } catch {
-        verdict = null;
+        if (gen === dispatchCheckGen.current) verdict = null;
       }
     }
     const patch = confirmRequesterWrite(agent, {
@@ -1520,13 +1526,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       return;
     }
     if (onAskRequester) {
-      const primaryProofUrl = firstNonInlineProof(
-        manualProofUrl.trim(),
-        stagedAssets[0]?.previewUrl,
-        activeTask.proofUrl,
-        activeTask.photos && activeTask.photos[0]?.url,
-        activeTask.attachments && activeTask.attachments[0]?.url
-      );
+      const primaryProofUrl = userPastedProofUrl(activeTask, manualProofUrl);
       const assetMeta = stagedAssets[0] ? {
         assetId: stagedAssets[0].id,
         deliverableName: stagedAssets[0].deliverableName,
@@ -1583,11 +1583,6 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
     if (!isRecipientConfirmed) {
       setUrlValidationError('Requester needs confirmation before external delivery.');
-      return;
-    }
-
-    if (!hasAnyProof) {
-      setUrlValidationError('Upload a finished asset or paste an optional image link before approving.');
       return;
     }
 
@@ -4048,21 +4043,19 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   <button
                     type="button"
                     onClick={openDeliveryOutreach}
-                    disabled={isSubmitting || !hasAnyProof || !isRecipientConfirmed}
+                    disabled={isSubmitting || !isRecipientConfirmed}
                     data-action="Approve & send to agent"
                     data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
                     aria-label="Approve for Delivery (Approve & Send to Agent)"
                     className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                      !hasAnyProof || !isRecipientConfirmed || isSubmitting
+                      !isRecipientConfirmed || isSubmitting
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                     }`}
                     title={
                       !isRecipientConfirmed
                         ? 'Requester needs confirmation before external delivery'
-                        : (hasAnyProof
-                            ? 'Approve current proof version and deliver to agent (Approve for Delivery • Approve & send to agent • Approve & Send to Agent)'
-                            : 'Upload a finished asset (link optional)')
+                        : 'Approve and notify the agent. The Drive folder is created automatically; paste a link only if create fails.'
                     }
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />

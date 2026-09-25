@@ -64,7 +64,8 @@ export function getCanvaRouter(dbState: any, persistStateCallback?: (wsId?: stri
   /**
    * GET /api/integrations/canva/callback
    */
-  router.get('/callback', async (req, res) => {
+  // Canva has no OAuth state issuance. The callback is session-gated instead.
+  router.get('/callback', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), async (req, res) => {
     const wsId = String(req.query.workspaceId || 'nest-realty-demo');
     
     if (!dbState.integrations) dbState.integrations = [];

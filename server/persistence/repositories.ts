@@ -9,12 +9,26 @@ import pg from 'pg';
 import { parse as parseConnectionString } from 'pg-connection-string';
 import { initDatabaseSchema } from './dbSync.js';
 
-// Setup active storage driver from environment
+// Setup active storage driver from environment.
+// One decision, read once: later checks must not parse PERSISTENCE_DRIVER again.
 export type StorageDriver = 'memory' | 'local' | 'database';
-const envDriver = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').toLowerCase();
-export const storageDriver: StorageDriver = (envDriver === 'postgres' || envDriver === 'database') 
-  ? 'database' 
-  : (envDriver === 'local' ? 'local' : 'memory');
+
+let resolvedStorageDriver: StorageDriver | undefined;
+
+function readStorageDriverOnce(): StorageDriver {
+  if (resolvedStorageDriver) return resolvedStorageDriver;
+  const raw = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').trim().toLowerCase();
+  if (raw === 'postgres' || raw === 'database') resolvedStorageDriver = 'database';
+  else if (raw === 'local') resolvedStorageDriver = 'local';
+  else resolvedStorageDriver = 'memory';
+  return resolvedStorageDriver;
+}
+
+export function getStorageDriver(): StorageDriver {
+  return readStorageDriverOnce();
+}
+
+export const storageDriver: StorageDriver = getStorageDriver();
 
 const APP_ENV = process.env.APP_ENV || process.env.APP_MODE || 'development';
 const isProductionOrStaging = APP_ENV === 'production' || APP_ENV === 'staging' || APP_ENV === 'uat';
@@ -49,18 +63,11 @@ if (isProductionOrStaging && !isTestEnv && (strictPersistence || APP_ENV === 'st
   console.warn(`[Persistence] Running in ${APP_ENV} with active driver: ${storageDriver}`);
 }
 
-export function getStorageDriver(): StorageDriver {
-  const envDriver = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').toLowerCase();
-  if (envDriver === 'postgres' || envDriver === 'database') return 'database';
-  if (envDriver === 'local') return 'local';
-  if (storageDriver === 'database') return 'database';
-  return 'memory';
-}
-
 export let dbPool: pg.Pool | null = null;
 
 export function initDbPool(connectionString?: string): pg.Pool | null {
-  const conn = connectionString || process.env.DATABASE_URL;
+  if (getStorageDriver() !== 'database') return null;
+  const conn = connectionString || process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL || '';
   if (!conn) return null;
   if (dbPool) return dbPool;
 
@@ -94,18 +101,14 @@ export function initDbPool(connectionString?: string): pg.Pool | null {
 }
 
 export function getDbPool(): pg.Pool | null {
-  if (!dbPool && (process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL)) {
-    const driver = getStorageDriver();
-    if (driver === 'database' || process.env.DATABASE_URL) {
-      return initDbPool(process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL);
-    }
-  }
+  if (getStorageDriver() !== 'database') return null;
+  if (!dbPool) return initDbPool();
   return dbPool;
 }
 
 export let dbInitPromise: Promise<void> = Promise.resolve();
 
-if (storageDriver === 'database') {
+if (storageDriver === 'database' && !isTestEnv) {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     console.error("==================================================================");

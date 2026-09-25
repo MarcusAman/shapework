@@ -1,12 +1,14 @@
 /**
  * Resend Email Dispatch Adapter
- * HTTPS API integration with Resend (https://api.resend.com/emails)
+ * HTTPS API integration with Resend.
  * Supports live API dispatch when RESEND_API_KEY is present,
  * and fallback demo dispatch mode when RESEND_API_KEY is absent.
  */
 
 import crypto from 'crypto';
-import { isAllowedEmailRecipient, ALLOWED_TEST_EMAIL_RECIPIENTS } from './emailProvider.js';
+import { ALLOWED_TEST_EMAIL_RECIPIENTS } from './emailProvider.js';
+import { checkOutbound } from './outboundGate.js';
+import { deliverResendEmail } from './gatedTransport.js';
 
 export interface ResendDispatchOptions {
   to: string | string[];
@@ -34,9 +36,10 @@ export interface EmailDispatchReceipt {
 export async function dispatchEmailViaResend(options: ResendDispatchOptions): Promise<{ success: boolean; receipt: EmailDispatchReceipt }> {
   const apiKey = process.env.RESEND_API_KEY;
   const rawList = Array.isArray(options.to) ? options.to : [options.to];
-  const toList = rawList.filter(isAllowedEmailRecipient);
+  const gate = checkOutbound({ to: rawList, channel: 'resend', source: 'resendDispatchAdapter' });
+  const toList = gate.effectiveTo;
 
-  if (toList.length === 0) {
+  if (!gate.allowed || toList.length === 0) {
     console.log(`[Resend Safety Gate] All recipients in [${rawList.join(', ')}] suppressed (not in test whitelist: ${ALLOWED_TEST_EMAIL_RECIPIENTS.join(', ')}).`);
     return {
       success: true,
@@ -60,21 +63,35 @@ export async function dispatchEmailViaResend(options: ResendDispatchOptions): Pr
 
   if (apiKey) {
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const delivered = await deliverResendEmail({
+        apiKey,
+        to: toList,
+        source: 'resendDispatchAdapter',
+        payload: {
           from: fromAddress,
           to: toList,
           subject: options.subject,
           html: options.html,
           text: options.text
-        })
+        }
       });
-
+      if (!delivered.sent || !delivered.response) {
+        const receipt: EmailDispatchReceipt = {
+          receiptId: 'rcpt_email_' + Date.now(),
+          resendMessageId: 'suppressed_safe_mode',
+          campaignId,
+          to: toList,
+          from: fromAddress,
+          subject: options.subject,
+          htmlChecksum,
+          provider: 'resend',
+          status: 'failed',
+          timestamp: new Date().toISOString(),
+          error: delivered.gate.reason || 'Resend API dispatch failed'
+        };
+        return { success: false, receipt };
+      }
+      const response = delivered.response;
       const data: any = await response.json();
 
       if (response.ok && data?.id) {

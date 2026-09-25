@@ -68,19 +68,25 @@ export function getMicrosoftRouter(dbState: any, persistStateCallback: (wsId?: s
    * GET /api/integrations/microsoft/callback
    * Exchange Microsoft OAuth authorization code.
    */
-  router.get('/callback', async (req, res) => {
+  router.get('/callback', requireAuth, async (req, res) => {
     const { code, state } = req.query;
     const codeStr = String(code || '');
     const stateStr = String(state || '');
-
+    const sessionUserId = (req as any).authUser?.id;
     const stateData = microsoftActiveStates.get(stateStr);
-    const expectedWsId = stateData?.workspaceId || 'nest-realty-demo';
-    const expectedUserId = stateData?.userId || 'usr_owner';
 
-    if (!stateStr || !validateMicrosoftOAuthState(stateStr, expectedWsId, expectedUserId)) {
+    if (!stateData || !sessionUserId || sessionUserId !== stateData.userId) {
       console.error('[Microsoft Callback] State validation failed.');
       return res.status(400).send('OAuth state validation mismatch. Re-authorize Microsoft connection.');
     }
+
+    if (!validateMicrosoftOAuthState(stateStr, stateData.workspaceId, stateData.userId)) {
+      console.error('[Microsoft Callback] State validation failed.');
+      return res.status(400).send('OAuth state validation mismatch. Re-authorize Microsoft connection.');
+    }
+
+    const expectedWsId = stateData.workspaceId;
+    const expectedUserId = stateData.userId;
 
     try {
       const scopes = [

@@ -1600,7 +1600,11 @@ export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Pr
   });
   state.profiles = state.workspaceUsers;
 
-  // 3. Load all other tables mapped directly to workspace_id
+  // 3. Load all other tables mapped directly to workspace_id.
+  // Marks are committed only if every mapped read succeeds. A thrown load
+  // must not leave a half-applied snapshot eligible for delete.
+  const markedThisLoad: string[] = [];
+  try {
   for (const mapping of TABLE_MAPPINGS) {
     if (!mapping.hasWorkspaceId) continue;
     const res = await pool.query(`SELECT * FROM ${mapping.table} WHERE workspace_id = $1`, [workspaceId]);
@@ -1710,6 +1714,13 @@ export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Pr
         return camel;
       });
     }
+    const loadKey = collectionLoadKey(workspaceId, mapping.stateKey);
+    loadedCollections.add(loadKey);
+    markedThisLoad.push(loadKey);
+  }
+  } catch (err) {
+    for (const key of markedThisLoad) loadedCollections.delete(key);
+    throw err;
   }
 
   if (!state.directoryPeople || state.directoryPeople.length < 70) {
@@ -1760,6 +1771,100 @@ export async function loadWorkspaceState(pool: pg.Pool, workspaceId: string): Pr
   return state;
 }
 
+/** `${workspaceId}:${stateKey}` collections successfully read from SQL in this process. */
+const loadedCollections = new Set<string>();
+
+function collectionLoadKey(workspaceId: string, stateKey: string): string {
+  return `${workspaceId}:${stateKey}`;
+}
+
+export function forgetSqlCollectionLoads(workspaceId?: string): void {
+  if (!workspaceId) {
+    loadedCollections.clear();
+    return;
+  }
+  const prefix = `${workspaceId}:`;
+  for (const key of loadedCollections) {
+    if (key.startsWith(prefix)) loadedCollections.delete(key);
+  }
+}
+
+export type SaveWorkspaceOptions = {
+  /** When false, skip the SQL delete reconcile. Login sets this. */
+  reconcileDeletes?: boolean;
+  /**
+   * When set, only these state keys may delete. Omitted means every loaded
+   * collection is eligible (explicit persist). An empty array deletes nothing.
+   */
+  mutatedStateKeys?: string[];
+};
+
+export function requestMayReconcileDeletes(path: string): boolean {
+  const bare = (path || '').split('?')[0];
+  if (bare === '/api/auth/login' || bare.startsWith('/api/auth/login/')) return false;
+  return true;
+}
+
+export function collectionIdsForWorkspace(state: any, workspaceId: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const mapping of TABLE_MAPPINGS) {
+    if (!mapping.hasWorkspaceId) continue;
+    const items = state?.[mapping.stateKey] || [];
+    const ids = items
+      .filter((item: any) => item?.workspaceId === workspaceId)
+      .map((item: any) => String(item?.id))
+      .sort();
+    out.set(mapping.stateKey, ids);
+  }
+  return out;
+}
+
+export function mutatedCollectionKeys(before: Map<string, string[]>, after: Map<string, string[]>): string[] {
+  const keys: string[] = [];
+  for (const key of before.keys()) {
+    const left = before.get(key) || [];
+    const right = after.get(key) || [];
+    if (left.length !== right.length || left.some((id, index) => id !== right[index])) {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
+export function reconcileOptionsForRequest(
+  req: { method?: string; path?: string; url?: string },
+  before: Map<string, string[]>,
+  state: any,
+  workspaceId: string,
+): SaveWorkspaceOptions | null {
+  if (!['POST', 'PUT', 'DELETE'].includes(req.method || '')) return null;
+  const path = (req.path || req.url || '').split('?')[0];
+  const reconcileDeletes = requestMayReconcileDeletes(path);
+  return {
+    reconcileDeletes,
+    mutatedStateKeys: reconcileDeletes
+      ? mutatedCollectionKeys(before, collectionIdsForWorkspace(state, workspaceId))
+      : [],
+  };
+}
+
+export function bindPersistOnFinish(
+  req: { method?: string; path?: string; url?: string },
+  res: { on: (event: string, listener: () => void) => void },
+  workspaceId: string,
+  getState: () => any,
+  persist: (workspaceId: string, options: SaveWorkspaceOptions) => Promise<void> | void,
+): void {
+  const before = collectionIdsForWorkspace(getState(), workspaceId);
+  res.on('finish', () => {
+    const options = reconcileOptionsForRequest(req, before, getState(), workspaceId);
+    if (!options) return;
+    void Promise.resolve(persist(workspaceId, options)).catch((err) => {
+      console.error('[Database] Failed to persist state to database:', err);
+    });
+  });
+}
+
 const tableColumnsCache: Record<string, string[]> = {};
 
 async function getTableColumns(pool: pg.Pool, tableName: string): Promise<string[]> {
@@ -1780,7 +1885,7 @@ async function getTableColumns(pool: pg.Pool, tableName: string): Promise<string
   }
 }
 
-export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, state: any): Promise<void> {
+export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, state: any, options?: SaveWorkspaceOptions): Promise<void> {
   // Ensure the target workspace row exists in the database to satisfy foreign keys
   try {
     const wsRes = await pool.query('SELECT 1 FROM workspaces WHERE id = $1', [workspaceId]);
@@ -2037,11 +2142,20 @@ export async function saveWorkspaceState(pool: pg.Pool, workspaceId: string, sta
       }
     }
 
-    // 3. Delete removed items
-    const activeIds = workspaceItems.map((item: any) => item.id);
-    const toDelete = dbIds.filter(id => !activeIds.includes(id));
-    if (toDelete.length > 0) {
-      await pool.query(`DELETE FROM ${mapping.table} WHERE id = ANY($1)`, [toDelete]);
+    // 3. Delete removed items.
+    // A collection is eligible only after this process has loaded it from SQL,
+    // the in-memory list for this workspace is non-empty, and this save is a
+    // reconcile (not login, and not a request that left the collection untouched).
+    const reconcileDeletes = options?.reconcileDeletes !== false;
+    const loaded = loadedCollections.has(collectionLoadKey(workspaceId, mapping.stateKey));
+    const mutationAllowed = options?.mutatedStateKeys === undefined
+      || options.mutatedStateKeys.includes(mapping.stateKey);
+    if (reconcileDeletes && loaded && workspaceItems.length > 0 && mutationAllowed) {
+      const activeIds = workspaceItems.map((item: any) => item.id);
+      const toDelete = dbIds.filter((id: string) => !activeIds.includes(id));
+      if (toDelete.length > 0) {
+        await pool.query(`DELETE FROM ${mapping.table} WHERE id = ANY($1)`, [toDelete]);
+      }
     }
   }
 }
@@ -2098,7 +2212,8 @@ export async function seedDatabaseIfEmpty(pool: pg.Pool, state: any) {
         }
       }
 
-      await saveWorkspaceState(pool, 'nest-realty-demo', seededState);
+      forgetSqlCollectionLoads('nest-realty-demo');
+      await saveWorkspaceState(pool, 'nest-realty-demo', seededState, { reconcileDeletes: false });
       console.log('[Database] Seed data loaded successfully.');
     }
   } catch (err) {

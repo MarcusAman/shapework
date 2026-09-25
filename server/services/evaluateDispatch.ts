@@ -6,7 +6,7 @@
 import { actorIsTaskReviewer, type MarketingGateActor, type MarketingGateTask } from '../../src/lib/marketingApproveNotifyCapabilities.js';
 import {
   EXPLICIT_OUTBOUND_ALLOWLIST,
-  isLocalProveAllowlistTo,
+  isAllowlistedProveRecipient,
   isProductionApp,
 } from '../../src/lib/outboundAllowlistGate.js';
 import { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack, isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
@@ -14,9 +14,15 @@ import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js'
 import { pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
 import { saveCanonicalMarketingTask } from '../persistence/marketingCampaignsRepository.js';
 import { GoogleDriveService } from './googleDriveService.js';
+import { checkOutbound } from '../email/outboundGate.js';
+import { GOOGLE_DRIVE_NOT_CONNECTED } from './driveConnectionReason.js';
+
+export { GOOGLE_DRIVE_NOT_CONNECTED } from './driveConnectionReason.js';
 
 export function driveCreateFailureReason(detail?: string | null): string {
-  const why = String(detail || 'Drive folder create failed').trim().replace(/\.+$/, '');
+  const raw = String(detail || '').trim();
+  if (raw === GOOGLE_DRIVE_NOT_CONNECTED) return GOOGLE_DRIVE_NOT_CONNECTED;
+  const why = (raw || 'Drive folder create failed').replace(/\.+$/, '');
   return `Couldn't create the Drive folder: ${why}.`;
 }
 
@@ -32,6 +38,10 @@ export const DISPATCH_REASON = {
 
 export type DispatchRecipientStatus = 'directory' | 'allowlisted_prove' | 'unresolved';
 
+export type DroppedDispatchAddress = { email: string; reason: string };
+
+export const DROPPED_NOT_ON_ALLOWLIST = 'Not on the outbound allowlist.';
+
 export type DispatchVerdict = {
   allowed: boolean;
   reason: string;
@@ -42,6 +52,8 @@ export type DispatchVerdict = {
   effectiveTo: string[];
   /** Post-filter CC. Outbox recipients must use this array as-is. */
   effectiveCc: string[];
+  /** Addresses removed from To or CC, with why. */
+  dropped: DroppedDispatchAddress[];
 };
 
 export type DispatchIntent = 'ask_missing' | 'delivery_complete';
@@ -104,9 +116,22 @@ export function filterDispatchRecipients(
   recipientStatus: DispatchRecipientStatus
 ): string[] {
   const cleaned = cleanList(addresses);
+  if (recipientStatus === 'unresolved') return [];
   if (isProductionApp() && recipientStatus === 'directory') return cleaned;
   const allow = new Set(EXPLICIT_OUTBOUND_ALLOWLIST.map((email) => email.toLowerCase()));
   return cleaned.filter((email) => allow.has(email));
+}
+
+export function droppedDispatchAddresses(
+  addresses: string[] | null | undefined,
+  kept: string[],
+  recipientStatus: DispatchRecipientStatus
+): DroppedDispatchAddress[] {
+  const keep = new Set(kept);
+  const reason = recipientStatus === 'unresolved' ? DISPATCH_REASON.recipient : DROPPED_NOT_ON_ALLOWLIST;
+  return cleanList(addresses)
+    .filter((email) => !keep.has(email))
+    .map((email) => ({ email, reason }));
 }
 
 /** @deprecated Use filterDispatchRecipients. Same function for To and CC. */
@@ -122,13 +147,9 @@ function readOutboundMode(input: EvaluateDispatchInput): string {
   if (injected != null && String(injected).trim() !== '') {
     return String(injected).toLowerCase().trim();
   }
-  return String(process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold')
-    .toLowerCase()
-    .trim();
-}
-
-function outboundTurnedOff(input: EvaluateDispatchInput): boolean {
-  return readOutboundMode(input) === 'disabled';
+  const master = process.env.OUTBOUND_MASTER_MODE;
+  if (master == null || String(master).trim() === '') return 'disabled';
+  return String(master).toLowerCase().trim();
 }
 
 function explicitBadProof(url?: string | null): boolean {
@@ -208,7 +229,7 @@ export function dispatchBlockCode(reason: string): string {
     case DISPATCH_REASON.outbound:
       return 'OUTBOUND_DISABLED';
     default:
-      return reason.startsWith("Couldn't create the Drive folder:")
+      return reason === GOOGLE_DRIVE_NOT_CONNECTED || reason.startsWith("Couldn't create the Drive folder:")
         ? 'DRIVE_FOLDER_CREATE_FAILED'
         : 'DISPATCH_BLOCKED';
   }
@@ -226,6 +247,7 @@ export function dispatchRejectBody(verdict: DispatchVerdict) {
     recipientId: verdict.recipientId,
     effectiveTo: verdict.effectiveTo,
     effectiveCc: verdict.effectiveCc,
+    dropped: verdict.dropped,
   };
 }
 
@@ -238,17 +260,40 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     workspaceId: input.task?.workspaceId || undefined,
   });
 
+  const outboundMode = readOutboundMode(input);
   let recipientStatus: DispatchRecipientStatus = 'unresolved';
   let recipientId: string | null = null;
   if (directory) {
     recipientStatus = 'directory';
     recipientId = directory.id;
-  } else if (isLocalProveAllowlistTo(email)) {
+  } else if (isAllowlistedProveRecipient(email, outboundMode)) {
     recipientStatus = 'allowlisted_prove';
+    recipientId = null;
   }
 
-  const effectiveTo = filterDispatchRecipients(email ? [email] : [], recipientStatus);
+  const requestedTo = email ? [email] : [];
+  const effectiveTo = filterDispatchRecipients(requestedTo, recipientStatus);
   const effectiveCc = filterDispatchRecipients(input.cc, recipientStatus);
+  const dropped = [
+    ...droppedDispatchAddresses(requestedTo, effectiveTo, recipientStatus),
+    ...droppedDispatchAddresses(input.cc, effectiveCc, recipientStatus),
+  ];
+  const outboundGate = checkOutbound({
+    to: effectiveTo.length ? effectiveTo : (email ? [email] : []),
+    cc: effectiveCc,
+    channel: input.channel || 'email',
+    source: 'evaluateDispatch',
+    mode: outboundMode,
+  });
+  // Kill (disabled/unset) always blocks. Hold blocks a send that checkOutbound would
+  // not queue for the allowlist. A production directory verdict stays allowed so
+  // Approve & Notify can record a held row; the transport still will not deliver it.
+  const outboundBlocked = (() => {
+    if (outboundMode === 'disabled' || outboundGate.reason === 'outbound_disabled') return true;
+    if (outboundMode !== 'hold' || outboundGate.allowed || outboundGate.effectiveTo.length > 0) return false;
+    if (isProductionApp() && recipientStatus === 'directory') return false;
+    return true;
+  })();
   const resolved = resolveDispatchProofAndFolder({
     pastedProof: input.proofUrl,
     storedProof: input.task?.proofUrl,
@@ -275,11 +320,11 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     reason = await folderContentsReason(explicitFolderId, input.task?.workspaceId);
   } else if (full) {
     reason = await ensureFolderThenCount(input);
-  } else if (outboundTurnedOff(input)) {
+  } else if (outboundBlocked) {
     reason = DISPATCH_REASON.outbound;
   }
 
-  if (!reason && outboundTurnedOff(input)) {
+  if (!reason && outboundBlocked) {
     reason = DISPATCH_REASON.outbound;
   }
 
@@ -290,5 +335,6 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     recipientId,
     effectiveTo,
     effectiveCc,
+    dropped,
   };
 }

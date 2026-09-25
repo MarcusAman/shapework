@@ -70,32 +70,26 @@ export function getQuickBooksRouter(dbState: any, persistStateCallback: (wsId?: 
    * GET /api/integrations/quickbooks/callback
    * OAuth 2.0 redirect callback endpoint. Receives code, state, and realmId.
    */
-  router.get('/callback', async (req, res) => {
+  router.get('/callback', requireAuth, async (req, res) => {
     const { code, state, realmId } = req.query;
     const stateStr = String(state || '');
     const codeStr = String(code || '');
     const realmIdStr = String(realmId || '');
+    const sessionUserId = (req as any).authUser?.id;
+    const stateData = activeStates.get(stateStr);
 
-    // State lookup requires an active session or a state metadata validation.
-    // To handle callbacks from redirect loops correctly:
-    // 1. We extract the user session if available.
-    // 2. If not, since state token contains workspaceId/userId internally, we lookup the state.
-    // Wait, let's use the express-session cookie or req.authUser if requireAuth worked,
-    // or lookup from the activeStates memory map to discover the user context!
-    // Since activeStates keeps the mapping: stateToken -> { workspaceId, userId }
-    // we can retrieve the workspaceId and userId directly!
-    // This is extremely robust and handles redirect states perfectly.
-    const stateData = (global as any).activeStates?.get(stateStr) || (activeStates as any).get(stateStr);
-    
-    // Fallback: lookup in memory activeStates
-    const expectedWsId = stateData?.workspaceId || 'nest-realty-demo';
-    const expectedUserId = stateData?.userId || 'usr_owner';
-
-    // Validate CSRF state token
-    if (!stateStr || !validateOAuthState(stateStr, expectedWsId, expectedUserId)) {
+    if (!stateData || !sessionUserId || sessionUserId !== stateData.userId) {
       console.error('[QuickBooks OAuth Callback] CSRF state validation failed.');
       return res.status(400).send('OAuth CSRF state validation mismatch. Re-authorize QuickBooks connection.');
     }
+
+    if (!validateOAuthState(stateStr, stateData.workspaceId, stateData.userId)) {
+      console.error('[QuickBooks OAuth Callback] CSRF state validation failed.');
+      return res.status(400).send('OAuth CSRF state validation mismatch. Re-authorize QuickBooks connection.');
+    }
+
+    const expectedWsId = stateData.workspaceId;
+    const expectedUserId = stateData.userId;
 
     try {
       // Construct full callback URL to pass to intuit-oauth SDK

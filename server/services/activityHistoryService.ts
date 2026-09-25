@@ -30,6 +30,8 @@ export type ActivityEventType =
   // NORA Outreach
   | 'outreach.drafted'
   | 'outreach.queued'
+  | 'outreach.sent'
+  | 'outreach.held'
   | 'outreach.blocked'
   | 'outreach.provider_accepted'
   | 'outreach.delivered'
@@ -76,6 +78,8 @@ export type DirectionType = 'inbound' | 'outbound' | 'internal';
 export type CommunicationStatus =
   | 'drafted'
   | 'queued'
+  | 'sent'
+  | 'held'
   | 'blocked'
   | 'provider_accepted'
   | 'delivered'
@@ -938,6 +942,8 @@ export async function getCompactActivityForTask(
       latestNoraContactText = 'Photo request prepared · Not sent';
     } else if (noraOutreach.communicationStatus === 'delivered') {
       latestNoraContactText = `Photos requested by ${noraOutreach.channel || 'email'} · Delivered`;
+    } else if (noraOutreach.communicationStatus === 'held' || noraOutreach.eventType === 'outreach.held') {
+      latestNoraContactText = `Photos requested by ${noraOutreach.channel || 'email'} · Held`;
     } else if (noraOutreach.communicationStatus === 'queued') {
       latestNoraContactText = `Photos requested by ${noraOutreach.channel || 'email'} · Queued`;
     } else {

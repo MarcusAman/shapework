@@ -6,6 +6,7 @@ import { evaluateOwnerShieldRules, runOwnerShieldForWorkItem } from './ownerShie
 import { classifySignal } from './aiTriage.js';
 import { dispatchWebhookEvent } from './webhookDispatcher.js';
 import { renderBaseEmailLayout } from '../notifications/emailTemplates/baseEmailLayout.js';
+import { requireAuth } from '../auth/auth.js';
 
 export function getHeadlessActionRouter(dbState: any, persistState: () => void) {
   const router = express.Router();
@@ -601,7 +602,7 @@ export function getHeadlessActionRouter(dbState: any, persistState: () => void) 
   });
 
   // POST SEND TEST EMAIL
-  router.post('/notification-previews/send-test', async (req, res) => {
+  router.post('/notification-previews/send-test', requireAuth, async (req, res) => {
     const { type, recipientEmail } = req.body;
     
     const enabled = process.env.ENABLE_NOTIFICATION_TEST_SEND === 'true';

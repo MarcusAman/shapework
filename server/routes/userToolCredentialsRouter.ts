@@ -29,12 +29,16 @@ userToolStore.set('usr_ryan', {
   quickbooks: { connected: false, toolType: 'quickbooks', statusBadge: 'disconnected' }
 });
 
-function getUserIdFromReq(req: Request): string {
+function getUserIdFromReq(req: Request): string | null {
+  const actor = (req as Request & { authUser?: { id?: string }; user?: { id?: string } }).authUser
+    || (req as Request & { user?: { id?: string } }).user;
+  if (actor?.id) return actor.id;
   const authHeader = req.headers.authorization || '';
   if (authHeader.startsWith('Bearer usr_')) {
     return authHeader.replace('Bearer ', '').trim();
   }
-  return req.headers['x-user-id']?.toString() || 'usr_ryan';
+  const headerId = req.headers['x-user-id']?.toString();
+  return headerId || null;
 }
 
 /**
@@ -43,6 +47,9 @@ function getUserIdFromReq(req: Request): string {
  */
 userToolCredentialsRouter.get('/status', (req: Request, res: Response) => {
   const userId = getUserIdFromReq(req);
+  if (!userId) {
+    return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+  }
   const userTools = userToolStore.get(userId) || {
     google: { connected: false, toolType: 'google', statusBadge: 'disconnected' },
     rechat: { connected: false, toolType: 'rechat', statusBadge: 'disconnected' },
@@ -70,6 +77,9 @@ userToolCredentialsRouter.get('/status', (req: Request, res: Response) => {
 userToolCredentialsRouter.post('/connect', async (req: Request, res: Response) => {
   try {
     const userId = getUserIdFromReq(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+    }
     const { toolType, email, password, apiKey, token } = req.body || {};
 
     if (!toolType) {
@@ -120,6 +130,9 @@ userToolCredentialsRouter.post('/connect', async (req: Request, res: Response) =
  */
 userToolCredentialsRouter.post('/disconnect', (req: Request, res: Response) => {
   const userId = getUserIdFromReq(req);
+  if (!userId) {
+    return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+  }
   const { toolType } = req.body || {};
 
   const current = userToolStore.get(userId) || {};

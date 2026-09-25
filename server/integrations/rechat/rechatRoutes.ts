@@ -36,13 +36,13 @@ export function getRechatRouter(dbState: any): Router {
    * GET /api/integrations/rechat/oauth/start
    * Start Rechat OAuth flow. Generates state and redirects user.
    */
-  router.get('/oauth/start', (req, res) => {
-    const wsId = String(req.query.workspaceId || 'nest-realty-demo');
-    const state = rechatAuth.generateState();
-    const fullState = `${state}__${wsId}`;
-    const redirectUrl = rechatClient.getAuthUrl(fullState);
-    
-    console.log(`[Rechat OAuth] Redirecting. State: ${fullState}`);
+  router.get('/oauth/start', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), (req, res) => {
+    const wsId = (req as any).workspace?.id || String(req.query.workspaceId || 'nest-realty-demo');
+    const userId = (req as any).authUser!.id;
+    const state = rechatAuth.generateState(wsId, userId);
+    const redirectUrl = rechatClient.getAuthUrl(state);
+
+    console.log(`[Rechat OAuth] Redirecting. State bound to ${userId}`);
     res.redirect(redirectUrl);
   });
 
@@ -50,19 +50,20 @@ export function getRechatRouter(dbState: any): Router {
    * GET /api/integrations/rechat/oauth/callback
    * Exchange code for tokens and redirect back to integrations page.
    */
-  router.get('/oauth/callback', async (req, res) => {
+  router.get('/oauth/callback', requireAuth, async (req, res) => {
     const { code, state } = req.query;
     const stateStr = String(state || '');
-    const [stateValue, wsId] = stateStr.split('__');
-    const targetWorkspaceId = wsId || 'nest-realty-demo';
+    const sessionUserId = (req as any).authUser?.id;
 
-    console.log(`[Rechat OAuth] Callback. State: ${stateStr}, Workspace: ${targetWorkspaceId}`);
+    console.log(`[Rechat OAuth] Callback for session user ${sessionUserId || 'none'}`);
 
-    // Validate state (CSRF Protection)
-    if (!stateValue || !rechatAuth.validateState(stateValue)) {
+    const validated = stateStr && sessionUserId ? rechatAuth.validateState(stateStr, sessionUserId) : null;
+    if (!validated) {
       console.error('[Rechat OAuth] CSRF state validation failed.');
       return res.status(400).send('OAuth CSRF state validation mismatch. Re-authorize connection.');
     }
+
+    const targetWorkspaceId = validated.workspaceId;
 
     try {
       // Exchange code for tokens

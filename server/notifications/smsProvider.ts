@@ -97,6 +97,19 @@ export async function sendSmsNotification(
       throw new Error('Neither Twilio MessagingServiceSid nor SMS_FROM_NUMBER is configured.');
     }
 
+    const { checkOutbound } = await import('../email/outboundGate.js');
+    const smsGate = checkOutbound({ to, channel: 'sms', source: 'smsProvider' });
+    if (!smsGate.allowed) {
+      logNotificationAudit(
+        dbState,
+        'System',
+        'system',
+        `SMS to ${maskedTo} suppressed: ${smsGate.reason}`,
+        'notifications'
+      );
+      return { success: false, error: `Outbound ${smsGate.reason}: SMS was not sent.` };
+    }
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {

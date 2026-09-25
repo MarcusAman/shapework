@@ -8,6 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getStorageDriver } from './repositories.js';
 
 export interface UserNotificationPreferences {
   userId: string;
@@ -56,8 +57,7 @@ const DEFAULT_PREFERENCES: Omit<UserNotificationPreferences, 'userId' | 'updated
 let memoryPreferencesCache: Record<string, UserNotificationPreferences> = {};
 
 export function isDbRequired(): boolean {
-  const driver = (process.env.PERSISTENCE_DRIVER || process.env.STORAGE_DRIVER || '').toLowerCase();
-  if (driver === 'postgres' || driver === 'database') {
+  if (getStorageDriver() === 'database') {
     return true;
   }
   const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
@@ -98,8 +98,8 @@ function persistAllPreferencesToFile(data: Record<string, UserNotificationPrefer
 async function getDbPool() {
   if (typeof window !== 'undefined') return null;
   try {
-    const { getDbPool: getPool, storageDriver } = await import('./repositories.js');
-    if (storageDriver === 'database') {
+    const { getDbPool: getPool, getStorageDriver: driver } = await import('./repositories.js');
+    if (driver() === 'database') {
       return getPool();
     }
     return null;

@@ -73,21 +73,25 @@ export function getBasecampRouter(dbState: any, persistStateCallback: (wsId?: st
    * GET /api/integrations/basecamp/callback
    * OAuth redirect callback endpoint.
    */
-  router.get('/callback', async (req, res) => {
+  router.get('/callback', requireAuth, async (req, res) => {
     const { code, state } = req.query;
     const stateStr = String(state || '');
     const codeStr = String(code || '');
-
-    // State lookup from active states
+    const sessionUserId = (req as any).authUser?.id;
     const stateData = basecampActiveStates.get(stateStr);
-    const expectedWsId = stateData?.workspaceId || 'nest-realty-demo';
-    const expectedUserId = stateData?.userId || 'usr_owner';
 
-    // Validate state token
-    if (!stateStr || !validateOAuthState(stateStr, expectedWsId, expectedUserId)) {
+    if (!stateData || !sessionUserId || sessionUserId !== stateData.userId) {
       console.error('[Basecamp OAuth Callback] CSRF state validation failed.');
       return res.status(400).send('OAuth CSRF state validation mismatch. Re-authorize Basecamp connection.');
     }
+
+    if (!validateOAuthState(stateStr, stateData.workspaceId, stateData.userId)) {
+      console.error('[Basecamp OAuth Callback] CSRF state validation failed.');
+      return res.status(400).send('OAuth CSRF state validation mismatch. Re-authorize Basecamp connection.');
+    }
+
+    const expectedWsId = stateData.workspaceId;
+    const expectedUserId = stateData.userId;
 
     try {
       // Exchange code for tokens

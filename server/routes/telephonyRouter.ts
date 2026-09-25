@@ -13,6 +13,7 @@
  */
 
 import { Router } from 'express';
+import { requireAuth } from '../auth/auth.js';
 import { NEST_FULL_ROSTER_72 } from '../persistence/nestRosterSeed.js';
 import { BROKERAGE_KEY_STAFF } from '../knowledge/unifiedContextRetriever.js';
 import { queryUnifiedContext } from '../knowledge/unifiedContextRetriever.js';
@@ -306,7 +307,7 @@ telephonyRouter.get('/calls', async (req, res) => {
 });
 
 // POST /api/voice-agent/telephony/webhook - Ingest Completed Retell Calls
-telephonyRouter.post('/webhook', async (req, res) => {
+telephonyRouter.post('/webhook', requireAuth, async (req, res) => {
   const { call_id, from_number = '', duration_seconds = 45, transcript = '', recording_url, property_address } = req.body || {};
   
   // 1. Resolve Caller via Phone or Transcript Name

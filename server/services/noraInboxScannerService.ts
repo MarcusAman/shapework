@@ -47,7 +47,6 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
   };
 
   const imapUser = process.env.ASK_NORA_EMAIL || process.env.GOOGLE_SMTP_USER || 'asknora@nestrealty.com';
-  const imapPass = (process.env.GOOGLE_SMTP_PASS || 'uhuk xenp kxdy aviu').replace(/\s+/g, '');
 
   // Skip live network connection during test runs if mock active
   if (process.env.NODE_ENV === 'test' && !process.env.RUN_LIVE_IMAP_TEST) {
@@ -57,6 +56,17 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
       ingestedCount: 0,
       results: [],
       errors: []
+    };
+  }
+
+  const imapPass = String(process.env.GOOGLE_SMTP_PASS || process.env.NORA_EMAIL_PASSWORD || '').replace(/\s+/g, '');
+  if (!imapPass) {
+    isScanInProgress = false;
+    return {
+      scannedCount: 0,
+      ingestedCount: 0,
+      results: [],
+      errors: ['IMAP login is fail-closed: NORA_EMAIL_PASSWORD or GOOGLE_SMTP_PASS is not set.']
     };
   }
 

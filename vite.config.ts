@@ -34,7 +34,9 @@ export default defineConfig(() => {
       }
     },
     server: {
+      host: '127.0.0.1',
       hmr: {
+        host: '127.0.0.1',
         port: process.env.PORT ? parseInt(process.env.PORT, 10) + 20000 : 24678
       },
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.

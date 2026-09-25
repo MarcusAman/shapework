@@ -3,6 +3,8 @@ import { validateSecureActionToken, useSecureActionToken } from './notificationT
 import { triggerNotification } from './notificationRules.js';
 import { logNotificationAudit } from './notificationTypes.js';
 import { verifyJwt } from '../auth/jwt.js';
+import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission } from '../auth/auth.js';
+import { csrfProtection } from '../auth/csrf.js';
 import { compileEmailNotification } from './notificationRenderer.js';
 import { triggerDigestSms } from './actionDigests.js';
 
@@ -43,7 +45,7 @@ export function getNotificationRouter(dbState: any, persistState: () => void) {
   });
 
   // MANUAL NOTIFICATION TRIGGER (mainly for testing/E2E purposes)
-  router.post('/trigger', async (req, res) => {
+  router.post('/trigger', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_work_queue'), csrfProtection, async (req, res) => {
     const { recipientId, actionType, workItemId, approvalId, contextText } = req.body;
     const wsId = req.headers['x-workspace-id'] as string || 'nest-realty-demo';
     

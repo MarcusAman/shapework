@@ -392,7 +392,7 @@ export async function dispatchMissingPhotosNotification(call: InboundMarketingCa
 }> {
   const driveFolderUrl = `https://drive.google.com`;
   const recipientPhone = call.phone || '+12527170595';
-  const recipientEmail = call.brokerDetails?.email || 'matt.orr@nestrealty.com';
+  const recipientEmail = String(call.brokerDetails?.email || '').trim();
   const agentName = call.callerName || 'Agent';
 
   console.log(`[TelephonyPhotoDispatch] Auto-triggering SMS & Email photo upload link to ${agentName} (${recipientPhone}, ${recipientEmail}) for ${call.propertyAddress}`);
@@ -425,18 +425,17 @@ export async function dispatchMissingPhotosNotification(call: InboundMarketingCa
   // 2. Send automated branded Email via asknora@nestrealty.com with Safety Gate
   let emailSent = false;
   try {
-    const { isAllowedEmailRecipient } = await import('../email/emailProvider.js');
-    if (isAllowedEmailRecipient(recipientEmail)) {
+    if (!recipientEmail) {
+      console.warn('[TelephonyPhotoDispatch] No recipient email; photo request was not sent.');
+    } else {
       const emailRes = await sendPhotoUploadRequestEmail({
         toEmail: recipientEmail,
         agentName,
         propertyAddress: call.propertyAddress,
         driveUploadUrl: driveFolderUrl
       });
-      emailSent = emailRes.success;
-    } else {
-      console.warn(`[TelephonyPhotoDispatch] Suppressed email to non-whitelisted recipient: ${recipientEmail}`);
-      emailSent = false;
+      const heldOrSuppressed = Boolean((emailRes as { suppressed?: boolean; held?: boolean }).suppressed || (emailRes as { held?: boolean }).held);
+      emailSent = Boolean(emailRes.success) && !heldOrSuppressed;
     }
   } catch (err) {
     console.warn(`[TelephonyPhotoDispatch] Email dispatch notice for ${recipientEmail}:`, err);

@@ -226,7 +226,8 @@ export type SurfaceDrawerGates = {
 /**
  * Visibility gates for one drawer / two modes.
  * pagerIndex is 0-based; pager shows only when 0 ≤ index < total and total > 1.
- * Lock #2.1: B1 Apple cut — Approve gated on proof; brief collapsed behind Details.
+ * Lock #2.1: B1 Apple cut — brief collapsed behind Details.
+ * Approve & Notify stays visible without a pasted proof. Auto-create is the main path.
  */
 export function resolveSurfaceDrawerGates(opts: {
   shell: SurfaceDrawerShell;
@@ -234,7 +235,7 @@ export function resolveSurfaceDrawerGates(opts: {
   pagerTotal: number;
   task?: SurfaceDrawerTaskLike;
   nextVerb?: string;
-  /** Lock #2.1 — hide Approve & Notify until proof exists (no disabled hero). */
+  /** Paste is optional. Approve stays available so auto-create can run. */
   hasProof?: boolean;
 }): SurfaceDrawerGates {
   const { shell, pagerIndex, pagerTotal, task, nextVerb, hasProof } = opts;
@@ -287,8 +288,8 @@ export function resolveSurfaceDrawerGates(opts: {
     showUpload: !chase,
     showMaps: true,
     showWorkstationTabs: true,
-    // Never Upload + Approve competing when chase photos; hide Approve until proof
-    showApproveNotify: !chase && proof,
+    // Chase photos hides Approve. A missing paste does not.
+    showApproveNotify: !chase,
     showEmailFooter: !chase && proof,
     showBriefAndCopy: true,
     showHeadlineRemarksCopy: true,

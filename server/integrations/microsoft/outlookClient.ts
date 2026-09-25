@@ -4,6 +4,7 @@
  */
 
 import { getMicrosoftGraphClient } from './graphClient.js';
+import { checkOutbound } from '../../email/outboundGate.js';
 
 export async function sendOutlookEmail(
   accessToken: string,
@@ -11,6 +12,11 @@ export async function sendOutlookEmail(
   subject: string,
   body: string
 ): Promise<string> {
+  const gate = checkOutbound({ to, channel: 'email', source: 'outlookClient' });
+  if (!gate.allowed) {
+    throw new Error(`Outbound ${gate.reason}: Outlook message was not sent.`);
+  }
+
   if (process.env.MOCK_INTEGRATIONS === 'true' || accessToken.startsWith('dev_mock_')) {
     console.log(`[Outlook Client] Mock sending email to: ${to}`);
     return `mock_outlook_msg_${Date.now()}`;
@@ -26,7 +32,7 @@ export async function sendOutlookEmail(
     toRecipients: [
       {
         emailAddress: {
-          address: to
+          address: gate.effectiveTo[0] || to
         }
       }
     ]

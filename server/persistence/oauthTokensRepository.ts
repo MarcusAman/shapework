@@ -10,7 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { dbPool, storageDriver } from './repositories.js';
+import { getStorageDriver } from './repositories.js';
 
 export type OAuthProvider =
   | 'quickbooks'
@@ -40,7 +40,7 @@ export interface OAuthTokenRecord {
  * Reports the active storage backend name without exposing credentials
  */
 export function getOAuthStorageBackendName(): string {
-  if (storageDriver === 'database' || dbPool !== null) {
+  if (getStorageDriver() === 'database') {
     return 'PostgreSQL Relational Storage (workspace_integration_connections)';
   }
   const appEnv = process.env.APP_ENV || process.env.APP_MODE || 'development';
