@@ -29,6 +29,7 @@ import {
   isAllowedEmailRecipient
 } from '../email/emailProvider.js';
 import { generateMarketingTrackerToken } from './taskTrackerService.js';
+import { saveListingMediaAsset } from './listingMediaStorageService.js';
 
 import {
   getResponsibleDepartmentOwner
@@ -1336,18 +1337,43 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     const processed = processAndValidateAttachment(rawAtt, provider, messageId, i);
     if (!processed.valid) continue;
 
-    // If raw Buffer/Base64 provided, write to disk
+    let attBuffer: Buffer | null = null;
     if (rawAtt.content) {
+      if (Buffer.isBuffer(rawAtt.content)) {
+        attBuffer = rawAtt.content;
+      } else if (typeof rawAtt.content === 'string') {
+        const cleanBase64 = rawAtt.content.startsWith('data:') ? rawAtt.content.split(',')[1] : rawAtt.content;
+        try { attBuffer = Buffer.from(cleanBase64, 'base64'); } catch { /* ignore */ }
+      }
+    } else if ((rawAtt as any).base64Data) {
+      const cleanBase64 = (rawAtt as any).base64Data.startsWith('data:') ? (rawAtt as any).base64Data.split(',')[1] : (rawAtt as any).base64Data;
+      try { attBuffer = Buffer.from(cleanBase64, 'base64'); } catch { /* ignore */ }
+    }
+
+    let publicMediaUrl = processed.url || `/uploads/${processed.name}`;
+    if (attBuffer) {
       try {
-        const filePath = path.join(uploadsDir, processed.name);
-        if (Buffer.isBuffer(rawAtt.content)) {
-          fs.writeFileSync(filePath, rawAtt.content);
-        } else if (typeof rawAtt.content === 'string') {
-          const cleanBase64 = rawAtt.content.startsWith('data:') ? rawAtt.content.split(',')[1] : rawAtt.content;
-          fs.writeFileSync(filePath, Buffer.from(cleanBase64, 'base64'));
+        const savedMedia = await saveListingMediaAsset({
+          filename: processed.name,
+          contentType: processed.type || (processed.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+          buffer: attBuffer,
+          propertyAddress: propertyAddress || undefined,
+          metadata: {
+            provider,
+            messageId,
+            originalFilename: rawAtt.filename,
+            sizeBytes: attBuffer.length
+          }
+        });
+        if (savedMedia?.url) {
+          publicMediaUrl = savedMedia.url;
         }
-      } catch (writeErr) {
-        console.warn(`[Ingestion Engine] Could not write attachment ${processed.name} to disk:`, writeErr);
+      } catch (mediaErr) {
+        console.warn(`[Ingestion Engine] Could not save media asset durably for ${processed.name}:`, mediaErr);
+        try {
+          const filePath = path.join(uploadsDir, processed.name);
+          fs.writeFileSync(filePath, attBuffer);
+        } catch { /* ignore */ }
       }
     }
 
@@ -1356,9 +1382,9 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       photos.push({
         id: processed.id,
         name: processed.name,
-        url: processed.url,
+        url: publicMediaUrl,
         type: processed.type,
-        sizeBytes: processed.sizeBytes,
+        sizeBytes: attBuffer ? attBuffer.length : processed.sizeBytes,
         driveUrl: processed.driveUrl || defaultDriveFileUrl,
         hash: processed.hash
       });
@@ -1368,8 +1394,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       id: processed.id,
       filename: processed.name,
       contentType: processed.type,
-      sizeBytes: processed.sizeBytes,
-      url: processed.url,
+      sizeBytes: attBuffer ? attBuffer.length : processed.sizeBytes,
+      url: publicMediaUrl,
       driveUrl: processed.driveUrl || defaultDriveFileUrl,
       hash: processed.hash
     });
@@ -1869,7 +1895,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       (existingRequestForAddress as any).missingFields = recheckEval.missingFields;
       (existingRequestForAddress as any).fieldConflicts = recheckEval.fieldConflicts;
 
-      saveCanonicalMarketingRequest(existingRequestForAddress, dbClient);
+      saveCanonicalMarketingRequest(existingRequestForAddress);
       if (dbClient) await persistRequestToDatabase(existingRequestForAddress, dbClient);
 
       for (const t of existingTasks) {
@@ -1885,7 +1911,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         }
         t.notes = `${t.notes || ''}\n\n[Reconciled Email Update]: Added new information and attachments.`;
         t.updatedAt = new Date().toISOString();
-        saveCanonicalMarketingTask(t, dbClient);
+        saveCanonicalMarketingTask(t);
         if (dbClient) await persistTaskToDatabase(t, dbClient);
       }
 
@@ -1976,7 +2002,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
             updatedAt: new Date().toISOString()
           };
 
-          saveCanonicalMarketingTask(newTask, dbClient);
+          saveCanonicalMarketingTask(newTask);
           if (dbClient) await persistTaskToDatabase(newTask, dbClient);
           existingTasks.push(newTask);
           if (!existingRequestForAddress.taskIds) existingRequestForAddress.taskIds = [];
@@ -1988,7 +2014,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       }
 
       if (addedAnyTasks) {
-        saveCanonicalMarketingRequest(existingRequestForAddress, dbClient);
+        saveCanonicalMarketingRequest(existingRequestForAddress);
         if (dbClient) await persistRequestToDatabase(existingRequestForAddress, dbClient);
       }
 
@@ -2277,7 +2303,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       }
       (newTask as any).policyVersion = emailIntakeEvaluation.policyVersion;
       (newTask as any).knowledgeVersion = emailIntakeEvaluation.knowledgeVersion;
-      saveCanonicalMarketingTask(newTask, dbClient);
+      saveCanonicalMarketingTask(newTask);
       createdTasks.push(newTask);
 
       await canonicalTaskRoutingService.recordRoutingAudit(
@@ -2353,7 +2379,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     (newRequest as any).missingFields = emailIntakeEvaluation.missingFields;
     (newRequest as any).fieldConflicts = emailIntakeEvaluation.fieldConflicts;
 
-    saveCanonicalMarketingRequest(newRequest, dbClient);
+    saveCanonicalMarketingRequest(newRequest);
 
     if (dbClient) {
       await persistRequestToDatabase(newRequest, dbClient);

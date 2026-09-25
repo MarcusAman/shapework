@@ -3,7 +3,7 @@ import path from 'path';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
 import { updateStaffMemberProfile } from '../persistence/operationsDirectoryRepository.js';
-import { orgChartRepository } from '../persistence/orgChartRepository.js';
+import { orgChartRepository, getPublishedPolicyPath, cachedActivePolicies } from '../persistence/orgChartRepository.js';
 import { sopRepository } from '../persistence/sopRepository.js';
 import { registerSopCategoryCompatibility } from '../policies/sopCategoryCompatibility.js';
 
@@ -120,16 +120,17 @@ describe('Canonical Task Routing Service (Authority Engine)', () => {
     const originalSop = itRule!.governing_sop_id;
     itRule!.governing_sop_id = 'sop_it_systems_support_local_001';
 
-    const { dbPool } = await import('../persistence/repositories.js');
-    if (dbPool) {
-      await dbPool.query(
+    const { getDbPool } = await import('../persistence/repositories.js');
+    const pool = getDbPool();
+    if (pool) {
+      await pool.query(
         "UPDATE published_routing_rules SET governing_sop_id = $1 WHERE policy_id = $2 AND (category ILIKE '%it%' OR category ILIKE '%tech%')",
         ['sop_it_systems_support_local_001', currentPolicy!.policy.id]
       );
     }
 
     // Also update disk fallback file
-    const pubPath = path.join(process.cwd(), 'backups', `published_policy_${wsWilmington}.json`);
+    const pubPath = getPublishedPolicyPath(wsWilmington);
     let originalFileRaw: string | undefined;
     if (fs.existsSync(pubPath)) {
       originalFileRaw = fs.readFileSync(pubPath, 'utf-8');
@@ -140,6 +141,7 @@ describe('Canonical Task Routing Service (Authority Engine)', () => {
         fs.writeFileSync(pubPath, JSON.stringify(fileData, null, 2), 'utf-8');
       }
     }
+    cachedActivePolicies.delete(wsWilmington);
 
     try {
       const decision = await canonicalTaskRoutingService.resolveRouting({
@@ -161,8 +163,8 @@ describe('Canonical Task Routing Service (Authority Engine)', () => {
     } finally {
       // Revert rule to preserve unconfigured tech state
       itRule!.governing_sop_id = originalSop;
-      if (dbPool) {
-        await dbPool.query(
+      if (pool) {
+        await pool.query(
           "UPDATE published_routing_rules SET governing_sop_id = $1 WHERE policy_id = $2 AND (category ILIKE '%it%' OR category ILIKE '%tech%')",
           [originalSop || null, currentPolicy!.policy.id]
         );
@@ -170,6 +172,7 @@ describe('Canonical Task Routing Service (Authority Engine)', () => {
       if (originalFileRaw && fs.existsSync(pubPath)) {
         fs.writeFileSync(pubPath, originalFileRaw, 'utf-8');
       }
+      cachedActivePolicies.delete(wsWilmington);
     }
   });
 

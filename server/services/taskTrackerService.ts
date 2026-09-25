@@ -384,14 +384,199 @@ export async function sendFourPointFollowUp(
   };
 }
 
-export function generateMarketingTrackerToken(_taskId?: string): string {
+export function generateMarketingTrackerToken(taskId?: string): string {
+  if (taskId) {
+    const cleanId = String(taskId).trim();
+    const hash = crypto.createHash('sha256').update(`mkt_trk_v1_${cleanId}`).digest('hex').slice(0, 12);
+    return `trk_${cleanId}_${hash}`;
+  }
   return `trk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function getMarketingTrackerByToken(_token: string): any | null {
-  return null;
+export async function getMarketingTrackerByToken(token: string): Promise<any | null> {
+  if (!token || typeof token !== 'string') return null;
+  const cleanToken = token.trim();
+
+  // 1. Check in-memory TRACKER_STORE (for telephony calls or cached trackers)
+  const memoryRecord = TRACKER_STORE.get(cleanToken);
+  if (memoryRecord) return memoryRecord;
+
+  try {
+    const { getCanonicalMarketingTasksLive, getCanonicalMarketingRequestById } = await import('../persistence/marketingCampaignsRepository.js');
+    const tasks = await getCanonicalMarketingTasksLive(undefined, true);
+    
+    // Match task by token, deterministic token, id, or trackerToken
+    let matchedTask = tasks.find(t => {
+      if (!t) return false;
+      if (t.trackerToken === cleanToken) return true;
+      if (t.id === cleanToken) return true;
+      if (generateMarketingTrackerToken(t.id) === cleanToken) return true;
+      if (cleanToken.startsWith('trk_') && cleanToken.includes(t.id)) return true;
+      return false;
+    });
+
+    if (!matchedTask) {
+      // Also check if token matches a canonical marketing request ID
+      const allRequests = (await import('../persistence/marketingCampaignsRepository.js')).getAllCanonicalMarketingRequests();
+      const matchedReq = allRequests.find(r => r.id === cleanToken || (cleanToken.startsWith('trk_') && cleanToken.includes(r.id)));
+      if (matchedReq && matchedReq.taskIds && matchedReq.taskIds.length > 0) {
+        matchedTask = tasks.find(t => matchedReq.taskIds.includes(t.id));
+      }
+    }
+
+    if (!matchedTask) return null;
+
+    const parentReq = matchedTask.requestId ? getCanonicalMarketingRequestById(matchedTask.requestId) : null;
+    const propertyAddress = matchedTask.propertyAddress || parentReq?.propertyAddress || 'Listing Property';
+    const agentName = matchedTask.agentName || parentReq?.agentName || 'Agent';
+    const agentEmail = matchedTask.agentEmail || parentReq?.agentEmail || '';
+    const agentPhone = matchedTask.agentPhone || parentReq?.agentPhone || '';
+    
+    // Status mapping
+    let mappedStatus: 'received' | 'routed' | 'in_progress' | 'completed' = 'in_progress';
+    let currentStepIndex = 2;
+    if (matchedTask.status === 'completed') {
+      mappedStatus = 'completed';
+      currentStepIndex = 4;
+    } else if (matchedTask.status === 'in_production' || matchedTask.status === 'in_progress') {
+      mappedStatus = 'in_progress';
+      currentStepIndex = 2;
+    } else if (matchedTask.status === 'awaiting_review' || matchedTask.status === 'approved') {
+      mappedStatus = 'in_progress';
+      currentStepIndex = 3;
+    } else {
+      mappedStatus = 'received';
+      currentStepIndex = 1;
+    }
+
+    const stages: TrackerTimelineStage[] = [
+      {
+        id: 'stage_received',
+        label: 'Request Received',
+        description: `Inbound marketing request logged for ${propertyAddress}`,
+        completed: true,
+        current: currentStepIndex === 0
+      },
+      {
+        id: 'stage_intake',
+        label: 'Intake Confirmed & Album Created',
+        description: 'Photos verified, property media album cataloged, and assigned to production lead',
+        completed: currentStepIndex >= 1,
+        current: currentStepIndex === 1
+      },
+      {
+        id: 'stage_production',
+        label: 'Designing & Production',
+        description: `In active production with ${matchedTask.assignedTo || 'Marketing Suite'}`,
+        completed: currentStepIndex >= 2,
+        current: currentStepIndex === 2
+      },
+      {
+        id: 'stage_review',
+        label: 'Director Review & QA',
+        description: 'Brand compliance and layout review with Melissa Gagliardi',
+        completed: currentStepIndex >= 3,
+        current: currentStepIndex === 3
+      },
+      {
+        id: 'stage_delivered',
+        label: 'Deliverables Ready',
+        description: 'Final print-ready and digital deliverables delivered',
+        completed: currentStepIndex >= 4,
+        current: currentStepIndex === 4
+      }
+    ];
+
+    // Build notes from task notes
+    const notes: TrackerNote[] = [];
+    if (matchedTask.notes) {
+      notes.push({
+        id: `note_${matchedTask.id}_init`,
+        author: 'Nora (Nest Operations)',
+        content: matchedTask.notes.slice(0, 300),
+        createdAt: matchedTask.createdAt || new Date().toISOString()
+      });
+    }
+
+    const externalLinks: Array<{ url: string; title: string; type: string }> = [];
+    if (matchedTask.driveFolderUrl && !matchedTask.driveFolderUrl.includes('1DRV_') && matchedTask.driveFolderUrl !== 'https://drive.google.com') {
+      externalLinks.push({
+        url: matchedTask.driveFolderUrl,
+        title: 'Google Drive Reference Folder',
+        type: 'drive'
+      });
+    }
+
+    const trackerRecord: any = {
+      token: cleanToken,
+      ticketId: `MK-${matchedTask.id.slice(-6).toUpperCase()}`,
+      callId: matchedTask.id,
+      callerName: agentName,
+      phone: agentPhone,
+      email: agentEmail,
+      propertyAddress,
+      category: matchedTask.category || 'marketing',
+      fourPointSummary: {
+        callerNeed: `Marketing collateral for ${propertyAddress}: ${matchedTask.title}`,
+        noraAction: `Request verified, media assets cataloged in internal album, assigned to ${matchedTask.assignedTo || 'Marketing Suite'}.`,
+        routedTo: `${matchedTask.assignedTo || 'Eduardo Lovo'} (Producer) & Melissa Gagliardi (Director)`,
+        estimatedDelivery: matchedTask.dueAt ? `Due ${new Date(matchedTask.dueAt).toLocaleDateString()}` : 'Within 48 hours'
+      },
+      status: mappedStatus,
+      currentStepIndex,
+      stages,
+      notes,
+      callbackRequested: false,
+      createdAt: matchedTask.createdAt || new Date().toISOString(),
+      targetSla: '48 hours',
+      slaRemainingMinutes: 120,
+      isMarketingRequest: true,
+      deliverables: [matchedTask.title],
+      assignedLead: 'Melissa Gagliardi (Marketing Director)',
+      assignedProducer: matchedTask.assignedTo || 'Eduardo Lovo',
+      photos: (matchedTask.photos || []).map((p: any) => ({
+        id: p.id || p.name,
+        name: p.name || 'Photo',
+        url: p.url,
+        type: p.type || 'image/jpeg',
+        sizeBytes: p.sizeBytes
+      })),
+      externalLinks
+    };
+
+    return trackerRecord;
+  } catch (err) {
+    console.warn('[TaskTracker] Error building marketing tracker by token:', err);
+    return null;
+  }
 }
 
-export function appendMarketingTrackerNote(_token: string, _note: string): any | null {
+export async function appendMarketingTrackerNote(token: string, authorOrNote: string, content?: string): Promise<any | null> {
+  const author = content !== undefined ? authorOrNote : 'Agent';
+  const textContent = content !== undefined ? content : authorOrNote;
+  if (!textContent || !textContent.trim()) return null;
+
+  try {
+    const { getCanonicalMarketingTasksLive, saveCanonicalMarketingTask, persistTaskToDatabase } = await import('../persistence/marketingCampaignsRepository.js');
+    const tasks = await getCanonicalMarketingTasksLive(undefined, true);
+    const matchedTask = tasks.find(t => {
+      if (!t) return false;
+      if (t.trackerToken === token) return true;
+      if (t.id === token) return true;
+      if (generateMarketingTrackerToken(t.id) === token) return true;
+      if (token.startsWith('trk_') && token.includes(t.id)) return true;
+      return false;
+    });
+
+    if (matchedTask) {
+      matchedTask.notes = `${matchedTask.notes || ''}\n\n[Note from ${author} via Tracker]: ${textContent.trim()}`;
+      matchedTask.updatedAt = new Date().toISOString();
+      saveCanonicalMarketingTask(matchedTask);
+      await persistTaskToDatabase(matchedTask);
+      return await getMarketingTrackerByToken(token);
+    }
+  } catch (err) {
+    console.warn('[TaskTracker] Error appending note to marketing tracker:', err);
+  }
   return null;
 }

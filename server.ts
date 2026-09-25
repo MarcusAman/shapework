@@ -9145,28 +9145,39 @@ app.post('/api/marketing/upload-asset', requireAuth, async (req, res) => {
 
 // GET /uploads/:filename - Durable asset retrieval surviving container replacement
 app.get('/uploads/:filename', async (req, res, next) => {
-  const filename = req.params.filename;
-  const uploadDir = path.join(process.cwd(), 'dist', 'uploads');
-  const filePath = path.join(uploadDir, filename);
+  const cleanFilename = path.basename(req.params.filename || '');
+  if (!cleanFilename || cleanFilename === '.' || cleanFilename === '..') {
+    return next();
+  }
 
-  if (fs.existsSync(filePath)) {
-    return res.sendFile(filePath);
+  const publicUploadDir = path.join(process.cwd(), 'public', 'uploads');
+  const distUploadDir = path.join(process.cwd(), 'dist', 'uploads');
+  const publicFilePath = path.join(publicUploadDir, cleanFilename);
+  const distFilePath = path.join(distUploadDir, cleanFilename);
+
+  if (fs.existsSync(publicFilePath)) {
+    return res.sendFile(publicFilePath);
+  }
+  if (fs.existsSync(distFilePath)) {
+    return res.sendFile(distFilePath);
   }
 
   // If missing from local disk (fresh container instance / cold start), retrieve from PostgreSQL durable_uploaded_assets
   try {
-    const asset = await getDurableAssetByFilenameAsync(filename);
+    const asset = await getDurableAssetByFilenameAsync(cleanFilename);
     if (asset) {
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      if (!fs.existsSync(publicUploadDir)) fs.mkdirSync(publicUploadDir, { recursive: true });
+      if (!fs.existsSync(distUploadDir)) fs.mkdirSync(distUploadDir, { recursive: true });
       const buffer = Buffer.from(asset.dataBase64, 'base64');
-      fs.writeFileSync(filePath, buffer);
+      try { fs.writeFileSync(publicFilePath, buffer); } catch { /* ignore */ }
+      try { fs.writeFileSync(distFilePath, buffer); } catch { /* ignore */ }
       res.setHeader('Content-Type', asset.contentType || 'application/octet-stream');
       res.setHeader('Content-Length', String(asset.sizeBytes));
       res.setHeader('X-Asset-SHA256', asset.sha256Checksum);
       return res.send(buffer);
     }
   } catch (err) {
-    console.error(`[Uploads fallback] Error retrieving durable asset ${filename}:`, err);
+    console.error(`[Uploads fallback] Error retrieving durable asset ${cleanFilename}:`, err);
   }
 
   return next();

@@ -390,7 +390,7 @@ export default function App() {
   };
 
   const isLegalPage = currentPath === '/terms' || currentPath === '/privacy' || currentPath === '/sms-consent' || currentPath === '/sms-terms';
-  const isTrackerPage = currentPath.startsWith('/tracker/');
+  const isTrackerPage = currentPath.startsWith('/tracker/') || currentPath.startsWith('/track/');
   const isShareCompsPage = currentPath.startsWith('/share/comps');
 
   if (isShareCompsPage) {

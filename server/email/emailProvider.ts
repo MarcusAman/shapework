@@ -442,8 +442,8 @@ export async function sendPhotoUploadRequestEmail(options: {
 
   const photoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendPhotoUploadRequestEmail');
   if (photoHeld) {
-    const outcome = photoHeld.held ? 'held' : 'blocked';
-    console.log(`[Outbound] ${outcome}: ${photoHeld.reason || outcome}`);
+    const outcome = (photoHeld as any).held ? 'held' : 'blocked';
+    console.log(`[Outbound] ${outcome}: ${(photoHeld as any).reason || outcome}`);
     return photoHeld;
   }
 
@@ -499,8 +499,9 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
   assignedLead: string;
   heroImageUrl?: string;
   cc?: string;
+  trackerUrl?: string;
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, deliverables, assignedLead, heroImageUrl, cc } = options;
+  const { toEmail, agentName, propertyAddress, deliverables, assignedLead, heroImageUrl, cc, trackerUrl } = options;
 
   const intakeHeld = suppressedByOutboundGate(toEmail, undefined, 'sendMarketingIntakeConfirmationEmail');
   if (intakeHeld) return intakeHeld;
@@ -529,8 +530,8 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
     ],
     deliverables,
     ctaButton: {
-      label: 'View Live Task Status',
-      url: 'https://shapework.co/app'
+      label: 'View Live Proof Portal',
+      url: trackerUrl || 'https://shapework.co/app'
     },
     footnote: 'If you have any questions about this or if anything changes, just email me, Nora @ AskNora@Nestrealty.com or just respond to this email.'
   });
@@ -539,7 +540,7 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
     to: toEmail,
     cc,
     subject: `Intake Confirmed: ${propertyAddress} — In Progress with ${assignedLead.split(' ')[0]}`,
-    text: `Hi ${agentName},\n\nI got your marketing request for ${propertyAddress} and have forwarded it to ${assignedLead}, and it is now in progress.\n\nQueued Deliverables: ${deliverables.join(', ')}\nAssigned Director: ${assignedLead}\n\nIf you have any questions about this or if anything changes, just email me, Nora @ AskNora@Nestrealty.com or just respond to this email.\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
+    text: `Hi ${agentName},\n\nI got your marketing request for ${propertyAddress} and have forwarded it to ${assignedLead}, and it is now in progress.\n\nQueued Deliverables: ${deliverables.join(', ')}\nAssigned Director: ${assignedLead}${trackerUrl ? `\n\nLive Proof & Delivery Portal: ${trackerUrl}` : ''}\n\nIf you have any questions about this or if anything changes, just email me, Nora @ AskNora@Nestrealty.com or just respond to this email.\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent
   });
 }
@@ -712,6 +713,7 @@ export async function sendTaskCompletionEmail(options: {
   completedByName?: string;
   /** Already filtered by evaluateDispatch.effectiveCc. */
   cc?: string[];
+  [key: string]: any;
 }): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
 
@@ -721,6 +723,13 @@ export async function sendTaskCompletionEmail(options: {
   if (process.env.NODE_ENV === 'test') {
     return { success: true, messageId: `test_complete_${Date.now()}` };
   }
+
+  const effectiveActionUrl = proofUrl || (driveFolderUrl && driveFolderUrl !== 'https://drive.google.com' ? driveFolderUrl : 'https://shapework.co/app');
+  const actionButtonLabel = proofUrl?.includes('/track/marketing/')
+    ? 'Open Proof Portal'
+    : (proofUrl?.includes('/api/marketing/assets/download/')
+      ? 'Download Approved Deliverables'
+      : (proofUrl ? 'Review Deliverables & Proofs' : 'Open Listing Drive Folder'));
 
   const htmlContent = renderNestEditorialEmailTemplate({
     title: 'Deliverables Ready',
@@ -732,15 +741,15 @@ export async function sendTaskCompletionEmail(options: {
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `Great news! <strong>${taskTitle}</strong> for <strong>${propertyAddress}</strong> has been completed and quality-checked by <strong>${completedByName}</strong>.`,
-      `Your print-ready 300 DPI files, PDFs, and social media assets have been staged in your dedicated listing folder.`
+      `Your print-ready 300 DPI files, PDFs, and media assets are ready for your review and download.`
     ],
     infoBox: {
       title: 'Listing Asset Package',
       text: `${propertyAddress} &bull; Verified NCREC Compliant`
     },
     ctaButton: {
-      label: 'Open Listing Drive Folder',
-      url: driveFolderUrl
+      label: actionButtonLabel,
+      url: effectiveActionUrl
     },
     footnote: 'If you need any revisions or additional print copies, just email Nora @ AskNora@Nestrealty.com or reply here.'
   });
@@ -749,7 +758,7 @@ export async function sendTaskCompletionEmail(options: {
     to: toEmail,
     cc: cc && cc.length ? cc : undefined,
     subject: `Ready: ${taskTitle} for ${propertyAddress} has been Delivered`,
-    text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been completed and quality-checked by ${completedByName}.\n\nAccess your files in Google Drive: ${driveFolderUrl}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
+    text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been completed and quality-checked by ${completedByName}.\n\nAccess your deliverables & files: ${effectiveActionUrl}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent
   });
 }

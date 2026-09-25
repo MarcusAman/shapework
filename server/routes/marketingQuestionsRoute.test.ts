@@ -28,10 +28,15 @@ describe('POST /api/marketing/requests/send-questions', () => {
     }
   });
 
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    'x-user-email': 'melissa.gagliardi@nestrealty.com'
+  };
+
   it('1. Returns 400 if recipient name or contact coordinates are missing', async () => {
     const res = await fetch(`${baseUrl}/api/marketing/requests/send-questions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({})
     });
 
@@ -43,7 +48,7 @@ describe('POST /api/marketing/requests/send-questions', () => {
   it('2. Rejects hotline (910) 507-2047 and placeholder email with HTTP 400', async () => {
     const res = await fetch(`${baseUrl}/api/marketing/requests/send-questions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
         campaignId: 'camp_test_prohibited',
         recipientName: 'Unknown Agent',
@@ -74,7 +79,7 @@ describe('POST /api/marketing/requests/send-questions', () => {
 
     const res = await fetch(`${baseUrl}/api/marketing/requests/send-questions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify(payload)
     });
 

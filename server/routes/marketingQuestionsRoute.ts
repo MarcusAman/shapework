@@ -434,8 +434,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
     if (
       !verdict.allowed &&
       (isDeliveryComplete ||
-        verdict.reason === DISPATCH_REASON.recipient ||
-        verdict.reason === DISPATCH_REASON.outbound)
+        verdict.reason === DISPATCH_REASON.recipient)
     ) {
       return res.status(verdict.reason === DISPATCH_REASON.role ? 403 : 400).json(dispatchRejectBody(verdict));
     }
@@ -518,40 +517,48 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       if (deliveryResult.handled) return;
     }
 
+    const masterMode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
+    const isOutboundDisabled =
+      masterMode === 'disabled' ||
+      process.env.NODE_ENV === 'test' ||
+      (masterMode !== 'live' && process.env.ALLOW_EXTERNAL_DISPATCH !== 'true');
+
     // Member notification prefs (materials ready / missing info / SMS)
-    try {
-      const msgType =
-        intent === 'delivery_complete'
-          ? 'materials_ready'
-          : intent === 'ask_missing'
-            ? 'missing_info'
-            : String(intent || 'missing_info');
-      const channel =
-        wantsSms && !wantsEmail ? 'sms' : wantsSms && wantsEmail ? 'both' : 'email';
-      const recipEmail = resolvedRecipient.email || recipientEmail || '';
-      const userId = resolvedRecipient.id || resolvedRecipient.userId || `email:${String(recipEmail).toLowerCase()}`;
-      if (channel === 'both' || channel === 'email') {
-        const g = await canSendAgentOutbound({ userId, messageType: msgType, channel: 'email' });
-        if (!g.allowed) {
-          return res.status(403).json({
-            success: false,
-            error: `Notifications disabled for this teammate (${msgType}). Enable under Team Access → Notifications.`,
-            reason: g.reason,
-          });
+    if (!isOutboundDisabled) {
+      try {
+        const msgType =
+          intent === 'delivery_complete'
+            ? 'materials_ready'
+            : intent === 'ask_missing'
+              ? 'missing_info'
+              : String(intent || 'missing_info');
+        const channel =
+          wantsSms && !wantsEmail ? 'sms' : wantsSms && wantsEmail ? 'both' : 'email';
+        const recipEmail = resolvedRecipient.email || recipientEmail || '';
+        const userId = resolvedRecipient.id || (resolvedRecipient as any).userId || `email:${String(recipEmail).toLowerCase()}`;
+        if (channel === 'both' || channel === 'email') {
+          const g = await canSendAgentOutbound({ userId, messageType: msgType, channel: 'email' });
+          if (!g.allowed) {
+            return res.status(403).json({
+              success: false,
+              error: `Notifications disabled for this teammate (${msgType}). Enable under Team Access → Notifications.`,
+              reason: g.reason,
+            });
+          }
         }
-      }
-      if (channel === 'both' || channel === 'sms') {
-        const gSms = await canSendAgentOutbound({ userId, messageType: 'sms', channel: 'sms' });
-        if (!gSms.allowed && wantsSms) {
-          return res.status(403).json({
-            success: false,
-            error: 'SMS notifications disabled for this teammate. Enable under Team Access → Notifications.',
-            reason: gSms.reason,
-          });
+        if (channel === 'both' || channel === 'sms') {
+          const gSms = await canSendAgentOutbound({ userId, messageType: 'sms', channel: 'sms' });
+          if (!gSms.allowed && wantsSms) {
+            return res.status(403).json({
+              success: false,
+              error: 'SMS notifications disabled for this teammate. Enable under Team Access → Notifications.',
+              reason: gSms.reason,
+            });
+          }
         }
+      } catch (err) {
+        console.warn('[send-questions] pref gate error', err);
       }
-    } catch (err) {
-      console.warn('[send-questions] pref gate error', err);
     }
 
     // To and CC are the evaluateDispatch arrays. Do not filter again.
@@ -643,12 +650,6 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
     }
 
     // 3. Check Outbound Mode Safety Gate
-    const masterMode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
-    const isOutboundDisabled =
-      masterMode === 'disabled' ||
-      process.env.NODE_ENV === 'test' ||
-      (masterMode !== 'live' && process.env.ALLOW_EXTERNAL_DISPATCH !== 'true');
-
     if (isOutboundDisabled) {
       // Record truthful audit event for saved draft / blocked external send
       const channelLabel = channels.includes('email') && channels.includes('sms')

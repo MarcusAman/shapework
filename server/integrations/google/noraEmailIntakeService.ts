@@ -33,6 +33,7 @@ import { decryptToken } from '../shared/integrationCredentialVault.js';
 import { IntegrationStateStore } from '../shared/integrationStateStore.js';
 import { buildCreativeTaskDraft } from '../../services/nora/creativeRequestTriage.js';
 import { coalesceRealDriveUrl, promoteAskNoraListingFolder } from '../../services/askNoraDriveDelivery.js';
+import { saveListingMediaAsset } from '../../services/listingMediaStorageService.js';
 
 export interface InboundAgentEmail {
   id: string;
@@ -269,9 +270,35 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     a.filename.toLowerCase().endsWith('.webp')
   ) || [];
 
+  for (const att of (email.attachments || [])) {
+    if ((att as any).content || (att as any).buffer || (att as any).base64Data) {
+      let buf: Buffer | null = null;
+      if (Buffer.isBuffer((att as any).content)) buf = (att as any).content;
+      else if (Buffer.isBuffer((att as any).buffer)) buf = (att as any).buffer;
+      else if (typeof (att as any).content === 'string') {
+        try { buf = Buffer.from((att as any).content.replace(/^data:[^;]+;base64,/, ''), 'base64'); } catch {}
+      } else if (typeof (att as any).base64Data === 'string') {
+        try { buf = Buffer.from((att as any).base64Data.replace(/^data:[^;]+;base64,/, ''), 'base64'); } catch {}
+      }
+      if (buf) {
+        try {
+          const saved = await saveListingMediaAsset({
+            filename: att.filename,
+            contentType: att.contentType,
+            buffer: buf,
+            propertyAddress
+          });
+          if (saved?.url) att.url = saved.url;
+        } catch (mediaErr) {
+          console.warn('[EmailIntake] Failed to save media asset durably:', mediaErr);
+        }
+      }
+    }
+  }
+
   const structuredPhotos = photoAttachments.map((p, idx) => ({
     id: `photo_${email.id || 'att'}_${idx}`,
-    url: p.url || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+    url: p.url || (p.filename ? `/uploads/${p.filename}` : '/images/properties/1916_wolcott_1004.jpg'),
     name: p.filename,
     type: p.contentType || 'image/jpeg',
     sizeBytes: p.sizeBytes
@@ -281,7 +308,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
     filename: a.filename,
     contentType: a.contentType,
     sizeBytes: a.sizeBytes,
-    url: a.url
+    url: a.url || (a.filename ? `/uploads/${a.filename}` : '')
   }));
 
   const assignedLead = 'Melissa Gagliardi'; // Triage lead (Marketing Director)
@@ -371,7 +398,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
       await enqueueOutboundEmail({
         workspaceId: matchedTask.workspaceId || 'ws_wilmington',
         messageType: 'intake_confirmed',
-        idempotencyKey: `ws_wilmington:agent:${String(agentEmail||"").toLowerCase()}:addr:${String(propertyAddress||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120)}:intake_confirmation:v2`,
+        idempotencyKey: `ws_wilmington:agent:${String(email.fromEmail||"").toLowerCase()}:addr:${String(propertyAddress||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120)}:intake_confirmation:v2`,
         recipient: email.fromEmail,
         subject: `Marketing Intake Confirmed: ${propertyAddress}`,
         payload: {
