@@ -23,7 +23,16 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/discovery/inquire',
-    '/api/retell/'
+    '/api/public/',
+    '/api/marketing/proof-portal/',
+    '/api/tracker/',
+    '/api/track/',
+    '/api/sops/authoring-requests/',
+    '/api/retell/',
+    '/api/contracts/esign/webhook',
+    '/api/webhooks/',
+    '/api/vendors/webhook/',
+    '/api/internal/jobs/'
   ];
 
   if (exemptPaths.some(p => req.path.startsWith(p))) {

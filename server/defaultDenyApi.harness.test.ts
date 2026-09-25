@@ -18,6 +18,8 @@ import {
 
 const EXPECTED_PUBLIC = [
   'GET /api/auth/:provider/callback',
+  'GET /api/auth/invitations/validate',
+  'GET /api/comps/share/:token',
   'GET /api/health',
   'GET /api/integrations/:provider/callback',
   'GET /api/integrations/basecamp/callback',
@@ -27,6 +29,12 @@ const EXPECTED_PUBLIC = [
   'GET /api/integrations/quickbooks/callback',
   'GET /api/integrations/rechat/oauth/callback',
   'GET /api/integrations/slack/callback',
+  'GET /api/marketing/proof-portal/:token',
+  'GET /api/mode',
+  'GET /api/public/surveys/:slug',
+  'GET /api/sops/authoring-requests/by-token/:invitationToken',
+  'GET /api/track/marketing/:token',
+  'GET /api/tracker/:token',
   'GET /api/version',
   'POST /api/auth/activate',
   'POST /api/auth/forgot-password',
@@ -35,14 +43,25 @@ const EXPECTED_PUBLIC = [
   'POST /api/auth/reset-password',
   'POST /api/contracts/esign/webhook',
   'POST /api/internal/jobs/evaluate-task-slas',
+  'POST /api/marketing/proof-portal/:token/action',
+  'POST /api/public/assessments',
+  'POST /api/public/discovery-request',
+  'POST /api/public/surveys/:slug/submit',
   'POST /api/retell/call-ended',
   'POST /api/retell/nest-ops/call-analysis-webhook',
   'POST /api/retell/nest-ops/inbound-sms-webhook',
   'POST /api/retell/nest-ops/inbound-webhook',
   'POST /api/retell/webhook',
+  'POST /api/sops/authoring-requests/:id/submit',
+  'POST /api/track/marketing/:token/assets',
+  'POST /api/track/marketing/:token/notes',
+  'POST /api/tracker/:token/assets',
+  'POST /api/tracker/:token/callback',
+  'POST /api/tracker/:token/notes',
   'POST /api/vendors/webhook/:vendorId',
   'POST /api/webhooks/resend',
   'POST /api/webhooks/zapier/:workspaceId/:secret',
+  'POST /api/workspaces/activate',
 ];
 
 type Handle = (...args: unknown[]) => unknown;
@@ -150,6 +169,7 @@ describe('default-deny /api gate', () => {
   let baseUrl = '';
 
   beforeAll(async () => {
+    process.env.PORT = process.env.PORT || '0';
     const loaded = await import('../server.ts');
     app = loaded.app;
     httpServer = loaded.httpServer;
@@ -269,5 +289,61 @@ describe('default-deny /api gate', () => {
     expect(denied.status).toBe(403);
     const deniedBody = await denied.json();
     expect(JSON.stringify(deniedBody).toLowerCase()).not.toContain('csrf');
+  });
+
+  it('allows public token portals and mode checks without a session', async () => {
+    // Mode
+    const modeRes = await fetch(`${baseUrl}/api/mode`);
+    expect(modeRes.status).toBe(200);
+
+    // Public invitation token validation (missing token returns 400, token returns 200/400, neither is 401)
+    const invNoTok = await fetch(`${baseUrl}/api/auth/invitations/validate`);
+    expect(invNoTok.status).toBe(400);
+    const invRes = await fetch(`${baseUrl}/api/auth/invitations/validate?token=nonexistent`);
+    expect([200, 400]).toContain(invRes.status);
+
+    // SOP Authoring by token (not found returns 404, not 401)
+    const sopRes = await fetch(`${baseUrl}/api/sops/authoring-requests/by-token/nonexistent`);
+    expect([404, 410]).toContain(sopRes.status);
+
+    // Public discovery request (empty body returns 400, not 401)
+    const discRes = await fetch(`${baseUrl}/api/public/discovery-request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(discRes.status).toBe(400);
+
+    // Public surveys by slug (returns 200 with fallback or 404, not 401)
+    const surveyRes = await fetch(`${baseUrl}/api/public/surveys/brokerage-ops`);
+    expect([200, 404]).toContain(surveyRes.status);
+
+    // Public assessment submission (returns 200, not 401)
+    const assessRes = await fetch(`${baseUrl}/api/public/assessments`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ brokerageName: 'Test Brokerage', respondentName: 'Tester' }),
+    });
+    expect(assessRes.status).toBe(200);
+
+    // Public comp dossier by token (returns 200 or 404, not 401)
+    const compRes = await fetch(`${baseUrl}/api/comps/share/sample_token`);
+    expect([200, 404]).toContain(compRes.status);
+
+    // Public task tracker by token (not found returns 404, not 401)
+    const trackRes = await fetch(`${baseUrl}/api/tracker/sample_token`);
+    expect(trackRes.status).toBe(404);
+
+    // Public marketing proof portal by token (returns 200, not 401)
+    const proofRes = await fetch(`${baseUrl}/api/marketing/proof-portal/sample_token`);
+    expect([200, 404]).toContain(proofRes.status);
+
+    // Public workspace activate onboarding (returns 400 validation error without body, not 401)
+    const activateRes = await fetch(`${baseUrl}/api/workspaces/activate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'origin': baseUrl },
+      body: '{}',
+    });
+    expect(activateRes.status).toBe(400);
   });
 });

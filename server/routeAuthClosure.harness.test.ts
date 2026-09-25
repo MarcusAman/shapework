@@ -629,7 +629,7 @@ describe('route auth closure', () => {
     }
   });
 
-  it('requires a session and manage_integrations for on-demand SLA and notification trigger', async () => {
+  it('requires a session and manage_integrations for on-demand SLA, and view_work_queue for notification trigger', async () => {
     clearSpies();
     const sla = await probe('POST', '/api/marketing/sla/evaluate-all');
     const trigger = await probe('POST', '/api/notifications/trigger');
@@ -640,9 +640,21 @@ describe('route auth closure', () => {
 
     const limited = { 'x-session-token': sessionToken(limitedUser), 'x-shapework-csrf': 'probe' };
     const slaDenied = await probe('POST', '/api/marketing/sla/evaluate-all', limited);
-    const triggerDenied = await probe('POST', '/api/notifications/trigger', limited);
     expect(slaDenied.status).toBe(403);
+
+    // Non-admin staff (BIC) has manage_work_queue and can trigger reminders (not 401 or 403)
+    const triggerStaff = await probe('POST', '/api/notifications/trigger', limited);
+    expect(triggerStaff.status).not.toBe(401);
+    expect(triggerStaff.status).not.toBe(403);
+
+    // User without manage_work_queue (e.g. agent) is denied with 403
+    const agentSession = {
+      'x-session-token': sessionToken({ id: 'usr_agent_test', email: 'agent@nestrealty.com', name: 'Agent', role: 'agent' }),
+      'x-shapework-csrf': 'probe',
+    };
+    const triggerDenied = await probe('POST', '/api/notifications/trigger', agentSession);
     expect(triggerDenied.status).toBe(403);
+
     expect(sendEmail).not.toHaveBeenCalled();
     expect(resendSend).not.toHaveBeenCalled();
   });

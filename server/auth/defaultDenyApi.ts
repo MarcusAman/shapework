@@ -19,6 +19,7 @@ export type PublicApiRoute = { method: string; path: string };
 export const PUBLIC_API_ROUTES: PublicApiRoute[] = [
   { method: 'POST', path: '/api/auth/login' },
   { method: 'POST', path: '/api/auth/activate' },
+  { method: 'POST', path: '/api/workspaces/activate' },
   { method: 'POST', path: '/api/auth/forgot-password' },
   { method: 'POST', path: '/api/auth/reset-password' },
   { method: 'POST', path: '/api/auth/logout' },
@@ -43,6 +44,24 @@ export const PUBLIC_API_ROUTES: PublicApiRoute[] = [
   { method: 'POST', path: '/api/webhooks/resend' },
   { method: 'POST', path: '/api/webhooks/zapier/:workspaceId/:secret' },
   { method: 'POST', path: '/api/internal/jobs/evaluate-task-slas' },
+  { method: 'GET', path: '/api/mode' },
+  { method: 'GET', path: '/api/auth/invitations/validate' },
+  { method: 'GET', path: '/api/sops/authoring-requests/by-token/:invitationToken' },
+  { method: 'POST', path: '/api/sops/authoring-requests/:id/submit' },
+  { method: 'POST', path: '/api/public/discovery-request' },
+  { method: 'GET', path: '/api/public/surveys/:slug' },
+  { method: 'POST', path: '/api/public/surveys/:slug/submit' },
+  { method: 'POST', path: '/api/public/assessments' },
+  { method: 'GET', path: '/api/comps/share/:token' },
+  { method: 'GET', path: '/api/tracker/:token' },
+  { method: 'GET', path: '/api/track/marketing/:token' },
+  { method: 'POST', path: '/api/tracker/:token/notes' },
+  { method: 'POST', path: '/api/track/marketing/:token/notes' },
+  { method: 'POST', path: '/api/tracker/:token/assets' },
+  { method: 'POST', path: '/api/track/marketing/:token/assets' },
+  { method: 'POST', path: '/api/tracker/:token/callback' },
+  { method: 'GET', path: '/api/marketing/proof-portal/:token' },
+  { method: 'POST', path: '/api/marketing/proof-portal/:token/action' },
 ];
 
 type StackLayer = {

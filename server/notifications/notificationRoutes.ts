@@ -45,7 +45,7 @@ export function getNotificationRouter(dbState: any, persistState: () => void) {
   });
 
   // MANUAL NOTIFICATION TRIGGER (mainly for testing/E2E purposes)
-  router.post('/trigger', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), csrfProtection, async (req, res) => {
+  router.post('/trigger', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_work_queue'), csrfProtection, async (req, res) => {
     const { recipientId, actionType, workItemId, approvalId, contextText } = req.body;
     const wsId = req.headers['x-workspace-id'] as string || 'nest-realty-demo';
     

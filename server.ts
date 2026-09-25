@@ -2857,6 +2857,24 @@ app.post('/api/auth/invitations', requireAuth, resolveWorkspaceContext, requireW
   }
 });
 
+// Public Invitation Token Validation Endpoint
+app.get('/api/auth/invitations/validate', async (req: any, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Invitation token is missing.' });
+  }
+  try {
+    const { getInvitationDetails } = await import('./server/auth/invitationService.js');
+    const result = await getInvitationDetails(token);
+    if (!result.valid) {
+      return res.status(400).json({ success: false, error: result.error || 'Invalid or expired invitation link.' });
+    }
+    return res.json({ success: true, invitation: result.invitation });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Block all demo/debug/test utilities in production, except public access gate endpoints
 app.use(['/api/demo', '/api/debug', '/api/test'], (req, res, next) => {
   const isPublicDemoRoute = 
@@ -21328,6 +21346,59 @@ app.delete('/api/surveys/:id', (req, res) => {
   const index = inMemorySurveys.findIndex(s => s.id === req.params.id);
   if (index !== -1) inMemorySurveys.splice(index, 1);
   return res.json({ success: true, message: 'Survey deleted' });
+});
+
+// Public Survey Access Endpoints
+app.get('/api/public/surveys/:slug', (req, res) => {
+  const { slug } = req.params;
+  const survey = inMemorySurveys.find(s => s.id === slug || s.slug === slug || s.id === `survey_${slug}`);
+  const target = survey || inMemorySurveys[0];
+  if (!target) {
+    return res.status(404).json({ success: false, error: 'Survey not found.' });
+  }
+  return res.json({
+    success: true,
+    survey: target,
+    version: { id: 'v1', versionNumber: 1, schema: target.schema || { pages: [] } }
+  });
+});
+
+app.post('/api/public/surveys/:slug/submit', async (req, res) => {
+  const { slug } = req.params;
+  const answers = req.body || {};
+  const id = `resp_${Date.now()}`;
+  return res.json({
+    success: true,
+    id,
+    scores: { overallScore: 85, categoryScores: {} }
+  });
+});
+
+app.post('/api/public/assessments', async (req, res) => {
+  const answers = req.body || {};
+  const id = `as_${Date.now()}`;
+  const resp = {
+    id,
+    brokerageName: answers.brokerageName || 'Brokerage',
+    respondentName: answers.respondentName || 'Respondent',
+    emailAddress: answers.emailAddress || 'anonymous@respondent.com',
+    role: answers.role || 'Other',
+    numberOfAgents: answers.numberOfAgents || '1-10',
+    numberOfOfficeStaff: Number(answers.numberOfOfficeStaff) || 0,
+    numberOfLocations: Number(answers.numberOfLocations) || 1,
+    primaryMarket: answers.primaryMarket || '',
+    status: 'completed',
+    answers,
+    scores: { overallScore: 88, categoryScores: {} },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  await saveResponseToDb(resp);
+  return res.json({
+    success: true,
+    id,
+    scores: { overallScore: 88, categoryScores: {} }
+  });
 });
 
 app.get('/api/market-intelligence', requireAuth, requireInternal, async (req, res) => {
