@@ -109,6 +109,26 @@ export function isAllowedEmailRecipient(email?: string): boolean {
   return ALLOWED_TEST_EMAIL_RECIPIENTS.some((allowed) => allowed.toLowerCase() === normalized);
 }
 
+export function getOutboundMasterMode(): 'disabled' | 'hold' | 'live' {
+  const mode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
+  if (mode === 'live') return 'live';
+  if (mode === 'hold') return 'hold';
+  return 'disabled';
+}
+
+export function getNoraAutomationMode(): string {
+  return (process.env.NORA_AUTOMATION_MODE || 'shadow').toLowerCase().trim();
+}
+
+export async function isRecipientSuppressed(recipientEmail?: string): Promise<{ suppressed: boolean; reason?: string }> {
+  if (!recipientEmail) return { suppressed: false };
+  const gate = checkOutbound({ to: recipientEmail, channel: 'email', source: 'isRecipientSuppressed' });
+  if (!gate.allowed && gate.reason !== 'held') {
+    return { suppressed: true, reason: gate.reason };
+  }
+  return { suppressed: false };
+}
+
 function suppressedByOutboundGate(to?: string | string[], cc?: string | string[], source = 'emailProvider'): EmailDispatchResult | null {
   const gate = checkOutbound({ to, cc, channel: 'email', source });
   if (gate.allowed) return null;
