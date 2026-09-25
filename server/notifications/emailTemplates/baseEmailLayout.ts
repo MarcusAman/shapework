@@ -1,6 +1,25 @@
+import { renderNoraEmailLayout, escapeEmailHtml } from '../../email/noraEmailLayout.js';
 import { BaseNotificationEmailInput } from './notificationEmailTypes.js';
 
 export function renderBaseEmailLayout(input: BaseNotificationEmailInput, iconHtml: string, branding?: any): string {
+  const configuredBrand = branding || (input as any).branding;
+  if (/nest/i.test(configuredBrand?.brokerageName || input.workspaceName || 'Nest Realty')) {
+    const details = [
+      ['Assigned to', input.assignedTo], ['Due', input.dueText],
+      ['Why it matters', input.whyItMatters], ['Next step', input.recommendedAction],
+    ].filter(([, value]) => value);
+    return renderNoraEmailLayout({
+      title: input.headline || 'Your request',
+      status: /completed/i.test(input.typeLabel) ? 'COMPLETE' : /brief/i.test(input.typeLabel) ? 'RECEIVED' : 'ACTION NEEDED',
+      preheader: input.preheader,
+      bodyHtml: `<p style="margin:0 0 14px;">Hi ${escapeEmailHtml(input.recipientName || 'there')},</p>` +
+        (input.summary ? `<p style="margin:0 0 18px;">${escapeEmailHtml(input.summary)}</p>` : '') +
+        details.map(([label,value]) => `<p style="margin:0 0 10px;"><strong>${label}</strong><br>${escapeEmailHtml(value)}</p>`).join(''),
+      cta: { label: input.ctaLabel || 'View request', url: input.actionUrl || 'mailto:asknora@nestrealty.com' },
+      footnote: 'Reply to this email if you have a question or an update.',
+    });
+  }
+
   const {
     recipientName = 'Team Member',
     workspaceName,

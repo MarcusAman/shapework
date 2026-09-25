@@ -1,3 +1,4 @@
+import { renderProductionInquiryEmail, renderManagerReviewEmail, renderOperationalEscalationEmail } from './server/email/noraOperationalEmails.js';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7935,25 +7936,11 @@ app.post('/api/marketing/requests/:id/inquire-agent', requireAuth, resolveWorksp
 
     // Outbound policy is live and permitted: Dispatch Email via AskNora@nestrealty.com
     const emailSubject = `Action Needed: Missing details for ${propertyAddress} ${deptOwner.department === 'signage' ? 'signage request' : 'marketing package'}`;
-    const emailHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-        <div style="background: #00635C; padding: 22px 24px; color: #ffffff;">
-          <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Nest Realty • Production Inquiry</h2>
-          <p style="margin: 4px 0 0 0; font-size: 12px; color: #e6fffa;">Deliverables Request: ${propertyAddress}</p>
-        </div>
-        <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
-          <p>Hi <strong>${agentName}</strong>,</p>
-          <p>${deptOwner.name} (${deptOwner.role}) and the Nest operations team reviewed your request for <strong>${propertyAddress}</strong> and need clarification on the following item(s) to finalize your materials:</p>
-          <div style="background: #f8fafc; border-left: 4px solid #00635C; padding: 14px 18px; margin: 18px 0; border-radius: 6px;">
-            <p style="margin: 0; font-size: 13px; color: #334155; font-weight: 500; white-space: pre-line;">${effectiveNote || 'Please provide high-resolution listing photos and confirmed go-live details.'}</p>
-          </div>
-          <p style="font-size: 13px; color: #64748b;">You can reply directly to this email with attachments or upload them to your property Google Drive folder: <br/><a href="${request.driveFolderUrl || 'https://drive.google.com'}" style="color: #00635C; font-weight: 600;">${request.driveFolderUrl || 'Google Drive Folder'}</a></p>
-        </div>
-        <div style="background: #f1f5f9; padding: 14px 24px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0;">
-          Sent from AskNora@nestrealty.com • ${deptOwner.name} CC'd (${ccEmail})
-        </div>
-      </div>
-    `;
+    const emailHtml = renderProductionInquiryEmail({
+      name: agentName, propertyAddress, reviewer: deptOwner.name, reviewerRole: deptOwner.role,
+      note: effectiveNote || 'Please provide high-resolution listing photos and confirmed go-live details.',
+      assetUrl: request.driveFolderUrl || undefined, cc: ccEmail,
+    });
 
     let emailResult: any = null;
     try {
@@ -8123,25 +8110,11 @@ app.post('/api/marketing/tasks/:id/submit-manager-review', requireAuth, resolveW
 
     // 1. Dispatch Alert Email to Department Lead
     const emailSubject = `Ready for Review: ${task.title} for ${propertyAddress} (from Eduardo Lovo)`;
-    const emailHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-        <div style="background: #6B46C1; padding: 22px 24px; color: #ffffff;">
-          <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Nest Realty • Review Required</h2>
-          <p style="margin: 4px 0 0 0; font-size: 12px; color: #f3e8ff;">Submitted by Eduardo Lovo (Maxa Lead)</p>
-        </div>
-        <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
-          <p>Hi <strong>${deptOwner.name.split(' ')[0]}</strong>,</p>
-          <p>Eduardo has finished creating the marketing collateral for <strong>${propertyAddress}</strong> (<em>${task.title}</em>) and submitted it for your approval.</p>
-          <div style="background: #f8fafc; border-left: 4px solid #6B46C1; padding: 14px 18px; margin: 18px 0; border-radius: 6px;">
-            <p style="margin: 0; font-size: 13px; color: #334155; font-weight: 500;">${note || 'All assets staged in Maxa and Google Drive. Ready for broker dispatch.'}</p>
-          </div>
-          <p style="font-size: 13px; color: #64748b;">Drive Pack: <a href="${task.driveFolderUrl || 'https://drive.google.com'}" style="color: #6B46C1; font-weight: 600;">${task.driveFolderUrl || 'Open Google Drive'}</a></p>
-        </div>
-        <div style="background: #f1f5f9; padding: 14px 24px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0;">
-          Nest Marketing Operations Hub • Instant Review Alert
-        </div>
-      </div>
-    `;
+    const emailHtml = renderManagerReviewEmail({
+      name: deptOwner.name.split(' ')[0], propertyAddress, taskTitle: task.title,
+      submittedBy: submittedBy || 'Eduardo Lovo', note: note || 'The marketing assets are ready for manager review.',
+      assetUrl: task.driveFolderUrl || undefined,
+    });
 
     try {
       const { sendEmail } = await import('./server/email/emailProvider.js');
@@ -13043,29 +13016,16 @@ app.post('/api/ryan-shield/dispatch-sla-alert', requireAuth, async (req: any, re
     const { recipientEmail = 'ryan.crecelius@nestrealty.com' } = req.body;
     
     const subject = `🚨 URGENT SLA BREACH: 2 Overdue Operational Items Require BIC Approval`;
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
-        <h2 style="color: #00635C; margin-top: 0;">Ryan Shield — Urgent SLA Breach Alert</h2>
-        <p>The Ask Nest Ops automated SLA guardrail detected 2 high-priority items that have breached the 2-hour SLA threshold:</p>
-        
-        <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px; margin: 16px 0; border-radius: 4px;">
-          <h4 style="margin: 0 0 4px 0; color: #991b1b;">1. Overdue Yard Sign Installation</h4>
-          <p style="margin: 0; font-size: 13px; color: #7f1d1d;">Address: 105 Forest Hills Dr • Vendor: Wilmington Sign Team • <strong>Overdue by 2h 14m</strong></p>
-        </div>
-
-        <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px; margin: 16px 0; border-radius: 4px;">
-          <h4 style="margin: 0 0 4px 0; color: #991b1b;">2. Pending Closing Disclosure Review</h4>
-          <p style="margin: 0; font-size: 13px; color: #7f1d1d;">File: Taylor Morgan Disclosure Package • BIC Escalation: Ryan Crecelius • <strong>Overdue by 1h 45m</strong></p>
-        </div>
-
-        <div style="text-align: center; margin-top: 24px;">
-          <a href="https://shapework-os-45783991821.us-central1.run.app/app/ask-nest-ops?tab=attention&action=resolve_all" 
-             style="background-color: #00635C; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">
-            1-Click Resolve & Approve Items
-          </a>
-        </div>
-      </div>
-    `;
+    const html = renderOperationalEscalationEmail({
+      title: 'Ryan Shield — Urgent SLA Breach Alert',
+      summary: 'The Ask Nest Ops automated SLA guardrail detected 2 high-priority items that have breached the 2-hour SLA threshold:',
+      details: [
+        { label: '1. Overdue Yard Sign Installation', value: 'Address: 105 Forest Hills Dr • Vendor: Wilmington Sign Team • Overdue by 2h 14m' },
+        { label: '2. Pending Closing Disclosure Review', value: 'File: Taylor Morgan Disclosure Package • BIC Escalation: Ryan Crecelius • Overdue by 1h 45m' },
+      ],
+      actionLabel: '1-Click Resolve & Approve Items',
+      actionUrl: 'https://shapework-os-45783991821.us-central1.run.app/app/ask-nest-ops?tab=attention&action=resolve_all',
+    });
 
     const dispatchResult = await dispatchEmailViaResend({
       to: recipientEmail,
@@ -21830,14 +21790,16 @@ app.post('/api/contracts/emd-wire/dispatch-escalation', requireAuth, async (req:
     await dispatchEmailViaResend({
       to: 'bic@nestrealtywilmington.com',
       subject: `🚨 URGENT: EMD Statutory 3-Day Wire Breach Warning — ${propertyAddress}`,
-      html: `
-        <h2>🚨 Statutory EMD Wire Receipt SLA Alert</h2>
-        <p><strong>Property:</strong> ${propertyAddress}</p>
-        <p><strong>Status:</strong> ${daysRemaining <= 0 ? 'EMD Statutory Deadline Exceeded (3 Banking Days)' : `${daysRemaining} Day Remaining`}</p>
-        <p><strong>Required Action:</strong> Contact Closing Attorney Coastal Settlement Law PC immediately or dispatch Form 4-T extension addendum.</p>
-        <br/>
-        <a href="https://shapework-os-45783991821.us-central1.run.app/app/ask-nest-ops?tab=contracts" style="background: #00635C; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: bold;">Verify Trust Receipt in Nest Ops</a>
-      `
+      html: renderOperationalEscalationEmail({
+        title: 'Statutory EMD Wire Receipt SLA Alert',
+        details: [
+          { label: 'Property', value: propertyAddress },
+          { label: 'Status', value: daysRemaining <= 0 ? 'EMD Statutory Deadline Exceeded (3 Banking Days)' : `${daysRemaining} Day Remaining` },
+          { label: 'Required Action', value: 'Contact Closing Attorney Coastal Settlement Law PC immediately or dispatch Form 4-T extension addendum.' },
+        ],
+        actionLabel: 'Verify Trust Receipt in Nest Ops',
+        actionUrl: 'https://shapework-os-45783991821.us-central1.run.app/app/ask-nest-ops?tab=contracts',
+      })
     });
 
     return res.json({

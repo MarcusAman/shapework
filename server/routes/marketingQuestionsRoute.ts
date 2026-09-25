@@ -8,6 +8,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, WILMINGTON_WORKSPACE_ALIASES } from '../auth/auth.js';
 import { sendEmail as sendAskNoraEmail, toAbsolutePublicUrl } from '../email/emailProvider.js';
+import { renderMarketingQuestionsEmail } from '../email/marketingQuestionsEmail.js';
 import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
 import { isAllowlistedProveRecipient } from '../../src/lib/outboundAllowlistGate.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
@@ -763,16 +764,6 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       if (!assetLinks.length) return res.status(400).json({ success: false, error: 'No verified finished asset is available to deliver.' });
     }
 
-    const assetLinksHtml = assetLinks.length
-      ? `<div style="margin:18px 0;padding:14px 16px;background:#E5EFEA;border-radius:10px;border:1px solid #b7d4c8;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#00635C;margin-bottom:8px;">Approved assets</div>
-            <p style="margin:0;color:#01362D;font-size:13px;line-height:1.55;">
-              <a href="${assetLinks[0]}" style="color:#00635C;font-weight:600;word-break:break-all;">Open your marketing assets</a>
-            </p>
-          </div>`
-      : (isDeliveryComplete
-          ? `<p style="font-size:12px;color:#01362D;background:#E5EFEA;padding:10px 12px;border-radius:8px;">Your assets are attached to this email. Reply if you need them resent.</p>`
-          : '');
     const assetLinksText = assetLinks.length
       ? `\n\nApproved assets:\n${assetLinks[0]}`
       : (isDeliveryComplete ? '\n\nYour assets are attached to this email / were emailed — reply if you need them resent.' : '');
@@ -793,40 +784,11 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
 
     // 5. Dispatch Email via Provider
     if (channels.includes('email') && resolvedTo.length) {
-      const questionsListHtml = !isDeliveryComplete && selectedQuestions.length > 0
-        ? `<ul style="margin: 12px 0; padding-left: 20px; color: #01362D; line-height: 1.6;">${selectedQuestions.map(q => `<li style="margin-bottom: 6px;"><strong>${q}</strong></li>`).join('')}</ul>`
-        : '';
-
-      const introHtml = isDeliveryComplete
-        ? `<p style="white-space:pre-line;">${deliveryBody}</p>`
-        : `<p>Hi <strong>${resolvedRecipient.firstName}</strong>,</p>
-            <p>We need a few additional details to continue the marketing request for <strong>${propertyAddress}</strong>:</p>
-            ${questionsListHtml}`;
-
-      const ccNote = resolvedCc.length
-        ? `<p style="font-size:12px;color:#64748b;margin-top:16px;">CC: ${resolvedCc.join(', ')}</p>`
-        : '';
-
-      const formattedHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-          <div style="background: #00635C; padding: 24px; color: #ffffff; text-align: left;">
-            <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 700;">${isDeliveryComplete ? 'Nest Realty • Materials ready' : 'Nest Realty • Marketing Request'}</h2>
-            <p style="margin: 0; font-size: 13px; color: #e6fffa; opacity: 0.9;">Property: ${propertyAddress}</p>
-          </div>
-          <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
-            ${introHtml}
-            ${isDeliveryComplete ? '' : `<div style="background: #f8fafc; border-left: 4px solid #00635C; padding: 14px 18px; margin: 20px 0; border-radius: 6px;">
-              <p style="margin: 0; font-size: 13px; color: #334155; white-space: pre-line;">${outboundMessage}</p>
-            </div>`}
-            ${assetLinksHtml}
-            ${ccNote}
-            <p style="font-size: 13px; color: #64748b;">You can reply directly to this email — it goes to AskNora@NestRealty.com.</p>
-          </div>
-          <div style="background: #f1f5f9; padding: 16px 24px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0;">
-            From Ask NORA • AskNora@NestRealty.com
-          </div>
-        </div>
-      `;
+      const formattedHtml = renderMarketingQuestionsEmail({
+        deliveryComplete: isDeliveryComplete,
+        recipientName: resolvedRecipient.firstName || resolvedRecipient.name,
+        propertyAddress, message: outboundMessage, selectedQuestions, assetLinks, cc: resolvedCc,
+      });
 
       const textBody = [outboundMessage, assetLinksText].filter(Boolean).join('\n');
 

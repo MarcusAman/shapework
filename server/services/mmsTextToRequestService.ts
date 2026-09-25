@@ -1,3 +1,4 @@
+import { renderMmsReceiptEmail } from '../email/noraOperationalEmails.js';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -438,7 +439,10 @@ export class MmsTextToRequestService {
       await sendEmail({
         to: broker.email,
         subject: `✓ [Ask Nora] Marketing Launch Package Processed: ${propertyAddress}`,
-        text: smsReceiptBody
+        text: smsReceiptBody,
+        html: renderMmsReceiptEmail({
+          propertyAddress, receiptText: smsReceiptBody, trackerUrl: `https://shapework.co/marketing/trk_${reqId}`,
+        })
       });
     } catch (e) {
       console.warn('[MMS Ingest] Email confirmation receipt skipped:', e);

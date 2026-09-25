@@ -3401,7 +3401,9 @@ export default function CustomerAppRoutes({ state }: CustomerAppRoutesProps) {
           state.activeProfile?.id === 'usr_ryan' ||
           state.activeProfile?.role === 'owner';
 
-        if (isRyanScope) {
+        const isGoogleSettingsLink = typeof window !== 'undefined'
+          && new URLSearchParams(window.location.search).get('integration') === 'google';
+        if (isRyanScope || isGoogleSettingsLink) {
           return <RyanSettingsPage state={state} />;
         }
         return <CustomerSettingsPage state={state} />;

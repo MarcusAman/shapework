@@ -30,6 +30,7 @@ export const SURFACE_TABLE_TYPE_CHIPS: Record<string, SurfaceTableTypeChip> = {
 
 export type SurfaceTableRowNumberItem =
   | { kind: 'lane' }
+  | { kind: 'group' }
   | { kind: 'request'; requestId: string }
   | { kind: 'task'; indent?: number; task: { id: string } };
 

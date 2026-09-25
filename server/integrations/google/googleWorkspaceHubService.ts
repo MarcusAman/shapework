@@ -1,3 +1,4 @@
+import { renderWorkspaceReceiptEmail, renderWorkspaceGuidanceEmail } from '../../email/noraOperationalEmails.js';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -234,32 +235,9 @@ export async function processInboundGoogleEmail(payload: InboundEmailPayload, ba
     }
 
     // Send confirmation receipt to sender
-    const receiptHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F5F5F7; padding: 40px 20px; color: #1D1D1F;">
-        <div style="max-width: 580px; margin: 0 auto; background: #FFFFFF; border-radius: 18px; border: 1px solid #E5E5EA; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);">
-          <div style="background-color: #00635C; padding: 24px 32px; color: #FFFFFF;">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.85;">Nest Realty Wilmington Operations</div>
-            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">✓ Inbound Request Logged with Nora</div>
-          </div>
-          <div style="padding: 32px;">
-            <p style="font-size: 15px; line-height: 1.5; color: #1D1D1F; margin-top: 0;">Hi <strong>${rawSender}</strong>,</p>
-            <p style="font-size: 14px; line-height: 1.6; color: #48484A;">Nora received your email and automatically staged the operational deliverables for <strong>${propertyAddress}</strong>:</p>
-            <div style="background-color: #F8FAF9; border-radius: 12px; border: 1px solid #E2ECE9; padding: 16px; margin: 20px 0;">
-              <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #1D1D1F; line-height: 1.8;">
-                ${deliverables.map(d => `<li><strong>${d}</strong></li>`).join('')}
-              </ul>
-            </div>
-            ${isVendorAction ? `
-            <div style="background-color: #FFF9E6; border-radius: 10px; border: 1px solid #FFE082; padding: 12px 16px; font-size: 12px; color: #7A5800; margin-bottom: 20px;">
-              🛡️ <strong>Human-in-the-Loop Governance:</strong> External vendor dispatches have been staged in the Operations Approval Queue for verification by Ann & Melissa.
-            </div>` : ''}
-            <div style="text-align: center; margin: 28px 0 16px;">
-              <a href="${trackingUrl}" style="background-color: #00635C; color: #FFFFFF; padding: 12px 28px; border-radius: 980px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">View Live Workboard & Track Progress</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    const receiptHtml = renderWorkspaceReceiptEmail({
+      name: rawSender, propertyAddress, deliverables, vendorApproval: isVendorAction, trackerUrl: trackingUrl,
+    });
 
     try {
       await sendEmail({
@@ -301,28 +279,7 @@ export async function processInboundGoogleEmail(payload: InboundEmailPayload, ba
       'Google Drive / Wilmington Brokerage SOPs: SOP-OPS-003 (Closing Funds & Disbursals)'
     ];
 
-    const replyHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F5F5F7; padding: 40px 20px; color: #1D1D1F;">
-        <div style="max-width: 580px; margin: 0 auto; background: #FFFFFF; border-radius: 18px; border: 1px solid #E5E5EA; overflow: hidden; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);">
-          <div style="background-color: #00635C; padding: 24px 32px; color: #FFFFFF;">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.85;">Nest Realty Wilmington Operations</div>
-            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">📖 Nest U Policy Guidance from Nora</div>
-          </div>
-          <div style="padding: 32px;">
-            <p style="font-size: 15px; line-height: 1.5; color: #1D1D1F; margin-top: 0;">Hi <strong>${rawSender}</strong>,</p>
-            <div style="font-size: 14px; line-height: 1.6; color: #1D1D1F; margin: 16px 0;">
-              ${answer.replace(/\n\n/g, '<br/><br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
-            </div>
-            <div style="background-color: #F8FAF9; border-radius: 12px; border: 1px solid #E2ECE9; padding: 14px 16px; margin: 20px 0;">
-              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #00635C; margin-bottom: 6px;">Verified Sources from Google Drive:</div>
-              <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #48484A; line-height: 1.6;">
-                ${citedSources.map(s => `<li>${s}</li>`).join('')}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    const replyHtml = renderWorkspaceGuidanceEmail({ name: rawSender, answer, sources: citedSources });
 
     try {
       await sendEmail({

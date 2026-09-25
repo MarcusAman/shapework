@@ -23,3 +23,6 @@ data/oauth_tokens.json
 data/reset_tokens.json
 .test_backups/
 
+
+# Nora email logo must ship with the email templates.
+!public/nora-email-logo.png

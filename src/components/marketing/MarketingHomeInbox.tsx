@@ -503,10 +503,11 @@ export function buildLaneListItems(
   return items;
 }
 
-/** Lock #2.1 — optional table group mode (default parent-by-address). */
-export type SurfaceTableGroupMode = 'address' | 'lane';
+/** Table grouping uses workflow status, property address, or business lane. */
+export type SurfaceTableGroupMode = 'address' | 'lane' | 'status';
 export const SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL = 'Group by address';
 export const SURFACE_TABLE_GROUP_BY_LANE_LABEL = 'Group by Lane';
+export const SURFACE_TABLE_GROUP_BY_STATUS_LABEL = 'Group by Status';
 /** Lane section order — domain helpers, NOT pipeline stages. */
 export const SURFACE_DOMAIN_LANE_ORDER: Exclude<SurfaceDomainLane, '—'>[] = [
   'Marketing',
@@ -517,11 +518,12 @@ export const SURFACE_DOMAIN_LANE_ORDER: Exclude<SurfaceDomainLane, '—'>[] = [
 
 export type SurfaceTableListItem =
   | { kind: 'lane'; lane: Exclude<SurfaceDomainLane, '—'>; count: number }
+  | { kind: 'group'; groupBy: 'address' | 'status'; key: string; label: string; count: number }
   | LaneListItem;
 
 /**
  * Table list builder for Surface lock #2.1.
- * Default `address`: parent-by-address (buildLaneListItems).
+ * Address and status sections show each task once, including sibling deliverables.
  * `lane`: section headers Marketing / Listing / Offer / Deal risk; inside each, still parent-by-address.
  */
 export function buildSurfaceTableListItems(
@@ -530,7 +532,27 @@ export function buildSurfaceTableListItems(
   groupMode: SurfaceTableGroupMode = 'address'
 ): SurfaceTableListItem[] {
   if (groupMode !== 'lane') {
-    return buildLaneListItems(tasks, expandedRequestIds);
+    const sections = new Map<string, { label: string; tasks: CanonicalMarketingTask[] }>();
+    for (const task of tasks) {
+      const stage = getStageForTask(task);
+      const lane = getCanonicalLaneForTask(task);
+      const statusKey = lane === 'legacy_unreconciled' ? `${lane}:${task.status || 'Unknown'}` : lane;
+      const address = String(task.propertyAddress || '').trim().replace(/\s+/g, ' ') || 'No property address';
+      const key = groupMode === 'status' ? statusKey : address.toLowerCase();
+      const section = sections.get(key) || { label: groupMode === 'status' ? stage.label : address, tasks: [] };
+      section.tasks.push(task);
+      sections.set(key, section);
+    }
+    const ordered = [...sections];
+    if (groupMode === 'status') {
+      const order = [...PIPELINE_STAGES.map(stage => stage.id), 'legacy_unreconciled', 'archived'];
+      const rank = (key: string) => order.indexOf(key.startsWith('legacy_unreconciled:') ? 'legacy_unreconciled' : key);
+      ordered.sort(([a], [b]) => rank(a) - rank(b));
+    }
+    return ordered.flatMap(([key, section]): SurfaceTableListItem[] => [
+      { kind: 'group', groupBy: groupMode, key, label: section.label, count: section.tasks.length },
+      ...section.tasks.map(task => ({ kind: 'task' as const, requestId: task.requestId || `solo_${task.id}`, task, indent: 0, siblingCount: 1 })),
+    ]);
   }
   const buckets = new Map<Exclude<SurfaceDomainLane, '—'>, CanonicalMarketingTask[]>();
   for (const lane of SURFACE_DOMAIN_LANE_ORDER) buckets.set(lane, []);
@@ -750,7 +772,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
 
   // Synchronize tasks changes with parent container (MarketingIntakeConsole) and broadcast event
   useEffect(() => {
-    const newKey = tasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+    const newKey = tasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${(t as any).assigneeId || ''}:${t.reviewOwnerId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
     if (lastBroadcastTasksKeyRef.current === newKey) {
       return;
     }
@@ -781,9 +803,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   // Sync if initialTasks changes from parent (e.g. parent poll or external update)
   useEffect(() => {
     if (initialTasks && initialTasks.length > 0) {
-      const newKey = initialTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+      const newKey = initialTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${(t as any).assigneeId || ''}:${t.reviewOwnerId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
       setTasks(prev => {
-        const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+        const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${(t as any).assigneeId || ''}:${t.reviewOwnerId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
         if (prevKey === newKey) return prev;
         lastBroadcastTasksKeyRef.current = newKey;
         return initialTasks;
@@ -801,9 +823,9 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
       if (customEvent.detail?.source === 'MarketingHomeInbox') return;
       if (customEvent.detail?.tasks && Array.isArray(customEvent.detail.tasks)) {
         const incomingTasks = customEvent.detail.tasks;
-        const incomingKey = incomingTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+        const incomingKey = incomingTasks.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${(t as any).assigneeId || ''}:${t.reviewOwnerId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
         setTasks(prev => {
-          const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
+          const prevKey = prev.map(t => `${t.id}:${t.status}:${t.reviewState || ''}:${t.assignedToId || ''}:${(t as any).assigneeId || ''}:${t.reviewOwnerId || ''}:${t.proofVersion || 0}:${t.isArchived ? 1 : 0}`).join('|');
           if (prevKey === incomingKey) return prev;
           lastBroadcastTasksKeyRef.current = incomingKey;
           return incomingTasks;
@@ -1582,13 +1604,16 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           matchesTimeframe = new Date(t.dueAt || t.createdAt).getFullYear() >= 2027;
         }
 
-        const mineName = (propCurrentUser?.name || drawerCurrentUser?.name || '').trim();
+        const mineUser = propCurrentUser || drawerCurrentUser;
+        const mineName = (mineUser?.name || '').trim().toLowerCase();
+        const mineIds = new Set([mineUser?.id, resolveCanonicalStaffMember(mineUser?.email || mineUser?.name || '')?.id].filter(Boolean));
+        const assigneeIds = [(t as any).assigneeId, t.assignedToId].filter(Boolean);
         const matchesSurfaceMine =
           !surfaceMineOnly ||
-          !mineName ||
-          (Boolean(t.assignedTo) && String(t.assignedTo).toLowerCase() === mineName.toLowerCase()) ||
-          (Boolean(t.assignedToName) && String(t.assignedToName).toLowerCase() === mineName.toLowerCase()) ||
-          (Boolean((t as any).ownerName) && String((t as any).ownerName).toLowerCase() === mineName.toLowerCase());
+          assigneeIds.some(id => mineIds.has(id)) ||
+          (Boolean(t.reviewOwnerId) && mineIds.has(t.reviewOwnerId)) ||
+          (Boolean(mineName) && assigneeIds.length === 0 && [t.assignedTo, t.assignedToName, (t as any).ownerName].some(name => String(name || '').trim().toLowerCase() === mineName)) ||
+          (Boolean(mineName) && !t.reviewOwnerId && [t.reviewOwnerName, t.reviewOwner].some(name => String(name || '').trim().toLowerCase() === mineName));
 
         const matchesSurfaceOpen =
           !surfaceOpenOnly ||
@@ -1866,12 +1891,25 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
             </div>
           </div>
 
-          {/* Lock #2.1 — Group by Lane | Group by address (Table only) */}
+          {/* Table grouping */}
           {viewMode === 'table' && (
             <div
               className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/70 shrink-0"
               data-testid="tasks-group-by-toggle"
             >
+              <button
+                type="button"
+                data-testid="tasks-group-by-status"
+                aria-pressed={tableGroupMode === 'status'}
+                onClick={() => setTableGroupMode('status')}
+                className={`px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${
+                  tableGroupMode === 'status'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                {SURFACE_TABLE_GROUP_BY_STATUS_LABEL}
+              </button>
               <button
                 type="button"
                 data-testid="tasks-group-by-address"
@@ -2068,6 +2106,21 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                   const surfaceTableItems = buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode);
                   const parentRowNums = assignSurfaceTableParentRowNumbers(surfaceTableItems);
                   return surfaceTableItems.map((listItem) => {
+                    if (listItem.kind === 'group') {
+                      return (
+                        <tr
+                          key={`${listItem.groupBy}-section-${listItem.key}`}
+                          data-testid={`list-${listItem.groupBy}-section-${listItem.key.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
+                          data-group-label={listItem.label}
+                          className="bg-slate-100/90 border-t border-slate-200"
+                        >
+                          <th scope="rowgroup" colSpan={11} className="py-2 px-3 text-left">
+                            <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">{listItem.label}</span>
+                            <span className="ml-2 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">{listItem.count}</span>
+                          </th>
+                        </tr>
+                      );
+                    }
                     if (listItem.kind === 'lane') {
                       return (
                         <tr
@@ -2192,7 +2245,10 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                       <React.Fragment key={`task-frag-${task.id}`}>
                         <tr
                           key={task.id}
-                          onClick={() => handleOpenTaskDetail(task)}
+                          onClick={(e) => {
+                            if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"]')) return;
+                            handleOpenTaskDetail(task);
+                          }}
                           className={`nest-row-open cursor-pointer transition ${
                             isSelected
                               ? 'bg-emerald-50/50'
@@ -2210,7 +2266,6 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                         >
                           <td
                             className={`py-2 px-3 text-center align-top ${isSubtask ? 'bg-[#F9FBFA]' : ''}`}
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <input
                               type="checkbox"
@@ -2267,7 +2322,6 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                           {/* Status — one pill only */}
                           <td
                             className="py-2 px-3 align-top whitespace-nowrap"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-between gap-1.5">
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${stage.badgeBg}`}>
@@ -2347,7 +2401,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                           </td>
 
                           {/* Activity — relative + full timestamp tooltip (v3) */}
-                          <td className="py-2 px-3 align-top" data-testid="task-activity-cell" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-2 px-3 align-top" data-testid="task-activity-cell">
                             <CompactActivityCardBadge
                               taskId={task.id}
                               fallbackSummary={task.notes || task.title || 'Intake recorded'}

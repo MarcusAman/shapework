@@ -4,6 +4,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import { renderNoraEmailLayout, escapeEmailHtml, type NoraEmailStatus } from './noraEmailLayout.js';
 import path from 'path';
 import { evaluateOutboundDispatchGuard } from './outboundDispatchGuards.js';
 import { EXPLICIT_OUTBOUND_ALLOWLIST } from '../../src/lib/outboundAllowlistGate.js';
@@ -146,206 +147,25 @@ function suppressedByOutboundGate(to?: string | string[], cc?: string | string[]
   } as EmailDispatchResult;
 }
 
-/**
- * Generates a Dark Forest Hunter Green Luxury Editorial HTML email template for Nest Realty.
- * Styled after the architectural magazine editorial layout with the Nest Realty logo badge.
- */
+/** Render Nora's compact, logo-only email layout. */
 export function renderNestEditorialEmailTemplate(options: {
-  title: string;
-  badgeText?: string;
-  serifTitle: string; // e.g. "Marketing<br/>Request" or "Task In<br/>Progress" or "Deliverables<br/>Ready"
-  metadataDate?: string; // e.g. "SEPTEMBER 2, 2026 | IN PROGRESS"
-  propertyAddress?: string; // e.g. "1916 Wolcott Ave, Wilmington, NC 28403"
-  heroImageUrl?: string;
-  greetingName?: string;
-  bodyParagraphs: string[];
-  ctaButton?: { label: string; url: string };
-  infoBox?: { title: string; text: string };
-  featureList?: { title: string; desc: string }[];
-  deliverables?: string[];
-  footnote?: string;
+  title: string; badgeText?: string; status?: NoraEmailStatus; serifTitle?: string; metadataDate?: string;
+  propertyAddress?: string; greetingName?: string; bodyParagraphs?: string[];
+  ctaButton?: { label: string; url: string }; infoBox?: { title: string; text: string };
+  featureList?: { title: string; desc: string }[]; deliverables?: string[]; footnote?: string;
 }): string {
-  const {
-    title,
-    badgeText = '● IN PROGRESS',
-    serifTitle,
-    metadataDate,
-    propertyAddress,
-    heroImageUrl = 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
-    greetingName,
-    bodyParagraphs,
-    ctaButton,
-    infoBox,
-    featureList,
-    deliverables,
-    footnote
-  } = options;
-
-  const addressParts = propertyAddress ? propertyAddress.split(',') : ['1916 Wolcott Ave', 'Wilmington, NC'];
-  const addressStreet = addressParts[0]?.trim() || '1916 Wolcott Ave';
-  const addressCity = addressParts.slice(1).join(',').trim() || 'Wilmington, NC';
-
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #EFEFEF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #1A202C;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #EFEFEF; padding: 32px 12px;">
-    <tr>
-      <td align="center">
-        <!-- Main Card Container -->
-        <table width="600" border="0" cellspacing="0" cellpadding="0" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0, 56, 49, 0.08); border: 1px solid #DDE2E1;">
-          
-          <!-- TOP HERO SECTION WITH DARK FOREST GREEN FRAME & NEST BADGE -->
-          <tr>
-            <td style="background-color: #003831; padding: 0; position: relative;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                ${heroImageUrl ? `<tr>
-                  <td style="padding: 0; text-align: center; vertical-align: bottom;">
-                    <img src="${heroImageUrl}" alt="${propertyAddress || 'Nest Listing'}" width="600" style="width: 100%; max-width: 600px; height: 260px; object-fit: cover; display: block;" />
-                  </td>
-                </tr>` : ''}
-                <!-- Nest Logo Box Bar -->
-                <tr>
-                  <td style="background-color: #003831; padding: 12px 28px; text-align: right;">
-                    <table border="0" cellspacing="0" cellpadding="0" align="right" style="display: inline-table;">
-                      <tr>
-                        <td align="right" style="vertical-align: middle; padding-right: 14px;">
-                          <span style="font-family: -apple-system, sans-serif; font-size: 10px; font-weight: 700; color: #A3C9C3; letter-spacing: 1.5px; text-transform: uppercase;">WILMINGTON OPERATIONS</span>
-                        </td>
-                        <td style="background-color: #004D40; padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); vertical-align: middle; text-align: center;">
-                          <span style="font-family: Georgia, serif; font-size: 18px; font-weight: bold; color: #FFFFFF; letter-spacing: -0.5px; line-height: 1; display: block;">nest</span>
-                          <span style="font-family: -apple-system, sans-serif; font-size: 7px; font-weight: 800; color: #FFFFFF; letter-spacing: 2px; display: block; margin-top: 1px;">REALTY</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- EDITORIAL SPLIT SECTION (MATCHING REFERENCE DESIGN) -->
-          <tr>
-            <td style="padding: 36px 36px 20px 36px; border-bottom: 1px solid #ECEEEF;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <!-- Left: Large Serif Title -->
-                  <td width="50%" align="left" style="vertical-align: middle;">
-                    <h1 style="font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-size: 34px; line-height: 1.1; color: #003831; font-weight: 400; margin: 0; letter-spacing: -0.5px;">
-                      ${serifTitle}
-                    </h1>
-                  </td>
-
-                  <!-- Right: Uppercase Date, Green Rule & Address -->
-                  <td width="50%" align="right" style="vertical-align: middle; padding-left: 20px;">
-                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 800; color: #003831; letter-spacing: 1.5px; text-transform: uppercase; text-align: right;">
-                      ${metadataDate || 'ACTIVE PRODUCTION'}
-                    </div>
-                    
-                    <!-- Dark Forest Green Underline Accent Bar -->
-                    <div style="height: 2px; background-color: #003831; width: 100%; margin: 8px 0 10px 0;"></div>
-                    
-                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 600; color: #1A202C; text-align: right; line-height: 1.35;">
-                      ${addressStreet}<br/>
-                      <span style="color: #718096; font-weight: 500; font-size: 13px;">${addressCity}</span>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- MAIN CONTENT BODY -->
-          <tr>
-            <td style="padding: 28px 36px 32px 36px;">
-              ${greetingName ? `<p style="font-size: 15px; line-height: 24px; color: #1A202C; margin: 0 0 14px 0; font-weight: 700;">Hi ${greetingName},</p>` : ''}
-
-              ${bodyParagraphs.map(p => `
-                <p style="font-size: 14px; line-height: 22px; color: #2D3748; margin: 0 0 14px 0;">
-                  ${p}
-                </p>
-              `).join('')}
-
-              ${deliverables && deliverables.length > 0 ? `
-                <div style="background-color: #F8FAF9; border: 1px solid #DDE2E1; border-radius: 10px; padding: 18px 20px; margin: 22px 0;">
-                  <div style="font-size: 11px; font-weight: 800; color: #003831; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px;">
-                    Queued Deliverables
-                  </div>
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                    ${deliverables.map(deliv => `
-                      <tr>
-                        <td width="20" style="vertical-align: top; padding-bottom: 8px; color: #003831; font-weight: bold; font-size: 14px;">
-                          ✓
-                        </td>
-                        <td style="vertical-align: top; padding-bottom: 8px; font-size: 13px; color: #1A202C; font-weight: 500;">
-                          ${deliv}
-                        </td>
-                      </tr>
-                    `).join('')}
-                  </table>
-                </div>
-              ` : ''}
-
-              ${infoBox ? `
-                <div style="background-color: #F8FAF9; border-left: 4px solid #003831; border-radius: 6px; padding: 14px 18px; margin: 20px 0;">
-                  <span style="font-size: 12px; font-weight: 800; color: #003831; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">${infoBox.title}</span>
-                  <span style="font-size: 13px; line-height: 20px; color: #4A5568; display: block;">${infoBox.text}</span>
-                </div>
-              ` : ''}
-
-              ${featureList && featureList.length > 0 ? `
-                <div style="margin: 20px 0; background-color: #F8FAF9; border: 1px solid #DDE2E1; border-radius: 10px; padding: 16px 20px;">
-                  <span style="font-size: 11px; font-weight: 800; color: #003831; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 10px;">Action Items Needed:</span>
-                  ${featureList.map(item => `
-                    <div style="margin-bottom: 8px; font-size: 13px; color: #2D3748;">
-                      <strong style="color: #003831;">• ${item.title}:</strong> ${item.desc}
-                    </div>
-                  `).join('')}
-                </div>
-              ` : ''}
-
-              ${ctaButton ? `
-                <div style="text-align: center; margin: 32px 0 24px 0;">
-                  <a href="${ctaButton.url}" target="_blank" style="display: inline-block; background-color: #003831; color: #FFFFFF; font-size: 14px; font-weight: 700; text-decoration: none; padding: 14px 34px; border-radius: 980px; box-shadow: 0 4px 14px rgba(0, 56, 49, 0.25); letter-spacing: 0.2px;">
-                    ${ctaButton.label} &rarr;
-                  </a>
-                </div>
-              ` : ''}
-
-              ${footnote ? `
-                <div style="background-color: #F8FAF9; border: 1px dashed #CAD3D1; border-radius: 8px; padding: 12px 16px; margin-top: 24px;">
-                  <p style="font-size: 12px; line-height: 18px; color: #4A5568; margin: 0; text-align: center; font-style: italic;">
-                    ${footnote}
-                  </p>
-                </div>
-              ` : ''}
-            </td>
-          </tr>
-
-          <!-- FOOTER -->
-          <tr>
-            <td style="padding: 22px 36px; background-color: #F4F6F5; border-top: 1px solid #E2E6E5; text-align: center;">
-              <p style="font-size: 12px; line-height: 18px; color: #4A5568; margin: 0 0 4px 0;">
-                Sent by <strong>Nora</strong> (<a href="mailto:${NORA_EMAIL_CONFIG.user}" style="color: #003831; font-weight: 600; text-decoration: none;">${NORA_EMAIL_CONFIG.user}</a>)
-              </p>
-              <p style="font-size: 11px; color: #718096; margin: 0;">
-                Nest Realty Wilmington &bull; Shapework Operations Layer
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `;
+  const status = options.status || (/NEEDED|SECURITY|ACCOUNT READY/i.test(options.badgeText || '') ? 'ACTION NEEDED'
+    : /APPROVED|ONLINE|COMPLETE/i.test(options.badgeText || '') ? 'COMPLETE' : 'RECEIVED');
+  const p = (body: string) => `<p style="margin:0 0 14px;">${body}</p>`;
+  const bodyHtml = [
+    options.greetingName ? p(`Hi ${escapeEmailHtml(options.greetingName)},`) : '',
+    ...(options.bodyParagraphs || []).map(p),
+    options.deliverables?.length ? `<ul style="margin:18px 0;padding-left:20px;">${options.deliverables.map(item => `<li style="padding-bottom:6px;">${escapeEmailHtml(item)}</li>`).join('')}</ul>` : '',
+    options.infoBox && !/drive folder ready/i.test(options.infoBox.title) ? p(`<strong>${options.infoBox.title}</strong><br>${options.infoBox.text}`) : '',
+    ...(options.featureList || []).map(item => p(`<strong>${item.title}</strong> ${item.desc}`)),
+  ].join('');
+  return renderNoraEmailLayout({ title: options.serifTitle || options.title, status, bodyHtml,
+    propertyAddress: options.propertyAddress, metadata: options.metadataDate, cta: options.ctaButton, footnote: options.footnote });
 }
 
 /**
@@ -361,21 +181,18 @@ export async function sendSystemVerificationEmail(toEmail: string = 'marcus.aman
     title: 'Nest Realty • Systems Active',
     badgeText: '● NORA ONLINE',
     serifTitle: 'Operations<br/>Active',
-    metadataDate: 'SEPTEMBER 2, 2026 | NORA VERIFIED',
-    propertyAddress: '1916 Wolcott Ave, Wilmington, NC 28403',
-    heroImageUrl: 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
+    metadataDate: 'Nora email verification',
     greetingName: 'Marcus',
     bodyParagraphs: [
       'This is a live system verification email from Nora on Shapework for <strong>Nest Realty Wilmington</strong>.',
-      'Google Workspace SMTP connection and authentication are fully verified. All outbound lifecycle emails now feature the high-end <strong>Dark Forest Hunter Green</strong> editorial design, property hero framing, and the official Nest Realty logo badge.'
+      'This message checks the Nora email connection and the Nest Realty notification layout.'
     ],
     infoBox: {
       title: 'Mailbox Status: Connected',
       text: `Active Sender: ${NORA_EMAIL_CONFIG.user} via Google Workspace SMTP (Port ${NORA_EMAIL_CONFIG.port} Secure TLS)`
     },
     deliverables: [
-      'Editorial Split Headline & Dark Forest Hunter Green Palette',
-      'Hero Property Framing with Nest Realty Logo Badge',
+      'Clear status labels and one primary action',
       'Single-Dispatch Intake Confirmation with Manager CC',
       'In-Progress, Need Info & Final Completion Notifications'
     ],
@@ -421,8 +238,6 @@ export async function sendWelcomeInvitationEmail(
     badgeText: '● ACCOUNT READY',
     serifTitle: 'Welcome to<br/>Nest Ops',
     metadataDate: 'WILMINGTON HQ | ONBOARDING',
-    propertyAddress: '104 N 3rd St, Wilmington, NC 28401',
-    heroImageUrl: 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     greetingName: recipientName,
     bodyParagraphs: [
       `Your account for <strong>Nest Realty Wilmington</strong> is ready on Shapework.`,
@@ -457,8 +272,6 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
     badgeText: '● SECURITY NOTICE',
     serifTitle: 'Password<br/>Reset',
     metadataDate: 'WILMINGTON OPS | SECURITY',
-    propertyAddress: '104 N 3rd St, Wilmington, NC 28401',
-    heroImageUrl: 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     bodyParagraphs: [
       'We received a request to reset your Shapework password for <strong>Nest Realty Wilmington</strong>.',
       'Click the button below to create a new password. For security, this link will expire in 30 minutes.'
@@ -489,10 +302,9 @@ export async function sendPhotoUploadRequestEmail(options: {
   propertyAddress: string;
   driveUploadUrl?: string;
   trackerUrl?: string;
-  heroImageUrl?: string;
   requestedItems?: string[];
 } & EmailThreadContext): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, driveUploadUrl, heroImageUrl, requestedItems = ['Exterior High-Res Hero', 'Kitchen & Living Areas', 'Primary Suite', 'Floorplans / Aerials'] } = options;
+  const { toEmail, agentName, propertyAddress, driveUploadUrl, requestedItems = ['Exterior photos', 'Kitchen & Living Areas', 'Primary Suite', 'Floorplans / Aerials'] } = options;
 
   const photoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendPhotoUploadRequestEmail');
   if (photoHeld) {
@@ -511,11 +323,10 @@ export async function sendPhotoUploadRequestEmail(options: {
     serifTitle: 'Listing Photos<br/>Needed',
     metadataDate: 'ACTIVE REQUEST | PRODUCTION STAGED',
     propertyAddress,
-    heroImageUrl: heroImageUrl || 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `Hey it's Nora from Nest. If you don't mind, send me those photos so we can get moving on that request for you!`,
-      `We received your marketing collateral request for <strong>${propertyAddress}</strong>. To begin drafting your 300 DPI print flyers, social story carousels, and postcards, please reply to this email with your high-resolution photos attached.`
+      `We received your marketing collateral request for <strong>${propertyAddress}</strong>. To get started, please reply to this email with your high-resolution photos attached.`
     ],
     infoBox: {
       title: 'Reply with your listing photos',
@@ -525,7 +336,7 @@ export async function sendPhotoUploadRequestEmail(options: {
     ctaButton: toAbsolutePublicUrl(options.trackerUrl || driveUploadUrl) ? {
       label: 'View your request',
       url: toAbsolutePublicUrl(options.trackerUrl || driveUploadUrl)
-    } : undefined,
+    } : { label: 'Reply with photos', url: 'mailto:asknora@nestrealty.com' },
     footnote: 'Your photos will stay with this request for the marketing team.'
   });
 
@@ -553,11 +364,10 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
   propertyAddress: string;
   deliverables: string[];
   assignedLead: string;
-  heroImageUrl?: string;
   cc?: string;
   trackerUrl?: string;
 } & EmailThreadContext): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, deliverables, assignedLead, heroImageUrl, cc, trackerUrl } = options;
+  const { toEmail, agentName, propertyAddress, deliverables, assignedLead, cc, trackerUrl } = options;
 
   const intakeHeld = suppressedByOutboundGate(toEmail, undefined, 'sendMarketingIntakeConfirmationEmail');
   if (intakeHeld) return intakeHeld;
@@ -573,7 +383,6 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
     serifTitle: 'Marketing<br/>Request',
     metadataDate: `${dateFormatted} | IN PROGRESS WITH ${assignedLead.split(' ')[0].toUpperCase()}`,
     propertyAddress,
-    heroImageUrl: heroImageUrl || 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `I got your marketing request for <strong>${propertyAddress}</strong>!`,
@@ -610,9 +419,8 @@ export async function sendAddressRequestEmail(options: {
   toEmail: string;
   agentName: string;
   subjectTitle?: string;
-  heroImageUrl?: string;
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, subjectTitle = 'Marketing Request', heroImageUrl } = options;
+  const { toEmail, agentName, subjectTitle = 'Marketing Request' } = options;
 
   const addressHeld = suppressedByOutboundGate(toEmail, undefined, 'sendAddressRequestEmail');
   if (addressHeld) return addressHeld;
@@ -626,7 +434,6 @@ export async function sendAddressRequestEmail(options: {
     serifTitle: 'Address<br/>Needed',
     metadataDate: `${dateFormatted} | MARKETING INTAKE`,
     propertyAddress: 'Property Address Needed',
-    heroImageUrl: heroImageUrl || 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     greetingName: agentName.split(' ')[0] || 'there',
     bodyParagraphs: [
       `Thanks for sending over your marketing request for <em>"${subjectTitle}"</em>!`,
@@ -638,8 +445,8 @@ export async function sendAddressRequestEmail(options: {
       text: 'Just reply to this email with the property address (e.g., 123 Main St, Wilmington NC) and we will take care of the rest!'
     },
     ctaButton: {
-      label: 'Open Nest Ops Console',
-      url: 'https://shapework.co/app'
+      label: 'Reply with address',
+      url: 'mailto:asknora@nestrealty.com'
     },
     footnote: 'If you have any questions, you can also reach Nora at AskNora@nestrealty.com or call the Nest Hotline at (910) 507-2047.'
   });
@@ -662,10 +469,9 @@ export async function sendTaskInProgressNotificationEmail(options: {
   taskTitle: string;
   assignedTo: string;
   assignedToRole?: string;
-  heroImageUrl?: string;
   ccManagerEmail?: string;
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, taskTitle, assignedTo, assignedToRole = 'Lead', heroImageUrl, ccManagerEmail } = options;
+  const { toEmail, agentName, propertyAddress, taskTitle, assignedTo, assignedToRole = 'Lead', ccManagerEmail } = options;
 
   const progressHeld = suppressedByOutboundGate(toEmail, ccManagerEmail, 'sendTaskInProgressNotificationEmail');
   if (progressHeld) return progressHeld;
@@ -680,7 +486,6 @@ export async function sendTaskInProgressNotificationEmail(options: {
     serifTitle: 'Task In<br/>Progress',
     metadataDate: `ACTIVE | ASSIGNED TO ${assignedTo.split(' ')[0].toUpperCase()}`,
     propertyAddress,
-    heroImageUrl: heroImageUrl || 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `Your request for <strong>${propertyAddress}</strong> (<em>${taskTitle}</em>) has moved into active production.`,
@@ -717,10 +522,9 @@ export async function sendTaskNeedMoreInfoEmail(options: {
   requestedItems: string[];
   staffNotes?: string;
   driveUploadUrl?: string;
-  heroImageUrl?: string;
   requesterStaffName?: string;
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, taskTitle, requestedItems, staffNotes, driveUploadUrl = 'https://drive.google.com', heroImageUrl, requesterStaffName = 'Melissa' } = options;
+  const { toEmail, agentName, propertyAddress, taskTitle, requestedItems, staffNotes, driveUploadUrl, requesterStaffName = 'Melissa' } = options;
 
   const needInfoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendTaskNeedMoreInfoEmail');
   if (needInfoHeld) return needInfoHeld;
@@ -735,7 +539,6 @@ export async function sendTaskNeedMoreInfoEmail(options: {
     serifTitle: 'Action<br/>Needed',
     metadataDate: `INFO REQUEST | ${requesterStaffName.toUpperCase()}`,
     propertyAddress,
-    heroImageUrl: heroImageUrl || 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `To finalize your <strong>${taskTitle}</strong> for <strong>${propertyAddress}</strong>, our brokerage team needs a few details from you.`,
@@ -743,8 +546,8 @@ export async function sendTaskNeedMoreInfoEmail(options: {
     ],
     deliverables: requestedItems,
     ctaButton: {
-      label: 'Upload Assets to Google Drive',
-      url: driveUploadUrl
+      label: driveUploadUrl ? 'View your request' : 'Reply with details',
+      url: toAbsolutePublicUrl(driveUploadUrl) || 'mailto:asknora@nestrealty.com'
     },
     footnote: 'You can also simply reply directly to this email with the requested information or photos attached.'
   });
@@ -752,7 +555,7 @@ export async function sendTaskNeedMoreInfoEmail(options: {
   return sendEmail({
     to: toEmail,
     subject: `Action Needed: Info Requested for ${propertyAddress} (${taskTitle})`,
-    text: `Hi ${agentName},\n\n${requesterStaffName} needs additional information to complete your ${taskTitle} for ${propertyAddress}:\n\n- ${requestedItems.join('\n- ')}\n${staffNotes ? `\nNotes: ${staffNotes}\n` : ''}\nYou can reply directly to this email or upload files to your Google Drive folder: ${driveUploadUrl}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
+    text: `Hi ${agentName},\n\n${requesterStaffName} needs additional information to complete your ${taskTitle} for ${propertyAddress}:\n\n- ${requestedItems.join('\n- ')}\n${staffNotes ? `\nNotes: ${staffNotes}\n` : ''}\nReply directly to this email with the requested details or files.${driveUploadUrl ? `\n\nView your request: ${driveUploadUrl}` : ''}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent
   });
 }
@@ -767,13 +570,12 @@ export async function sendTaskCompletionEmail(options: {
   taskTitle: string;
   proofUrl?: string;
   driveFolderUrl?: string;
-  heroImageUrl?: string;
   completedByName?: string;
   /** Already filtered by evaluateDispatch.effectiveCc. */
   cc?: string[];
   [key: string]: any;
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl, heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
+  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl, completedByName = 'Melissa Gagliardi', cc } = options;
 
   const completeHeld = suppressedByOutboundGate(toEmail, cc, 'sendTaskCompletionEmail');
   if (completeHeld) return completeHeld;
@@ -792,7 +594,6 @@ export async function sendTaskCompletionEmail(options: {
     serifTitle: 'Deliverables<br/>Ready',
     metadataDate: `APPROVED BY ${completedByName.split(' ')[0].toUpperCase()}`,
     propertyAddress,
-    heroImageUrl: heroImageUrl || '',
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `Great news! <strong>${taskTitle}</strong> for <strong>${propertyAddress}</strong> has been approved by <strong>${completedByName}</strong>.`,
@@ -802,8 +603,8 @@ export async function sendTaskCompletionEmail(options: {
       title: 'Listing Asset Package',
       text: `${propertyAddress}`
     },
-    ctaButton: effectiveActionUrl ? { label: actionButtonLabel, url: effectiveActionUrl } : undefined,
-    footnote: `Reply to this email if you need changes.${trackerUrl ? ` <a href="${trackerUrl}">View your request</a>.` : ''}`
+    ctaButton: effectiveActionUrl ? { label: actionButtonLabel, url: effectiveActionUrl } : trackerUrl ? { label: 'View your request', url: trackerUrl } : { label: 'Reply to Nora', url: 'mailto:asknora@nestrealty.com' },
+    footnote: 'Reply to this email if you need changes.'
   });
 
   return sendEmail({

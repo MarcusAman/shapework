@@ -15,3 +15,24 @@ uploads
 data/audio_cache
 data/oauth_tokens.json
 data/reset_tokens.json
+
+# Local environment and credential stores (including nested QA copies).
+.env*
+**/.env*
+!.env.example
+!**/.env.example
+oauth_credentials*.json
+**/oauth_credentials*.json
+oauth_tokens*.json
+**/oauth_tokens*.json
+tokens.json
+**/tokens.json
+reset_tokens*.json
+**/reset_tokens*.json
+
+# Local QA output, temporary copies, and physical PostgreSQL storage.
+qa-artifacts/
+qa-evidence/
+tmp/
+var/
+data/pg_data/

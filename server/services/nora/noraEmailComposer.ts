@@ -1,3 +1,4 @@
+import { renderNoraEmailLayout } from '../../email/noraEmailLayout.js';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -191,28 +192,14 @@ export class NoraEmailComposer {
       return `<p style="margin: 0 0 14px 0; line-height: 1.6; color: #1C1917; font-size: 14px;">${formatted}</p>`;
     }).join('\n');
 
-    const bodyHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${subject}</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F5F5F4; margin: 0; padding: 24px; color: #1C1917;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border: 1px solid #E7E5E4; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-    <div style="background-color: #00635C; padding: 20px 24px; border-bottom: 3px solid #004742;">
-      <h2 style="color: #FFFFFF; margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em;">Nest Realty · Ask NORA</h2>
-    </div>
-    <div style="padding: 24px;">
-      ${htmlBodyContent}
-    </div>
-    <div style="background-color: #FAFAF9; padding: 16px 24px; border-top: 1px solid #E7E5E4; font-size: 12px; color: #78716C; text-align: center;">
-      Nest Realty Operations · AskNora@nestrealty.com · Verified Brokerage Knowledge
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
+    const bodyHtml = renderNoraEmailLayout({
+      title: subject.replace(/^✓\s*/, ''),
+      status: 'RECEIVED',
+      bodyHtml: htmlBodyContent,
+      cta: resourceUrls[0]
+        ? { label: 'Open resource', url: resourceUrls[0] }
+        : { label: 'Reply to Nora', url: 'mailto:asknora@nestrealty.com' },
+    });
 
     return {
       subject,

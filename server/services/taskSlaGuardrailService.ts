@@ -1,3 +1,4 @@
+import { renderSlaAlertEmail } from '../email/noraOperationalEmails.js';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -187,25 +188,11 @@ export async function runSlaGuardrailCheck(referenceTime: Date = new Date()): Pr
       console.log(`[SLA Monitor] Task "${task.title}" for ${propertyAddress} is approaching overdue (${evalResult.badgeLabel}). Dispatching Tier 1 alert.`);
 
       const emailSubject = `⚠️ Turnaround Warning: "${task.title}" for ${propertyAddress} due in ${Math.round(evalResult.hoursRemaining)}h`;
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #fef3c7; border-radius: 16px; overflow: hidden;">
-          <div style="background: #d97706; padding: 20px 24px; color: #ffffff;">
-            <h2 style="margin: 0; font-size: 17px; font-weight: 700;">Nest Ops • SLA Turnaround Warning</h2>
-            <p style="margin: 4px 0 0 0; font-size: 12px; color: #fef3c7;">Task Approaching Deadline: ${evalResult.badgeLabel}</p>
-          </div>
-          <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
-            <p>Hi <strong>${assigneeName}</strong>,</p>
-            <p>This is a proactive turnaround notice for <strong>${propertyAddress}</strong> (<em>${task.title}</em>).</p>
-            <div style="background: #fffbeb; border-left: 4px solid #d97706; padding: 14px 18px; margin: 18px 0; border-radius: 6px;">
-              <p style="margin: 0; font-size: 13px; color: #92400e; font-weight: 600;">Due: ${evalResult.dueAtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${evalResult.badgeLabel})</p>
-            </div>
-            <p style="font-size: 13px; color: #64748b;">Drive Pack: <a href="${task.driveFolderUrl || 'https://drive.google.com'}" style="color: #d97706; font-weight: 600;">${task.driveFolderUrl || 'Open Google Drive'}</a></p>
-          </div>
-          <div style="background: #f8fafc; padding: 12px 24px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #fef3c7;">
-            Sent by Nora SLA Sentinel • Proactive 4-Hour Warning
-          </div>
-        </div>
-      `;
+      const emailHtml = renderSlaAlertEmail({
+        overdue: false, assignee: assigneeName, propertyAddress, taskTitle: task.title,
+        due: evalResult.dueAtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: evalResult.badgeLabel, actionUrl: 'https://shapework.co/app',
+      });
 
       try {
         await sendEmail({
@@ -235,25 +222,11 @@ export async function runSlaGuardrailCheck(referenceTime: Date = new Date()): Pr
       console.log(`[SLA Monitor] 🚨 Task "${task.title}" for ${propertyAddress} is OVERDUE (${evalResult.badgeLabel}). Escalating to Department Lead & BIC.`);
 
       const emailSubject = `🚨 URGENT OVERDUE ESCALATION: "${task.title}" for ${propertyAddress}`;
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #fee2e2; border-radius: 16px; overflow: hidden;">
-          <div style="background: #dc2626; padding: 20px 24px; color: #ffffff;">
-            <h2 style="margin: 0; font-size: 17px; font-weight: 700;">Nest Ops • SLA Deadline Breached</h2>
-            <p style="margin: 4px 0 0 0; font-size: 12px; color: #fee2e2;">Overdue Escalation: ${evalResult.badgeLabel}</p>
-          </div>
-          <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
-            <p>Attention <strong>${assigneeName}</strong>, <strong>${deptOwner.name}</strong>, and Principal Broker:</p>
-            <p>The deadline for <strong>${propertyAddress}</strong> (<em>${task.title}</em>) has passed without completion.</p>
-            <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 14px 18px; margin: 18px 0; border-radius: 6px;">
-              <p style="margin: 0; font-size: 13px; color: #991b1b; font-weight: 700;">Status: ${evalResult.badgeLabel} • Assigned: ${assigneeName}</p>
-            </div>
-            <p style="font-size: 13px; color: #64748b;">Please coordinate immediately to complete deliverables or notify the listing agent.</p>
-          </div>
-          <div style="background: #f8fafc; padding: 12px 24px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #fee2e2;">
-            Nora SLA Sentinel • Automatic Escalation to Department Lead & Brokerage BIC
-          </div>
-        </div>
-      `;
+      const emailHtml = renderSlaAlertEmail({
+        overdue: true, departmentOwner: deptOwner.name, assignee: assigneeName, propertyAddress, taskTitle: task.title,
+        due: evalResult.dueAtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: evalResult.badgeLabel, actionUrl: 'https://shapework.co/app',
+      });
 
       try {
         // Send email to Assignee with CC to Department Lead & BIC

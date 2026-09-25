@@ -6,6 +6,7 @@ import {
 import Drawer from '../ui/Drawer';
 import ConnectorLogo from '../ui/ConnectorLogo';
 import { RechatMcpIntegrationModal } from './RechatMcpIntegrationModal';
+import { googleWorkspaceSettingsHref } from '../../lib/googleWorkspaceSettings';
 
 export interface ToolIntegrationItem {
   id: string;
@@ -74,12 +75,14 @@ interface ConnectedToolsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onStatusChange?: () => void;
+  allowGoogleConnect?: boolean;
 }
 
 export default function ConnectedToolsDrawer({
   isOpen,
   onClose,
-  onStatusChange
+  onStatusChange,
+  allowGoogleConnect = false
 }: ConnectedToolsDrawerProps) {
   const [activeTab, setActiveTab] = useState<'tools' | 'credentials'>('tools');
   const [providerStatuses, setProviderStatuses] = useState<Record<string, 'connected' | 'demo_connected' | 'disconnected'>>({});
@@ -287,14 +290,14 @@ export default function ConnectedToolsDrawer({
   const handleConnectAll = async () => {
     try {
       setLoading(true);
-      for (const item of TOOLS_CATALOG) {
+      for (const item of TOOLS_CATALOG.filter(tool => tool.provider !== 'google')) {
         await fetch(`/api/auth/${item.provider}/authorize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({})
         });
       }
-      showToast('All 6 primary tools authorized successfully in Sandbox mode!');
+      showToast('Other tools authorized in Sandbox mode. Manage Google separately in Workspace settings.');
       await loadStatuses();
       if (onStatusChange) onStatusChange();
     } catch (err) {
@@ -376,7 +379,7 @@ export default function ConnectedToolsDrawer({
                 className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-700 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Connect All (Quick Setup)</span>
+                <span>Connect Other Tools (Quick Setup)</span>
               </button>
             )}
             <button
@@ -506,7 +509,14 @@ export default function ConnectedToolsDrawer({
                             <span>Rechat MCP</span>
                           </button>
                         )}
-                        {isConnected ? (
+                        {tool.provider === 'google' && !allowGoogleConnect ? (
+                          <a
+                            href={googleWorkspaceSettingsHref()}
+                            className="px-3 py-1.5 rounded-xl border border-stone-200 bg-white text-[#00635C] text-xs font-semibold"
+                          >
+                            Manage in Workspace settings
+                          </a>
+                        ) : isConnected ? (
                           <>
                             <button
                               type="button"

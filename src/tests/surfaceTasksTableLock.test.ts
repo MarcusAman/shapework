@@ -237,10 +237,10 @@ describe('Surface Tasks table lock v2 — MarketingHomeInbox', () => {
 });
 
 describe('Surface Tasks table lock #2.1 — optional group-by-Lane', () => {
-  it('default group mode is parent-by-address (no lane section headers)', () => {
+  it('default address grouping shows each task once beneath the property heading', () => {
     const siblings = [
-      task({ id: 'a', requestId: 'req_1', title: 'Flyer', category: 'direct_mail' }),
-      task({ id: 'b', requestId: 'req_1', title: 'Social', category: 'social' }),
+      task({ id: 'a', requestId: 'req_1', propertyAddress: '123 Main St', title: 'Flyer', category: 'direct_mail' }),
+      task({ id: 'b', requestId: 'req_1', propertyAddress: '123 Main St', title: 'Social', category: 'social' }),
       task({
         id: 'op1',
         title: 'Sign Post Installation & Lockbox',
@@ -249,11 +249,10 @@ describe('Surface Tasks table lock #2.1 — optional group-by-Lane', () => {
     ];
     const addressMode = buildSurfaceTableListItems(siblings, { req_1: false }, 'address');
     expect(addressMode.every((i) => i.kind !== 'lane')).toBe(true);
-    expect(addressMode.map((i) => i.kind)).toEqual(['request', 'task']);
-    // Same shape as buildLaneListItems default
-    expect(addressMode.map((i) => i.kind)).toEqual(
-      buildLaneListItems(siblings, { req_1: false }).map((i) => i.kind)
-    );
+    expect(addressMode.map((i) => i.kind)).toEqual(['group', 'task', 'task', 'group', 'task']);
+    expect(addressMode.filter(i => i.kind === 'group').map(i => i.label)).toEqual(['123 Main St', 'No property address']);
+    expect(addressMode.filter(i => i.kind === 'task').map(i => i.task.id)).toEqual(['a', 'b', 'op1']);
+    expect([...assignSurfaceTableParentRowNumbers(addressMode)]).toEqual([['task:a', 1], ['task:b', 2], ['task:op1', 3]]);
   });
 
   it('Group by Lane sections = Marketing / Listing / Offer / Deal risk (domain helpers)', () => {
@@ -328,7 +327,7 @@ describe('Surface Tasks table lock v3 — parent #, type chips, Activity, Receiv
     'utf8'
   );
 
-  it('# on parent only — row number on address/standalone parents, never on child subtasks', () => {
+  it('# on parent only in Lane grouping — never on child subtasks', () => {
     expect(helperSrc).toContain('assignSurfaceTableParentRowNumbers');
     expect(inboxSrc).toContain('assignSurfaceTableParentRowNumbers');
     expect(tableSrc).toContain('data-testid="tasks-col-num"');
@@ -339,7 +338,7 @@ describe('Surface Tasks table lock v3 — parent #, type chips, Activity, Receiv
       task({ id: 'b', requestId: 'req_1', title: 'Social', category: 'social' }),
       task({ id: 'solo', title: 'Solo task', category: 'print' }),
     ];
-    const items = buildSurfaceTableListItems(siblings, { req_1: true }, 'address');
+    const items = buildSurfaceTableListItems(siblings, { req_1: true }, 'lane');
     const nums = assignSurfaceTableParentRowNumbers(items);
     // Parent request + standalone get numbers; children do not
     expect(nums.get('request:req_1')).toBe(1);

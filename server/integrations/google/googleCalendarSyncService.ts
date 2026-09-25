@@ -1,3 +1,4 @@
+import { renderCalendarInvitationEmail } from '../../email/noraOperationalEmails.js';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -140,24 +141,11 @@ export async function syncEventToGoogleCalendar(event: CalendarEventData): Promi
           from: '"Nora (Nest Realty Calendar)" <asknora@nestrealty.com>',
           subject: `Calendar Invite: ${storedEvent.title}`,
           text: `Hi ${attendee.name || 'there'},\n\nNora has scheduled a calendar event:\n\n${storedEvent.title}\nWhen: ${new Date(storedEvent.startTime).toLocaleString()} - ${new Date(storedEvent.endTime).toLocaleString()}\nLocation: ${storedEvent.location}\n\n${storedEvent.description}\n\nAdd to Google Calendar:\n${googleCalendarUrl}\n\nBest,\nNora (Nest Operations)`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e5e5ea; overflow: hidden;">
-              <div style="background: #00635C; padding: 20px 24px; color: white;">
-                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; opacity: 0.85;">Nest Operations Calendar</div>
-                <h1 style="margin: 6px 0 0 0; font-size: 18px; font-weight: 700;">${storedEvent.title}</h1>
-              </div>
-              <div style="padding: 24px;">
-                <div style="background: #f5f5f7; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                  <div style="font-size: 13px; color: #1d1d1f; margin-bottom: 6px;"><strong>📅 When:</strong> ${new Date(storedEvent.startTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}</div>
-                  <div style="font-size: 13px; color: #1d1d1f;"><strong>📍 Location:</strong> ${storedEvent.location}</div>
-                </div>
-                <p style="font-size: 13px; line-height: 1.5; color: #3a3a3c; margin-bottom: 24px;">${storedEvent.description}</p>
-                <div style="text-align: center;">
-                  <a href="${googleCalendarUrl}" style="display: inline-block; background: #00635C; color: white; text-decoration: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13px;">Accept & Add to Google Calendar</a>
-                </div>
-              </div>
-            </div>
-          `
+          html: renderCalendarInvitationEmail({
+            title: storedEvent.title, name: attendee.name, location: storedEvent.location, description: storedEvent.description,
+            when: new Date(storedEvent.startTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
+            calendarUrl: googleCalendarUrl,
+          })
         });
         invitesDispatched++;
       } catch (err) {

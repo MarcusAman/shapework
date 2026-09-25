@@ -1,3 +1,4 @@
+import { renderCallFollowUpEmail } from '../email/noraOperationalEmails.js';
 import crypto from 'crypto';
 import { InboundMarketingCall } from '../integrations/marketingCallsService.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
@@ -233,74 +234,10 @@ export function formatFourPointEmailHtml(tracker: TaskTrackerRecord, baseUrl = '
   const firstName = tracker.callerName.split(' ')[0].replace(/[^a-zA-Z]/g, '') || 'there';
   const url = `${baseUrl}/tracker/${tracker.token}`;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
-    .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .header { border-bottom: 2px solid #00635C; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-    .brand { font-size: 20px; font-weight: 800; color: #00635C; letter-spacing: -0.5px; }
-    .ticket-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 700; font-family: monospace; }
-    .greeting { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
-    .item-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .item-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .item-1 { color: #0284c7; }
-    .item-2 { color: #00635C; }
-    .item-3 { color: #7c3aed; }
-    .item-4 { color: #059669; }
-    .item-body { font-size: 14px; font-weight: 500; line-height: 1.5; color: #334155; }
-    .btn-container { text-align: center; margin: 28px 0 16px 0; }
-    .btn { display: inline-block; background-color: #00635C; color: #ffffff !important; padding: 14px 28px; border-radius: 12px; font-weight: 700; text-decoration: none; font-size: 15px; }
-    .footer { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 24px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <div class="brand">NEST OPS · CALL FOLLOW-UP</div>
-      <div class="ticket-badge">${tracker.ticketId}</div>
-    </div>
-
-    <div class="greeting">Hi ${firstName},</div>
-    <p style="font-size: 14px; color: #475569; margin-bottom: 20px;">
-      Thank you for speaking with Nora. Below is your 4-point operational action summary for <strong>${tracker.propertyAddress}</strong>:
-    </p>
-
-    <div class="item-box">
-      <div class="item-title item-1">1️⃣ What You Need</div>
-      <div class="item-body">${tracker.fourPointSummary.callerNeed}</div>
-    </div>
-
-    <div class="item-box">
-      <div class="item-title item-2">2️⃣ What I'm Doing (Nora)</div>
-      <div class="item-body">${tracker.fourPointSummary.noraAction}</div>
-    </div>
-
-    <div class="item-box">
-      <div class="item-title item-3">3️⃣ Assigned Department Lead</div>
-      <div class="item-body"><strong>${tracker.fourPointSummary.routedTo}</strong></div>
-    </div>
-
-    <div class="item-box">
-      <div class="item-title item-4">4️⃣ Estimated Time for Delivery</div>
-      <div class="item-body"><strong>${tracker.fourPointSummary.estimatedDelivery}</strong></div>
-    </div>
-
-    <div class="btn-container">
-      <a href="${url}" class="btn" target="_blank">View Live Task Tracker →</a>
-    </div>
-
-    <div class="footer">
-      Nest Realty Wilmington · Ask Nora Operations Hub<br>
-      Questions? Call our direct hotline anytime: +1 (910) 507-2047
-    </div>
-  </div>
-</body>
-</html>
-`;
+  return renderCallFollowUpEmail({
+    name: firstName, ticketId: tracker.ticketId, propertyAddress: tracker.propertyAddress,
+    ...tracker.fourPointSummary, trackerUrl: url,
+  });
 }
 
 export async function sendFourPointFollowUp(

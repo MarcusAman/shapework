@@ -77,7 +77,10 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
   const isAdmin = isUserAdmin(userEmail, userRole);
   const allowedSettingsTabs = getAllowedSettingsTabs(userEmail, userRole);
 
-  const initialTab = isAdmin ? 'team' : 'tools';
+  const googleSettingsRequested = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('integration') === 'google'
+    && allowedSettingsTabs.includes('tools');
+  const initialTab = googleSettingsRequested ? 'tools' : isAdmin ? 'team' : 'tools';
   const [activeTab, setActiveTab] = useState<'team' | 'billing' | 'profile' | 'tools' | 'skills_matrix'>(initialTab);
 
   // Keep activeTab aligned if persona changes
@@ -300,7 +303,7 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
     }
   ]);
 
-  const [showConnectedToolsDrawer, setShowConnectedToolsDrawer] = useState(false);
+  const [showConnectedToolsDrawer, setShowConnectedToolsDrawer] = useState(googleSettingsRequested);
   const [testingToolId, setTestingToolId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -1621,6 +1624,7 @@ export default function RyanSettingsPage({ state }: RyanSettingsPageProps) {
 
       {/* Connected Tools & OAuth 2.0 Drawer */}
       <ConnectedToolsDrawer
+        allowGoogleConnect
         isOpen={showConnectedToolsDrawer}
         onClose={() => setShowConnectedToolsDrawer(false)}
       />

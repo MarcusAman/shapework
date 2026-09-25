@@ -1,3 +1,4 @@
+import { renderNoraEmailLayout, escapeEmailHtml } from '../email/noraEmailLayout.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -287,179 +288,23 @@ export const ownerDigestEngine = {
   },
 
   renderDigestHtml(data: OwnerDigestData): string {
-    const attentionRows = data.needsAttention.length > 0 
-      ? data.needsAttention.map(item => `
-        <tr style="border-bottom: 1px solid #fee2e2;">
-          <td style="padding: 12px 14px; font-weight: 600; color: #0f172a; font-size: 13px;">${item.title}</td>
-          <td style="padding: 12px 14px; color: #b91c1c; font-weight: 700; font-size: 12px; white-space: nowrap;">
-            <span style="background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 6px; border: 1px solid #fca5a5;">
-              ${item.status} ${item.daysOverdue ? `(${item.daysOverdue}d)` : ''}
-            </span>
-          </td>
-          <td style="padding: 12px 14px; color: #64748b; font-size: 12px; white-space: nowrap;">${item.ownerName || 'Unassigned'}</td>
-        </tr>`).join('')
-      : `<tr><td colspan="3" style="padding: 16px; color: #166534; font-size: 13px; text-align: center; background-color: #f0fdf4;">✓ All high-priority items, listings, and approvals are in order.</td></tr>`;
-
-    const openRows = data.openRequests.length > 0
-      ? data.openRequests.map(item => `
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 12px 14px; font-weight: 600; color: #334155; font-size: 13px;">${item.title}</td>
-          <td style="padding: 12px 14px; color: #00635C; font-size: 12px; white-space: nowrap;">
-            <span style="background-color: #E5EFEA; color: #00635C; padding: 3px 8px; border-radius: 6px; font-weight: 600; border: 1px solid #A4D4CB;">
-              ${item.status}
-            </span>
-          </td>
-          <td style="padding: 12px 14px; color: #64748b; font-size: 12px; white-space: nowrap;">${item.ownerName || 'Team'}</td>
-        </tr>`).join('')
-      : `<tr><td colspan="3" style="padding: 16px; color: #64748b; font-size: 13px; text-align: center;">No open requests currently in queue.</td></tr>`;
-
-    const resolvedRows = data.resolvedLastWeek.length > 0
-      ? data.resolvedLastWeek.map(item => `
-        <tr style="border-bottom: 1px solid #dcfce7;">
-          <td style="padding: 12px 14px; font-weight: 500; color: #334155; font-size: 13px;">${item.title}</td>
-          <td style="padding: 12px 14px; color: #166534; font-size: 12px; white-space: nowrap;">
-            <span style="background-color: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 6px; font-weight: 700;">
-              ✓ Delivered
-            </span>
-          </td>
-          <td style="padding: 12px 14px; color: #64748b; font-size: 12px; white-space: nowrap;">${item.completedAt || 'Last week'}</td>
-        </tr>`).join('')
-      : `<tr><td colspan="3" style="padding: 16px; color: #64748b; font-size: 13px; text-align: center;">No completed items recorded in this window.</td></tr>`;
-
-    return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nest Realty Ops — Monday Briefing</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 32px 12px; color: #1e293b; line-height: 1.5;">
-  <div style="max-width: 640px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.06);">
-    
-    <!-- Co-Branded Header: Nest Realty + Shapework -->
-    <div style="background: linear-gradient(135deg, #01362D 0%, #00635C 100%); padding: 32px 28px; color: #ffffff;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-        <div style="font-size: 18px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-          NEST <span style="color: #A4D4CB; font-weight: 300;">REALTY</span>
-        </div>
-        <div style="display: inline-block; background: rgba(255,255,255,0.12); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #E5EFEA;">
-          SHAPEWORK.
-        </div>
-      </div>
-      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; color: #A4D4CB; margin-bottom: 6px;">Executive Weekly Operational Brief</div>
-      <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">Monday Morning Briefing</h1>
-      <div style="font-size: 13px; color: #E5EFEA; margin-top: 6px;">${data.generationDate} • ${data.brokerageName}</div>
-    </div>
-
-    <!-- Executive Greeting & Summary Metrics -->
-    <div style="padding: 24px 28px; border-bottom: 1px solid #f1f5f9; background-color: #fafbf9;">
-      <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #334155;">
-        Good morning, <strong>${data.principalName}</strong>. Here is your operational briefing summarizing open requests, overdue items, and what got resolved last week across the brokerage:
-      </p>
-
-      <!-- Metric Pills Grid -->
-      <table style="width: 100%; border-collapse: separate; border-spacing: 8px 0;">
-        <tr>
-          <td style="width: 33.3%; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 22px; font-weight: 800; color: #dc2626;">${data.needsAttentionCount}</div>
-            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #991b1b; margin-top: 2px;">Needs Attention</div>
-          </td>
-          <td style="width: 33.3%; background-color: #E5EFEA; border: 1px solid #A4D4CB; border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 22px; font-weight: 800; color: #00635C;">${data.openRequestsCount}</div>
-            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #01362D; margin-top: 2px;">Open Requests</div>
-          </td>
-          <td style="width: 33.3%; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; text-align: center;">
-            <div style="font-size: 22px; font-weight: 800; color: #166534;">${data.resolvedLastWeekCount}</div>
-            <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #15803d; margin-top: 2px;">Resolved Last Week</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <!-- Section 1: Overdue Items & Needs Attention -->
-    <div style="padding: 24px 28px 12px 28px;">
-      <div style="margin-bottom: 12px;">
-        <span style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #dc2626;">
-          🚨 Overdue Items & Immediate Attention (${data.needsAttentionCount})
-        </span>
-      </div>
-      <table style="width: 100%; border-collapse: collapse; text-align: left; background-color: #ffffff; border: 1px solid #fecaca; border-radius: 12px; overflow: hidden;">
-        <thead>
-          <tr style="background-color: #fee2e2; color: #991b1b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-            <th style="padding: 10px 14px;">Item / Property</th>
-            <th style="padding: 10px 14px;">Status</th>
-            <th style="padding: 10px 14px;">Owner</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${attentionRows}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Section 2: Open Requests -->
-    <div style="padding: 16px 28px 12px 28px;">
-      <div style="margin-bottom: 12px;">
-        <span style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #00635C;">
-          📋 Active Open Requests (${data.openRequestsCount})
-        </span>
-      </div>
-      <table style="width: 100%; border-collapse: collapse; text-align: left; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden;">
-        <thead>
-          <tr style="background-color: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-            <th style="padding: 10px 14px;">Task / Package</th>
-            <th style="padding: 10px 14px;">Stage</th>
-            <th style="padding: 10px 14px;">Handler</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${openRows}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Section 3: Resolved Last Week -->
-    <div style="padding: 16px 28px 28px 28px;">
-      <div style="margin-bottom: 12px;">
-        <span style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #166534;">
-          ✅ Resolved Last Week (${data.resolvedLastWeekCount})
-        </span>
-      </div>
-      <table style="width: 100%; border-collapse: collapse; text-align: left; background-color: #ffffff; border: 1px solid #bbf7d0; border-radius: 12px; overflow: hidden;">
-        <thead>
-          <tr style="background-color: #dcfce7; color: #15803d; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-            <th style="padding: 10px 14px;">Completed Deliverable</th>
-            <th style="padding: 10px 14px;">Outcome</th>
-            <th style="padding: 10px 14px;">Delivered</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${resolvedRows}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 1-Click Executive Action Button -->
-    <div style="padding: 24px 28px; background-color: #fafbf9; border-top: 1px solid #e2e8f0; text-align: center;">
-      <a href="https://nest-ops.shapework.co/app/owner-brief" style="display: inline-block; background-color: #00635C; color: #ffffff; text-decoration: none; padding: 14px 32px; font-weight: 800; font-size: 14px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,99,92,0.25);">
-        Open Nest Ops Console ↗
-      </a>
-      <div style="font-size: 11px; color: #64748b; margin-top: 14px;">
-        Logged in as <strong>Ryan Crecelius</strong> (Principal / BIC) • Nest Realty Wilmington
-      </div>
-    </div>
-
-    <!-- Co-Branded Footer -->
-    <div style="padding: 20px 28px; background-color: #01362D; color: #A4D4CB; font-size: 11px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1);">
-      <div style="font-weight: 700; color: #ffffff; margin-bottom: 4px;">Powered by Shapework Operating System</div>
-      <div>Designed exclusively for Nest Realty Wilmington leadership.</div>
-    </div>
-
-  </div>
-</body>
-</html>
-    `;
+    const section = (heading: string, count: number, items: DigestItem[], resolved = false) =>
+      `<h2 style="margin:24px 0 12px;font:700 15px/22px Arial,sans-serif;color:#01362D;">${heading} (${count})</h2>` +
+      (items.length ? items.map(item => `<p style="margin:0 0 16px;overflow-wrap:anywhere;"><strong>${escapeEmailHtml(item.title)}</strong><br>` +
+        `${escapeEmailHtml(item.status)}${item.daysOverdue ? ` (${item.daysOverdue}d)` : ''}` +
+        `${item.ownerName ? ` &bull; ${escapeEmailHtml(item.ownerName)}` : ''}` +
+        `${resolved && item.completedAt ? `<br>Completed: ${escapeEmailHtml(item.completedAt)}` : ''}</p>`).join('')
+        : `<p style="margin:0 0 16px;color:#6B7D75;">No items in this section.</p>`);
+    return renderNoraEmailLayout({
+      title: 'Monday Morning Briefing', status: 'RECEIVED',
+      metadata: [data.generationDate, data.brokerageName].filter(Boolean).join(' • '),
+      bodyHtml: `<p style="margin:0 0 14px;">Good morning, ${escapeEmailHtml(data.principalName || 'there')}.</p>` +
+        '<p style="margin:0 0 14px;">Here is your operational briefing: items needing attention, open requests, and work resolved last week.</p>' +
+        section('Needs attention', data.needsAttentionCount, data.needsAttention) +
+        section('Open requests', data.openRequestsCount, data.openRequests) +
+        section('Resolved last week', data.resolvedLastWeekCount, data.resolvedLastWeek, true),
+      cta: { label: 'Open owner brief', url: 'https://nest-ops.shapework.co/app/owner-brief' },
+    });
   },
 
   renderDigestText(data: OwnerDigestData): string {

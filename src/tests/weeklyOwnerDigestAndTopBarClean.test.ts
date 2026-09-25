@@ -37,7 +37,7 @@ describe('Weekly Owner Digest, TopBar Clean & Maxa Proofs Verification', () => {
     expect(content.includes('Call 910-507-2047')).toBe(true);
   });
 
-  it('3. ownerDigestEngine.renderDigestHtml produces co-branded email with Nest & Shapework logos', () => {
+  it('3. ownerDigestEngine.renderDigestHtml preserves the briefing in the logo-only Nora email layout', () => {
     const mockData: OwnerDigestData = {
       workspaceId: 'nest-realty-wilmington',
       brokerageName: 'Nest Realty Wilmington',
@@ -82,28 +82,29 @@ describe('Weekly Owner Digest, TopBar Clean & Maxa Proofs Verification', () => {
     const html = ownerDigestEngine.renderDigestHtml(mockData);
 
     // Branding verification
-    expect(html).toContain('NEST');
-    expect(html).toContain('REALTY');
-    expect(html).toContain('SHAPEWORK.');
+    expect(html).toContain('data-nora-header="logo-only"');
+    expect(html).toContain('alt="Nest Realty"');
+    expect(html).toContain('RECEIVED');
+    expect(html.match(/data-nora-cta=/g)).toHaveLength(1);
     expect(html).toContain('Monday Morning Briefing');
 
     // Section 1: Needs Attention / Overdue
-    expect(html).toContain('Needs Attention');
+    expect(html).toContain('Needs attention (2)');
     expect(html).toContain('Closing Risk: 742 Lumina Ave');
     expect(html).toContain('Document Blocked');
 
     // Section 2: Open Requests
-    expect(html).toContain('Active Open Requests');
+    expect(html).toContain('Open requests (5)');
     expect(html).toContain('Marketing Suite: 1104 Arboretum Dr');
 
     // Section 3: Resolved Last Week
-    expect(html).toContain('Resolved Last Week');
+    expect(html).toContain('Resolved last week (7)');
     expect(html).toContain('Marketing Suite: 312 Mayfaire Way');
     expect(html).toContain('Delivered');
 
     // Action button & Footer
-    expect(html).toContain('Open Nest Ops Console');
-    expect(html).toContain('Powered by Shapework Operating System');
+    expect(html).toContain('Open owner brief');
+    expect(html).toContain('Nora &bull; Nest Realty Wilmington');
   });
 
   it('4. RequestActionModal.tsx displays live returned Maxa templates, 300 DPI proof preview, and multi-select approval triggers', () => {

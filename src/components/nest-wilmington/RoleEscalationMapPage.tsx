@@ -20,6 +20,7 @@ import type { OrgModel, OrgPosition } from '../../services/orgChartService';
 import { orgChartService } from '../../services/orgChartService';
 import OrgChartWizardPage from '../settings/OrgChartWizardPage';
 import ConnectedToolsDrawer from '../integrations/ConnectedToolsDrawer';
+import { googleWorkspaceSettingsHref } from '../../lib/googleWorkspaceSettings';
 import {
   Card,
   Button,
@@ -1325,13 +1326,19 @@ export default function RoleEscalationMapPage({ data, model: initialModel, defau
                           <span>{isPinging ? 'Pinging...' : 'Test Connection'}</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setShowConnectedToolsDrawer(true)}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-[11px] font-bold text-[#00635C] transition-colors cursor-pointer shadow-2xs"
-                        >
-                          Configure
-                        </button>
+                        {prov === 'google' ? (
+                          <a href={googleWorkspaceSettingsHref()} className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-[11px] font-bold text-[#00635C] transition-colors shadow-2xs">
+                            Manage in Workspace settings
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowConnectedToolsDrawer(true)}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-[11px] font-bold text-[#00635C] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            Configure
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

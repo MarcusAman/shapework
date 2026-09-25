@@ -93,7 +93,7 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
     const lock = await client.getMailboxLock('INBOX');
     try {
       // Search for unread messages
-      const searchResult = await client.search({ seen: false });
+      const searchResult = await client.search({ seen: false }, { uid: true });
       const uids = Array.isArray(searchResult) ? searchResult : [];
       summary.scannedCount = uids.length;
 
@@ -166,13 +166,21 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
       lock.release();
     }
 
-    await client.logout();
     console.log(`[IMAP Scanner] Finished scan cycle. Ingested ${summary.ingestedCount} new task(s).`);
   } catch (err: any) {
     console.warn('[IMAP Scanner] Connection notice:', err.message);
     summary.errors.push(err.message);
   } finally {
-    isScanInProgress = false;
+    // Empty inboxes and failed searches/locks must release the connection too.
+    try {
+      await client.logout();
+    } catch (err: any) {
+      console.warn('[IMAP Scanner] Logout notice:', err.message);
+      summary.errors.push(err.message);
+      client.close();
+    } finally {
+      isScanInProgress = false;
+    }
   }
 
   return summary;

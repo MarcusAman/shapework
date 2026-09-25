@@ -11,7 +11,7 @@
  * 5. Deduplication across tool (submit_marketing_intake) and webhook (call_ended) paths.
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Pool } from 'pg';
 import crypto from 'crypto';
 import { 
@@ -40,7 +40,49 @@ import {
 } from '../../server/persistence/telephonyCallsRepository.js';
 import { syncRecentRetellCallsToDatabaseAsync } from '../../server/integrations/marketingCallsService.js';
 
-const TEST_DATABASE_URL = process.env.DATABASE_URL || 'postgres://marcusaman@127.0.0.1:5432/shapework_test_isolated';
+// Database assertions require a separately provisioned disposable local database.
+// Never inherit DATABASE_URL or an application pool, even when one was already imported.
+const isolatedStorage = vi.hoisted(() => {
+  const connectionString = process.env.RETELL_DURABILITY_DATABASE_URL || '';
+  if (connectionString) {
+    let url: URL;
+    try { url = new URL(connectionString); }
+    catch { throw new Error('Retell tests require a disposable local PostgreSQL database URL.'); }
+    if (!['postgres:', 'postgresql:'].includes(url.protocol) || url.hostname !== '127.0.0.1'
+      || !/^\/codex_nora_retell_[a-z0-9_]+$/.test(url.pathname) || url.search || url.hash) {
+      throw new Error('Retell tests require a disposable codex_nora_retell_* database on 127.0.0.1 without URL overrides.');
+    }
+    if (process.env.NODE_ENV !== 'test' || process.env.ALLOW_PG_POOL_IN_TEST !== '1') {
+      throw new Error('Retell disposable database tests require test mode and explicit ALLOW_PG_POOL_IN_TEST=1 opt-in.');
+    }
+  }
+  return { connectionString, pool: null as import('pg').Pool | null, canonicalStore: '{"tasks":[],"requests":[]}' };
+});
+
+vi.mock('../../server/persistence/repositories.js', () => ({
+  storageDriver: 'database', getStorageDriver: () => 'database',
+  get dbPool() { return isolatedStorage.pool; },
+  getDbPool: () => isolatedStorage.pool,
+  initDbPool: () => isolatedStorage.pool,
+}));
+
+// Repository purge/save helpers must not overwrite the checkout's shared JSON fixture.
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs');
+  const isCanonicalFixture = (file: unknown) => /(?:^|\/)server\/data\/canonical_marketing_store_test\.json$/.test(String(file));
+  const isolatedFs = {
+    ...actual.default,
+    existsSync: (file: any) => isCanonicalFixture(file) || actual.existsSync(file),
+    readFileSync: (file: any, ...args: any[]) => isCanonicalFixture(file) ? isolatedStorage.canonicalStore : (actual.readFileSync as any)(file, ...args),
+    writeFileSync: (file: any, data: any, ...args: any[]) => {
+      if (isCanonicalFixture(file)) { isolatedStorage.canonicalStore = String(data); return; }
+      return (actual.writeFileSync as any)(file, data, ...args);
+    },
+  };
+  return { ...actual, ...isolatedFs, default: isolatedFs };
+});
+
+const describeDatabase = describe.skipIf(!isolatedStorage.connectionString);
 
 function makeReq(fields: Partial<CanonicalMarketingRequest> & { id: string; title: string; propertyAddress: string; agentName: string }): CanonicalMarketingRequest {
   const now = new Date().toISOString();
@@ -60,28 +102,22 @@ describe('Retell Webhook Signature, Property Uniqueness & Reconciliation Securit
   let pool: Pool;
   const mockApiKey = 'key_test_retell_secret_99887766';
 
-  beforeAll(() => {
-    process.env.DATABASE_URL = TEST_DATABASE_URL;
-    process.env.PERSISTENCE_DRIVER = 'postgres';
-    process.env.STORAGE_DRIVER = 'database';
-  });
-
   beforeEach(async () => {
-    pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    if (!isolatedStorage.connectionString) return;
+    pool = new Pool({ connectionString: isolatedStorage.connectionString, max: 1 });
+    isolatedStorage.pool = pool;
     purgeAllCanonicalMarketingData();
     purgeTelephonyCallsInMemory();
 
-    // Clean test tables
-    try {
-      await pool.query('DELETE FROM telephony_calls WHERE workspace_id = $1', ['ws_wilmington']);
-      await pool.query('DELETE FROM canonical_marketing_requests WHERE workspace_id = $1', ['ws_wilmington']);
-    } catch (e) {
-      // ignore
-    }
+    // This pool can only target the explicitly selected disposable database.
+    await pool.query('DELETE FROM telephony_calls WHERE workspace_id = $1', ['ws_wilmington']);
+    await pool.query('DELETE FROM canonical_marketing_requests WHERE workspace_id = $1', ['ws_wilmington']);
   });
 
   afterEach(async () => {
-    await pool.end();
+    if (pool) await pool.end();
+    isolatedStorage.pool = null;
+    vi.restoreAllMocks();
   });
 
   // =========================================================================
@@ -224,7 +260,7 @@ describe('Retell Webhook Signature, Property Uniqueness & Reconciliation Securit
   // =========================================================================
   // 2. PROPERTY UNIQUENESS INVARIANT & PLACEHOLDER HANDLING
   // =========================================================================
-  describe('2. Property Uniqueness Invariant & Placeholders', () => {
+  describeDatabase('2. Property Uniqueness Invariant & Placeholders', () => {
     it('2.1 Placeholder addresses normalize to null and do not conflict in unique index', async () => {
       expect(isPlaceholderPropertyAddress('Address Pending')).toBe(true);
       expect(isPlaceholderPropertyAddress('Address Needed')).toBe(true);
@@ -290,7 +326,7 @@ describe('Retell Webhook Signature, Property Uniqueness & Reconciliation Securit
   // =========================================================================
   // 3. STRICT RECONCILIATION POLICY VS BLIND MERGE
   // =========================================================================
-  describe('3. Strict Reconciliation Policy on Property Collisions', () => {
+  describeDatabase('3. Strict Reconciliation Policy on Property Collisions', () => {
     it('3.1 Recognized broker reconciles their own compatible request', async () => {
       const originalReq = makeReq({
         id: `req_sarah_own_${Date.now()}`,
@@ -552,7 +588,7 @@ describe('Retell Webhook Signature, Property Uniqueness & Reconciliation Securit
   // =========================================================================
   // 4. BOUNDED ADMIN SYNC ROUTE & STARTUP ISOLATION
   // =========================================================================
-  describe('4. Bounded Admin Sync Route & Startup Isolation', () => {
+  describeDatabase('4. Bounded Admin Sync Route & Startup Isolation', () => {
     it('4.1 syncRecentRetellCallsToDatabaseAsync respects bounded from/to timestamps', async () => {
       const now = new Date();
       const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
@@ -605,7 +641,7 @@ describe('Retell Webhook Signature, Property Uniqueness & Reconciliation Securit
   // =========================================================================
   // 5. TASK DEDUPLICATION ACROSS TOOL AND WEBHOOK PATHS
   // =========================================================================
-  describe('5. Task Deduplication Across Tool and Webhook Paths', () => {
+  describeDatabase('5. Task Deduplication Across Tool and Webhook Paths', () => {
     it('5.1 Pre-existing request created by tool is recognized; subsequent call_ended skips duplicate creation', async () => {
       const callId = `call_tool_intake_${Date.now()}`;
       const property = '502 Wrightsville Ave, Wilmington NC';

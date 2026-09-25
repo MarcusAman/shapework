@@ -679,14 +679,21 @@ export async function syncRecentRetellCallsToDatabaseAsync({
   agentId = RETELL_AGENT_ID,
   workspaceId = 'ws_wilmington',
   from,
-  to
+  to,
+  createRequests = true
 }: {
   limit?: number;
   agentId?: string;
   workspaceId?: string;
   from?: string | number | Date;
   to?: string | number | Date;
+  /** False restores the call ledger without replaying historical intake. */
+  createRequests?: boolean;
 } = {}): Promise<{ totalFetched: number; totalPersisted: number; totalRequestsCreated: number; errors: string[] }> {
+  const configuredAgentId = process.env.RETELL_ASK_NEST_OPS_AGENT_ID || RETELL_AGENT_ID;
+  if (!['ws_wilmington', 'nest-realty-demo', 'nest-realty-wilmington'].includes(workspaceId) || agentId !== configuredAgentId) {
+    return { totalFetched: 0, totalPersisted: 0, totalRequestsCreated: 0, errors: ['RETELL_WORKSPACE_AGENT_MISMATCH'] };
+  }
   const apiKey = process.env.RETELL_API_KEY;
   if (!apiKey) {
     return { totalFetched: 0, totalPersisted: 0, totalRequestsCreated: 0, errors: ['RETELL_API_KEY not configured'] };
@@ -744,6 +751,10 @@ export async function syncRecentRetellCallsToDatabaseAsync({
     totalFetched = processedList.length;
 
     for (const raw of processedList) {
+      if (raw.agent_id !== agentId) {
+        errors.push('RETELL_CALL_AGENT_MISMATCH');
+        continue;
+      }
       try {
         const normalized = normalizeRetellCall(raw);
 
@@ -778,6 +789,9 @@ export async function syncRecentRetellCallsToDatabaseAsync({
         });
         totalPersisted++;
 
+        // Historical recovery must not replay intake or queue notifications.
+        if (!createRequests) continue;
+
         // 2. Real-time synchronization: Auto-sync actionable phone calls to Canonical Requests & Tasks
         try {
           const syncResult = convertCallToCanonicalMarketingRequest(normalized);
@@ -796,8 +810,8 @@ export async function syncRecentRetellCallsToDatabaseAsync({
       }
     }
 
-    // Refresh cachedCalls from persistent ledger
-    await getMarketingInboundCalls(workspaceId);
+    // Ledger-only recovery is visible on the next scoped GET; it must not poll again.
+    if (createRequests) await getMarketingInboundCalls(workspaceId);
   } catch (netErr: any) {
     console.error('[MarketingCallsService] Network error during Retell sync:', netErr);
     errors.push(`Network error: ${netErr.message}`);
