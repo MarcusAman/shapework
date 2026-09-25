@@ -9054,7 +9054,7 @@ app.get('/api/marketing/mms-messages', (req, res) => {
 });
 
 // POST/GET Inbound Voice Webhook for 910-507-2047 -> Dials Retell AI via SIP
-app.all(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbound-voice'], (req, res) => {
+const handleTwilioVoice = (req: any, res: any) => {
   const to = req.body?.To || req.query?.To || '+19105072047';
   const cleanTo = to.replace(/[^0-9+]/g, '');
   const from = req.body?.From || req.query?.From || '';
@@ -9069,7 +9069,9 @@ app.all(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbou
 </Response>`;
   res.setHeader('Content-Type', 'text/xml');
   return res.send(twiml);
-});
+};
+app.post(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbound-voice'], handleTwilioVoice);
+app.get(['/api/twilio/voice', '/api/twilio/voice/inbound', '/api/telephony/inbound-voice'], handleTwilioVoice);
 
 // POST Inbound MMS Webhook & Text-to-Request Ingestion (Twilio, Retell & Simulator)
 app.post(['/api/telephony/inbound-mms', '/api/mms/inbound', '/api/twilio/sms', '/api/twilio/mms'], async (req, res) => {
