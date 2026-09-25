@@ -77,6 +77,7 @@ import {
 } from 'lucide-react';
 import { ProofUploadWizard, UploadedProofAsset } from './ProofUploadWizard';
 import { ProofLightboxViewer, LightboxAssetItem } from './ProofLightboxViewer';
+import { AssetImage } from './AssetImage';
 import { MlsNumberBadge } from './MlsNumberBadge';
 import { validateProofUrl } from '../../utils/assetInspection';
 import { resolveTaskEventDetails } from '../../utils/eventScheduleExtraction';
@@ -323,16 +324,33 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   dispatchVerdict
 }) => {
   const rawActiveTask = propActiveTask || propTask || null;
-  const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string | null } | null>(null);
-  const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
+  const [taskDetail, setTaskDetail] = useState<any>(null);
+  const taskDetailGeneration = useRef(0);
+  const [confirmedRequesterOverride, setConfirmedRequesterOverride] = useState<{ taskId: string; agentName: string; agentEmail: string; agentPhone?: string; requesterId?: string | null } | null>(null);
+  const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<(DispatchVerdictView & { taskId: string; recipientEmail: string }) | null>(null);
   const dispatchCheckGen = useRef(0);
   const [isConfirmRequesterOpen, setIsConfirmRequesterOpen] = useState(false);
 
   const activeTask = useMemo(() => {
     if (!rawActiveTask) return null;
-    if (!confirmedRequesterOverride) return rawActiveTask;
-    return {
+    // List rows can omit contact fields that are present on their intake request.
+    // Only hydrate from the detail response for this exact task and workspace.
+    const detailTask = taskDetail?.task;
+    const matchingDetail = detailTask?.id === rawActiveTask.id &&
+      (!rawActiveTask.workspaceId || detailTask.workspaceId === rawActiveTask.workspaceId);
+    const request = matchingDetail && taskDetail?.request?.id === (rawActiveTask.requestId || detailTask.requestId) &&
+      (!detailTask.workspaceId || taskDetail.request.workspaceId === detailTask.workspaceId)
+      ? taskDetail.request : null;
+    const contactTask = matchingDetail ? detailTask : null;
+    const hydratedTask = {
       ...rawActiveTask,
+      agentName: rawActiveTask.agentName || contactTask?.agentName || request?.agentName,
+      agentEmail: rawActiveTask.agentEmail || contactTask?.agentEmail || request?.agentEmail,
+      agentPhone: rawActiveTask.agentPhone || contactTask?.agentPhone || request?.agentPhone,
+    };
+    if (!confirmedRequesterOverride || confirmedRequesterOverride.taskId !== rawActiveTask.id) return hydratedTask;
+    return {
+      ...hydratedTask,
       agentName: confirmedRequesterOverride.agentName,
       agentEmail: confirmedRequesterOverride.agentEmail,
       agentPhone: confirmedRequesterOverride.agentPhone || rawActiveTask.agentPhone,
@@ -340,7 +358,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         ? confirmedRequesterOverride.requesterId
         : (confirmedRequesterOverride.requesterId === null ? undefined : rawActiveTask.requesterId)
     };
-  }, [rawActiveTask, confirmedRequesterOverride]);
+  }, [rawActiveTask, confirmedRequesterOverride, taskDetail]);
 
   // Never default to a producer identity — missing auth must not grant Eduardo's actions.
   const currentUser = propCurrentUser || {
@@ -409,29 +427,31 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
   }, [isOpen, activeTask?.id]);
 
   // Comprehensive Task Composite Context
-  const [taskDetail, setTaskDetail] = useState<any>(null);
   const [isLoadingTaskDetail, setIsLoadingTaskDetail] = useState<boolean>(false);
 
   const fetchTaskDetail = async () => {
     if (!activeTask?.id) return;
+    const generation = ++taskDetailGeneration.current;
     setIsLoadingTaskDetail(true);
     try {
-      const res = await fetch(`/api/marketing/tasks/${activeTask.id}`);
+      const res = await fetch(`/api/marketing/tasks/${encodeURIComponent(activeTask.id)}`);
       const data = await res.json();
-      if (data.success) {
+      if (data.success && generation === taskDetailGeneration.current) {
         setTaskDetail(data);
       }
     } catch (err) {
       console.error('Failed to fetch task detail in drawer:', err);
     } finally {
-      setIsLoadingTaskDetail(false);
+      if (generation === taskDetailGeneration.current) setIsLoadingTaskDetail(false);
     }
   };
 
   useEffect(() => {
+    setTaskDetail(null);
     if (isOpen && activeTask?.id) {
       fetchTaskDetail();
     }
+    return () => { taskDetailGeneration.current += 1; };
   }, [isOpen, activeTask?.id]);
 
   const eventSchedule = useMemo(() => {
@@ -763,13 +783,15 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, lightboxItem, isUploadWizardOpen, isRevisionModalOpen, showChecklistSoftWarning, isDirty]);
 
-  const activeDispatchVerdict = dispatchVerdict || fetchedDispatchVerdict;
+  const activeDispatchVerdict = dispatchVerdict || (fetchedDispatchVerdict?.taskId === activeTask?.id &&
+    fetchedDispatchVerdict?.recipientEmail === String(activeTask?.agentEmail || '').trim()
+    ? fetchedDispatchVerdict : null);
 
   useEffect(() => {
+    const gen = ++dispatchCheckGen.current;
     if (dispatchVerdict || !isOpen || !activeTask?.id) return;
     const recipientEmail = String(activeTask.agentEmail || '').trim();
     if (!recipientEmail) return;
-    const gen = ++dispatchCheckGen.current;
     const taskId = activeTask.id;
     const proofUrl = userPastedProofUrl(activeTask, manualProofUrl);
     (async () => {
@@ -789,11 +811,12 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         });
         const data = await res.json().catch(() => null);
         if (gen !== dispatchCheckGen.current) return;
-        if (data?.recipientStatus) setFetchedDispatchVerdict(data);
+        if (data?.recipientStatus) setFetchedDispatchVerdict({ ...data, taskId, recipientEmail });
       } catch {
         if (gen === dispatchCheckGen.current) setFetchedDispatchVerdict(null);
       }
     })();
+    return () => { dispatchCheckGen.current += 1; };
   }, [dispatchVerdict, isOpen, activeTask?.id, activeTask?.agentEmail, activeTask?.agentName, activeTask?.proofUrl]);
 
   if (!isOpen || !activeTask) return null;
@@ -1480,7 +1503,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
         const data = await res.json().catch(() => null);
         if (gen === dispatchCheckGen.current && data?.recipientStatus) {
           verdict = data;
-          setFetchedDispatchVerdict(data);
+          setFetchedDispatchVerdict({ ...data, taskId: activeTask.id, recipientEmail: agent.email.trim() });
         }
       } catch {
         if (gen === dispatchCheckGen.current) verdict = null;
@@ -1491,6 +1514,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
       recipientId: verdict?.recipientId || null,
     });
     setConfirmedRequesterOverride({
+      taskId: activeTask.id,
       agentName: patch.agentName,
       agentEmail: patch.agentEmail,
       agentPhone: patch.agentPhone || undefined,
@@ -1523,6 +1547,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
     if (!activeTask) return;
     if (!canApproveAndNotify) {
       setUrlValidationError('Approve & Notify refused: only the task reviewer may approve and notify the agent.');
+      return;
+    }
+    if (!hasAnyProof) {
+      setUrlValidationError('Upload a finished proof before approving delivery.');
       return;
     }
     if (onAskRequester) {
@@ -2410,7 +2438,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                 </span>
                 <span className="text-slate-300">·</span>
                 <span>
-                  <span className="text-slate-400 font-medium">Assignee </span>
+                  <span className="text-slate-400 font-medium">{isAwaitingReviewLane ? 'Producer ' : 'Assignee '}</span>
                   <strong className="text-slate-800">{activeTask.assignedTo || 'Unassigned'}</strong>
                 </span>
                 <span className="text-slate-300">·</span>
@@ -3269,13 +3297,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                         })}
                         className="relative w-full aspect-[16/10] max-h-56 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 group cursor-pointer"
                       >
-                        <img
+                        <AssetImage
                           src={surfacePrimaryPhoto.url}
                           alt={surfacePrimaryPhoto.name}
                           className="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = 'none';
-                          }}
                         />
                         <div className="absolute inset-0 bg-slate-900/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Eye className="w-5 h-5 text-white" />
@@ -3307,13 +3332,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                             })}
                             className="aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative group cursor-pointer"
                           >
-                            <img
+                            <AssetImage
                               src={pUrl}
                               alt={pName}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = 'none';
-                              }}
                             />
                             <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <Eye className="w-4 h-4 text-white" />
@@ -3418,13 +3440,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                               {asset.mimeType === 'application/pdf' ? (
                                 <FileText className="w-7 h-7 text-emerald-400" />
                               ) : (
-                                <img
+                                <AssetImage
                                   src={asset.previewUrl}
                                   alt={asset.fileName}
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLElement).style.display = 'none';
-                                  }}
                                 />
                               )}
                               <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -3510,11 +3529,10 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                               {isPdf ? (
                                 <FileText className="w-6 h-6 text-emerald-300" />
                               ) : isImage || isUploadedServerAsset ? (
-                                <img
+                                <AssetImage
                                   src={proofUrl}
                                   alt={fileName}
                                   className="w-full h-full object-cover group-hover:scale-105 transition"
-                                  onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                                 />
                               ) : (
                                 <Eye className="w-5 h-5 text-emerald-300" />
@@ -3575,9 +3593,13 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   ) : (
                     <div className="p-5 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center space-y-1.5">
                       <FolderOpen className="w-7 h-7 text-slate-400 mx-auto" />
-                      <div className="text-xs font-semibold text-slate-700">No proof staged yet</div>
+                      <div className="text-xs font-semibold text-slate-700">
+                        {activeTask.reviewState === 'awaiting_review' ? 'Finished proof is missing' : 'No proof staged yet'}
+                      </div>
                       <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                        Click <strong>Upload Finished Asset</strong> or paste a Google Drive, Canva, or Maxa URL below to stage proof.
+                        {activeTask.reviewState === 'awaiting_review'
+                          ? 'This task is marked for review, but no current finished proof is attached. Upload the finished asset again before review or delivery.'
+                          : <>Click <strong>Upload Finished Asset</strong> or paste a Google Drive, Canva, or Maxa URL below to stage proof.</>}
                       </p>
                     </div>
                   )}
@@ -4043,19 +4065,21 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
                   <button
                     type="button"
                     onClick={openDeliveryOutreach}
-                    disabled={isSubmitting || !isRecipientConfirmed}
+                    disabled={isSubmitting || !isRecipientConfirmed || !hasAnyProof}
                     data-action="Approve & send to agent"
                     data-recipient-status={activeDispatchVerdict?.recipientStatus || 'pending'}
                     aria-label="Approve for Delivery (Approve & Send to Agent)"
                     className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm shrink-0 ${
-                      !isRecipientConfirmed || isSubmitting
+                      !isRecipientConfirmed || !hasAnyProof || isSubmitting
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                         : 'bg-[#00635C] hover:bg-[#004d47] text-white cursor-pointer'
                     }`}
                     title={
                       !isRecipientConfirmed
                         ? 'Requester needs confirmation before external delivery'
-                        : 'Approve and notify the agent. The Drive folder is created automatically; paste a link only if create fails.'
+                        : !hasAnyProof
+                          ? 'Upload a finished proof before approving delivery.'
+                          : 'Review the finished proof and notify the requester.'
                     }
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />

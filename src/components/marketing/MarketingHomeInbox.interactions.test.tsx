@@ -27,8 +27,8 @@ beforeEach(() => {
   host = document.createElement('div'); document.body.appendChild(host); root = createRoot(host);
 });
 afterEach(() => { act(() => root?.unmount()); host?.remove(); vi.unstubAllGlobals(); });
-async function render(tasks: any[], currentUser: any = melissa) {
-  await act(async () => { root.render(<MarketingHomeInbox initialTasks={tasks} initialViewMode="table" currentUser={currentUser} onSelectCampaign={() => {}} />); });
+async function render(tasks: any[], currentUser: any = melissa, view: 'table' | 'pipeline' = 'table') {
+  await act(async () => { root.render(<MarketingHomeInbox initialTasks={tasks} initialViewMode={view} currentUser={currentUser} onSelectCampaign={() => {}} />); });
 }
 async function click(element: Element | null) {
   expect(element).not.toBeNull();
@@ -152,5 +152,133 @@ describe('Tasks table grouping', () => {
     await render(rows()); await click(testId('tasks-group-by-address'));
     expect(taskIds()).toEqual(['intake', 'no_address', 'production', 'review', 'same_address']);
     expect(sectionTasks()).toEqual({ '123 Main St': ['intake', 'production', 'same_address'], '456 Oak Ave': ['review'], 'No property address': ['no_address'] });
+  });
+});
+
+
+describe('Marketing review handoff display', () => {
+  it.each(['table', 'pipeline'] as const)('shows the next reviewer and preserves the producer in %s', async (view) => {
+    const submitted = task('handoff', {
+      workspaceId: 'ws_wilmington', status: 'in_progress', reviewState: 'awaiting_review',
+      assignedTo: eduardo.name, assignedToId: eduardo.id,
+      reviewOwnerId: melissa.id, reviewOwnerName: 'Stale reviewer name',
+    });
+    await render([submitted], melissa, view);
+    const handoff = testId('task-review-handoff');
+    expect(handoff?.textContent).toContain('Review: Melissa Gagliardi');
+    expect(handoff?.textContent).toContain('Producer: Eduardo Lovo');
+    expect(handoff?.textContent).not.toContain('Stale reviewer name');
+    expect(submitted.assignedToId).toBe(eduardo.id);
+    expect(submitted.assignedTo).toBe(eduardo.name);
+  });
+
+  it.each(['awaiting_review', 'ready_for_review'])('shows the review handoff for the drawer-compatible legacy status %s', async (status) => {
+    await render([task('legacy-handoff', {
+      workspaceId: 'ws_wilmington', status,
+      assignedTo: eduardo.name, assignedToId: eduardo.id,
+      reviewOwnerId: melissa.id, reviewOwnerName: melissa.name,
+    })]);
+    expect(testId('task-review-handoff')?.textContent).toContain('Review: Melissa Gagliardi');
+    expect(testId('task-review-handoff')?.textContent).toContain('Producer: Eduardo Lovo');
+  });
+
+  it.each([
+    { status: 'awaiting_review', reviewState: 'revisions_requested' },
+    { status: 'ready_for_review', reviewState: 'approved' },
+  ])('gives the explicit review state precedence over a legacy review status: %j', async (state) => {
+    await render([task('legacy-state', {
+      ...state, assignedTo: eduardo.name, assignedToId: eduardo.id,
+      reviewOwnerId: melissa.id, reviewOwnerName: melissa.name,
+    })]);
+    expect(testId('task-review-handoff')).toBeNull();
+    expect(testId('task-row-legacy-state')?.textContent).toContain('Eduardo');
+  });
+
+  it('uses the task reviewer instead of assuming every review belongs to Melissa', async () => {
+    await render([task('other-reviewer', {
+      workspaceId: 'ws_wilmington', status: 'in_progress', reviewState: 'awaiting_review',
+      assignedTo: eduardo.name, assignedToId: eduardo.id,
+      reviewOwnerId: 'dir_ann_gunn_28', reviewOwnerName: 'Ann Gunn',
+    })]);
+    expect(testId('task-review-handoff')?.textContent).toContain('Review: Ann Gunn');
+    expect(testId('task-review-handoff')?.textContent).not.toContain('Melissa');
+  });
+
+  it.each([
+    { status: 'in_progress' },
+    { status: 'in_progress', reviewState: 'revisions_requested' },
+    { status: 'approved', reviewState: 'approved' },
+    { status: 'completed', reviewState: 'awaiting_review' },
+  ])('does not label production, revisions, or completed review as waiting on the reviewer: %j', async (state) => {
+    await render([task('production-owner', {
+      ...state, assignedTo: eduardo.name, assignedToId: eduardo.id,
+      reviewOwnerId: melissa.id, reviewOwnerName: melissa.name,
+    })]);
+    expect(testId('task-review-handoff')).toBeNull();
+    expect(testId('task-row-production-owner')?.textContent).toContain('Eduardo');
+  });
+});
+
+describe('Tasks status filtering and sorting', () => {
+  const rows = () => [
+    task('review', { propertyAddress: '300 Oak St', status: 'in_progress', reviewState: 'awaiting_review', reviewOwnerId: melissa.id }),
+    task('assigned', { propertyAddress: '100 Main St', status: 'assigned', assignedToId: eduardo.id }),
+    task('intake', { propertyAddress: '200 Pine St', status: 'request_received' }),
+    task('review_other', { propertyAddress: '100 Main St', status: 'approved', reviewOwnerId: 'another_reviewer' }),
+    task('done', { status: 'completed', completedAt: '2020-01-01T00:00:00Z' }),
+    task('archived', { status: 'archived', isArchived: true }),
+  ];
+  async function selectStatus(value: string) {
+    const select = testId('tasks-filter-status') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    await act(async () => { select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  }
+  const orderedTaskIds = () => [...host.querySelectorAll('[data-testid^="task-row-"]')].map(row => row.getAttribute('data-testid')!.replace('task-row-', ''));
+
+  it('filters by displayed Needs Review and Assigned, and restores all statuses', async () => {
+    await render(rows());
+    await selectStatus('Needs Review');
+    expect(taskIds()).toEqual(['review', 'review_other']);
+    expect(testId('tasks-filtered-count')?.textContent).toBe('2 tasks');
+    await selectStatus('Assigned');
+    expect(taskIds()).toEqual(['assigned']);
+    await selectStatus('All Statuses');
+    expect(taskIds()).toEqual(['assigned', 'intake', 'review', 'review_other']);
+  });
+
+  it('combines the selected status with Mine instead of losing the ownership filter', async () => {
+    await render(rows());
+    await click(testId('tasks-filter-mine'));
+    await selectStatus('Needs Review');
+    expect(taskIds()).toEqual(['review']);
+    await selectStatus('Assigned');
+    expect(taskIds()).toEqual([]);
+    expect(host.textContent).toContain('Nothing matches these filters');
+    await selectStatus('All Statuses');
+    expect(taskIds()).toEqual(['review']);
+  });
+
+  it('lets users find older completed tasks and archived tasks explicitly', async () => {
+    await render(rows());
+    await selectStatus('Completed / Done');
+    expect(taskIds()).toEqual(['done']);
+    await selectStatus('Archived');
+    expect(taskIds()).toEqual(['archived']);
+    await selectStatus('Intake Received');
+    expect(taskIds()).toEqual(['intake']);
+  });
+
+  it('sorts statuses together across addresses and reverses them on the next click', async () => {
+    await render(rows());
+    await click(testId('tasks-sort-status'));
+    expect(testId('tasks-col-status')?.getAttribute('aria-sort')).toBe('ascending');
+    expect(testId('tasks-group-by-status')?.getAttribute('aria-pressed')).toBe('true');
+    expect(orderedTaskIds()).toEqual(['intake', 'assigned', 'review', 'review_other']);
+    expect([...host.querySelectorAll('[data-group-label]')].map(row => row.getAttribute('data-group-label'))).toEqual(['Intake Received', 'Assigned', 'Needs Review']);
+    await click(testId('tasks-sort-status'));
+    expect(testId('tasks-col-status')?.getAttribute('aria-sort')).toBe('descending');
+    expect(orderedTaskIds()).toEqual(['review', 'review_other', 'assigned', 'intake']);
+    expect([...host.querySelectorAll('[data-group-label]')].map(row => row.getAttribute('data-group-label'))).toEqual(['Needs Review', 'Assigned', 'Intake Received']);
+    expect(testId('test-drawer')).toBeNull();
   });
 });

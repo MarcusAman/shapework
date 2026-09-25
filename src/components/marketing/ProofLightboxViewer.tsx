@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AssetImage } from './AssetImage';
 import {
   X,
   ZoomIn,
@@ -249,10 +250,11 @@ export const ProofLightboxViewer: React.FC<ProofLightboxViewerProps> = ({
               className="relative max-w-full max-h-full flex items-center justify-center transition-transform duration-150"
               style={{ transform: `scale(${zoomLevel / 100})` }}
             >
-              <img
+              <AssetImage
                 src={currentSlide.url}
                 alt={currentSlide.title || item.title}
                 className="max-h-[58vh] max-w-full object-contain rounded-xl shadow-2xl border border-slate-800"
+                compact={false}
               />
             </div>
           )}

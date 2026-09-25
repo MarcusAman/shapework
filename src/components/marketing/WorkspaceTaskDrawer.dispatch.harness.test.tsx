@@ -172,7 +172,7 @@ describe('WorkspaceTaskDrawer dispatch-check', () => {
     }
   });
 
-  it('passes no photo or attachment proof to the notify modal when nothing was pasted', async () => {
+  it('does not open delivery with only source photos or attachments and no finished proof', async () => {
     const photo = 'https://cdn.example/listing-photo.jpg';
     const attachment = '/uploads/1789593612358_brochure.pdf';
     const calls: Array<{ url: string; proofUrl?: string }> = [];
@@ -204,13 +204,13 @@ describe('WorkspaceTaskDrawer dispatch-check', () => {
     });
 
     const button = document.querySelector('[data-action="Approve & send to agent"]') as HTMLButtonElement | null;
-    expect(button, 'Approve & Notify is available without a pasted link').toBeTruthy();
+    expect(button).toBeTruthy();
+    expect(button?.disabled).toBe(true);
     await act(async () => {
       button?.click();
     });
 
-    expect(received?.intent).toBe('delivery_complete');
-    expect(received?.approvePayload?.proofUrl).toBeFalsy();
+    expect(received).toBeNull();
     expect(calls.length).toBeGreaterThan(0);
     for (const call of calls) {
       expect(call.proofUrl, call.url).toBeFalsy();

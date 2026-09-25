@@ -80,6 +80,7 @@ import { getDerivedCampaignState, getDerivedAssetState } from '../../shared/mark
 import { AskRequesterQuestionsModal } from './AskRequesterQuestionsModal';
 import { resolveCanonicalRecipient } from '../../services/canonicalRecipientService';
 import { proofInputValue } from '../../lib/proofPrecedence';
+import { getMarketingReviewHandoff } from '../../lib/marketingReviewHandoff';
 import { NestOrbVisualizer } from '../shared/NestOrbVisualizer';
 import { MaxaBrowserAgentModal } from './MaxaBrowserAgentModal';
 import { RequestActionModal } from './RequestActionModal';
@@ -508,6 +509,8 @@ export type SurfaceTableGroupMode = 'address' | 'lane' | 'status';
 export const SURFACE_TABLE_GROUP_BY_ADDRESS_LABEL = 'Group by address';
 export const SURFACE_TABLE_GROUP_BY_LANE_LABEL = 'Group by Lane';
 export const SURFACE_TABLE_GROUP_BY_STATUS_LABEL = 'Group by Status';
+const STATUS_SORT_ORDER = [...PIPELINE_STAGES.map(stage => stage.id), 'legacy_unreconciled', 'archived'];
+const statusSortRank = (lane: string) => STATUS_SORT_ORDER.indexOf(lane.split(':')[0]);
 /** Lane section order — domain helpers, NOT pipeline stages. */
 export const SURFACE_DOMAIN_LANE_ORDER: Exclude<SurfaceDomainLane, '—'>[] = [
   'Marketing',
@@ -529,7 +532,8 @@ export type SurfaceTableListItem =
 export function buildSurfaceTableListItems(
   tasks: CanonicalMarketingTask[],
   expandedRequestIds: Record<string, boolean> = {},
-  groupMode: SurfaceTableGroupMode = 'address'
+  groupMode: SurfaceTableGroupMode = 'address',
+  statusSortOrder: 'asc' | 'desc' = 'asc'
 ): SurfaceTableListItem[] {
   if (groupMode !== 'lane') {
     const sections = new Map<string, { label: string; tasks: CanonicalMarketingTask[] }>();
@@ -545,9 +549,7 @@ export function buildSurfaceTableListItems(
     }
     const ordered = [...sections];
     if (groupMode === 'status') {
-      const order = [...PIPELINE_STAGES.map(stage => stage.id), 'legacy_unreconciled', 'archived'];
-      const rank = (key: string) => order.indexOf(key.startsWith('legacy_unreconciled:') ? 'legacy_unreconciled' : key);
-      ordered.sort(([a], [b]) => rank(a) - rank(b));
+      ordered.sort(([a], [b]) => (statusSortRank(a) - statusSortRank(b)) * (statusSortOrder === 'asc' ? 1 : -1));
     }
     return ordered.flatMap(([key, section]): SurfaceTableListItem[] => [
       { kind: 'group', groupBy: groupMode, key, label: section.label, count: section.tasks.length },
@@ -679,7 +681,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
   const [expandedRequestIds, setExpandedRequestIds] = useState<Record<string, boolean>>({});
   const [tableGroupMode, setTableGroupMode] = useState<SurfaceTableGroupMode>('address');
   const [showArchived, setShowArchived] = useState<boolean>(false);
-  const [sortField, setSortField] = useState<'dueAt' | 'createdAt' | 'title' | 'receivedAt'>('dueAt');
+  const [sortField, setSortField] = useState<'dueAt' | 'createdAt' | 'title' | 'receivedAt' | 'status'>('dueAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
@@ -1565,6 +1567,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         const matchesStatus =
           selectedStatus === 'All Tasks' ||
           selectedStatus === 'All Statuses' ||
+          PIPELINE_STAGES.some(stage => stage.label === selectedStatus && stage.id === lane) ||
           (selectedStatus === 'Archived' && lane === 'archived') ||
           (selectedStatus === 'Unreconciled Legacy' && lane === 'legacy_unreconciled') ||
           ((selectedStatus === 'Unassigned' || selectedStatus === 'Task Received' || selectedStatus === 'Request Received') && (lane === 'request_received' || lane === 'legacy_unreconciled')) ||
@@ -1628,6 +1631,10 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
         return matchesSearch && matchesStatus && matchesCategory && matchesAssignee && matchesTimeframe && matchesSurfaceMine && matchesSurfaceOpen && matchesSurfaceBlocked;
       })
       .sort((a, b) => {
+        if (sortField === 'status') {
+          const difference = statusSortRank(getCanonicalLaneForTask(a)) - statusSortRank(getCanonicalLaneForTask(b));
+          return sortOrder === 'asc' ? difference : -difference;
+        }
         if (sortField === 'receivedAt' || sortField === 'createdAt') {
           const aIso = sortField === 'receivedAt' ? getTaskReceivedIso(a) : a.createdAt;
           const bIso = sortField === 'receivedAt' ? getTaskReceivedIso(b) : b.createdAt;
@@ -1877,6 +1884,19 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
               </button>
             </div>
 
+            <select
+              aria-label="Filter by status"
+              data-testid="tasks-filter-status"
+              value={selectedStatus}
+              onChange={(event) => setSelectedStatus(event.target.value)}
+              className="max-w-[180px] min-w-[136px] px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer focus:border-[#00635C] focus:ring-1 focus:ring-[#00635C]/20 outline-none"
+            >
+              <option value="All Statuses">All Statuses</option>
+              {PIPELINE_STAGES.map(stage => <option key={stage.id} value={stage.label}>{stage.label}</option>)}
+              <option value="Unreconciled Legacy">Unreconciled Legacy</option>
+              <option value="Archived">Archived</option>
+            </select>
+
             <div className="relative flex-1 sm:max-w-xs min-w-[180px]">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -2016,8 +2036,28 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                   </th>
 
                   {/* 3. Status */}
-                  <th className="py-3.5 px-3 w-[11%] min-w-[110px] font-bold text-slate-700 text-left" data-testid="tasks-col-status">
-                    Status
+                  <th
+                    className="py-3.5 px-3 w-[11%] min-w-[110px] font-bold text-slate-700 text-left"
+                    data-testid="tasks-col-status"
+                    aria-sort={sortField === 'status' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <button
+                      type="button"
+                      data-testid="tasks-sort-status"
+                      aria-label="Sort by status"
+                      title="Sort by status; click again to reverse"
+                      className="flex items-center gap-1.5 w-full text-left cursor-pointer hover:text-[#00635C] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00635C] rounded"
+                      onClick={() => {
+                        setSortOrder(sortField === 'status' && sortOrder === 'asc' ? 'desc' : 'asc');
+                        setSortField('status');
+                        setTableGroupMode('status');
+                      }}
+                    >
+                      <span>Status</span>
+                      {sortField === 'status'
+                        ? <span aria-hidden="true" className="text-[#00635C]">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                        : <ArrowUpDown aria-hidden="true" className="w-3 h-3 text-slate-400" />}
+                    </button>
                   </th>
 
                   {/* 4. Owner */}
@@ -2103,7 +2143,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                   </tr>
                 ) : (
                   (() => {
-                  const surfaceTableItems = buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode);
+                  const surfaceTableItems = buildSurfaceTableListItems(filteredTasks, expandedRequestIds, tableGroupMode, sortField === 'status' ? sortOrder : 'asc');
                   const parentRowNums = assignSurfaceTableParentRowNumbers(surfaceTableItems);
                   return surfaceTableItems.map((listItem) => {
                     if (listItem.kind === 'group') {
@@ -2226,6 +2266,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
                     const isSubtask = rowIndent > 0;
                     const isLastSubtask = Boolean(listItem.isLastSubtask);
                     const stage = getStageForTask(task);
+                    const reviewHandoff = getMarketingReviewHandoff(task);
                     const isSelected = selectedTaskIds.includes(task.id);
                     const neededInfo = formatNeededByDate(task.neededByDate, task.dueAt);
                     const typeChip = isSubtask ? resolveSurfaceTableTypeChip(task.category) : null;
@@ -2369,7 +2410,12 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
 
                           {/* Owner */}
                           <td className="py-2 px-3 align-top whitespace-nowrap">
-                            {getTeamMemberBadge(task.assignedTo)}
+                            {reviewHandoff ? (
+                              <div data-testid="task-review-handoff" className="space-y-0.5">
+                                <div className="text-[11px] font-semibold text-amber-800">Review: {reviewHandoff.reviewerName}</div>
+                                <div className="text-[10px] text-slate-500">Producer: {reviewHandoff.producerName}</div>
+                              </div>
+                            ) : getTeamMemberBadge(task.assignedTo)}
                           </td>
 
                           {/* Due */}
@@ -2431,7 +2477,7 @@ export const MarketingHomeInbox: React.FC<MarketingHomeInboxProps> = ({
           {/* Table Footer Summary — one filtered-set count */}
           <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 font-medium flex items-center justify-between">
             <span data-testid="tasks-filtered-count">{filteredTasks.length} tasks</span>
-            <span className="text-slate-400">Sorted by {sortField === 'title' ? 'Title' : sortField === 'receivedAt' ? 'Received' : sortField === 'createdAt' ? 'Created Date' : 'Needed By Date'}</span>
+            <span className="text-slate-400">Sorted by {sortField === 'status' ? `Status (${sortOrder === 'asc' ? 'ascending' : 'descending'})` : sortField === 'title' ? 'Title' : sortField === 'receivedAt' ? 'Received' : sortField === 'createdAt' ? 'Created Date' : 'Needed By Date'}</span>
           </div>
         </div>
       ) : (

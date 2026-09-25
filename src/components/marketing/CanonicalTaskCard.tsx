@@ -42,6 +42,7 @@ import { MlsNumberBadge } from './MlsNumberBadge';
 import { RequestSourceIcon } from './RequestSourceIcon';
 import { CANONICAL_WORKSPACE_ROSTER } from '../../services/canonicalRoster';
 import { resolveTaskAssets } from '../../utils/assetResolver';
+import { getMarketingReviewHandoff } from '../../lib/marketingReviewHandoff';
 
 export interface CanonicalTaskCardAction {
   label: string;
@@ -313,6 +314,7 @@ export const CanonicalTaskCard: React.FC<CanonicalTaskCardProps> = ({
   }, [blockers]);
 
   // 7. Assignee Info
+  const reviewHandoff = getMarketingReviewHandoff(task);
   const assigneeName = task.assignedTo || task.assignedToName || 'Unassigned';
   const staffMember = CANONICAL_WORKSPACE_ROSTER.find(
     (m) =>
@@ -548,7 +550,12 @@ export const CanonicalTaskCard: React.FC<CanonicalTaskCardProps> = ({
       {/* ── 4. FOOTER: assignee + A/C action row (Nest #00635C) ── */}
       <div className="pt-2 border-t border-slate-100 flex flex-col gap-2 text-[11px]">
         <div className="flex items-center gap-1.5 min-w-0">
-          {staffMember ? (
+          {reviewHandoff ? (
+            <div data-testid="task-review-handoff" className="min-w-0 space-y-0.5">
+              <div className="text-[11px] font-semibold text-amber-800">Review: {reviewHandoff.reviewerName}</div>
+              <div className="text-[10px] text-slate-500">Producer: {reviewHandoff.producerName}</div>
+            </div>
+          ) : staffMember ? (
             <div className="flex items-center gap-1.5 truncate">
               <div
                 className={`w-4 h-4 rounded-full ${staffMember.color || 'bg-[#00635C]'} text-white font-bold text-[8px] flex items-center justify-center shrink-0 shadow-2xs`}
