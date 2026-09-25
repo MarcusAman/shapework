@@ -23,7 +23,10 @@ export function getNewsRouter(): Router {
       const limit = parseInt(req.query.limit as string, 10) || 50;
       const offset = parseInt(req.query.offset as string, 10) || 0;
 
-      const userId = req.user?.id || req.authUser?.id || 'usr_ryan';
+      const userId = req.user?.id || req.authUser?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+      }
 
       const result = await newsRepository.getItems(
         {
@@ -50,7 +53,10 @@ export function getNewsRouter(): Router {
    */
   router.get('/worth-your-time', async (req: any, res: Response) => {
     try {
-      const userId = req.user?.id || req.authUser?.id || 'usr_ryan';
+      const userId = req.user?.id || req.authUser?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+      }
       const result = await newsRepository.getWorthYourTime(userId);
       res.json(result);
     } catch (err: any) {
@@ -121,7 +127,10 @@ export function getNewsRouter(): Router {
     try {
       const itemId = req.params.id;
       const { actionType } = req.body;
-      const userId = req.user?.id || req.authUser?.id || 'usr_ryan';
+      const userId = req.user?.id || req.authUser?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+      }
 
       if (!['save', 'unsave', 'hide', 'open', 'ask_nora'].includes(actionType)) {
         return res.status(400).json({ error: 'Invalid action type.' });
@@ -149,7 +158,10 @@ export function getNewsRouter(): Router {
       }
 
       // Record Ask NORA signal
-      const userId = req.user?.id || req.authUser?.id || 'usr_ryan';
+      const userId = req.user?.id || req.authUser?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+      }
       await newsRepository.recordUserAction(userId, itemId, 'ask_nora');
 
       // Honest attribution determination

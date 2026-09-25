@@ -267,7 +267,8 @@ import { parseNestRechatRow } from './server/persistence/nestRechatParser.js';
 import { csrfProtection } from './server/auth/csrf.js';
 import { verifyRetellWebhookSignature } from './server/security/retellWebhookVerifier.js';
 import { signJwt } from './server/auth/jwt.js';
-import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver, requireInternal, requireStaffOrOidcAuth } from './server/auth/auth.js';
+import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission, setWorkspaceUsersResolver, requireInternal, requireStaffOrOidcAuth, rejectMissingSessionActor } from './server/auth/auth.js';
+import { defaultDenyApi } from './server/auth/defaultDenyApi.js';
 import { hashPassword, verifyPassword, loginRateLimiter, resetRateLimiter, activationRateLimiter } from './server/auth/password.js';
 import { sendPasswordResetEmail } from './server/email/emailProvider.js';
 import { createPasswordResetToken, verifyAndConsumePasswordResetToken } from './server/auth/passwordReset.js';
@@ -313,7 +314,7 @@ if (process.env.APP_MODE === 'production' && process.env.NODE_ENV !== 'productio
 }
 
 // Initialize Express
-const app = express();
+export const app = express();
 
 // HTTP Response Compression (Gzip / Deflate for fast mobile network payloads)
 app.use(compression());
@@ -491,6 +492,10 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Default-deny session gate. Mounted before every /api handler and router.
+// Only PUBLIC_API_ROUTES skip it; those routes keep their own checks.
+app.use(defaultDenyApi);
 
 // Production Health & Readiness Probes (Google Cloud Run / Kubernetes / Monitoring)
 app.get(['/healthz', '/api/health'], (req, res) => {
@@ -2571,11 +2576,9 @@ app.get('/api/workspace/team', async (req, res) => {
 app.put('/api/workspace/team/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const isTestMode = process.env.NODE_ENV === 'test';
-    const authHeader = (req.headers['authorization'] || '').toLowerCase();
-    const verifiedUser = (req as any).authUser || (req as any).user;
-    const actorRole = verifiedUser?.role || (isTestMode && (authHeader.includes('usr_ryan') || req.headers['x-admin-override'] === 'true') ? 'admin' : '');
-    const isActorAdmin = actorRole === 'admin' || actorRole === 'owner' || (isTestMode && (authHeader.includes('ryan') || authHeader.includes('usr_ryan') || req.headers['x-user-role'] === 'admin' || req.headers['x-user-role'] === 'owner'));
+    if (!rejectMissingSessionActor(req as any, res)) return;
+    const actorRole = (req as any).authUser?.role || (req as any).user?.role || '';
+    const isActorAdmin = actorRole === 'admin' || actorRole === 'owner';
 
     if (!isActorAdmin) {
       return res.status(403).json({ success: false, error: 'Access denied: Admin privileges required to edit team members.' });
@@ -5292,6 +5295,8 @@ app.post('/api/directory/sync/preview', requireAuth, resolveWorkspaceContext, re
 });
 
 app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('directory.sync'), async (req, res) => {
+  const sessionActor = rejectMissingSessionActor(req as any, res);
+  if (!sessionActor) return;
   const wsId = (req as any).workspace?.id || 'nest-realty-demo';
   const { deactivateIds } = req.body;
   const columnMapping = req.body.columnMapping || req.body.columnMappings;
@@ -5357,7 +5362,7 @@ app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requ
       job = {
         id: 'job_directory_import',
         workspace_id: wsId,
-        requested_by: (req as any).authUser?.id || 'usr_ryan',
+        requested_by: sessionActor.id,
         request_text: 'Import Directory Roster',
         workflow_key: 'directory_roster_import',
         workflow_name: 'Directory Roster Import',
@@ -5401,7 +5406,7 @@ app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requ
         sourceType: source?.type || 'google_sheets',
         sourceIdentifier: source?.type === 'file' ? source.filename : (source?.type === 'google_sheets' ? (source.spreadsheetUrl || '1ESWBGGQTz614hT_t1WNLtDHAZz7pApRy') : 'pasted_text'),
         selectedSheet: source?.tabName || 'default',
-        initiatedBy: (req as any).authUser?.id || 'usr_ryan',
+        initiatedBy: sessionActor.id,
         rowsFound: parsed.allRowsCount,
         addedCount: added,
         updatedCount: updated,
@@ -5423,8 +5428,8 @@ app.post('/api/directory/sync/apply', requireAuth, resolveWorkspaceContext, requ
     dbState.auditEvents.unshift({
       id: `audit_${Date.now()}`,
       workspaceId: wsId,
-      actorName: (req as any).authUser?.name || 'Ryan Crecelius',
-      actorEmail: (req as any).authUser?.email || 'ryan@nestrealty.com',
+      actorName: sessionActor.name,
+      actorEmail: sessionActor.email,
       actionType: 'import_directory_roster',
       description: `Imported roster directory: ${added} added, ${updated} updated, ${deactivated} deactivated.`,
       timestamp: new Date().toISOString()
@@ -8954,8 +8959,8 @@ app.get('/api/marketing/vendor-work-orders', requireAuth, resolveWorkspaceContex
   return res.json({ success: true, workOrders });
 });
 
-// GET/POST Trigger asknora@nestrealty.com Email Inbox Sync & Marketing Task Extraction
-app.all('/api/marketing/email-intake/sync', async (req, res) => {
+// POST Trigger asknora@nestrealty.com Email Inbox Sync & Marketing Task Extraction
+app.post('/api/marketing/email-intake/sync', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('manage_integrations'), csrfProtection, async (req, res) => {
   try {
     const { syncNoraEmailInbox } = await import('./server/integrations/google/noraEmailIntakeService.js');
     const result = await syncNoraEmailInbox();
@@ -9554,8 +9559,14 @@ app.post('/api/marketing/calls/sync', requireAuth, resolveWorkspaceContext, requ
   }
 });
 
-// POST Purge All Marketing Data & Inbound Calls (Fresh Reset)
-app.post('/api/marketing/purge-all-data', async (req, res) => {
+// POST Purge All Marketing Data & Inbound Calls (Fresh Reset). Admin only.
+app.post('/api/marketing/purge-all-data', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res, next) => {
+  const role = (req as any).membership?.role || (req as any).authUser?.role;
+  if (role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden', message: 'Admin privileges required.' });
+  }
+  next();
+}, csrfProtection, async (req, res) => {
   try {
     const { purgedTasks, purgedRequests } = purgeAllCanonicalMarketingData();
     purgeAllCallsInMemory();
@@ -9920,6 +9931,7 @@ app.post('/api/marketing/campaigns/:id/compliance', requireAuth, resolveWorkspac
 
 // POST Record Human Approval Flow (Operator/Admin/Reviewer Only)
 app.post('/api/marketing/campaigns/:id/approve', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, (req, res) => {
+  if (!rejectMissingSessionActor(req as any, res)) return;
   if (!isMarketingOperatorOrAdmin(req)) {
     return res.status(403).json({ success: false, error: 'Forbidden: Insufficient permissions to approve marketing campaign.' });
   }
@@ -9945,7 +9957,7 @@ app.post('/api/marketing/campaigns/:id/approve', requireAuth, resolveWorkspaceCo
   campaign.status = status;
   campaign.approvals.unshift({
     id: `appr_${Date.now()}`,
-    reviewerName: reviewerName || req.authUser?.name || 'Ryan Crecelius',
+    reviewerName: reviewerName || req.authUser?.name || req.authUser?.email,
     role: role || 'Broker-in-Charge',
     status,
     comments: comments || (decision === 'approve' ? 'Approved for distribution.' : 'Revisions requested.'),
@@ -9955,7 +9967,7 @@ app.post('/api/marketing/campaigns/:id/approve', requireAuth, resolveWorkspaceCo
   campaign.auditTrail.unshift({
     id: `audit_${Date.now()}`,
     action: decision === 'approve' ? 'CAMPAIGN_APPROVED' : 'CHANGES_REQUESTED',
-    performedBy: reviewerName || req.authUser?.name || 'Ryan Crecelius (BIC)',
+    performedBy: reviewerName || req.authUser?.name || req.authUser?.email,
     timestamp: new Date().toISOString(),
     details: decision === 'approve' ? 'Approved full marketing package for export and syndication.' : `Requested changes: ${comments}`
   });
@@ -10367,15 +10379,8 @@ app.post('/api/nora/marketing-intake', ensurePolicyLoadedMiddleware, requireAuth
     const { noraMarketingIntakeOrchestrator } = await import('./server/services/noraMarketingIntakeOrchestrator.js');
     
     // Derive trusted workspace and requester directory member from authenticated session
-    const authenticatedUser = req.user || (req as any).authUser || (process.env.NODE_ENV === 'test' ? {
-      id: req.headers['x-user-id'] || 'dir_ryan_crecelius_0',
-      email: req.headers['x-user-email'] || 'ryan@nestrealty.com',
-      name: req.headers['x-user-name'] || 'Ryan Crecelius'
-    } : null);
-
-    if (!authenticatedUser) {
-      return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
-    }
+    const authenticatedUser = rejectMissingSessionActor(req as any, res);
+    if (!authenticatedUser) return;
 
     const workspaceId = (req as any).workspace?.id || ((req as any).authUser?.workspaceId) || (process.env.NODE_ENV === 'test' ? req.headers['x-workspace-id'] : null) || 'ws_wilmington';
 
@@ -10837,7 +10842,9 @@ app.post('/api/marketing/campaigns/:id/generate', requireAuth, resolveWorkspaceC
   if (!canAccessCampaignRecord(req, campaign, true)) return res.status(403).json({ success: false, error: 'Forbidden' });
 
   const { requestedAssetTypes } = req.body || {};
-  const jobRes = createGenerationJob(campaign.id, (req as any).workspaceId, (req as any).user?.name || 'Ryan Crecelius', requestedAssetTypes);
+  const generationActor = rejectMissingSessionActor(req as any, res);
+  if (!generationActor) return;
+  const jobRes = createGenerationJob(campaign.id, (req as any).workspaceId, generationActor.name, requestedAssetTypes);
   const job = jobRes.job;
 
   // Run generation workflow in background
@@ -13581,8 +13588,10 @@ app.get('/api/sops/authoring-requests', requireAuth, resolveWorkspaceContext, re
 app.post('/api/sops/authoring-requests', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.write'), async (req: any, res) => {
   try {
     const workspaceId = (req.body.workspaceId as string) || req.workspaceId || 'nest-realty-wilmington';
-    const requestedByUserId = req.user?.id || req.authUser?.userId || 'usr_ryan';
-    const requestedByName = req.user?.name || req.authUser?.name || 'Ryan Crecelius';
+    const requestedBy = rejectMissingSessionActor(req as any, res);
+    if (!requestedBy) return;
+    const requestedByUserId = requestedBy.id;
+    const requestedByName = requestedBy.name;
 
     const { employeeEmail, employeeName, processName } = req.body;
     if (!processName || !employeeEmail) {
@@ -13719,7 +13728,9 @@ app.post('/api/sops/authoring-requests/:id/bic-approve', requireAuth, resolveWor
 app.post('/api/sops/authoring-requests/:id/approve-and-publish', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, requirePermission('sops.publish'), async (req: any, res) => {
   try {
     const { sopDraftId, starterDraftId } = req.body;
-    const publisherUser = req.user?.email || req.authUser?.name || 'Ryan Crecelius';
+    const publisher = rejectMissingSessionActor(req as any, res);
+    if (!publisher) return;
+    const publisherUser = publisher.email || publisher.name;
 
     const existingReq = await sopAuthoringRequestRepository.getById(req.params.id);
     if (existingReq?.requiresBicReview && existingReq.status !== 'bic_approved' && req.user?.role !== 'bic' && req.user?.role !== 'owner') {
@@ -13745,7 +13756,7 @@ app.post('/api/sops/authoring-requests/:id/approve-and-publish', requireAuth, re
     const updatedReq = await sopAuthoringRequestRepository.updateRequest(req.params.id, {
       status: 'published',
       publishedAt: new Date().toISOString(),
-      publisherUserId: req.user?.id || req.authUser?.userId || 'usr_ryan',
+      publisherUserId: publisher.id,
       priorStarterDraftId: starterDraftId
     });
 
@@ -16356,7 +16367,10 @@ app.post('/api/ops/sops', requireAuth, resolveWorkspaceContext, requireWorkspace
   }
 
   if (!sop.createdBy) {
-    sop.createdBy = user?.name || user?.email || sop.author || 'Ryan Crecelius (Principal Broker)';
+    if (!user?.id && !user?.email) {
+      return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+    }
+    sop.createdBy = user.name || user.email || sop.author;
   }
   if (!sop.author) {
     sop.author = sop.createdBy;
@@ -16548,7 +16562,10 @@ app.post('/api/ops/sops/generate-ai', requireAuth, resolveWorkspaceContext, requ
 app.post('/api/ops/sops/upload-document', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, checkAiRateLimit, async (req, res) => {
   const wsId = (req as any).workspace?.id || req.body?.workspaceId || 'nest-realty-demo';
   const user = (req as any).authUser;
-  const userId = user?.name || user?.email || 'Ryan Crecelius (Principal Broker)';
+  if (!user?.id && !user?.email) {
+    return res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+  }
+  const userId = user.name || user.email;
   const tenantId = user?.tenantId || 'tenant_nest_uat';
   const { fileContent, fileName = 'Uploaded_SOP_Document.pdf', mode = 'create', existingSopId, autoSave = false } = req.body;
 
@@ -17638,13 +17655,15 @@ app.post('/api/ops/positions/:id/assign', requireAuth, resolveWorkspaceContext, 
   }
 
   // Audit event log
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_pos_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'position_seat_reassigned',
     resourceType: 'PositionSeat',
     resourceId: id,
@@ -17703,13 +17722,15 @@ app.post('/api/ops/directory/sync-rechat', requireAuth, resolveWorkspaceContext,
   });
 
   // Log sync audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_rechat_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'rechat_roster_synced',
     resourceType: 'Directory',
     resourceId: 'rechat_sync',
@@ -17800,13 +17821,15 @@ app.post('/api/ops/integrations/basecamp/sync', requireAuth, resolveWorkspaceCon
   });
 
   // Log audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_basecamp_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'basecamp_todos_synced',
     resourceType: 'Integration',
     resourceId: 'basecamp',
@@ -17875,13 +17898,15 @@ app.post('/api/ops/integrations/dotloop/sync', requireAuth, resolveWorkspaceCont
   });
 
   // Log audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_dotloop_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'dotloop_loops_synced',
     resourceType: 'Integration',
     resourceId: 'dotloop',
@@ -18284,13 +18309,15 @@ app.post('/api/ops/integrations/calendar/sync', requireAuth, resolveWorkspaceCon
   const wsId = (req as any).workspace?.id || 'nest-realty-demo';
 
   // Log sync audit event
+  const auditActor = rejectMissingSessionActor(req as any, res);
+  if (!auditActor) return;
   if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
   dbState.opsAuditLogs.unshift({
     id: `log_calendar_sync_${Date.now()}`,
     organizationId: 'nest-realty',
     workspaceId: wsId,
-    actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
-    actorName: (req as any).authUser?.name || 'Ryan Crecelius',
+    actorUserId: auditActor.email || auditActor.id,
+    actorName: auditActor.name,
     action: 'calendar_events_synced',
     resourceType: 'Integration',
     resourceId: 'google_calendar',
@@ -18695,12 +18722,14 @@ app.post('/api/ops/analytics/bottlenecks', requireAuth, resolveWorkspaceContext,
   const aiRecommendation = 'Pre-verify disclosures with TC Ann Gunn prior to BIC submission. Reduces BIC audit SLA duration by 55% and increases overall SLA compliance by +18%.';
 
   if (applyOptimization) {
+    const auditActor = rejectMissingSessionActor(req as any, res);
+    if (!auditActor) return;
     if (!dbState.opsAuditLogs) dbState.opsAuditLogs = [];
     dbState.opsAuditLogs.unshift({
       id: `log_ai_opt_${Date.now()}`,
       organizationId: 'nest-realty',
       workspaceId: wsId,
-      actorUserId: (req as any).authUser?.email || 'ryan.c@nestrealty.com',
+      actorUserId: auditActor.email || auditActor.id,
       actorName: 'Ryan Crecelius (Broker Owner)',
       action: 'sop_template_ai_optimized',
       resourceType: 'SOP',
@@ -22244,7 +22273,7 @@ if (isProduction) {
 
 // Start application. Loopback unless production or an explicit HOST.
 const listenHost = selectListenHost(process.env);
-const server = app.listen(Number(PORT), listenHost, () => {
+export const httpServer = app.listen(Number(PORT), listenHost, () => {
   console.log(`[Shapework] Master full-stack server running on http://${listenHost}:${PORT}`);
   // Initialize automated hourly backup snapshot engine & integrity validator
   BackupSnapshotService.initAutomatedSnapshots(60);
@@ -22304,7 +22333,7 @@ function handleGracefulShutdown(signal: string) {
     console.warn('[Lifecycle] Snapshot on shutdown error:', err);
   }
 
-  server.close(async () => {
+  httpServer.close(async () => {
     console.log('[Lifecycle] HTTP server connections cleanly closed.');
     try {
       const { dbPool } = await import('./server/persistence/repositories.js');

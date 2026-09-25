@@ -595,3 +595,21 @@ export function requireStaffOrOidcAuth(req: any, res: any, next: any) {
   if (typeof requireInternal === 'function') return requireInternal(req, res, next);
   return res.status(401).json({ error: 'unauthorized' });
 }
+
+/** Session actor, or 401. Never substitutes a default user such as Ryan. */
+export function rejectMissingSessionActor(
+  req: AuthenticatedRequest,
+  res: Response
+): { id: string; email: string; name: string } | undefined {
+  const actor = req.authUser || (req as AuthenticatedRequest & { user?: AuthenticatedRequest['authUser'] }).user;
+  const id = actor?.id || (actor as { userId?: string } | undefined)?.userId;
+  if (!actor || (!id && !actor.email)) {
+    res.status(401).json({ error: 'authentication_required', message: 'Authentication is required.' });
+    return;
+  }
+  return {
+    id: id || actor.email,
+    email: actor.email || '',
+    name: actor.name || actor.email || id || '',
+  };
+}
