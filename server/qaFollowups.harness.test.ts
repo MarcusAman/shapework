@@ -55,7 +55,7 @@ describe('photo upload log waits for the gate', () => {
       driveUploadUrl: 'https://drive.google.com/drive/folders/1Live',
     });
     const logged = lines.join('\n');
-    expect(logged).toMatch(/Nora dispatching Google Drive photo upload request/);
+    expect(logged).toMatch(/Nora requesting listing photos/);
     expect(logged).not.toMatch(/\[Outbound\] held:/);
     expect(logged).not.toMatch(/\[Outbound\] blocked:/);
   });

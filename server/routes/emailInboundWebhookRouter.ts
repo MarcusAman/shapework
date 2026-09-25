@@ -149,14 +149,19 @@ async function handleInboundEmail(req: Request, res: Response) {
       body.attachments.forEach((att: any, idx: number) => {
         rawAttachments.push({
           filename: att.name || att.filename || att.Filename || `attachment_${idx + 1}.jpg`,
-          contentType: att.type || att.ContentType || 'image/jpeg',
-          content: att.content,
+          contentType: att.contentType || att.type || att.ContentType || 'image/jpeg',
+          content: att.content || att.Content || att.base64Data,
           sizeBytes: att.sizeBytes || att.length || 3840000,
           url: att.url
         });
       });
     }
 
+    if (typeof fromRaw !== 'string' || !fromRaw.trim()) return res.status(400).json({ success: false, error: 'Sender required' });
+    const headers = body.headers || body.Headers || {};
+    const header = (name: string) => Array.isArray(headers)
+      ? headers.find((h: any) => String(h.Name || h.name).toLowerCase() === name.toLowerCase())?.Value || headers.find((h: any) => String(h.Name || h.name).toLowerCase() === name.toLowerCase())?.value
+      : Object.entries(headers).find(([key]) => key.toLowerCase() === name.toLowerCase())?.[1];
     const { ingestInboundEmailToTask } = await import('../services/inboundEmailIngestionEngine.js');
     const result = await ingestInboundEmailToTask({
       from: typeof fromRaw === 'string' ? fromRaw : 'matt.orr@nestrealty.com',
@@ -164,12 +169,19 @@ async function handleInboundEmail(req: Request, res: Response) {
       subject,
       textContent,
       htmlContent: (body.html || body.Html || '').toString(),
+      messageId: body.messageId || body.MessageID || body['Message-Id'] || header('Message-ID'),
+      threadId: body.threadId || body.ThreadID,
+      inReplyTo: body.inReplyTo || body['In-Reply-To'] || header('In-Reply-To'),
+      references: body.references || body.References || header('References'),
+      workspaceId: (req as any).workspaceId || process.env.NORA_WORKSPACE_ID || 'ws_wilmington',
+      mailboxId: 'asknora@nestrealty.com',
+      provider: 'email_webhook',
       attachments: rawAttachments
     });
     const { getNotificationCcEmail } = await import('../policies/departmentNotificationPolicyEngine.js');
     const ccRecipient = getNotificationCcEmail({ assignee: result.assignedTo });
 
-    return res.status(200).json({
+    return res.status(result.success ? 200 : 422).json({
       ...result,
       ccRecipient,
       taskIds: [result.taskId]

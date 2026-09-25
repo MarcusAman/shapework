@@ -240,7 +240,7 @@ describe('QA gate: ensure-drive must not keep a pasted proof', () => {
     try {
       const res = await fetch(`http://127.0.0.1:${addr.port}/api/marketing/tasks/${id}/ensure-drive`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-user-email': 'melissa.gagliardi@nestrealty.com' },
         body: JSON.stringify({ proofUrl: PASTED, propertyAddress: '11 Paste Lane, Wilmington, NC' }),
       });
       expect(res.status).toBe(400);

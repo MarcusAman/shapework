@@ -2936,7 +2936,7 @@ export async function persistRequestToDatabase(
   }
 }
 
-export function saveCanonicalMarketingTask(task: CanonicalMarketingTask): CanonicalMarketingTask {
+export function saveCanonicalMarketingTask(task: CanonicalMarketingTask, options: { persistDatabase?: boolean } = {}): CanonicalMarketingTask {
   if (!task.id) {
     task.id = `tsk_manual_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   }
@@ -3037,7 +3037,7 @@ export function saveCanonicalMarketingTask(task: CanonicalMarketingTask): Canoni
     saveCanonicalStoreToDisk();
   }
 
-  if (isServer) {
+  if (isServer && options.persistDatabase !== false) {
     persistTaskToDatabase(task).catch(err => {
       console.warn('[saveCanonicalMarketingTask] Notice persisting task to database:', err?.message || err);
     });
@@ -3303,13 +3303,13 @@ export function submitCanonicalMarketingTaskProof(
 
   // Resolve Review Owner using Canonical Staff Directory
   try {
-    const allStaff = getAllStaffMembers();
-    const director = allStaff.find(s =>
-      s.id === 'dir_melissa_gagliardi_33' ||
-      s.role === 'marketing_director' ||
-      s.title?.toLowerCase().includes('marketing director') ||
-      s.title?.toLowerCase().includes('director')
-    );
+    // Proof submission must preserve the reviewer selected during intake/routing.
+    // A global first-director match can silently assign another workspace's reviewer.
+    const allStaff = getAllStaffMembers().filter(s => s.workspaceId === task.workspaceId && s.status !== 'inactive');
+    const director = task.reviewOwnerId || task.reviewOwnerName
+      ? allStaff.find(s => s.id === task.reviewOwnerId || s.fullName === task.reviewOwnerName)
+      : allStaff.find(s => s.id === 'dir_melissa_gagliardi_33') ||
+        allStaff.find(s => s.role === 'marketing_director');
     if (director) {
       task.reviewOwnerId = director.id;
       task.reviewOwnerName = director.fullName;
@@ -3397,7 +3397,8 @@ export function requestCanonicalMarketingTaskRevisions(
 export function approveCanonicalMarketingTaskProof(
   taskId: string,
   note?: string,
-  reviewer?: { id?: string; name?: string }
+  reviewer?: { id?: string; name?: string },
+  options: { persistDatabase?: boolean } = {}
 ): CanonicalMarketingTask | null {
   const task = getCanonicalMarketingTaskById(taskId);
   if (!task) return null;
@@ -3423,7 +3424,7 @@ export function approveCanonicalMarketingTaskProof(
     note: note || 'Proof approved'
   });
 
-  return saveCanonicalMarketingTask(task);
+  return saveCanonicalMarketingTask(task, options);
 }
 
 export function archiveCanonicalMarketingTask(taskId: string): CanonicalMarketingTask | null {

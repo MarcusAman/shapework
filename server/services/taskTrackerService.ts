@@ -48,9 +48,8 @@ export interface TaskTrackerRecord {
 const TRACKER_STORE = new Map<string, TaskTrackerRecord>();
 const CALL_TO_TRACKER_MAP = new Map<string, string>();
 
-function generateToken(callId: string): string {
-  const hash = crypto.createHash('sha256').update(callId + '_tracker_secret').digest('hex').slice(0, 12);
-  return `trk_${hash}`;
+function generateToken(_callId: string): string {
+  return `trk_${crypto.randomBytes(32).toString('hex')}`;
 }
 
 function deriveFourPointSummary(call: InboundMarketingCall): TaskTrackerRecord['fourPointSummary'] {
@@ -384,199 +383,187 @@ export async function sendFourPointFollowUp(
   };
 }
 
-export function generateMarketingTrackerToken(taskId?: string): string {
-  if (taskId) {
-    const cleanId = String(taskId).trim();
-    const hash = crypto.createHash('sha256').update(`mkt_trk_v1_${cleanId}`).digest('hex').slice(0, 12);
-    return `trk_${cleanId}_${hash}`;
-  }
-  return `trk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+export { resolveMarketingPortalTask as resolveMarketingTrackerTask } from './marketingPortalAccess.js';
+
+export async function generateMarketingTrackerToken(taskId: string): Promise<string> {
+  const { ensureMarketingPortalToken } = await import('./marketingPortalAccess.js');
+  return ensureMarketingPortalToken(taskId);
 }
 
 export async function getMarketingTrackerByToken(token: string): Promise<any | null> {
-  if (!token || typeof token !== 'string') return null;
-  const cleanToken = token.trim();
-
-  // 1. Check in-memory TRACKER_STORE (for telephony calls or cached trackers)
-  const memoryRecord = TRACKER_STORE.get(cleanToken);
-  if (memoryRecord) return memoryRecord;
-
-  try {
-    const { getCanonicalMarketingTasksLive, getCanonicalMarketingRequestById } = await import('../persistence/marketingCampaignsRepository.js');
-    const tasks = await getCanonicalMarketingTasksLive(undefined, true);
-    
-    // Match task by token, deterministic token, id, or trackerToken
-    let matchedTask = tasks.find(t => {
-      if (!t) return false;
-      if (t.trackerToken === cleanToken) return true;
-      if (t.id === cleanToken) return true;
-      if (generateMarketingTrackerToken(t.id) === cleanToken) return true;
-      if (cleanToken.startsWith('trk_') && cleanToken.includes(t.id)) return true;
-      return false;
-    });
-
-    if (!matchedTask) {
-      // Also check if token matches a canonical marketing request ID
-      const allRequests = (await import('../persistence/marketingCampaignsRepository.js')).getAllCanonicalMarketingRequests();
-      const matchedReq = allRequests.find(r => r.id === cleanToken || (cleanToken.startsWith('trk_') && cleanToken.includes(r.id)));
-      if (matchedReq && matchedReq.taskIds && matchedReq.taskIds.length > 0) {
-        matchedTask = tasks.find(t => matchedReq.taskIds.includes(t.id));
-      }
-    }
-
-    if (!matchedTask) return null;
-
-    const parentReq = matchedTask.requestId ? getCanonicalMarketingRequestById(matchedTask.requestId) : null;
-    const propertyAddress = matchedTask.propertyAddress || parentReq?.propertyAddress || 'Listing Property';
-    const agentName = matchedTask.agentName || parentReq?.agentName || 'Agent';
-    const agentEmail = matchedTask.agentEmail || parentReq?.agentEmail || '';
-    const agentPhone = matchedTask.agentPhone || parentReq?.agentPhone || '';
-    
-    // Status mapping
-    let mappedStatus: 'received' | 'routed' | 'in_progress' | 'completed' = 'in_progress';
-    let currentStepIndex = 2;
-    if (matchedTask.status === 'completed') {
-      mappedStatus = 'completed';
-      currentStepIndex = 4;
-    } else if (matchedTask.status === 'in_production' || matchedTask.status === 'in_progress') {
-      mappedStatus = 'in_progress';
-      currentStepIndex = 2;
-    } else if (matchedTask.status === 'awaiting_review' || matchedTask.status === 'approved') {
-      mappedStatus = 'in_progress';
-      currentStepIndex = 3;
-    } else {
-      mappedStatus = 'received';
-      currentStepIndex = 1;
-    }
-
-    const stages: TrackerTimelineStage[] = [
-      {
-        id: 'stage_received',
-        label: 'Request Received',
-        description: `Inbound marketing request logged for ${propertyAddress}`,
-        completed: true,
-        current: currentStepIndex === 0
-      },
-      {
-        id: 'stage_intake',
-        label: 'Intake Confirmed & Album Created',
-        description: 'Photos verified, property media album cataloged, and assigned to production lead',
-        completed: currentStepIndex >= 1,
-        current: currentStepIndex === 1
-      },
-      {
-        id: 'stage_production',
-        label: 'Designing & Production',
-        description: `In active production with ${matchedTask.assignedTo || 'Marketing Suite'}`,
-        completed: currentStepIndex >= 2,
-        current: currentStepIndex === 2
-      },
-      {
-        id: 'stage_review',
-        label: 'Director Review & QA',
-        description: 'Brand compliance and layout review with Melissa Gagliardi',
-        completed: currentStepIndex >= 3,
-        current: currentStepIndex === 3
-      },
-      {
-        id: 'stage_delivered',
-        label: 'Deliverables Ready',
-        description: 'Final print-ready and digital deliverables delivered',
-        completed: currentStepIndex >= 4,
-        current: currentStepIndex === 4
-      }
-    ];
-
-    // Build notes from task notes
-    const notes: TrackerNote[] = [];
-    if (matchedTask.notes) {
-      notes.push({
-        id: `note_${matchedTask.id}_init`,
-        author: 'Nora (Nest Operations)',
-        content: matchedTask.notes.slice(0, 300),
-        createdAt: matchedTask.createdAt || new Date().toISOString()
-      });
-    }
-
-    const externalLinks: Array<{ url: string; title: string; type: string }> = [];
-    if (matchedTask.driveFolderUrl && !matchedTask.driveFolderUrl.includes('1DRV_') && matchedTask.driveFolderUrl !== 'https://drive.google.com') {
-      externalLinks.push({
-        url: matchedTask.driveFolderUrl,
-        title: 'Google Drive Reference Folder',
-        type: 'drive'
-      });
-    }
-
-    const trackerRecord: any = {
-      token: cleanToken,
-      ticketId: `MK-${matchedTask.id.slice(-6).toUpperCase()}`,
-      callId: matchedTask.id,
-      callerName: agentName,
-      phone: agentPhone,
-      email: agentEmail,
-      propertyAddress,
-      category: matchedTask.category || 'marketing',
-      fourPointSummary: {
-        callerNeed: `Marketing collateral for ${propertyAddress}: ${matchedTask.title}`,
-        noraAction: `Request verified, media assets cataloged in internal album, assigned to ${matchedTask.assignedTo || 'Marketing Suite'}.`,
-        routedTo: `${matchedTask.assignedTo || 'Eduardo Lovo'} (Producer) & Melissa Gagliardi (Director)`,
-        estimatedDelivery: matchedTask.dueAt ? `Due ${new Date(matchedTask.dueAt).toLocaleDateString()}` : 'Within 48 hours'
-      },
-      status: mappedStatus,
-      currentStepIndex,
-      stages,
-      notes,
-      callbackRequested: false,
-      createdAt: matchedTask.createdAt || new Date().toISOString(),
-      targetSla: '48 hours',
-      slaRemainingMinutes: 120,
-      isMarketingRequest: true,
-      deliverables: [matchedTask.title],
-      assignedLead: 'Melissa Gagliardi (Marketing Director)',
-      assignedProducer: matchedTask.assignedTo || 'Eduardo Lovo',
-      photos: (matchedTask.photos || []).map((p: any) => ({
-        id: p.id || p.name,
-        name: p.name || 'Photo',
-        url: p.url,
-        type: p.type || 'image/jpeg',
-        sizeBytes: p.sizeBytes
-      })),
-      externalLinks
-    };
-
-    return trackerRecord;
-  } catch (err) {
-    console.warn('[TaskTracker] Error building marketing tracker by token:', err);
-    return null;
-  }
+  const { resolveMarketingPortalTask, hasApprovedCurrentProof, internalAssetFilename, safeExternalAssetUrl } = await import('./marketingPortalAccess.js');
+  const task = await resolveMarketingPortalTask(token);
+  if (!task) return null;
+  const encoded = encodeURIComponent(token);
+  const delivered = task.status === 'completed' && Boolean(task.routingSnapshot?.delivery?.messageId);
+  const reviewing = task.reviewState === 'awaiting_review' || task.reviewState === 'approved';
+  const index = delivered ? 4 : reviewing ? 3 : ['in_progress', 'in_production'].includes(task.status || '') ? 2 : task.status === 'assigned' ? 1 : 0;
+  const labels = ['Request Received', 'Intake & Photos', 'Designing & Production', 'Director Review', 'Deliverables Sent'];
+  const descriptions = [
+    'Your marketing request is with Melissa for intake review.',
+    'Listing details and photos are collected for production.',
+    'The assigned producer prepares your marketing assets.',
+    'Melissa reviews the current version before sending it.',
+    'The approved assets have been sent to your email address.',
+  ];
+  const notes = task.routingSnapshot?.clientNotes || [];
+  return {
+    token, ticketId: `MK-${task.id.slice(-6).toUpperCase()}`, callId: task.id,
+    callerName: task.agentName || 'Agent', phone: task.agentPhone || '', email: task.agentEmail || '',
+    propertyAddress: task.propertyAddress || 'Listing property', category: task.category || 'marketing',
+    status: delivered ? 'completed' : index >= 2 ? 'in_progress' : 'received',
+    currentStepIndex: index,
+    stages: labels.map((label, i) => ({ id: `stage_${i}`, label, description: descriptions[i], completed: i < index || delivered, current: i === index })),
+    notes, callbackRequested: false, createdAt: task.createdAt, targetSla: task.dueAt || '', slaRemainingMinutes: 0,
+    fourPointSummary: {
+      callerNeed: task.title,
+      noraAction: descriptions[index],
+      routedTo: task.assignedTo || 'Melissa Gagliardi',
+      estimatedDelivery: task.dueAt ? `Due ${new Date(task.dueAt).toLocaleDateString()}` : 'Timing will be confirmed by marketing.',
+    },
+    isMarketingRequest: true, deliverables: [task.title], assignedLead: 'Melissa Gagliardi', assignedProducer: task.assignedTo,
+    approvedDeliverables: hasApprovedCurrentProof(task) ? [{ name: task.title, url: `/api/track/marketing/${encoded}/deliverable` }] : [],
+    canRequestRevision: delivered,
+    photos: (task.photos || []).flatMap((photo, i) => {
+      const url = internalAssetFilename(photo.url)
+        ? `/api/track/marketing/${encoded}/media/${i}` : safeExternalAssetUrl(photo.url);
+      return url ? [{ ...photo, url }] : [];
+    }),
+    externalLinks: task.driveFolderUrl && safeExternalAssetUrl(task.driveFolderUrl)
+      ? [{ url: task.driveFolderUrl, title: 'Reference folder', type: 'drive' }] : [],
+  };
 }
 
+// Each public mutation updates only the fields it owns. Database arrays/JSON are
+// appended atomically so two browser requests cannot replace each other's data.
+const ACTIVE_PORTAL_TASK_WHERE = `id = $1 AND workspace_id = $2
+  AND COALESCE(is_archived, false) = false AND status <> 'archived'
+  AND routing_snapshot->'clientPortal'->>'token' = $3
+  AND routing_snapshot->'clientPortal'->>'revokedAt' IS NULL
+  AND routing_snapshot->'clientPortal'->>'expiresAt' > $4`;
+const CLIENT_NOTE_APPEND_SQL = `jsonb_set(COALESCE(routing_snapshot, '{}'::jsonb), '{clientNotes}',
+  COALESCE(routing_snapshot->'clientNotes', '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+    'id', $5::text, 'author', COALESCE(NULLIF(agent_name, ''), 'Agent'), 'content', $6::text, 'createdAt', $4::text)))`;
+
 export async function appendMarketingTrackerNote(token: string, authorOrNote: string, content?: string): Promise<any | null> {
-  const author = content !== undefined ? authorOrNote : 'Agent';
-  const textContent = content !== undefined ? content : authorOrNote;
-  if (!textContent || !textContent.trim()) return null;
-
-  try {
-    const { getCanonicalMarketingTasksLive, saveCanonicalMarketingTask, persistTaskToDatabase } = await import('../persistence/marketingCampaignsRepository.js');
-    const tasks = await getCanonicalMarketingTasksLive(undefined, true);
-    const matchedTask = tasks.find(t => {
-      if (!t) return false;
-      if (t.trackerToken === token) return true;
-      if (t.id === token) return true;
-      if (generateMarketingTrackerToken(t.id) === token) return true;
-      if (token.startsWith('trk_') && token.includes(t.id)) return true;
-      return false;
-    });
-
-    if (matchedTask) {
-      matchedTask.notes = `${matchedTask.notes || ''}\n\n[Note from ${author} via Tracker]: ${textContent.trim()}`;
-      matchedTask.updatedAt = new Date().toISOString();
-      saveCanonicalMarketingTask(matchedTask);
-      await persistTaskToDatabase(matchedTask);
-      return await getMarketingTrackerByToken(token);
-    }
-  } catch (err) {
-    console.warn('[TaskTracker] Error appending note to marketing tracker:', err);
+  const { resolveMarketingPortalTask, getMarketingPortalDbPool, hydrateMarketingPortalTask, refreshMarketingPortalCache } = await import('./marketingPortalAccess.js');
+  const { saveCanonicalMarketingTask, persistTaskToDatabase } = await import('../persistence/marketingCampaignsRepository.js');
+  const rawNote = content === undefined ? authorOrNote : content;
+  if (typeof rawNote !== 'string') return null;
+  const note = rawNote.trim();
+  if (!note || note.length > 5000) return null;
+  const task = await resolveMarketingPortalTask(token);
+  if (!task?.workspaceId) return null;
+  const createdAt = new Date().toISOString();
+  const noteId = crypto.randomUUID();
+  const pool = getMarketingPortalDbPool();
+  if (pool) {
+    const result = await pool.query(`UPDATE canonical_marketing_tasks SET
+      routing_snapshot = ${CLIENT_NOTE_APPEND_SQL},
+      notes = concat_ws(E'\n\n', NULLIF(notes, ''), '[Agent note]: ' || $6::text), updated_at = NOW()
+      WHERE ${ACTIVE_PORTAL_TASK_WHERE} RETURNING *`, [task.id, task.workspaceId, token, createdAt, noteId, note]);
+    if (!result.rows[0]) return null;
+    refreshMarketingPortalCache(hydrateMarketingPortalTask(result.rows[0]), ['notes', 'routingSnapshot', 'updatedAt']);
+  } else {
+    task.routingSnapshot = { ...task.routingSnapshot, clientNotes: [...(task.routingSnapshot?.clientNotes || []), {
+      id: noteId, author: task.agentName || 'Agent', content: note, createdAt,
+    }] };
+    task.notes = `${task.notes || ''}\n\n[Agent note]: ${note}`.trim();
+    task.updatedAt = createdAt;
+    await persistTaskToDatabase(task); saveCanonicalMarketingTask(task);
   }
-  return null;
+  return getMarketingTrackerByToken(token);
+}
+
+export async function requestMarketingTrackerRevision(token: string, feedback: string): Promise<any | null> {
+  const { resolveMarketingPortalTask, getMarketingPortalDbPool, hydrateMarketingPortalTask, refreshMarketingPortalCache } = await import('./marketingPortalAccess.js');
+  const { saveCanonicalMarketingTask, persistTaskToDatabase, getCanonicalMarketingRequestById, saveCanonicalMarketingRequest, persistRequestToDatabase } = await import('../persistence/marketingCampaignsRepository.js');
+  if (typeof feedback !== 'string' || !feedback.trim() || feedback.length > 5000) return null;
+  const task = await resolveMarketingPortalTask(token);
+  if (!task?.workspaceId || task.status !== 'completed' || !task.routingSnapshot?.delivery?.messageId) return null;
+  const note = feedback.trim();
+  const createdAt = new Date().toISOString();
+  const noteId = crypto.randomUUID();
+  const pool = getMarketingPortalDbPool();
+  if (pool) {
+    const result = await pool.query(`WITH updated_task AS (
+      UPDATE canonical_marketing_tasks SET status = 'in_progress', review_state = 'awaiting_review', completed_at = NULL,
+        review_history = COALESCE(review_history, '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+          'version', GREATEST(COALESCE(proof_version, 1), 1), 'action', 'revisions_requested',
+          'reviewerName', COALESCE(NULLIF(agent_name, ''), 'Agent'), 'feedbackNotes', $6::text, 'timestamp', $4::text)),
+        routing_snapshot = jsonb_set(${CLIENT_NOTE_APPEND_SQL}, '{revisionRequestedAt}', to_jsonb($4::text)),
+        notes = concat_ws(E'\n\n', NULLIF(notes, ''), '[Agent note]: ' || $6::text), updated_at = NOW()
+      WHERE ${ACTIVE_PORTAL_TASK_WHERE} AND status = 'completed'
+        AND NULLIF(routing_snapshot->'delivery'->>'messageId', '') IS NOT NULL
+      RETURNING *
+    ), updated_request AS (
+      UPDATE canonical_marketing_requests r SET status = 'in_progress', updated_at = NOW()
+      FROM updated_task t WHERE r.id = t.request_id AND r.workspace_id = t.workspace_id AND COALESCE(r.is_archived, false) = false
+      RETURNING r.id
+    ) SELECT * FROM updated_task`, [task.id, task.workspaceId, token, createdAt, noteId, note]);
+    if (!result.rows[0]) return null;
+    const updated = hydrateMarketingPortalTask(result.rows[0]);
+    refreshMarketingPortalCache(updated, ['status', 'reviewState', 'completedAt', 'reviewHistory', 'routingSnapshot', 'notes', 'updatedAt']);
+    const request = updated.requestId ? getCanonicalMarketingRequestById(updated.requestId) : null;
+    if (request?.workspaceId === updated.workspaceId && !request.isArchived) {
+      request.status = 'in_progress'; request.updatedAt = updated.updatedAt;
+    }
+    return getMarketingTrackerByToken(token);
+  }
+  // Local development/test persistence uses the same object, without a stale database snapshot.
+  task.status = 'in_progress'; task.reviewState = 'awaiting_review'; task.completedAt = undefined;
+  task.proofNotes = note; task.updatedAt = createdAt;
+  task.reviewHistory = [...(task.reviewHistory || []), {
+    version: task.proofVersion || 1, action: 'revisions_requested', reviewerName: task.agentName || 'Agent', feedbackNotes: note, timestamp: createdAt,
+  }];
+  task.routingSnapshot = { ...task.routingSnapshot, revisionRequestedAt: createdAt };
+  await persistTaskToDatabase(task); saveCanonicalMarketingTask(task);
+  if (task.requestId) {
+    const request = getCanonicalMarketingRequestById(task.requestId);
+    if (request?.workspaceId === task.workspaceId) {
+      request.status = 'in_progress'; request.updatedAt = createdAt;
+      await persistRequestToDatabase(request); saveCanonicalMarketingRequest(request);
+    }
+  }
+  return appendMarketingTrackerNote(token, note);
+}
+
+export async function addMarketingTrackerAsset(token: string, input: { filename: string; contentType: string; buffer: Buffer }): Promise<any | null> {
+  const { resolveMarketingPortalTask, getMarketingPortalDbPool, hydrateMarketingPortalTask, refreshMarketingPortalCache } = await import('./marketingPortalAccess.js');
+  const task = await resolveMarketingPortalTask(token);
+  if (!task?.workspaceId) return null;
+  const pool = getMarketingPortalDbPool();
+  const { saveDurableAssetAsync } = await import('../persistence/durableAssetRepository.js');
+  const { saveCanonicalMarketingTask, persistTaskToDatabase, getCanonicalMarketingRequestById, saveCanonicalMarketingRequest, persistRequestToDatabase } = await import('../persistence/marketingCampaignsRepository.js');
+  const asset = await saveDurableAssetAsync({ ...input, workspaceId: task.workspaceId, taskId: task.id, metadata: { requestId: task.requestId, source: 'client_portal' } });
+  const photo = { id: asset.id, name: asset.filename, url: asset.url, type: asset.contentType, sizeBytes: asset.sizeBytes };
+  const createdAt = new Date().toISOString();
+  if (pool) {
+    const result = await pool.query(`WITH updated_task AS (
+      UPDATE canonical_marketing_tasks SET photos = COALESCE(photos, '[]'::jsonb) || $5::jsonb, updated_at = NOW()
+      WHERE ${ACTIVE_PORTAL_TASK_WHERE} RETURNING *
+    ), updated_request AS (
+      UPDATE canonical_marketing_requests r SET photos = COALESCE(r.photos, '[]'::jsonb) || $5::jsonb, updated_at = NOW()
+      FROM updated_task t WHERE r.id = t.request_id AND r.workspace_id = t.workspace_id AND COALESCE(r.is_archived, false) = false
+      RETURNING r.id
+    ) SELECT * FROM updated_task`, [task.id, task.workspaceId, token, createdAt, JSON.stringify([photo])]);
+    if (!result.rows[0]) return null;
+    const updated = hydrateMarketingPortalTask(result.rows[0]);
+    refreshMarketingPortalCache(updated, ['photos', 'updatedAt']);
+    const request = updated.requestId ? getCanonicalMarketingRequestById(updated.requestId) : null;
+    if (request?.workspaceId === updated.workspaceId && !request.isArchived) {
+      request.photos = [...(request.photos || []), photo]; request.updatedAt = updated.updatedAt;
+    }
+  } else {
+    task.photos = [...(task.photos || []), photo]; task.updatedAt = createdAt;
+    await persistTaskToDatabase(task); saveCanonicalMarketingTask(task);
+    if (task.requestId) {
+      const request = getCanonicalMarketingRequestById(task.requestId);
+      if (request?.workspaceId === task.workspaceId) {
+        request.photos = [...(request.photos || []), photo]; request.updatedAt = createdAt;
+        await persistRequestToDatabase(request); saveCanonicalMarketingRequest(request);
+      }
+    }
+  }
+  return getMarketingTrackerByToken(token);
 }

@@ -56,6 +56,7 @@ export interface UploadedProofAsset {
 }
 
 interface ProofUploadWizardProps {
+  taskId?: string;
   isOpen: boolean;
   onClose: () => void;
   onAssetConfirmed: (asset: UploadedProofAsset) => void;
@@ -70,6 +71,7 @@ interface ProofUploadWizardProps {
 }
 
 export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
+  taskId,
   isOpen,
   onClose,
   onAssetConfirmed,
@@ -287,6 +289,8 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
     setIsProcessing(true);
 
     let finalPreviewUrl = durablePreviewUrl || filePreviewUrl || '';
+    let durableAssetId: string | undefined;
+    setErrorMessage(null);
 
     // Attempt to upload to durable backend storage if base64 data is present
     try {
@@ -296,25 +300,32 @@ export const ProofUploadWizard: React.FC<ProofUploadWizardProps> = ({
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            taskId,
             filename: selectedFile.name,
             fileBase64: durablePreviewUrl,
             contentType: selectedFile.type
           })
         });
         const uploadData = await uploadRes.json();
-        if (uploadData.success && uploadData.url && !String(uploadData.url).startsWith('data:')) {
-          finalPreviewUrl = uploadData.url;
+        if (!uploadRes.ok || !uploadData.success || !uploadData.url || !uploadData.assetId) {
+          throw new Error(uploadData.error || 'The file could not be saved. Please retry.');
         }
+        finalPreviewUrl = uploadData.url;
+        durableAssetId = uploadData.assetId;
       }
     } catch (e) {
-      // Leave the local preview in component state. Do not confirm a data: URL as the proof.
+      setErrorMessage(e instanceof Error ? e.message : 'The file could not be saved. Please retry.');
+      return;
     } finally {
       setIsProcessing(false);
     }
-    if (/^(?:data|blob|file):/i.test(finalPreviewUrl)) finalPreviewUrl = '';
+    if (!finalPreviewUrl || /^(?:data|blob|file):/i.test(finalPreviewUrl) || !durableAssetId) {
+      setErrorMessage('Save the file successfully before sending it for review.');
+      return;
+    }
 
     const confirmedAsset: UploadedProofAsset = {
-      id: `asset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: durableAssetId,
       deliverableName: selectedDeliverable,
       fileName: selectedFile.name,
       fileSizeBytes: selectedFile.size,

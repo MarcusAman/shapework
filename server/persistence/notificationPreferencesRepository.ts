@@ -112,6 +112,24 @@ export function resetNotificationPreferencesCacheForTesting(): void {
   memoryPreferencesCache = {};
 }
 
+/** Distinguish an explicit opt-out from the default returned for an unconfigured requester. */
+export async function hasStoredNotificationPreferencesAsync(userId: string, workspaceId: string): Promise<boolean> {
+  if (isDbRequired()) {
+    const pool = await getDbPool();
+    if (!pool) throw new Error('Notification preference storage is unavailable');
+    const result = await pool.query(
+      'SELECT 1 FROM user_notification_preferences WHERE user_id = $1 AND workspace_id = $2 LIMIT 1',
+      [userId, workspaceId]
+    );
+    return result.rows.length > 0;
+  }
+  const tenantDir = process.env.ACTIVE_TENANT_DIR || (process.env.APP_MODE === 'uat' ? 'data-tenant_nest_uat' : 'data');
+  const file = path.join(process.cwd(), tenantDir, 'user_notification_preferences.json');
+  if (!fs.existsSync(file)) return false;
+  const stored = JSON.parse(fs.readFileSync(file, 'utf8'))[userId];
+  return Boolean(stored && stored.workspaceId === workspaceId);
+}
+
 export async function getUserNotificationPreferencesAsync(userId: string): Promise<UserNotificationPreferences> {
   if (isDbRequired()) {
     const pool = await getDbPool();
@@ -448,4 +466,3 @@ export async function canSendAgentOutbound(args: {
     ? { allowed: true }
     : { allowed: false, reason: `member_pref_disabled:${args.messageType}` };
 }
-

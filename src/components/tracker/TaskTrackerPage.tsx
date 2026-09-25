@@ -59,6 +59,8 @@ interface TaskTrackerRecord {
   slaRemainingMinutes: number;
   isMarketingRequest?: boolean;
   deliverables?: string[];
+  approvedDeliverables?: Array<{ name: string; url: string }>;
+  canRequestRevision?: boolean;
   assignedLead?: string;
   assignedProducer?: string;
   photos?: Array<{ id: string; name: string; url: string; type?: string; sizeBytes?: number }>;
@@ -75,6 +77,7 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newNote, setNewNote] = useState('');
+  const [revisionMode, setRevisionMode] = useState(false);
   const [submittingNote, setSubmittingNote] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -119,30 +122,22 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
 
     setUploadingPhoto(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const res = await fetch(`/api/tracker/${token}/assets`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type,
-            fileBase64: base64
-          })
-        });
-        const data = await res.json();
-        if (data.success && data.tracker) {
-          setTracker(data.tracker);
-          setToastMsg('✓ Photo uploaded and linked to marketing package!');
-          setTimeout(() => setToastMsg(null), 4000);
-        } else {
-          setToastMsg('Failed to upload photo.');
-          setTimeout(() => setToastMsg(null), 4000);
-        }
-        setUploadingPhoto(false);
-      };
-      reader.readAsDataURL(file);
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Unable to read file.'));
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(`/api/tracker/${encodeURIComponent(token)}/assets`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType: file.type, fileBase64: base64 }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.tracker) throw new Error(data.error || 'Upload failed.');
+      setTracker(data.tracker);
+      setToastMsg('Photo saved to your marketing request.');
+      setUploadingPhoto(false);
+      setTimeout(() => setToastMsg(null), 4000);
     } catch (err) {
       setToastMsg('Upload error. Please try again.');
       setTimeout(() => setToastMsg(null), 4000);
@@ -156,20 +151,24 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
 
     setSubmittingNote(true);
     try {
-      const res = await fetch(`/api/tracker/${token}/notes`, {
+      const endpoint = revisionMode ? `/api/track/marketing/${encodeURIComponent(token)}/revisions` : `/api/tracker/${encodeURIComponent(token)}/notes`;
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           author: tracker?.callerName || 'Caller',
-          content: newNote.trim()
+          content: newNote.trim(),
+          feedback: revisionMode ? newNote.trim() : undefined
         })
       });
       const data = await res.json();
+      if (!res.ok || !data.success || !data.tracker) throw new Error(data.error || 'Unable to save note.');
       if (data.success && data.tracker) {
         setTracker(data.tracker);
         setNewNote('');
         setShowNoteModal(false);
-        setToastMsg('✓ Note added to live ticket!');
+        setToastMsg(revisionMode ? 'Your changes are back with Melissa for review.' : 'Note added to your request.');
+        setRevisionMode(false);
         setTimeout(() => setToastMsg(null), 4000);
       }
     } catch (err) {
@@ -377,6 +376,20 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
           </div>
         )}
 
+        {Boolean(tracker.approvedDeliverables?.length) && (
+          <section className="bg-white rounded-2xl p-5 border border-slate-200 space-y-3" aria-label="Approved deliverables">
+            <h2 className="text-sm font-bold text-slate-900">Approved deliverables</h2>
+            {tracker.approvedDeliverables!.map(item => (
+              <a key={item.url} href={item.url} className="block text-sm font-semibold text-[#00635C] underline">Download {item.name}</a>
+            ))}
+          </section>
+        )}
+        {tracker.canRequestRevision && (
+          <button type="button" className="w-full rounded-xl border border-[#00635C] p-3 text-sm font-semibold text-[#00635C]" onClick={() => { setRevisionMode(true); setShowNoteModal(true); }}>
+            Request changes
+          </button>
+        )}
+
         {/* Property Photos & Linked Assets */}
         {((tracker.photos && tracker.photos.length > 0) || (tracker.externalLinks && tracker.externalLinks.length > 0)) && (
           <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-3">
@@ -399,7 +412,7 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                 {tracker.photos.map((p, idx) => (
                   <div key={p.id || idx} className="relative group aspect-square rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs">
-                    <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${p.name}`}><img src={p.url} alt={p.name} className="w-full h-full object-cover" /></a>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-1.5 text-[9px] text-white truncate font-medium">
                       {p.name}
                     </div>
@@ -486,7 +499,7 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
         <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
-            onClick={() => setShowNoteModal(true)}
+            onClick={() => { setRevisionMode(false); setShowNoteModal(true); }}
             className="p-3.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl shadow-xs text-left transition-all cursor-pointer flex flex-col justify-between"
           >
             <MessageSquare className="w-4 h-4 text-[#00635C] mb-1.5" />
@@ -525,7 +538,7 @@ export const TaskTrackerPage: React.FC<{ token?: string }> = ({ token: tokenProp
             <h2 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-900">Ticket Activity & Notes ({tracker.notes.length})</h2>
             <button
               type="button"
-              onClick={() => setShowNoteModal(true)}
+              onClick={() => { setRevisionMode(false); setShowNoteModal(true); }}
               className="text-[11px] font-bold text-[#00635C] hover:underline"
             >
               + Add Note

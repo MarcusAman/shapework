@@ -10,6 +10,7 @@ import { convertKeysToSnake, convertKeysToCamel } from './databaseRepositories.j
 import crypto from 'crypto';
 import { hashPassword } from '../auth/password.js';
 import { NEST_FULL_ROSTER_72 } from './nestRosterSeed.js';
+import { SCOPED_MEDIA_SCHEMA_SQL } from './scopedMediaSchema.js';
 
 const resolvedDirname = typeof process !== 'undefined' && process.cwd ? path.join(process.cwd(), 'server', 'persistence') : '';
 
@@ -361,6 +362,8 @@ export async function initDatabaseSchema(pool: pg.Pool) {
 
       CREATE INDEX IF NOT EXISTS idx_asset_tokens_task_id ON asset_download_tokens(task_id);
       CREATE INDEX IF NOT EXISTS idx_asset_tokens_asset_id ON asset_download_tokens(asset_id);
+
+      ${SCOPED_MEDIA_SCHEMA_SQL}
 
       CREATE TABLE IF NOT EXISTS published_routing_policies (
         id VARCHAR(100) PRIMARY KEY,

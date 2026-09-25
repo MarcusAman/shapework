@@ -1,154 +1,71 @@
-/**
- * Proves that listing media assets are stored durably in PostgreSQL (durable_uploaded_assets),
- * cached to disk in public/uploads, and automatically rehydrated from the database
- * if the local container disk cache is missing.
- */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import {
-  saveListingMediaAsset,
-  getListingMediaAsset,
-  computeAssetSha256
-} from './services/listingMediaStorageService.js';
+import { createMediaDatabaseFake } from './test/mediaDatabaseFake.js';
 
-describe('Listing Media Storage & PostgreSQL Rehydration Harness', () => {
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+const state = vi.hoisted(() => ({ pool: null as any, tasks: new Map<string, any>() }));
+vi.mock('./persistence/repositories.js', () => ({ getDbPool: () => state.pool, getStorageDriver: () => 'memory' }));
+vi.mock('./persistence/marketingCampaignsRepository.js', () => ({
+  saveCanonicalMarketingTask: (task: any) => state.tasks.set(task.id, task),
+  getCanonicalMarketingTaskById: (id: string) => state.tasks.get(id),
+  getAllCanonicalMarketingTasks: () => [...state.tasks.values()],
+  persistTaskToDatabase: vi.fn(async () => {}),
+}));
+vi.mock('./email/resendDispatchAdapter.js', () => ({ dispatchEmailViaResend: vi.fn(async () => { throw new Error('Outbound is forbidden in this harness'); }) }));
+import { saveListingMediaAsset, getListingMediaAsset, purgeListingMediaMemory } from './services/listingMediaStorageService.js';
+import { generateMarketingTrackerToken, getMarketingTrackerByToken, appendMarketingTrackerNote } from './services/taskTrackerService.js';
+let directory: string;
+let cwdSpy: ReturnType<typeof vi.spyOn>;
+let database: ReturnType<typeof createMediaDatabaseFake>;
+const scope = { workspaceId: 'ws_album_test' };
 
-  it('persists an asset buffer into PostgreSQL and caches it to public/uploads', async () => {
-    const filename = `test_harness_photo_${Date.now()}.jpg`;
-    const buffer = Buffer.from('FAKE_JPEG_IMAGE_BYTES_1104_LIVE_OAK_WILMINGTON');
-    const expectedHash = computeAssetSha256(buffer);
+beforeAll(() => {
+  const base = path.join(process.cwd(), 'work', 'media-tests');
+  fs.mkdirSync(base, { recursive: true });
+  directory = fs.mkdtempSync(path.join(base, 'album-'));
+  cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(directory);
+});
+beforeEach(() => { database = createMediaDatabaseFake(); state.pool = database.pool; state.tasks.clear(); purgeListingMediaMemory(); });
+afterAll(() => { cwdSpy.mockRestore(); fs.rmSync(directory, { recursive: true, force: true }); });
 
-    const saved = await saveListingMediaAsset({
-      filename,
-      contentType: 'image/jpeg',
-      buffer,
-      propertyAddress: '1104 S Live Oak Pkwy, Wilmington, NC',
-      metadata: { source: 'harness_test' }
-    });
-
-    expect(saved.id).toBeDefined();
-    expect(saved.filename).toBe(filename);
-    expect(saved.contentType).toBe('image/jpeg');
-    expect(saved.sizeBytes).toBe(buffer.length);
-    expect(saved.sha256).toBe(expectedHash);
-    expect(saved.url).toBe(`/uploads/${filename}`);
-
-    // Verify written to disk cache
-    const diskPath = path.join(uploadsDir, filename);
-    expect(fs.existsSync(diskPath)).toBe(true);
-    expect(fs.readFileSync(diskPath).toString()).toBe(buffer.toString());
+describe('Internal media album and client tracker', () => {
+  it('records scoped durable bytes and caches both serving paths', async () => {
+    const buffer = Buffer.from('LISTING_PHOTO_BYTES');
+    const saved = await saveListingMediaAsset({ ...scope, filename: 'exterior.jpg', contentType: 'image/jpeg', buffer });
+    expect(database.assets.get(saved.id)).toMatchObject({ workspace_id: scope.workspaceId, data_base64: buffer.toString('base64') });
+    for (const dir of ['public', 'dist']) expect(fs.readFileSync(path.join(directory, dir, 'uploads', saved.storageFilename))).toEqual(buffer);
   });
 
-  it('rehydrates asset from PostgreSQL when local disk cache is wiped (Cloud Run cold start)', async () => {
-    const filename = `cold_start_photo_${Date.now()}.jpg`;
-    const buffer = Buffer.from('COLD_START_TEST_PHOTO_BYTES_WILMINGTON_WATERFRONT');
-
-    // 1. Save asset
-    await saveListingMediaAsset({
-      filename,
-      contentType: 'image/jpeg',
-      buffer,
-      propertyAddress: '742 Lumina Ave, Wrightsville Beach, NC'
-    });
-
-    // 2. Simulate container disk wipe (Cloud Run instance recycle)
-    const diskPath = path.join(uploadsDir, filename);
-    if (fs.existsSync(diskPath)) {
-      fs.unlinkSync(diskPath);
-    }
-    expect(fs.existsSync(diskPath)).toBe(false);
-
-    // 3. Retrieve asset -> should seamlessly fetch from PostgreSQL and re-create local disk cache
-    const retrieved = await getListingMediaAsset(filename);
-    expect(retrieved).not.toBeNull();
-    expect(retrieved?.filename).toBe(filename);
-    expect(retrieved?.buffer.toString()).toBe(buffer.toString());
-    expect(retrieved?.contentType).toBe('image/jpeg');
-
-    // 4. Verify disk cache was rehydrated
-    expect(fs.existsSync(diskPath)).toBe(true);
-
-    // Cleanup test file from disk
-    try {
-      fs.unlinkSync(diskPath);
-    } catch {}
+  it('rehydrates from the SQL boundary with memory and both cache directories empty', async () => {
+    const buffer = Buffer.from('COLD_START_LISTING_PHOTO');
+    const saved = await saveListingMediaAsset({ ...scope, filename: 'photo.jpg', contentType: 'image/jpeg', buffer });
+    for (const dir of ['public', 'dist']) fs.rmSync(path.join(directory, dir), { recursive: true, force: true });
+    purgeListingMediaMemory();
+    const retrieved = await getListingMediaAsset(saved.storageFilename, scope);
+    expect(retrieved?.buffer).toEqual(buffer);
+    expect(retrieved?.id).toBe(saved.id);
+    expect(database.calls.some(c => c.sql.includes('SELECT * FROM durable_uploaded_assets'))).toBe(true);
   });
 
-  it('generates a deterministic Proof Portal token and returns full task tracker with internal album photos', async () => {
-    const {
-      generateMarketingTrackerToken,
-      getMarketingTrackerByToken,
-      appendMarketingTrackerNote
-    } = await import('./services/taskTrackerService.js');
-    const {
-      saveCanonicalMarketingTask,
-      getAllCanonicalMarketingTasks
-    } = await import('./persistence/marketingCampaignsRepository.js');
-
-    const testTaskId = `task_album_test_${Date.now()}`;
-    const token = generateMarketingTrackerToken(testTaskId);
-
-    expect(token).toContain(testTaskId);
-    expect(generateMarketingTrackerToken(testTaskId)).toBe(token); // Deterministic!
-
-    // Create a mock task with photos in its internal media album
-    const testTask = {
-      id: testTaskId,
-      workspaceId: 'ws_wilmington',
-      title: 'Luxury Property Brochure (4-Page)',
-      propertyAddress: '1104 S Live Oak Pkwy, Wilmington, NC',
-      category: 'print_collateral',
-      status: 'in_production',
-      assignedTo: 'Eduardo Lovo',
-      reviewer: 'Melissa Gagliardi',
-      agentName: 'Marcus Aman',
-      agentEmail: 'marcus.aman@gmail.com',
-      photos: [
-        {
-          id: 'photo_1',
-          name: 'live_oak_exterior.jpg',
-          url: '/uploads/live_oak_exterior.jpg',
-          type: 'image/jpeg',
-          sizeBytes: 1024000
-        },
-        {
-          id: 'photo_2',
-          name: 'live_oak_interior.jpg',
-          url: '/uploads/live_oak_interior.jpg',
-          type: 'image/jpeg',
-          sizeBytes: 2048000
-        }
-      ],
-      notes: 'Initial request with 2 property photos attached.'
+  it('issues a stored opaque portal capability and exposes album photos and agent notes', async () => {
+    state.pool = null;
+    const task = {
+      id: 'task_album_test', workspaceId: scope.workspaceId, title: 'Property Brochure', status: 'in_production',
+      propertyAddress: '1104 S Live Oak Pkwy', assignedTo: 'Eduardo Lovo', agentName: 'Test Agent',
+      photos: [{ id: 'photo_1', name: 'exterior.jpg', url: '/uploads/asset_photo.jpg', type: 'image/jpeg' }],
+      notes: 'Internal briefing', createdAt: new Date().toISOString(),
     };
-
-    saveCanonicalMarketingTask(testTask as any);
-
-    // Fetch tracker via token
+    state.tasks.set(task.id, task);
+    const token = await generateMarketingTrackerToken(task.id);
+    expect(token).toMatch(/^mpt_[a-f0-9]{64}$/);
+    expect(await generateMarketingTrackerToken(task.id)).toBe(token);
+    expect(await getMarketingTrackerByToken(task.id)).toBeNull();
     const tracker = await getMarketingTrackerByToken(token);
-    expect(tracker).not.toBeNull();
-    expect(tracker?.ticketId).toBeDefined();
-    expect(tracker?.propertyAddress).toBe('1104 S Live Oak Pkwy, Wilmington, NC');
-    expect(tracker?.isMarketingRequest).toBe(true);
-    expect(tracker?.status).toBe('in_progress');
-    expect(tracker?.stages.length).toBe(5);
-    expect(tracker?.photos.length).toBe(2);
-    expect(tracker?.photos[0].url).toBe('/uploads/live_oak_exterior.jpg');
-    expect(tracker?.photos[0].url).not.toContain('unsplash.com');
-
-    // Append note via tracker
-    const updatedTracker = await appendMarketingTrackerNote(token, 'Marcus Aman', 'Please emphasize the waterfront dock in the brochure layout.');
-    expect(updatedTracker).not.toBeNull();
-
-    // Verify task updated
-    const allTasks = getAllCanonicalMarketingTasks();
-    const refreshed = allTasks.find(t => t.id === testTaskId);
-    expect(refreshed?.notes).toContain('waterfront dock');
-
-    // Clean up in-memory task
-    const idx = allTasks.findIndex(t => t.id === testTaskId);
-    if (idx >= 0) allTasks.splice(idx, 1);
+    expect(tracker).toMatchObject({ propertyAddress: task.propertyAddress, isMarketingRequest: true });
+    expect(tracker.stages).toHaveLength(5);
+    expect(tracker.photos[0].url).toBe(`/api/track/marketing/${token}/media/0`);
+    expect(tracker.notes).toEqual([]);
+    const updated = await appendMarketingTrackerNote(token, 'Test Agent', 'Please highlight the dock.');
+    expect(updated.notes[0].content).toBe('Please highlight the dock.');
   });
 });

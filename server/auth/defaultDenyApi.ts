@@ -75,6 +75,10 @@ export const PUBLIC_API_ROUTES: PublicApiRoute[] = [
   { method: 'POST', path: '/api/tracker/:token/assets' },
   { method: 'POST', path: '/api/track/marketing/:token/assets' },
   { method: 'POST', path: '/api/tracker/:token/callback' },
+  { method: 'GET', path: '/api/marketing/assets/download/:token' },
+  { method: 'GET', path: '/api/track/marketing/:token/media/:index' },
+  { method: 'GET', path: '/api/track/marketing/:token/deliverable' },
+  { method: 'POST', path: '/api/track/marketing/:token/revisions' },
   { method: 'GET', path: '/api/marketing/proof-portal/:token' },
   { method: 'POST', path: '/api/marketing/proof-portal/:token/action' },
 ];

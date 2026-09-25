@@ -6,8 +6,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { requireAuth } from '../auth/auth.js';
-import { sendEmail as sendAskNoraEmail } from '../email/emailProvider.js';
+import { requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, WILMINGTON_WORKSPACE_ALIASES } from '../auth/auth.js';
+import { sendEmail as sendAskNoraEmail, toAbsolutePublicUrl } from '../email/emailProvider.js';
 import { enqueueOutboundEmail } from '../services/inboundEmailIngestionEngine.js';
 import { isAllowlistedProveRecipient } from '../../src/lib/outboundAllowlistGate.js';
 import { dispatchEmailViaResend } from '../email/resendDispatchAdapter.js';
@@ -22,7 +22,9 @@ import {
   ensureAskNoraDeliveryDrivePack,
   isDurableHttpsProofUrl,
   isRealGoogleDriveUrl,
-  loadLocalProofAttachments,
+  resolveDurableDeliveryAssets,
+  buildMarketingDispatchKey,
+  internalProofFilename,
 } from '../services/askNoraDriveDelivery.js';
 import {
   approveCanonicalMarketingTaskProof,
@@ -44,6 +46,8 @@ import {
 } from '../services/evaluateDispatch.js';
 
 export const marketingQuestionsRouter = Router();
+import { acquireMarketingDeliveryLock, refreshMarketingDeliveryState, beginMarketingDeliveryAttempt, finishMarketingDeliveryAttempt, persistMarketingDeliverySnapshot } from '../services/marketingDeliveryLock.js';
+const canonicalWorkspace = (id?: string) => WILMINGTON_WORKSPACE_ALIASES.includes(String(id)) ? 'ws_wilmington' : String(id || '');
 
 /**
  * Approve & Notify send: require the task reviewer, accept only a durable https proof,
@@ -132,7 +136,7 @@ async function persistApproveNotifyProof(
   }
   const proofCandidate = [pastedProof, args.driveFolderUrl, task.proofUrl]
     .map((u) => String(u || '').trim())
-    .find((u) => isDurableHttpsProofUrl(u)) || '';
+    .find((u) => isDurableHttpsProofUrl(u) || internalProofFilename(u)) || '';
   if (!args.dispatchCleared && !args.proveAllowlist && !proofCandidate) {
     res.status(400).json({
       success: false,
@@ -143,17 +147,25 @@ async function persistApproveNotifyProof(
     return { handled: true };
   }
 
-  if (proofCandidate) task.proofUrl = proofCandidate;
+  const expectedProofVersion = task.proofVersion || 0;
+  if (proofCandidate && task.proofUrl !== proofCandidate) {
+    task.proofUrl = proofCandidate;
+    task.proofVersion = (task.proofVersion || 0) + 1;
+    task.proofHistory = [...(task.proofHistory || []), { version: task.proofVersion, proofUrl: proofCandidate, uploadedBy: sessionUser?.name || 'Reviewer', uploadedAt: new Date().toISOString() }];
+  }
   if (!task.agentEmail && args.resolvedRecipient.email) {
     task.agentEmail = args.resolvedRecipient.email;
   }
   task.updatedAt = new Date().toISOString();
-  saveCanonicalMarketingTask(task);
+  saveCanonicalMarketingTask(task, { persistDatabase: false });
   const approved = approveCanonicalMarketingTaskProof(task.id, 'Approved — Approve & Notify', {
     id: sessionUser?.id,
     name: sessionUser?.name || sessionUser?.email || 'Reviewer',
-  });
+  }, { persistDatabase: false });
   const saved = approved || getCanonicalMarketingTaskById(task.id) || task;
+
+  const { persistMarketingProofApproval } = await import('../services/marketingProofPersistence.js');
+  await persistMarketingProofApproval(saved, expectedProofVersion);
 
   const masterMode = (process.env.OUTBOUND_MASTER_MODE || process.env.OUTBOUND_MODE || 'hold').toLowerCase().trim();
   const outboundHeld =
@@ -291,7 +303,7 @@ export interface SendQuestionsPayload {
   attachments?: Array<{ filename?: string; url: string }>;
 }
 
-marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', async (req: Request, res: Response) => {
+marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req: Request, res: Response) => {
   try {
     const { requireAuth } = await import('../auth/auth.js');
     if (!(req as any).authUser && !(req as any).user) {
@@ -304,6 +316,9 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', asyn
     const taskId = String(req.params.id || '').trim();
     const task = getCanonicalMarketingTaskById(taskId);
     const body = (req.body || {}) as SendQuestionsPayload;
+    if (!task || canonicalWorkspace(task.workspaceId) !== (req as any).workspace.id) {
+      return res.status(404).json({ success: false, allowed: false, error: 'Task not found in this workspace.' });
+    }
     const melissaCc = 'melissa.gagliardi@nestrealty.com';
     const intent = body.intent || 'delivery_complete';
     const proposedCc = Array.from(new Set([
@@ -346,7 +361,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/:id/dispatch-check', asyn
   }
 });
 
-marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireAuth, async (req: Request, res: Response) => {
+marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req: Request, res: Response) => {
+  let releaseDeliveryLock: (() => Promise<void>) | undefined;
   try {
     const {
       campaignId,
@@ -359,7 +375,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       selectedQuestions = [],
       propertyAddress = 'Listing Property',
       actorName = 'Melissa Gagliardi',
-      workspaceId = 'ws_wilmington',
+      workspaceId: requestedWorkspaceId,
       intent = 'ask_missing',
       subject,
       ccEmails = [],
@@ -372,6 +388,10 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       forceConfirmRecent = false
     } = req.body as SendQuestionsPayload;
 
+    const workspaceId = (req as any).workspace.id;
+    if (requestedWorkspaceId && canonicalWorkspace(requestedWorkspaceId) !== workspaceId) {
+      return res.status(403).json({ success: false, error: 'Workspace mismatch.' });
+    }
     if (!campaignId || !message || (!recipientName && !requesterId && !recipientEmail)) {
       return res.status(400).json({
         success: false,
@@ -396,11 +416,23 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       recipientPhone && isHotlineNumber(recipientPhone) ? undefined : recipientPhone;
 
     const taskRecord = getCanonicalMarketingTaskById(String(taskId || campaignId));
+    if (taskRecord && canonicalWorkspace(taskRecord.workspaceId) !== workspaceId) {
+      return res.status(404).json({ success: false, error: 'Task not found in this workspace.' });
+    }
+    if (taskRecord) {
+      const release = await acquireMarketingDeliveryLock(workspaceId, taskRecord.id);
+      if (!release) return res.status(409).json({ success: false, error: 'Delivery is already in progress.' });
+      releaseDeliveryLock = release;
+      if (!await refreshMarketingDeliveryState(taskRecord)) return res.status(404).json({ success: false, error: 'Task not found in this workspace.' });
+    }
     const melissaCc = 'melissa.gagliardi@nestrealty.com';
     const isDeliveryComplete = intent === 'delivery_complete';
+    if (isDeliveryComplete && (!taskRecord || !channels.includes('email'))) {
+      return res.status(400).json({ success: false, error: 'Delivery requires an existing task and email to the agent.' });
+    }
     const proposedCc = Array.from(new Set([
       ...(Array.isArray(ccEmails) ? ccEmails : []),
-      ...(isDeliveryComplete && domain !== 'operational' ? [melissaCc] : []),
+      ...(isDeliveryComplete ? [melissaCc] : []),
     ].map((email) => String(email || '').trim().toLowerCase()).filter(Boolean)));
 
     let actor = (req as any).authUser || (req as any).user || null;
@@ -598,55 +630,36 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       });
     }
 
-    // 2d. Hard idempotency: one outbound per task + template (intent)
+    // A proof version has one delivery. A completion retry reuses the accepted receipt.
     const outreachTaskKey = String(taskId || campaignId);
-    const outreachOnceKey = `outreach_sent_${outreachTaskKey}_${intent}`;
+    const deliveryTask = getCanonicalMarketingTaskById(outreachTaskKey);
+    const outreachOnceKey = buildMarketingDispatchKey(deliveryTask || { id: outreachTaskKey, workspaceId }, intent);
     const sentOnceMap: Map<string, number> = ((global as any).__NEST_OUTREACH_ONCE ||= new Map());
-    if (!forceConfirmRecent && sentOnceMap.has(outreachOnceKey)) {
-      return res.status(409).json({
-        success: false,
-        error: `Already sent ${intent} for this task. One outbound per state change.`,
-        idempotencyKey: outreachOnceKey
-      });
-    }
-    if (!forceConfirmRecent) {
-      try {
-        const hist = await getActivityHistoryForTask(outreachTaskKey, workspaceId);
-        const already = (hist || []).some((e: any) =>
-          e?.idempotencyKey === `${outreachOnceKey}:done` ||
-          (e?.eventType === 'outreach.provider_accepted' &&
-            e?.metadata?.intent === intent &&
-            e?.metadata?.dispatched === true)
-        );
-        if (already) {
-          sentOnceMap.set(outreachOnceKey, Date.now());
-          return res.status(409).json({
-            success: false,
-            error: `Already sent ${intent} for this task. One outbound per state change.`,
-            idempotencyKey: outreachOnceKey
-          });
-        }
-        // Never send materials-ready AND missing-info for the same task in one window
-        const otherIntent = intent === 'delivery_complete' ? 'ask_missing' : 'delivery_complete';
-        const otherKey = `outreach_sent_${outreachTaskKey}_${otherIntent}`;
-        const otherSent =
-          sentOnceMap.has(otherKey) ||
-          (hist || []).some((e: any) =>
-            e?.idempotencyKey === `${otherKey}:done` ||
-            (e?.eventType === 'outreach.provider_accepted' &&
-              e?.metadata?.intent === otherIntent &&
-              e?.metadata?.dispatched === true)
-          );
-        if (otherSent) {
-          return res.status(409).json({
-            success: false,
-            error: `Blocked ${intent}: ${otherIntent} already sent for this task. One agent-facing outreach only.`,
-            idempotencyKey: otherKey
-          });
-        }
-      } catch (idemErr: any) {
-        console.warn('[send-questions] idempotency history warning:', idemErr?.message || idemErr);
+    const previousReceipt = deliveryTask?.routingSnapshot?.delivery;
+    if (isDeliveryComplete && previousReceipt?.key === outreachOnceKey && previousReceipt?.messageId) {
+      if (previousReceipt.recipient !== resolvedTo[0] || !resolvedCc.every(email => (previousReceipt.cc || []).includes(email))) {
+        return res.status(409).json({ success: false, code: 'DELIVERY_RECIPIENT_CHANGED', error: 'This proof was sent to different recipients. Review the sent email before sending again.' });
       }
+      return res.json({ success: true, alreadySent: true, dispatchKey: outreachOnceKey,
+        deliveryReceipt: previousReceipt, channels: { email: { success: true, status: 'sent', messageId: previousReceipt.messageId } } });
+    }
+    if (!isDeliveryComplete && !forceConfirmRecent && sentOnceMap.has(outreachOnceKey)) {
+      return res.status(409).json({ success: false, error: 'This information request was already sent.' });
+    }
+    const history = await getActivityHistoryForTask(outreachTaskKey, workspaceId);
+    const earlier = (history || []).find((e: any) => e?.idempotencyKey === `${outreachOnceKey}:done`);
+    if (earlier && (isDeliveryComplete || !forceConfirmRecent)) {
+      const receipt = (earlier as any).metadata?.deliveryReceipt;
+      if (isDeliveryComplete && receipt?.messageId && deliveryTask) {
+        if (receipt.recipient !== resolvedTo[0] || !resolvedCc.every(email => (receipt.cc || []).includes(email))) {
+          return res.status(409).json({ success: false, code: 'DELIVERY_RECIPIENT_CHANGED', error: 'This proof was sent to different recipients. Review the sent email before sending again.' });
+        }
+        deliveryTask.routingSnapshot = { ...(deliveryTask.routingSnapshot || {}), delivery: receipt };
+        await persistMarketingDeliverySnapshot(deliveryTask, { delivery: receipt });
+        return res.json({ success: true, alreadySent: true, dispatchKey: outreachOnceKey, deliveryReceipt: receipt,
+          channels: { email: { success: true, status: 'sent', messageId: receipt.messageId } } });
+      }
+      return res.status(409).json({ success: false, error: 'This outreach was already accepted. Check its delivery record.' });
     }
 
     // 3. Check Outbound Mode Safety Gate
@@ -725,53 +738,34 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
     // 4. Server Enforced From Address
     const enforcedFromAddress = 'Ask NORA <AskNora@NestRealty.com>';
     const results: Record<string, any> = {};
+    let emailFailureRetrySafe = false;
 
-    // Delivery: create/reuse AskNora Drive folder + upload proofs; only link if verified non-empty
-    let ensuredDriveUrl = '';
-    let driveWarning: string | undefined;
-    if (isDeliveryComplete) {
-      const tasks = getAllCanonicalMarketingTasks();
-      const task = tasks.find((x: any) => x.id === taskId || x.id === campaignId);
-      const pack = task
-        ? await ensureAskNoraDeliveryDrivePack(task, {
-            stagedAssets: (attachments || []).map((a: any) => ({ url: a?.url, fileName: a?.filename })),
-          })
-        : await ensureAskNoraDeliveryDrivePack({
-            id: String(taskId || campaignId),
-            propertyAddress,
-            agentName: recipientName,
-            agentEmail: recipientEmail,
-            driveFolderUrl,
-            proofUrl,
-            notes: message,
-            attachments,
-          });
-
-      if (pack.linkable && pack.driveFolderUrl && isRealGoogleDriveUrl(pack.driveFolderUrl)) {
-        ensuredDriveUrl = pack.driveFolderUrl;
-        if (task) {
-          task.driveFolderUrl = pack.driveFolderUrl;
-          if (pack.uploaded.length) {
-            const uploadNote = pack.uploaded.map((u) => u.webViewLink).join('\n');
-            task.notes = `${task.notes || ''}\n[AskNora Drive proofs]:\n${uploadNote}`.trim();
-          }
-          task.updatedAt = new Date().toISOString();
-          saveCanonicalMarketingTask(task);
-        }
-      } else {
-        driveWarning = pack.error || 'Drive link omitted — folder empty or unverified; email attachments only.';
-        console.warn('[send-questions] Drive not linkable:', driveWarning);
+    const currentTask = taskRecord ? getCanonicalMarketingTaskById(taskRecord.id) || taskRecord : null;
+    const durableAssets = isDeliveryComplete && currentTask
+      ? await resolveDurableDeliveryAssets(currentTask, proofForSend) : [];
+    const assetLinks: string[] = [];
+    const attachDurableFiles = durableAssets.reduce((total, asset) => total + asset.content.length, 0) <= 15 * 1024 * 1024;
+    if (!attachDurableFiles && currentTask) {
+      const { createAssetDownloadTokenAsync } = await import('../persistence/durableAssetRepository.js');
+      for (const asset of durableAssets) {
+        const token = await createAssetDownloadTokenAsync({ assetId: asset.assetId, filename: asset.filename,
+          workspaceId, taskId: currentTask.id, expiresInHours: 168 });
+        const url = toAbsolutePublicUrl(`/api/marketing/assets/download/${token.token}`);
+        if (!url) throw new Error('Public asset download URL is not configured.');
+        assetLinks.push(url);
       }
     }
-
-    // ONE verified Drive URL only for delivery — never scrape message body (typo duplex → 404)
-    const assetLinks: string[] = [];
-    if (isDeliveryComplete && ensuredDriveUrl && isRealGoogleDriveUrl(ensuredDriveUrl)) {
-      assetLinks.push(ensuredDriveUrl);
+    const driveWarning: string | undefined = undefined;
+    // The shared gate verified this explicit Drive folder, or a scoped durable attachment.
+    if (isDeliveryComplete && !durableAssets.length) {
+      const folder = driveFolderUrl || currentTask?.driveFolderUrl;
+      if (folder && isRealGoogleDriveUrl(folder)) assetLinks.push(folder);
+      if (!assetLinks.length) return res.status(400).json({ success: false, error: 'No verified finished asset is available to deliver.' });
     }
+
     const assetLinksHtml = assetLinks.length
       ? `<div style="margin:18px 0;padding:14px 16px;background:#E5EFEA;border-radius:10px;border:1px solid #b7d4c8;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#00635C;margin-bottom:8px;">Google Drive</div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#00635C;margin-bottom:8px;">Approved assets</div>
             <p style="margin:0;color:#01362D;font-size:13px;line-height:1.55;">
               <a href="${assetLinks[0]}" style="color:#00635C;font-weight:600;word-break:break-all;">Open your marketing assets</a>
             </p>
@@ -780,7 +774,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
           ? `<p style="font-size:12px;color:#01362D;background:#E5EFEA;padding:10px 12px;border-radius:8px;">Your assets are attached to this email. Reply if you need them resent.</p>`
           : '');
     const assetLinksText = assetLinks.length
-      ? `\n\nGoogle Drive:\n${assetLinks[0]}`
+      ? `\n\nApproved assets:\n${assetLinks[0]}`
       : (isDeliveryComplete ? '\n\nYour assets are attached to this email / were emailed — reply if you need them resent.' : '');
 
     const agentLabel = String(resolvedRecipient.name || resolvedRecipient.firstName || 'there').trim();
@@ -788,7 +782,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
     const deliveryBody = isDeliveryComplete
       ? [
           hasDriveLink
-            ? `${agentLabel}, we have your requested marketing assets ready. Click the Google Drive link below to view.`
+            ? `${agentLabel}, we have your requested marketing assets ready. Use the link below to download them.`
             : `${agentLabel}, we have your requested marketing assets ready. Your files are attached to this email.`,
           ...(propertyAddress && propertyAddress !== 'Listing Property' ? ['', `Property: ${propertyAddress}`] : []),
           '',
@@ -858,20 +852,17 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
           idempotencyKey: `outreach_queued_email_${campaignId}_${Date.now()}`
         }).catch(() => {});
 
-        let emailAttachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
-        if (isDeliveryComplete) {
-          const tasksForAttach = getAllCanonicalMarketingTasks();
-          const taskForAttach = tasksForAttach.find((x: any) => x.id === taskId || x.id === campaignId);
-          if (taskForAttach) {
-            emailAttachments = loadLocalProofAttachments(taskForAttach, (attachments || []).map((a: any) => ({ url: a?.url, fileName: a?.filename })));
-          }
-        }
+        const emailAttachments = attachDurableFiles ? durableAssets.map(({ filename, content, contentType }) => ({ filename, content, contentType })) : [];
 
         // Prefer AskNora Gmail SMTP (Workspace mailbox). Resend only as fallback if SMTP fails hard.
         let providerUsed: 'asknora_smtp' | 'resend' = 'asknora_smtp';
         let messageId: string | undefined;
         let sendError: string | undefined;
 
+        if (isDeliveryComplete && currentTask && !await beginMarketingDeliveryAttempt(currentTask, outreachOnceKey)) {
+          return res.status(409).json({ success: false, code: 'DELIVERY_OUTCOME_UNCONFIRMED',
+            error: 'The prior delivery outcome is unconfirmed. Check the AskNora sent mailbox before retrying.' });
+        }
         const smtpResult = await sendAskNoraEmail({
           to: resolvedTo[0],
           from: enforcedFromAddress,
@@ -879,10 +870,14 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
           subject: emailSubject,
           html: formattedHtml,
           text: textBody,
+          workspaceId,
+          requestId: campaignId,
+          taskId: outreachTaskKey,
           ...(resolvedCc.length ? { cc: resolvedCc } : {}),
           ...(emailAttachments.length ? { attachments: emailAttachments } : {})
         });
 
+        emailFailureRetrySafe = smtpResult.retrySafe === true || smtpResult.suppressed === true || smtpResult.held === true;
         const smtpOk = Boolean(smtpResult.success) && Boolean(smtpResult.smtpAccepted);
         if (smtpOk) {
           messageId = smtpResult.messageId;
@@ -890,8 +885,9 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
           // Fallback to Resend only when a non-mock key is configured
           const resendKey = String(process.env.RESEND_API_KEY || '');
           const resendUsable = resendKey.length > 10 && !resendKey.startsWith('re_mock');
-          if (resendUsable) {
+          if (resendUsable && smtpResult.retrySafe === true && !smtpResult.suppressed && !smtpResult.held) {
             providerUsed = 'resend';
+            emailFailureRetrySafe = false;
             const emailResult = await dispatchEmailViaResend({
               to: resolvedTo[0],
               from: enforcedFromAddress,
@@ -978,7 +974,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       const smsCore = isDeliveryComplete
         ? [
             assetLinks.length
-              ? `${agentLabelSms}, we have your requested marketing assets ready. Click the Google Drive link below to view.`
+              ? `${agentLabelSms}, we have your requested marketing assets ready. Use the link below to download them.`
               : `${agentLabelSms}, we have your requested marketing assets ready. Your assets were emailed — reply if you need them resent.`,
             '',
             'Respond to this text if you need any revisions.',
@@ -1025,9 +1021,10 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
     // Independent channels: email success must never be blocked by SMS failure.
     // Fail closed only when every requested channel failed (or the sole channel failed).
     const anyDelivered = (emailChannelRequested && emailOk) || (smsChannelRequested && smsOk);
-    const hardFail = !anyDelivered;
+    const hardFail = isDeliveryComplete ? results.email?.success !== true : !anyDelivered;
 
     if (hardFail) {
+      if (isDeliveryComplete && currentTask && emailFailureRetrySafe) await finishMarketingDeliveryAttempt(currentTask, outreachOnceKey, 'failed');
       const parts: string[] = [];
       if (emailChannelRequested && !emailOk) {
         parts.push(`email: ${results.email?.error || results.email?.status || 'failed'}`);
@@ -1054,6 +1051,18 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       warnings.push(`text failed: ${results.sms?.error || results.sms?.status || 'failed'}`);
     }
 
+    const deliveryReceipt = isDeliveryComplete ? {
+      key: outreachOnceKey, messageId: results.email.messageId, acceptedAt: new Date().toISOString(),
+      recipient: resolvedTo[0], cc: resolvedCc, proofVersion: currentTask?.proofVersion || 1,
+      proofChecksum: durableAssets[0]?.sha256Checksum,
+    } : undefined;
+    if (currentTask && results.email?.messageId) {
+      const { recordEmailConversation } = await import('../services/noraEmailReplyLifecycle.js');
+      recordEmailConversation(currentTask, { messageId: results.email.messageId });
+      if (deliveryReceipt) currentTask.routingSnapshot = { ...(currentTask.routingSnapshot || {}), delivery: deliveryReceipt };
+      if (deliveryReceipt) await finishMarketingDeliveryAttempt(currentTask, outreachOnceKey, 'accepted', results.email.messageId);
+      else await persistMarketingDeliverySnapshot(currentTask, { emailConversation: currentTask.routingSnapshot?.emailConversation });
+    }
     sentOnceMap.set(outreachOnceKey, Date.now());
     try {
       await recordActivityEvent({
@@ -1067,7 +1076,7 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
         direction: 'outbound',
         communicationStatus: 'provider_accepted',
         summary: `Dispatched ${intent} for ${outreachTaskKey}`,
-        metadata: { intent, taskId: outreachTaskKey, dispatched: true, assetLinks, warnings },
+        metadata: { intent, taskId: outreachTaskKey, dispatched: true, assetLinks, warnings, deliveryReceipt },
         idempotencyKey: `${outreachOnceKey}:done`
       });
     } catch {}
@@ -1084,6 +1093,8 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       partial: warnings.length > 0,
       campaignId,
       dispatchedAt: new Date().toISOString(),
+      dispatchKey: outreachOnceKey,
+      deliveryReceipt,
       channels: results,
       assetLinks,
       cc: resolvedCc,
@@ -1099,16 +1110,19 @@ marketingQuestionsRouter.post('/api/marketing/requests/send-questions', requireA
       code: 'SEND_QUESTIONS_FAILED',
       error: err?.message || 'Internal error dispatching questions.'
     });
+  } finally {
+    if (releaseDeliveryLock) await releaseDeliveryLock();
   }
 });
 
 /** Create/reuse AskNora Drive folder + upload proofs; only returns URL when linkable. */
-marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', async (req: Request, res: Response) => {
+marketingQuestionsRouter.post('/api/marketing/tasks/:taskId/ensure-drive', requireAuth, resolveWorkspaceContext, requireWorkspaceMembership, async (req: Request, res: Response) => {
   try {
     const taskId = String(req.params.taskId || '').trim();
     if (!taskId) return res.status(400).json({ success: false, error: 'taskId required' });
     const tasks = getAllCanonicalMarketingTasks();
     const task = tasks.find((x: any) => x.id === taskId);
+    if (!task || canonicalWorkspace(task.workspaceId) !== (req as any).workspace.id) return res.status(404).json({ success: false, error: 'Task not found in this workspace.' });
     const stagedAssets = Array.isArray(req.body?.stagedAssets) ? req.body.stagedAssets : [];
     if (task) {
       if ((!task.attachments || !task.attachments.length) && Array.isArray(req.body?.attachments)) {

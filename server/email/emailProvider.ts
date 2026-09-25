@@ -57,11 +57,39 @@ export function getNoraTransporter() {
   });
 }
 
+type EmailThreadContext = {
+  workspaceId?: string; requestId?: string; taskId?: string; threadId?: string;
+  inReplyTo?: string; references?: string | string[];
+};
+
 export interface EmailDispatchResult {
   success: boolean;
   messageId?: string;
   error?: string;
   setupUrl?: string;
+  smtpAccepted?: boolean;
+  smtpResponse?: string;
+  acceptedRecipients?: string[];
+  rejectedRecipients?: string[];
+  confirmedReceipt?: boolean;
+  suppressed?: boolean;
+  held?: boolean;
+  reason?: string;
+  /** True only if transport conclusively did not accept this recipient. */
+  retrySafe?: boolean;
+}
+
+/** Public email links must survive a deploy and must never point at a local host. */
+export function toAbsolutePublicUrl(value?: string | null): string {
+  const raw = String(value || '').trim();
+  if (!raw || raw.startsWith('//')) return '';
+  try {
+    const base = process.env.PUBLIC_APP_URL || process.env.PUBLIC_BASE_URL || 'https://shapework.co';
+    const url = raw.startsWith('/') ? new URL(raw, base) : new URL(raw);
+    if (url.protocol !== 'https:' || url.username || url.password ||
+        /^(localhost|127\.|0\.|\[?::1\]?)/i.test(url.hostname) || url.hostname.endsWith('.localhost')) return '';
+    return url.toString();
+  } catch { return ''; }
 }
 
 /**
@@ -89,6 +117,11 @@ function suppressedByOutboundGate(to?: string | string[], cc?: string | string[]
     suppressed: true,
     held: gate.reason === 'held',
     reason: gate.reason,
+    smtpAccepted: false,
+    confirmedReceipt: false,
+    acceptedRecipients: [],
+    rejectedRecipients: [],
+    retrySafe: true,
     messageId: `suppressed_safe_mode_${Date.now()}`,
   } as EmailDispatchResult;
 }
@@ -151,11 +184,11 @@ export function renderNestEditorialEmailTemplate(options: {
           <tr>
             <td style="background-color: #003831; padding: 0; position: relative;">
               <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <tr>
+                ${heroImageUrl ? `<tr>
                   <td style="padding: 0; text-align: center; vertical-align: bottom;">
                     <img src="${heroImageUrl}" alt="${propertyAddress || 'Nest Listing'}" width="600" style="width: 100%; max-width: 600px; height: 260px; object-fit: cover; display: block;" />
                   </td>
-                </tr>
+                </tr>` : ''}
                 <!-- Nest Logo Box Bar -->
                 <tr>
                   <td style="background-color: #003831; padding: 12px 28px; text-align: right;">
@@ -434,10 +467,11 @@ export async function sendPhotoUploadRequestEmail(options: {
   toEmail: string;
   agentName: string;
   propertyAddress: string;
-  driveUploadUrl: string;
+  driveUploadUrl?: string;
+  trackerUrl?: string;
   heroImageUrl?: string;
   requestedItems?: string[];
-}): Promise<EmailDispatchResult> {
+} & EmailThreadContext): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, driveUploadUrl, heroImageUrl, requestedItems = ['Exterior High-Res Hero', 'Kitchen & Living Areas', 'Primary Suite', 'Floorplans / Aerials'] } = options;
 
   const photoHeld = suppressedByOutboundGate(toEmail, undefined, 'sendPhotoUploadRequestEmail');
@@ -447,14 +481,9 @@ export async function sendPhotoUploadRequestEmail(options: {
     return photoHeld;
   }
 
-  console.log(`[Email] Nora dispatching Google Drive photo upload request to ${toEmail} for ${propertyAddress}`);
+  console.log(`[Email] Nora requesting listing photos to ${toEmail} for ${propertyAddress}`);
 
-  if (process.env.NODE_ENV === 'test') {
-    return {
-      success: true,
-      messageId: `test_photo_req_${Date.now()}`
-    };
-  }
+
 
   const htmlContent = renderNestEditorialEmailTemplate({
     title: 'Listing Photos Needed',
@@ -466,24 +495,31 @@ export async function sendPhotoUploadRequestEmail(options: {
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
       `Hey it's Nora from Nest. If you don't mind, send me those photos so we can get moving on that request for you!`,
-      `We received your marketing collateral request for <strong>${propertyAddress}</strong>. To begin drafting your 300 DPI print flyers, social story carousels, and postcards, please upload your high-resolution photos.`
+      `We received your marketing collateral request for <strong>${propertyAddress}</strong>. To begin drafting your 300 DPI print flyers, social story carousels, and postcards, please reply to this email with your high-resolution photos attached.`
     ],
     infoBox: {
-      title: 'Dedicated Google Drive Folder Ready',
-      text: `Your listing asset pack folder has been created. Drag and drop your uncompressed photo files directly into the folder.`
+      title: 'Reply with your listing photos',
+      text: `Attach the original photo files to your reply. Nora will add them to the existing marketing request.`
     },
     deliverables: requestedItems,
-    ctaButton: {
-      label: 'Upload Photos to Google Drive',
-      url: driveUploadUrl
-    },
-    footnote: 'Nora will automatically notify Melissa Gagliardi and Eduardo Lovo once photos are detected in Google Drive.'
+    ctaButton: toAbsolutePublicUrl(options.trackerUrl || driveUploadUrl) ? {
+      label: 'View your request',
+      url: toAbsolutePublicUrl(options.trackerUrl || driveUploadUrl)
+    } : undefined,
+    footnote: 'Your photos will stay with this request for the marketing team.'
   });
 
   return sendEmail({
     to: toEmail,
+    replyTo: 'asknora@nestrealty.com',
+    workspaceId: options.workspaceId,
+    requestId: options.requestId,
+    taskId: options.taskId,
+    threadId: options.threadId,
+    inReplyTo: options.inReplyTo,
+    references: options.references,
     subject: `Photos Needed for ${propertyAddress} — Nora @ Nest Realty`,
-    text: `Hi ${agentName.split(' ')[0]},\n\nHey it's Nora from Nest. If you don't mind, send me those photos so we can get moving on that request for you!\n\nUpload photos directly to your listing Drive folder:\n${driveUploadUrl}\n\nBest,\nNora (Nest Operations)\nasknora@nestrealty.com`,
+    text: `Hi ${agentName.split(' ')[0]},\n\nHey it's Nora from Nest. If you don't mind, send me those photos so we can get moving on that request for you!\n\nReply to this email with your photos attached.${options.trackerUrl ? `\n\nView your request: ${options.trackerUrl}` : ''}\n\nBest,\nNora (Nest Operations)\nasknora@nestrealty.com`,
     html: htmlContent
   });
 }
@@ -500,18 +536,13 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
   heroImageUrl?: string;
   cc?: string;
   trackerUrl?: string;
-}): Promise<EmailDispatchResult> {
+} & EmailThreadContext): Promise<EmailDispatchResult> {
   const { toEmail, agentName, propertyAddress, deliverables, assignedLead, heroImageUrl, cc, trackerUrl } = options;
 
   const intakeHeld = suppressedByOutboundGate(toEmail, undefined, 'sendMarketingIntakeConfirmationEmail');
   if (intakeHeld) return intakeHeld;
 
-  if (process.env.NODE_ENV === 'test') {
-    return {
-      success: true,
-      messageId: `test_intake_conf_${Date.now()}`
-    };
-  }
+
 
   const now = new Date();
   const dateFormatted = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
@@ -538,6 +569,13 @@ export async function sendMarketingIntakeConfirmationEmail(options: {
 
   return sendEmail({
     to: toEmail,
+    replyTo: 'asknora@nestrealty.com',
+    workspaceId: options.workspaceId,
+    requestId: options.requestId,
+    taskId: options.taskId,
+    threadId: options.threadId,
+    inReplyTo: options.inReplyTo,
+    references: options.references,
     cc,
     subject: `Intake Confirmed: ${propertyAddress} — In Progress with ${assignedLead.split(' ')[0]}`,
     text: `Hi ${agentName},\n\nI got your marketing request for ${propertyAddress} and have forwarded it to ${assignedLead}, and it is now in progress.\n\nQueued Deliverables: ${deliverables.join(', ')}\nAssigned Director: ${assignedLead}${trackerUrl ? `\n\nLive Proof & Delivery Portal: ${trackerUrl}` : ''}\n\nIf you have any questions about this or if anything changes, just email me, Nora @ AskNora@Nestrealty.com or just respond to this email.\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
@@ -715,50 +753,51 @@ export async function sendTaskCompletionEmail(options: {
   cc?: string[];
   [key: string]: any;
 }): Promise<EmailDispatchResult> {
-  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl = 'https://drive.google.com', heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
+  const { toEmail, agentName, propertyAddress, taskTitle, proofUrl, driveFolderUrl, heroImageUrl, completedByName = 'Melissa Gagliardi', cc } = options;
 
   const completeHeld = suppressedByOutboundGate(toEmail, cc, 'sendTaskCompletionEmail');
   if (completeHeld) return completeHeld;
 
-  if (process.env.NODE_ENV === 'test') {
-    return { success: true, messageId: `test_complete_${Date.now()}` };
+  const effectiveActionUrl = toAbsolutePublicUrl(options.downloadUrl || proofUrl ||
+    (driveFolderUrl && driveFolderUrl !== 'https://drive.google.com' ? driveFolderUrl : ''));
+  const trackerUrl = toAbsolutePublicUrl(options.trackerUrl);
+  if (!effectiveActionUrl && !options.attachments?.length) {
+    return { success: false, smtpAccepted: false, retrySafe: true, error: 'A valid asset link or attachment is required.' };
   }
-
-  const effectiveActionUrl = proofUrl || (driveFolderUrl && driveFolderUrl !== 'https://drive.google.com' ? driveFolderUrl : 'https://shapework.co/app');
-  const actionButtonLabel = proofUrl?.includes('/track/marketing/')
-    ? 'Open Proof Portal'
-    : (proofUrl?.includes('/api/marketing/assets/download/')
-      ? 'Download Approved Deliverables'
-      : (proofUrl ? 'Review Deliverables & Proofs' : 'Open Listing Drive Folder'));
+  const actionButtonLabel = effectiveActionUrl.includes('/track/marketing/') ? 'Open Proof Portal' : 'View Approved Assets';
 
   const htmlContent = renderNestEditorialEmailTemplate({
     title: 'Deliverables Ready',
-    badgeText: '● DELIVERED',
+    badgeText: '● APPROVED',
     serifTitle: 'Deliverables<br/>Ready',
-    metadataDate: `COMPLETED | APPROVED BY ${completedByName.split(' ')[0].toUpperCase()}`,
+    metadataDate: `APPROVED BY ${completedByName.split(' ')[0].toUpperCase()}`,
     propertyAddress,
-    heroImageUrl: heroImageUrl || 'https://shapework.co/images/properties/1916_wolcott_1004.jpg',
+    heroImageUrl: heroImageUrl || '',
     greetingName: agentName.split(' ')[0],
     bodyParagraphs: [
-      `Great news! <strong>${taskTitle}</strong> for <strong>${propertyAddress}</strong> has been completed and quality-checked by <strong>${completedByName}</strong>.`,
-      `Your print-ready 300 DPI files, PDFs, and media assets are ready for your review and download.`
+      `Great news! <strong>${taskTitle}</strong> for <strong>${propertyAddress}</strong> has been approved by <strong>${completedByName}</strong>.`,
+      `Your approved marketing assets are ready. Use the link below or open the attached files.`
     ],
     infoBox: {
       title: 'Listing Asset Package',
-      text: `${propertyAddress} &bull; Verified NCREC Compliant`
+      text: `${propertyAddress}`
     },
-    ctaButton: {
-      label: actionButtonLabel,
-      url: effectiveActionUrl
-    },
-    footnote: 'If you need any revisions or additional print copies, just email Nora @ AskNora@Nestrealty.com or reply here.'
+    ctaButton: effectiveActionUrl ? { label: actionButtonLabel, url: effectiveActionUrl } : undefined,
+    footnote: `Reply to this email if you need changes.${trackerUrl ? ` <a href="${trackerUrl}">View your request</a>.` : ''}`
   });
 
   return sendEmail({
     to: toEmail,
     cc: cc && cc.length ? cc : undefined,
-    subject: `Ready: ${taskTitle} for ${propertyAddress} has been Delivered`,
-    text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been completed and quality-checked by ${completedByName}.\n\nAccess your deliverables & files: ${effectiveActionUrl}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
+    attachments: options.attachments,
+    replyTo: options.replyTo || 'asknora@nestrealty.com',
+    inReplyTo: options.inReplyTo,
+    references: options.references,
+    workspaceId: options.workspaceId,
+    requestId: options.requestId,
+    taskId: options.taskId,
+    subject: `Approved assets ready: ${taskTitle} for ${propertyAddress}`,
+    text: `Hi ${agentName},\n\nYour deliverables for ${propertyAddress} (${taskTitle}) have been approved by ${completedByName}.\n\n${effectiveActionUrl ? `Access your files: ${effectiveActionUrl}` : 'Your approved files are attached.'}${trackerUrl ? `\n\nView your request: ${trackerUrl}` : ''}\n\nBest,\nNora (Nest Operations)\nAskNora@Nestrealty.com`,
     html: htmlContent
   });
 }
@@ -773,8 +812,18 @@ export async function sendEmail(options: {
   subject: string;
   text?: string;
   html?: string;
+  replyTo?: string;
+  inReplyTo?: string;
+  references?: string | string[];
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
+  workspaceId?: string;
+  requestId?: string;
+  taskId?: string;
+  propertyAddress?: string;
+  threadId?: string;
 }): Promise<EmailDispatchResult> {
   const dispatchGuard = await evaluateOutboundDispatchGuard({
+    workspaceId: options.workspaceId,
     propertyAddress: (options as any).propertyAddress,
     requestId: (options as any).requestId || (options as any).campaignId,
     threadId: (options as any).threadId,
@@ -787,6 +836,9 @@ export async function sendEmail(options: {
       messageId: `suppressed_${dispatchGuard.reason || 'guard'}_${Date.now()}`,
       suppressed: true,
       reason: dispatchGuard.reason,
+      smtpAccepted: false,
+      confirmedReceipt: false,
+      retrySafe: true,
     } as any;
   }
 
@@ -796,13 +848,16 @@ export async function sendEmail(options: {
   if (process.env.NODE_ENV === 'test') {
     return {
       success: true,
-      messageId: `test_msg_${Date.now()}`
+      suppressed: true,
+      reason: 'test_mode',
+      smtpAccepted: false,
+      confirmedReceipt: false,
     };
   }
 
   try {
     if (!readConfiguredSmtpSecret()) {
-      return { success: false, error: SMTP_SECRET_MISSING };
+      return { success: false, smtpAccepted: false, retrySafe: true, error: SMTP_SECRET_MISSING };
     }
     const transporter = getNoraTransporter();
     const delivered = await deliverNodemailer({
@@ -812,6 +867,10 @@ export async function sendEmail(options: {
         from: options.from || `"${NORA_EMAIL_CONFIG.fromName}" <${NORA_EMAIL_CONFIG.user}>`,
         to: options.to,
         cc: options.cc,
+        replyTo: options.replyTo,
+        inReplyTo: options.inReplyTo,
+        references: options.references,
+        attachments: options.attachments,
         subject: options.subject,
         text: options.text || '',
         html: options.html || options.text || ''
@@ -823,18 +882,36 @@ export async function sendEmail(options: {
         suppressed: true,
         held: delivered.held,
         reason: delivered.gate.reason,
+        smtpAccepted: false,
+        confirmedReceipt: false,
         messageId: `suppressed_safe_mode_${Date.now()}`
       } as EmailDispatchResult;
     }
 
+    const info = delivered.info as { accepted?: Array<string | { address?: string }>; rejected?: Array<string | { address?: string }>; response?: string } | undefined;
+    const addresses = (items: Array<string | { address?: string }> = []) => items.map(item =>
+      (typeof item === 'string' ? item : item.address || '').trim().toLowerCase()).filter(Boolean);
+    const acceptedRecipients = addresses(info?.accepted);
+    const rejectedRecipients = addresses(info?.rejected);
+    const smtpAccepted = Boolean(delivered.messageId) && acceptedRecipients.includes(options.to.trim().toLowerCase());
     return {
-      success: true,
-      messageId: delivered.messageId
+      success: smtpAccepted,
+      messageId: delivered.messageId,
+      smtpAccepted,
+      smtpResponse: info?.response,
+      acceptedRecipients,
+      rejectedRecipients,
+      retrySafe: !smtpAccepted && rejectedRecipients.includes(options.to.trim().toLowerCase()),
+      confirmedReceipt: false,
+      ...(!smtpAccepted ? { error: 'SMTP did not accept the intended recipient.' } : {}),
     };
   } catch (err: any) {
     console.warn(`[Email] Custom send notice to ${options.to}:`, err?.message || err);
     return {
       success: false,
+      smtpAccepted: false,
+      confirmedReceipt: false,
+      retrySafe: err?.code === 'EENVELOPE' && Array.isArray(err?.rejected) && err.rejected.some((address: string) => address.toLowerCase() === options.to.toLowerCase()),
       error: err?.message || 'SMTP delivery pending'
     };
   }

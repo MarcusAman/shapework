@@ -78,7 +78,7 @@ describe('1. Inbound Email Address Extraction & Clarification Suite', () => {
     expect(titles).toContain('3-Slide Social Story Carousel & Graphics');
   });
 
-  it('5. Ingests email without address into needs_info status without phantom address', async () => {
+  it('5. Keeps email without an address in Melissa intake without a phantom address', async () => {
     const msgId = `msg_test_no_addr_${Date.now()}`;
     const result = await ingestInboundEmailToTask({
       from: 'Marcus Aman <marcus.aman@gmail.com>',
@@ -93,14 +93,15 @@ describe('1. Inbound Email Address Extraction & Clarification Suite', () => {
     const reqs = getAllCanonicalMarketingRequests();
     const createdReq = reqs.find(r => r.id === result.requestId);
     expect(createdReq).toBeDefined();
-    expect(createdReq?.status).toBe('needs_info');
+    expect(createdReq?.status).toBe('request_received');
     expect(createdReq?.title).toContain('[Address Needed]');
     expect(createdReq?.propertyAddress).toBe('Address Pending');
 
     const tasks = getAllCanonicalMarketingTasks();
     const createdTasks = tasks.filter(t => t.requestId === result.requestId);
     expect(createdTasks.length).toBe(2); // Flyer + Social Story
-    expect(createdTasks[0].status).toBe('needs_info');
+    expect(createdTasks.every(task => task.status === 'request_received' && task.assignedTo === 'Melissa Gagliardi')).toBe(true);
+    expect(createdTasks.every(task => task.reviewOwnerName === 'Melissa Gagliardi')).toBe(true);
   });
 
   it('6. Reconciles existing Address Pending request when agent replies with address', async () => {
@@ -129,11 +130,13 @@ describe('1. Inbound Email Address Extraction & Clarification Suite', () => {
     const reqs = getAllCanonicalMarketingRequests();
     const reconciledReq = reqs.find(r => r.id === initialResult.requestId);
     expect(reconciledReq?.propertyAddress).toContain('880 Wrightsville Ave');
-    expect(reconciledReq?.status).toBe('assigned');
+    expect(reconciledReq?.status).toBe('request_received');
 
     const tasks = getAllCanonicalMarketingTasks();
     const reconciledTasks = tasks.filter(t => t.requestId === initialResult.requestId);
-    expect(reconciledTasks[0].status).toBe('in_progress');
+    expect(reconciledTasks[0].status).toBe('request_received');
+    expect(reconciledTasks[0].assignedTo).toBe('Melissa Gagliardi');
+    expect(reconciledTasks[0].reviewOwnerName).toBe('Melissa Gagliardi');
     expect(reconciledTasks[0].propertyAddress).toContain('880 Wrightsville Ave');
   });
 });

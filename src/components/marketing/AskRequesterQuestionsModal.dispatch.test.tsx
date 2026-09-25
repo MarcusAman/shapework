@@ -200,7 +200,7 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
     expect(document.body.textContent).not.toContain("Couldn't create the Drive folder");
   });
 
-  it('does not send an attachment URL as proofUrl on ensure-drive or dispatch-check', async () => {
+  it('checks internal finished proof without creating a Drive folder', async () => {
     const photo = '/uploads/1789593612358_Test_marcusgmail.png';
     const calls: Array<{ url: string; proofUrl?: string }> = [];
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -228,10 +228,8 @@ describe('Notify modal rechecks dispatch after Drive and ignores stale verdicts'
 
     const proofCalls = calls.filter((call) => call.url.includes('ensure-drive') || call.url.includes('dispatch-check'));
     expect(proofCalls.length).toBeGreaterThan(0);
-    for (const call of proofCalls) {
-      expect(call.proofUrl || '', call.url).not.toContain(photo);
-      expect(call.proofUrl || '').not.toMatch(/\/uploads\//);
-    }
+    expect(proofCalls.some(call => call.url.includes('ensure-drive'))).toBe(false);
+    expect(proofCalls.filter(call => call.url.includes('dispatch-check')).every(call => call.proofUrl === photo)).toBe(true);
   });
 
   it('sends proofUrl when the user pasted an https link', async () => {

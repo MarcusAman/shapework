@@ -194,8 +194,8 @@ export const PIPELINE_STAGES: Array<{
   },
   {
     id: 'agent_review',
-    label: 'Awaiting Manager Review',
-    shortLabel: 'Manager Review',
+    label: 'Needs Review',
+    shortLabel: 'Needs Review',
     description: 'Proof package submitted to manager for review and sign-off',
     color: 'border-purple-300 bg-purple-50/30',
     dotColor: 'bg-purple-500',
@@ -216,8 +216,8 @@ export const PIPELINE_STAGES: Array<{
   },
   {
     id: 'approved',
-    label: 'Approved / Done',
-    shortLabel: 'Approved',
+    label: 'Completed / Done',
+    shortLabel: 'Done',
     description: 'Digital asset approved & delivered / published',
     color: 'border-emerald-300 bg-emerald-50/30',
     dotColor: 'bg-emerald-500',
@@ -238,25 +238,8 @@ export const PIPELINE_STAGES: Array<{
   }
 ];
 
-export type CanonicalPipelineLaneId = 'request_received' | 'assigned' | 'in_progress' | 'agent_review' | 'revisions' | 'approved' | 'with_vendor';
-
-export function getCanonicalLaneForTask(task: {
-  status?: string;
-  reviewState?: string;
-  assignedTo?: string;
-  isArchived?: boolean;
-}): CanonicalPipelineLaneId | 'archived' | 'legacy_unreconciled' {
-  if (task.isArchived || task.status === 'archived') return 'archived';
-  if (task.status === 'approved' || task.status === 'completed' || task.reviewState === 'approved') return 'approved';
-  if (task.status === 'agent_review' || task.reviewState === 'awaiting_review') return 'agent_review';
-  if (task.status === 'revisions' || task.reviewState === 'revisions_requested') return 'revisions';
-  if (task.status === 'with_vendor') return 'with_vendor';
-  if (task.status === 'in_progress') return 'in_progress';
-  if (task.status === 'assigned' || task.status === 'ready_for_review') return 'assigned';
-  if (task.status === 'request_received' || task.status === 'needs_info' || (!task.assignedTo && !task.status)) return 'request_received';
-  return 'legacy_unreconciled';
-}
-
+export { getCanonicalLaneForTask, type CanonicalPipelineLaneId } from '../../lib/canonicalMarketingTaskLane';
+import { getCanonicalLaneForTask, type CanonicalPipelineLaneId } from '../../lib/canonicalMarketingTaskLane';
 export function getStageForTask(task: { status?: string; reviewState?: string; assignedTo?: string; isArchived?: boolean }) {
   const lane = getCanonicalLaneForTask(task);
   if (lane === 'archived') {

@@ -4121,6 +4121,7 @@ export const WorkspaceTaskDrawer: React.FC<WorkspaceTaskDrawerProps> = ({
 
       {/* MODAL: PROOF UPLOAD WIZARD */}
       <ProofUploadWizard
+        taskId={activeTask.id}
         isOpen={isUploadWizardOpen}
         onClose={() => setIsUploadWizardOpen(false)}
         requestedDeliverables={

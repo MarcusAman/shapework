@@ -117,7 +117,8 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
           }
 
           const parsed: ParsedMail = await simpleParser(download.content);
-          const from = parsed.from?.text || parsed.from?.value?.[0]?.address || 'matt.orr@nestrealty.com';
+          const from = parsed.from?.text || parsed.from?.value?.[0]?.address || '';
+          if (!from) throw new Error('Inbound email has no sender.');
           const to = parsed.to ? (Array.isArray(parsed.to) ? parsed.to.map(t => t.text).join(', ') : parsed.to.text) : 'AskNora@nestrealty.com';
           const subject = parsed.subject || 'Listing Collateral Request';
           const textContent = parsed.text || '';
@@ -140,8 +141,15 @@ export async function scanAskNoraInbox(): Promise<InboxScanSummary> {
             textContent,
             htmlContent,
             attachments,
-            messageId: parsed.messageId || uidStr
+            messageId: parsed.messageId || `${imapUser}:${uidStr}`,
+            inReplyTo: parsed.inReplyTo,
+            references: parsed.references,
+            provider: 'imap',
+            workspaceId: process.env.NORA_WORKSPACE_ID || 'ws_wilmington',
+            mailboxId: imapUser
           });
+
+          if (!result.success) throw new Error(result.error || result.message || 'Email ingestion failed');
 
           // Mark message as read (\Seen) in Gmail
           await client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true });

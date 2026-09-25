@@ -30,6 +30,7 @@ import {
 } from '../email/emailProvider.js';
 import { generateMarketingTrackerToken } from './taskTrackerService.js';
 import { saveListingMediaAsset } from './listingMediaStorageService.js';
+import { applyEmailReply, findEmailReplyTarget, isRevisionRequest, recordEmailConversation, type EmailConversationIdentity } from './noraEmailReplyLifecycle.js';
 
 import {
   getResponsibleDepartmentOwner
@@ -50,7 +51,7 @@ import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
 import { evaluateOutboundDispatchGuard, looksLikeSmokeOrTestThread } from '../email/outboundDispatchGuards.js';
 import { checkOutbound } from '../email/outboundGate.js';
 import { isTombstoned } from '../persistence/intakeTombstoneRepository.js';
-import { coalesceRealDriveUrl, isRealGoogleDriveUrl, listingAddressKey, promoteAskNoraListingFolder } from './askNoraDriveDelivery.js';
+import { coalesceRealDriveUrl, extractRealDriveUrlsFromText } from './askNoraDriveDelivery.js';
 
 // Known agent directory lookup for automatic phone and role enrichment
 export const KNOWN_AGENTS: Record<string, { name: string; phone: string; role: string }> = {
@@ -555,6 +556,8 @@ export interface InboundEmailPayload {
   }>;
   messageId?: string;
   threadId?: string;
+  inReplyTo?: string;
+  references?: string | string[];
   workspaceId?: string;
   mailboxId?: string;
   provider?: string;
@@ -841,6 +844,46 @@ function buildIntakeConfirmationIdempotencyKey(args: {
   return `${args.workspaceId}:agent:${email}:addr:${addr || 'unknown'}:intake_confirmation:v2`;
 }
 
+/** Required service follow-up, keyed once per request across every intake channel. */
+export async function enqueueMissingPhotoRequest(request: CanonicalMarketingRequest, task?: CanonicalMarketingTask,
+  identity: EmailConversationIdentity = {}, executor?: any): Promise<void> {
+  if (!request.workspaceId || !request.agentEmail || !task || request.photos?.length || task.photos?.length || task.category === 'signage') return;
+  const trackerUrl = `https://shapework.co/track/marketing/${await generateMarketingTrackerToken(task.id)}`;
+  await enqueueOutboundEmail({
+    workspaceId: request.workspaceId,
+    messageType: 'photo_request',
+    idempotencyKey: `${request.workspaceId}:req:${request.id}:photo_request:v1`,
+    recipient: request.agentEmail,
+    subject: `Listing Photos Needed: ${request.propertyAddress || request.title}`,
+    payload: {
+      workspaceId: request.workspaceId, toEmail: request.agentEmail, agentName: request.agentName,
+      propertyAddress: request.propertyAddress || 'your marketing request',
+      requestId: request.id, taskId: task.id, threadId: identity.threadId,
+      inReplyTo: identity.messageId,
+      references: [...(Array.isArray(identity.references) ? identity.references : identity.references ? [identity.references] : []), identity.messageId].filter(Boolean).join(' '),
+      trackerUrl, driveUploadUrl: trackerUrl,
+    }, executor,
+  });
+}
+
+/** Inspect this request's actual outbox receipt, never infer success from the worker's batch count. */
+export async function getMissingPhotoRequestDispatchStatus(workspaceId: string, requestId: string): Promise<{ emailSent: boolean; status: string }> {
+  const key = `${workspaceId}:req:${requestId}:photo_request:v1`;
+  const { getDbPool, getStorageDriver } = await import('../persistence/repositories.js');
+  if (getStorageDriver() === 'database') {
+    const pool = getDbPool();
+    if (!pool) throw new Error('Photo request outbox storage is unavailable');
+    const result = await pool.query(
+      'SELECT status, provider_message_id FROM outbound_email_outbox WHERE workspace_id = $1 AND idempotency_key = $2 LIMIT 1',
+      [workspaceId, key]
+    );
+    const row = result.rows[0];
+    return { emailSent: row?.status === 'sent' && Boolean(row.provider_message_id), status: row?.status || 'not_queued' };
+  }
+  const row = memoryOutbox.get(key);
+  return { emailSent: row?.status === 'sent' && Boolean(row.messageId), status: row?.status || 'not_queued' };
+}
+
 export async function enqueueOutboundEmail(params: {
   workspaceId: string;
   messageType: string;
@@ -863,7 +906,7 @@ export async function enqueueOutboundEmail(params: {
 
   // Member notification prefs (default-off). Kill/hold is enforced by checkOutbound inside the send transport, not by this enqueue.
   if (!skipMemberPrefs) try {
-    const { canSendAgentOutbound } = await import('../persistence/notificationPreferencesRepository.js');
+    const { canSendAgentOutbound, hasStoredNotificationPreferencesAsync } = await import('../persistence/notificationPreferencesRepository.js');
     // Resolve userId from recipient email when possible
     let userId: string | undefined;
     try {
@@ -880,11 +923,11 @@ export async function enqueueOutboundEmail(params: {
       // Stable fallback id from email so prefs can still be stored/looked up
       userId = `email:${String(recipient || '').trim().toLowerCase()}`;
     }
-    const gateResult = await canSendAgentOutbound({
-      userId,
-      messageType,
-      channel: messageType === 'sms' ? 'sms' : 'email',
-    });
+    const requestedServiceReply = ['intake_confirmed', 'photo_request'].includes(messageType) && Boolean(payload?.requestId);
+    const hasExplicitPreference = requestedServiceReply && await hasStoredNotificationPreferencesAsync(userId, workspaceId);
+    const gateResult = requestedServiceReply && !hasExplicitPreference
+      ? { allowed: true, reason: 'requested_service_reply_default' }
+      : await canSendAgentOutbound({ userId, messageType, channel: messageType === 'sms' ? 'sms' : 'email' });
     if (!gateResult.allowed) {
       console.log(`[Outbox] Suppressed ${messageType} → ${recipient}: ${gateResult.reason}`);
       return { enqueued: false, outboxId: undefined, suppressed: true, reason: gateResult.reason } as any;
@@ -951,7 +994,7 @@ export async function enqueueOutboundEmail(params: {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 0, NOW(), NOW(), NOW())
         ON CONFLICT (idempotency_key) DO NOTHING
         RETURNING id`,
-        [outboxId, workspaceId, messageType, effectiveIdempotencyKey, recipient, subject, JSON.stringify({ ...payload, to: toList, cc: ccList })]
+        [outboxId, workspaceId, messageType, effectiveIdempotencyKey, recipient, subject, JSON.stringify({ ...payload, workspaceId, to: toList, cc: ccList })]
       );
 
       if ((res.rowCount ?? 0) > 0) {
@@ -976,12 +1019,22 @@ export async function enqueueOutboundEmail(params: {
     to: toList,
     cc: ccList,
     subject,
-    payload: { ...payload, to: toList, cc: ccList },
+    payload: { ...payload, workspaceId, to: toList, cc: ccList },
     status: 'pending',
     attemptCount: 0,
     createdAt: new Date().toISOString()
   });
   return { enqueued: true, outboxId };
+}
+
+async function recordOutboxConversation(payload: any, workspaceId: string, messageId: string): Promise<void> {
+  const tasks = getAllCanonicalMarketingTasks().filter(t => t.workspaceId === workspaceId &&
+    ((payload.taskId && t.id === payload.taskId) || (payload.requestId && t.requestId === payload.requestId)));
+  for (const task of tasks) {
+    recordEmailConversation(task, { messageId, threadId: payload.threadId, inReplyTo: payload.inReplyTo, references: payload.references });
+    saveCanonicalMarketingTask(task);
+    await persistTaskToDatabase(task);
+  }
 }
 
 function outboundAttemptStatus(result: any): 'sent' | 'held' | 'suppressed' {
@@ -1078,6 +1131,7 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
              WHERE id = $1`,
             [row.id, disposition, providerMessageId, disposition === 'sent' ? null : (dispatchResult?.reason || disposition)]
           );
+          if (providerMessageId) await recordOutboxConversation(payload, row.workspace_id, providerMessageId);
           dispatchedCount++;
         } catch (dispatchErr: any) {
           const errMsg = dispatchErr?.message || String(dispatchErr);
@@ -1123,6 +1177,7 @@ export async function processOutboundEmailOutbox(executor?: any): Promise<number
         if (disposition === 'sent') {
           item.sentAt = new Date().toISOString();
           item.messageId = dispatchResult?.messageId;
+          if (item.messageId) await recordOutboxConversation(item.payload, item.workspaceId, item.messageId);
         } else {
           item.suppressed = true;
           item.held = disposition === 'held';
@@ -1178,6 +1233,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     rawAttachments: explicitRawAttachments,
     messageId: rawMessageId,
     threadId,
+    inReplyTo,
+    references,
     workspaceId = 'ws_wilmington',
     mailboxId: rawMailboxId,
     provider = 'gmail_webhook',
@@ -1316,7 +1373,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   const deliverableItems = extractEmailDeliverables(subject, textContent);
 
   let driveFolderUrl = '';
-  const defaultDriveFileUrl = 'https://drive.google.com/file/d/1-Vph9XRJ6LCjllp9A0g5Y0M227lWack/view';
+  const defaultDriveFileUrl = undefined;
 
   // Ensure public uploads folder exists
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
@@ -1329,8 +1386,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   }
 
   // 2. Validate and hash attachments with strict identity
-  const photos: Array<{ id: string; name: string; url: string; type: string; sizeBytes: number; driveUrl?: string; hash: string }> = [];
-  const attachments: Array<{ id: string; filename: string; contentType: string; sizeBytes: number; url: string; driveUrl?: string; hash: string }> = [];
+  const photos: Array<{ assetId?: string; id: string; name: string; url: string; type: string; sizeBytes: number; driveUrl?: string; hash: string }> = [];
+  const attachments: Array<{ assetId?: string; id: string; filename: string; contentType: string; sizeBytes: number; url: string; driveUrl?: string; hash: string }> = [];
 
   for (let i = 0; i < rawAttachments.length; i++) {
     const rawAtt = rawAttachments[i];
@@ -1351,9 +1408,11 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     }
 
     let publicMediaUrl = processed.url || `/uploads/${processed.name}`;
+    let assetId: string | undefined;
     if (attBuffer) {
       try {
         const savedMedia = await saveListingMediaAsset({
+          workspaceId,
           filename: processed.name,
           contentType: processed.type || (processed.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
           buffer: attBuffer,
@@ -1366,14 +1425,12 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           }
         });
         if (savedMedia?.url) {
+          assetId = savedMedia.id;
           publicMediaUrl = savedMedia.url;
         }
       } catch (mediaErr) {
-        console.warn(`[Ingestion Engine] Could not save media asset durably for ${processed.name}:`, mediaErr);
-        try {
-          const filePath = path.join(uploadsDir, processed.name);
-          fs.writeFileSync(filePath, attBuffer);
-        } catch { /* ignore */ }
+        await failInboundEmailProcessing({ workspaceId, provider, mailboxId, messageId, errorCode: sanitizeErrorCode(mediaErr) });
+        throw mediaErr; // Never acknowledge a photo that was not durably saved.
       }
     }
 
@@ -1381,6 +1438,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     if (isImage) {
       photos.push({
         id: processed.id,
+        assetId,
         name: processed.name,
         url: publicMediaUrl,
         type: processed.type,
@@ -1392,36 +1450,13 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
 
     attachments.push({
       id: processed.id,
+      assetId,
       filename: processed.name,
       contentType: processed.type,
       sizeBytes: attBuffer ? attBuffer.length : processed.sizeBytes,
       url: publicMediaUrl,
       driveUrl: processed.driveUrl || defaultDriveFileUrl,
       hash: processed.hash
-    });
-  }
-
-  // Fallback photo for 1916 Wolcott Avenue if explicitly requested without attachments
-  if (photos.length === 0 && (subject.toLowerCase().includes('1916 wolcott') || textContent.toLowerCase().includes('1916 wolcott') || textContent.includes('1004.jpg'))) {
-    const wolcottHash = crypto.createHash('sha256').update('1916_wolcott_1004.jpg').digest('hex');
-    const wolcottAttId = `${provider}:${messageId}:photo_wolcott_1004`;
-    photos.push({
-      id: wolcottAttId,
-      name: '1004.jpg',
-      url: '/images/properties/1916_wolcott_1004.jpg',
-      type: 'image/jpeg',
-      sizeBytes: 3840000,
-      driveUrl: 'https://drive.google.com/file/d/1-Vph9XRJ6LCjllp9A0g5Y0M227lWack/view',
-      hash: wolcottHash
-    });
-    attachments.push({
-      id: wolcottAttId,
-      filename: '1004.jpg',
-      contentType: 'image/jpeg',
-      sizeBytes: 3840000,
-      url: '/images/properties/1916_wolcott_1004.jpg',
-      driveUrl: 'https://drive.google.com/file/d/1-Vph9XRJ6LCjllp9A0g5Y0M227lWack/view',
-      hash: wolcottHash
     });
   }
 
@@ -1445,36 +1480,18 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
   }
 
   try {
-    const allRequests = getAllCanonicalMarketingRequests();
-    const allTasks = getAllCanonicalMarketingTasks();
+    const allRequests = getAllCanonicalMarketingRequests().filter(r => r.workspaceId === workspaceId && r.agentEmail?.toLowerCase() === agentEmail.toLowerCase());
+    const allTasks = getAllCanonicalMarketingTasks().filter(t => t.workspaceId === workspaceId);
 
-    const addrKey = listingAddressKey(propertyAddress);
-    if (addrKey) {
-      const priorReal =
-        allTasks.find((t) => listingAddressKey(t.propertyAddress) === addrKey && isRealGoogleDriveUrl(t.driveFolderUrl))?.driveFolderUrl
-        || allRequests.find((r) => listingAddressKey(r.propertyAddress) === addrKey && isRealGoogleDriveUrl(r.driveFolderUrl))?.driveFolderUrl
-        || '';
-      try {
-        const promoted = await promoteAskNoraListingFolder({
-          propertyAddress: propertyAddress || '',
-          agentName,
-          agentEmail,
-          workspaceId,
-          existingFolderUrl: priorReal,
-        });
-        driveFolderUrl = coalesceRealDriveUrl(promoted.driveFolderUrl, priorReal);
-      } catch (driveErr: any) {
-        console.warn('[Ingestion Engine] AskNora Drive folder deferred:', driveErr?.message || driveErr);
-        driveFolderUrl = coalesceRealDriveUrl(priorReal);
-      }
-    }
+    // Agent-provided Drive references are optional; internal photos do not require Drive.
+    driveFolderUrl = coalesceRealDriveUrl(...extractRealDriveUrlsFromText(`${subject} ${textContent}`));
 
     if (dbClient) {
       try {
         const dbReqs = await dbClient.query(`
           SELECT * FROM canonical_marketing_requests 
-          WHERE (workspace_id = $1 OR $1 = 'ws_wilmington') AND is_archived = FALSE
-        `, [workspaceId]);
+          WHERE workspace_id = $1 AND lower(agent_email) = lower($2) AND is_archived = FALSE
+        `, [workspaceId, agentEmail]);
         for (const row of dbReqs.rows) {
           const existingIdx = allRequests.findIndex(r => r.id === row.id);
           const mappedReq: any = {
@@ -1506,8 +1523,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
 
         const dbTasks = await dbClient.query(`
           SELECT * FROM canonical_marketing_tasks 
-          WHERE (workspace_id = $1 OR $1 = 'ws_wilmington') AND is_archived = FALSE
-        `, [workspaceId]);
+          WHERE workspace_id = $1 AND lower(agent_email) = lower($2) AND is_archived = FALSE
+        `, [workspaceId, agentEmail]);
         for (const row of dbTasks.rows) {
           const existingIdx = allTasks.findIndex(t => t.id === row.id);
           const mappedTask: any = {
@@ -1515,6 +1532,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
             requestId: row.request_id,
             workspaceId: row.workspace_id,
             requestTitle: row.request_title,
+            agentEmail: row.agent_email,
+            routingSnapshot: row.routing_snapshot || {},
             propertyAddress: row.property_address,
             agentName: row.agent_name,
             title: row.title,
@@ -1540,6 +1559,56 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       } catch (qErr) {
         console.warn('[Ingestion Engine] DB prefetch notice:', qErr);
       }
+    }
+
+    const reply = isVerifiedSender ? findEmailReplyTarget({
+      workspaceId, senderEmail: agentEmail, subject, text: textContent, propertyAddress,
+      hasAttachments: attachments.length > 0, messageId, threadId, inReplyTo, references,
+      requests: allRequests, tasks: allTasks,
+    }) : null;
+    if (reply) {
+      const reopen = reply.exactConversation && isRevisionRequest(textContent);
+      const completesAddress = Boolean(reply.exactConversation && propertyAddress &&
+        (!reply.request.propertyAddress || reply.request.propertyAddress === 'Address Pending' || reply.request.title?.startsWith('[Address Needed]')));
+      if (completesAddress) {
+        reply.request.propertyAddress = propertyAddress;
+        (reply.request as any).normalizedPropertyKey = normalizedPropertyKey;
+        reply.request.title = `${propertyAddress} Marketing Request`;
+      }
+      for (const task of reply.tasks) {
+        applyEmailReply(task, { messageId, threadId, inReplyTo, references, photos, attachments,
+          text: textContent, senderName: agentName, reopen: reopen && task.status === 'completed' });
+        if (completesAddress) {
+          task.propertyAddress = propertyAddress;
+          task.requestTitle = reply.request.title;
+          (task as any).missingFields = ((task as any).missingFields || []).filter((field: string) => field !== 'propertyAddress');
+        }
+        saveCanonicalMarketingTask(task);
+        if (dbClient) await persistTaskToDatabase(task, dbClient);
+      }
+      const photoKeys = new Set((reply.request.photos || []).map((p: any) => p.hash || p.assetId || p.id));
+      reply.request.photos = [...(reply.request.photos || []), ...photos.filter(p => !photoKeys.has(p.hash || p.assetId || p.id))];
+      const attKeys = new Set((reply.request.attachments || []).map((a: any) => a.hash || a.assetId || a.id));
+      reply.request.attachments = [...(reply.request.attachments || []), ...attachments.filter(a => !attKeys.has(a.hash || a.assetId || a.id))];
+      if (reopen && reply.tasks.some(t => t.status === 'needs_review')) reply.request.status = 'needs_review';
+      else if (reply.request.status === 'needs_info') reply.request.status = 'request_received';
+      reply.request.updatedAt = new Date().toISOString();
+      saveCanonicalMarketingRequest(reply.request);
+      if (dbClient) await persistRequestToDatabase(reply.request, dbClient);
+      await recordActivityEvent({ workspaceId, requestId: reply.request.id, taskId: reply.tasks[0]?.id,
+        eventType: reopen ? 'revisions.requested' : photos.length ? 'photos.received' : 'email.received',
+        actorType: 'requester', actorDisplayName: agentName, channel: 'email', direction: 'inbound',
+        communicationStatus: 'delivered', summary: reopen ? 'Agent requested changes; returned to Melissa for review.' : 'Agent reply linked to existing request.',
+        metadata: { messageId, threadId, inReplyTo, references }, idempotencyKey: `email_reply:${workspaceId}:${messageId}`,
+      }, dbClient);
+      await completeInboundEmailProcessing({ workspaceId, provider, mailboxId, messageId,
+        taskId: reply.tasks[0]?.id, requestId: reply.request.id, executor: dbClient });
+      if (dbClient && ownsDbClient) await dbClient.query('COMMIT');
+      return { success: true, requestId: reply.request.id, taskId: reply.tasks[0]?.id || '',
+        propertyAddress: reply.request.propertyAddress || propertyAddress, agentName, agentEmail,
+        assignedTo: reply.tasks[0]?.assignedTo || 'Melissa Gagliardi', photosCount: reply.request.photos.length,
+        driveFolderUrl: reply.request.driveFolderUrl || '', message: 'Reply linked to existing marketing request.',
+        actionTaken: 'reconciled_updated', request: reply.request, task: reply.tasks[0], tasks: reply.tasks } as any;
     }
 
     const flexMlsStatus = (/live\s*in\s*flex|flex\s*mls|active\s*in\s*mls/i.test(`${subject} ${textContent}`)) 
@@ -1568,19 +1637,22 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     const isExplicitAddressReply = /address\s*is|address:|the\s*address|property\s*is/i.test(`${subject} ${textContent}`) || 
                                    subject.toLowerCase().includes('[address needed]');
 
-    const pendingRequest = (isVerifiedSender && isExplicitAddressReply) ? allRequests.find(r => 
+    const pendingRequests = (isVerifiedSender && isExplicitAddressReply && !threadId && !inReplyTo && !references &&
+      !/\b(?:new|another|separate)\s+(?:marketing\s+)?(?:request|campaign|package|project)\b/i.test(textContent)) ? allRequests.filter(r =>
       r.agentEmail?.toLowerCase() === agentEmail.toLowerCase() &&
       (!r.propertyAddress || r.propertyAddress === 'Address Pending' || r.title?.startsWith('[Address Needed]')) &&
       !r.isArchived &&
       r.status !== 'merged' &&
       r.status !== 'completed'
-    ) : undefined;
+    ) : [];
+    const pendingRequest = pendingRequests.length === 1 ? pendingRequests[0] : undefined;
 
     if (pendingRequest && propertyAddress) {
       console.log(`[Ingestion Engine] Reconciling existing pending request (${pendingRequest.id}) with confirmed address: ${propertyAddress}`);
 
       // Check if ANOTHER active task/request already exists for this confirmed address
       const existingOpenTaskForAddress = allTasks.find(t => {
+        if (t.agentEmail?.toLowerCase() !== agentEmail.toLowerCase()) return false;
         if (t.requestId === pendingRequest.id || pendingRequest.taskIds?.includes(t.id)) return false;
         if (t.status === 'completed' || t.status === 'archived' || t.status === 'merged' || t.isArchived) return false;
         if (!t.propertyAddress || t.propertyAddress === 'Address Pending' || t.propertyAddress.includes('[Address Needed]') || (t as any).isUnverifiedDraft || t.propertyAddress.includes('Unverified Draft')) return false;
@@ -1645,7 +1717,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           t.isArchived = true;
           (t as any).mergedIntoTaskId = existingOpenTaskForAddress.id;
           t.updatedAt = new Date().toISOString();
-          saveCanonicalMarketingTask(t);
+          recordEmailConversation(t, { messageId, threadId, inReplyTo, references });
+        saveCanonicalMarketingTask(t);
           if (dbClient) await persistTaskToDatabase(t, dbClient);
         }
 
@@ -1663,7 +1736,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
             propertyAddress,
             deliverables: [existingOpenTaskForAddress.title],
             assignedLead: `${existingOpenTaskForAddress.assignedTo || 'Melissa Gagliardi'} (Marketing Director)`,
-            trackerUrl: `https://shapework.co/track/marketing/${generateMarketingTrackerToken(existingOpenTaskForAddress.id)}`
+            trackerUrl: `https://shapework.co/track/marketing/${await generateMarketingTrackerToken(existingOpenTaskForAddress.id)}`
           },
           executor: dbClient
         });
@@ -1740,6 +1813,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           task.attachments = [...(task.attachments || []), ...attachments];
         }
         task.notes = `${task.notes || ''}\n\n[Address Follow-up]: Confirmed address ${propertyAddress} received via email.`;
+        recordEmailConversation(task, { messageId, threadId, inReplyTo, references });
         saveCanonicalMarketingTask(task);
         if (dbClient) await persistTaskToDatabase(task, dbClient);
       }
@@ -1759,7 +1833,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           deliverables: pendingTasks.map(t => t.title),
           assignedLead: 'Melissa Gagliardi (Marketing Director)',
           trackerUrl: pendingTasks[0]?.id
-            ? `https://shapework.co/track/marketing/${generateMarketingTrackerToken(pendingTasks[0].id)}`
+            ? `https://shapework.co/track/marketing/${await generateMarketingTrackerToken(pendingTasks[0].id)}`
             : undefined
         },
         executor: dbClient
@@ -1802,7 +1876,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
     }
 
     // Check if an existing open request already exists for this confirmed address
-    const existingRequestForAddress = (isVerifiedSender && propertyAddress) ? allRequests.find(r => {
+    const existingRequestForAddress = (isVerifiedSender && propertyAddress && !threadId && !inReplyTo && !references && !/\b(?:new|another|separate)\s+(?:marketing\s+)?(?:request|campaign|package|project)\b/i.test(textContent)) ? allRequests.find(r => {
       if (r.isArchived || r.status === 'completed' || r.status === 'merged' || r.status === 'archived') return false;
       if (!r.propertyAddress || r.propertyAddress === 'Address Pending' || r.propertyAddress.includes('[Address Needed]')) return false;
       const match = matchPropertyAddresses(r.propertyAddress, propertyAddress);
@@ -1888,7 +1962,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       });
 
       const isNowFullyReady = recheckEval.readinessStatus === 'ready_for_review';
-      existingRequestForAddress.status = isNowFullyReady ? 'ready_for_review' : 'needs_info';
+      if (['needs_info', 'ready_for_review', 'request_received'].includes(existingRequestForAddress.status)) existingRequestForAddress.status = 'request_received';
       (existingRequestForAddress as any).policyVersion = recheckEval.policyVersion || NORA_POLICY_VERSION;
       (existingRequestForAddress as any).knowledgeVersion = recheckEval.knowledgeVersion || NORA_KNOWLEDGE_VERSION;
       (existingRequestForAddress as any).readinessStatus = recheckEval.readinessStatus;
@@ -1907,10 +1981,11 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         }
         // Only update status if task was in intake/needs_info triage, never regress in_progress or completed
         if (t.status === 'needs_info' || t.status === 'request_received') {
-          t.status = isNowFullyReady ? 'ready_for_review' : 'needs_info';
+          t.status = 'request_received';
         }
         t.notes = `${t.notes || ''}\n\n[Reconciled Email Update]: Added new information and attachments.`;
         t.updatedAt = new Date().toISOString();
+        recordEmailConversation(t, { messageId, threadId, inReplyTo, references });
         saveCanonicalMarketingTask(t);
         if (dbClient) await persistTaskToDatabase(t, dbClient);
       }
@@ -1974,7 +2049,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
             occurrenceIndex: identity.occurrenceIndex,
             canonicalIdentity: identity.canonicalIdentity,
             category: deliv.category || (routingDecision.departmentId === 'Signs / riders' ? 'signage' : (routingDecision.departmentId || 'marketing')),
-            status: isNowFullyReady ? 'request_received' : 'needs_info',
+            status: 'request_received',
             assignedTo: (routingDecision.departmentId === 'signage' || routingDecision.departmentId === 'operations' || deliv.category === 'signage')
               ? (deliv.assignedTo || routingDecision.assigneeName || 'Ann Gunn')
               : 'Melissa Gagliardi',
@@ -2002,7 +2077,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
             updatedAt: new Date().toISOString()
           };
 
-          saveCanonicalMarketingTask(newTask);
+          recordEmailConversation(newTask, { messageId, threadId, inReplyTo, references });
+      saveCanonicalMarketingTask(newTask);
           if (dbClient) await persistTaskToDatabase(newTask, dbClient);
           existingTasks.push(newTask);
           if (!existingRequestForAddress.taskIds) existingRequestForAddress.taskIds = [];
@@ -2223,6 +2299,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
 
       const newTask: CanonicalMarketingTask = {
         id: taskId,
+        workspaceId,
         requestId,
         deliverableType: identity.deliverableType,
         variantKey: identity.variantKey,
@@ -2230,7 +2307,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         canonicalIdentity: identity.canonicalIdentity,
         title: deliv.title,
         category: deliv.category || (routingDecision.departmentId === 'Signs / riders' ? 'signage' : (routingDecision.departmentId || 'marketing')),
-        status: isNeedsAddress ? 'needs_info' : 'request_received',
+        status: 'request_received',
         // Marketing collateral always lands on Melissa in Intake Received for routing.
         // Signage/ops may still use routingDecision (Ann). Photos never skip this lane.
         assignedTo: isCustomSign
@@ -2248,9 +2325,9 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
           : ((routingDecision.departmentId === 'signage' || routingDecision.departmentId === 'operations' || deliv.category === 'signage')
             ? (deliv.assignedToRole || routingDecision.assigneeRole || 'Operations & Signage Lead')
             : 'Marketing Director'),
-        reviewOwner: isCustomSign ? 'Melissa Gagliardi' : routingDecision.reviewOwnerName,
-        reviewOwnerId: isCustomSign ? 'dir_melissa_gagliardi_33' : routingDecision.reviewOwnerStaffId,
-        reviewOwnerName: isCustomSign ? 'Melissa Gagliardi' : routingDecision.reviewOwnerName,
+        reviewOwner: deliv.category === 'signage' && !isCustomSign ? routingDecision.reviewOwnerName : 'Melissa Gagliardi',
+        reviewOwnerId: deliv.category === 'signage' && !isCustomSign ? routingDecision.reviewOwnerStaffId : 'dir_melissa_gagliardi_33',
+        reviewOwnerName: deliv.category === 'signage' && !isCustomSign ? routingDecision.reviewOwnerName : 'Melissa Gagliardi',
         coveringStaff: isCustomSign ? undefined : routingDecision.coveringStaffName,
         coveringStaffId: isCustomSign ? undefined : routingDecision.coveringStaffId,
         coveringStaffName: isCustomSign ? undefined : routingDecision.coveringStaffName,
@@ -2303,6 +2380,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
       }
       (newTask as any).policyVersion = emailIntakeEvaluation.policyVersion;
       (newTask as any).knowledgeVersion = emailIntakeEvaluation.knowledgeVersion;
+      recordEmailConversation(newTask, { messageId, threadId, inReplyTo, references });
       saveCanonicalMarketingTask(newTask);
       createdTasks.push(newTask);
 
@@ -2332,7 +2410,7 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         : (!propertyAddress ? `[Address Needed] ${subject}` : (subject || `${propertyAddress} Marketing Request`)),
       channel: 'email',
       receivedAt: 'Just now · Verified Inbound',
-      status: isNeedsAddress ? 'needs_info' : 'request_received',
+      status: 'request_received',
       agentName: agentName || 'James Fort',
       agentEmail,
       agentPhone: agentPhone || '(910) 617-8264',
@@ -2465,13 +2543,13 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         subject: subject ? (subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`) : 'Re: Urgent sign request',
         payload: {
           toEmail: agentEmail,
+          requestId: newRequest.id, threadId, inReplyTo: messageId,
+          references: [...(Array.isArray(references) ? references : references ? [references] : []), messageId].join(' '),
           agentName,
           subjectTitle: subject || 'Urgent sign request',
           location: 'Rocky Point',
           scope: 'design, printing, pickup, delivery, and installation',
           timing: 'ASAP',
-          inReplyTo: messageId,
-          references: messageId
         },
         executor: dbClient
       });
@@ -2485,6 +2563,8 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         subject: `Action Needed: Property Address for ${subject}`,
         payload: {
           toEmail: agentEmail,
+          requestId: newRequest.id, threadId, inReplyTo: messageId,
+          references: [...(Array.isArray(references) ? references : references ? [references] : []), messageId].join(' '),
           agentName,
           subjectTitle: subject
         },
@@ -2501,35 +2581,23 @@ export async function ingestInboundEmailToTask(payload: InboundEmailPayload & {
         subject: `Marketing Intake Confirmed: ${propertyAddress}`,
         payload: {
           toEmail: agentEmail,
+          requestId: newRequest.id, threadId, inReplyTo: messageId,
+          references: [...(Array.isArray(references) ? references : references ? [references] : []), messageId].join(' '),
           agentName,
           propertyAddress,
           deliverables: deliverableItems.map(d => d.title),
           assignedLead: `${primaryOwner.assignedTo} (${primaryOwner.assignedToRole})`,
           trackerUrl: primaryTaskId
-            ? `https://shapework.co/track/marketing/${generateMarketingTrackerToken(primaryTaskId)}`
+            ? `https://shapework.co/track/marketing/${await generateMarketingTrackerToken(primaryTaskId)}`
             : undefined
         },
         executor: dbClient
       });
 
-      if (photos.length === 0 && primaryOwner.category !== 'signage') {
-        const photoReqKey = `${workspaceId}:req:${newRequest.id}:photo_request:v1`;
-        await enqueueOutboundEmail({
-          workspaceId,
-          messageType: 'photo_request',
-          idempotencyKey: photoReqKey,
-          recipient: agentEmail,
-          subject: `Listing Photos Needed: ${propertyAddress}`,
-          payload: {
-            toEmail: agentEmail,
-            agentName,
-            propertyAddress,
-            driveUploadUrl: driveFolderUrl
-          },
-          executor: dbClient
-        });
-      }
+
     }
+
+    await enqueueMissingPhotoRequest(newRequest, createdTasks[0], { messageId, threadId, inReplyTo, references }, dbClient);
 
     await completeInboundEmailProcessing({
       workspaceId,

@@ -7,8 +7,46 @@
 
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'node:crypto';
 import { GoogleDriveService } from './googleDriveService.js';
 import { validateProofUrl } from '../../src/utils/assetInspection.js';
+
+export function buildMarketingDispatchKey(task: { id?: string | null; workspaceId?: string | null; proofUrl?: string | null; proofVersion?: number; agentEmail?: string | null }, intent = 'delivery_complete'): string {
+  const proof = intent === 'delivery_complete' ? `${task.proofVersion || 1}:${task.proofUrl || ''}` : '';
+  const recipient = String(task.agentEmail || '').trim().toLowerCase();
+  return `outreach_sent_${createHash('sha256').update(`${task.workspaceId || ''}:${task.id || ''}:${intent}:${proof}:${recipient}`).digest('hex')}`;
+}
+
+export function internalProofFilename(value?: string | null): string | null {
+  const raw = String(value || '').trim();
+  try {
+    const base = new URL(process.env.PUBLIC_APP_URL || process.env.PUBLIC_BASE_URL || 'https://shapework.co');
+    const url = new URL(raw, base);
+    if (!raw || raw.startsWith('//') || url.origin !== base.origin || !url.pathname.startsWith('/uploads/')) return null;
+    const filename = decodeURIComponent(url.pathname.slice('/uploads/'.length));
+    return filename && !/[\\/\x00]/.test(filename) && filename !== '.' && filename !== '..' ? filename : null;
+  } catch { return null; }
+}
+
+/** Resolve only the current finished proof, scoped to the task's tenant and association. */
+export async function resolveDurableDeliveryAssets(task: {
+  id?: string | null; workspaceId?: string | null; proofUrl?: string | null;
+  attachments?: unknown[] | null; proofs?: Array<{ url?: string }>;
+}, suppliedProof?: string | null): Promise<Array<{ filename: string; content: Buffer; contentType: string; assetId: string; sha256Checksum: string; url: string }>> {
+  if (!task.id || !task.workspaceId) return [];
+  const proof = String(suppliedProof || task.proofUrl || '').trim();
+  const filename = internalProofFilename(proof);
+  if (!filename) return [];
+  const { getDurableAssetByFilenameAsync } = await import('../persistence/durableAssetRepository.js');
+  const asset = await getDurableAssetByFilenameAsync(filename, { workspaceId: task.workspaceId, taskId: task.id });
+  if (!asset || asset.workspaceId !== task.workspaceId) return [];
+  if (asset.taskId && asset.taskId !== task.id) return [];
+  const canonicalRefs = [task.proofUrl, ...(task.attachments || []).map((a: any) => a?.url), ...(task.proofs || []).map(a => a.url)];
+  if (asset.taskId !== task.id && !canonicalRefs.some(url => internalProofFilename(url) === filename)) return [];
+  const content = Buffer.from(asset.dataBase64 || '', 'base64');
+  if (!content.length || createHash('sha256').update(content).digest('hex') !== asset.sha256Checksum) return [];
+  return [{ filename: asset.filename, content, contentType: asset.contentType || 'application/octet-stream', assetId: asset.id, sha256Checksum: asset.sha256Checksum, url: asset.url || proof }];
+}
 
 export function isPlaceholderDriveUrl(url?: string | null): boolean {
   const u = String(url || '').trim();
@@ -385,6 +423,7 @@ function decodeDataUrl(dataUrl: string): { mimeType: string; buffer: Buffer } | 
  * onto the address folder. Never returns data: or a synthetic Drive URL.
  */
 export async function resolveReviewProofUrl(input: {
+  taskId?: string;
   proofUrl?: string | null;
   stagedAssets?: Array<{ previewUrl?: string; url?: string; downloadUrl?: string; fileName?: string; name?: string; mimeType?: string }>;
   propertyAddress?: string | null;
@@ -406,6 +445,13 @@ export async function resolveReviewProofUrl(input: {
   };
   push(input.proofUrl);
   for (const asset of input.stagedAssets || []) push(asset?.previewUrl || asset?.downloadUrl || asset?.url);
+
+  for (const candidate of candidates) {
+    if (!internalProofFilename(candidate)) continue;
+    const assets = await resolveDurableDeliveryAssets({ id: input.taskId, workspaceId: input.workspaceId }, candidate);
+    if (assets.length) return { ok: true, proofUrl: assets[0].url, driveFolderUrl: '' };
+    return { ok: false, proofUrl: '', driveFolderUrl: '', errorCode: 'INVALID_PROOF_URL', error: 'Finished asset is missing or outside this task workspace.' };
+  }
 
   for (const candidate of candidates) {
     if (isDurableHttpsProofUrl(candidate)) {

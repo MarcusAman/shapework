@@ -222,6 +222,9 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
   const [proofForCheck, setProofForCheck] = useState<string>(() =>
     userPastedProofUrl(campaign, campaign?.approvePayload?.proofUrl)
   );
+  const internalProof = [campaign?.approvePayload?.proofUrl,
+    ...(campaign?.approvePayload?.stagedAssets || []).map((asset: any) => asset?.previewUrl || asset?.url),
+    campaign?.proofUrl].find((url: any) => typeof url === 'string' && /^\/uploads\/[^/]+$/.test(url)) || '';
   const [fetchedDispatchVerdict, setFetchedDispatchVerdict] = useState<DispatchVerdictView | null>(null);
   const dispatchGen = React.useRef(0);
   const activeDispatchVerdict = dispatchVerdict || fetchedDispatchVerdict;
@@ -262,7 +265,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
             recipientName: campaign.agentName,
             channels: ['email'],
             intent,
-            ...(proofForCheck ? { proofUrl: proofForCheck } : {}),
+            ...((proofForCheck || internalProof) ? { proofUrl: proofForCheck || internalProof } : {}),
             driveFolderUrl: driveFolderUrl || undefined,
             attachments: campaign.attachments || [],
             domain,
@@ -289,6 +292,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     intent,
     domain,
     proofForCheck,
+    internalProof,
     driveFolderUrl,
     driveSettled,
     isDelivery,
@@ -315,8 +319,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
     setEnsuredDriveUrl('');
     // Materials-ready defaults to email+text only when both destinations are verified.
     setSelectedChannel(
-      isDelivery && recipient.emailVerified && recipient.phoneVerified
-        ? 'both'
+      isDelivery && recipient.emailVerified
+        ? 'email'
         : recipient.phoneVerified && !recipient.emailVerified
           ? 'text'
           : 'email'
@@ -330,7 +334,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       return;
     }
     const taskId = campaign.taskId || campaign.id;
-    if (!taskId) {
+    if (internalProof || !taskId) {
       setDriveSettled(true);
       return;
     }
@@ -371,7 +375,7 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, isDelivery, campaign?.id, campaign?.taskId]);
+  }, [isOpen, isDelivery, campaign?.id, campaign?.taskId, internalProof]);
 
   useEffect(() => {
     if (!campaign) return;
@@ -466,7 +470,8 @@ export const AskRequesterQuestionsModal: React.FC<AskRequesterQuestionsModalProp
       domain,
       workspaceId: campaign.workspaceId || 'ws_wilmington',
       driveFolderUrl: driveFolderUrl || campaign.driveFolderUrl || undefined,
-      proofUrl: pastedProof || undefined,
+      proofUrl: pastedProof || internalProof || undefined,
+      forceConfirmRecent: !isDelivery && duplicateConfirmed,
       assetUrls: isDelivery ? [] : collectDeliveryAssetLinks(campaign),
       attachments: (campaign.attachments || []).filter((a: any) => a?.url)
     };

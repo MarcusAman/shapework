@@ -14,7 +14,6 @@ import {
   getAllCanonicalMarketingRequests,
   getAllCanonicalMarketingTasks
 } from '../persistence/marketingCampaignsRepository.js';
-import { sendPhotoUploadRequestEmail } from '../email/emailProvider.js';
 import { 
   saveTelephonyCallAsync, 
   getTelephonyCallsByWorkspaceAsync, 
@@ -378,75 +377,42 @@ export function normalizeRetellCall(rawCall: any): InboundMarketingCall {
   };
 }
 
-/**
- * Automatically dispatches both an SMS text message and an Email from asknora@nestrealty.com
- * with a dedicated Google Drive upload folder link when an agent calls in on 910-507-2047
- * requesting marketing materials but photos are needed.
- */
-export async function dispatchMissingPhotosNotification(call: InboundMarketingCall): Promise<{
+/** Use the same request-scoped photo outbox as automatic Nora intake. */
+export async function dispatchMissingPhotosNotification(call: InboundMarketingCall, workspaceId?: string): Promise<{
   smsSent: boolean;
   emailSent: boolean;
   driveFolderUrl: string;
   recipientPhone: string;
   recipientEmail: string;
+  status?: string;
 }> {
-  const driveFolderUrl = `https://drive.google.com`;
-  const recipientPhone = call.phone || '+12527170595';
-  const recipientEmail = String(call.brokerDetails?.email || '').trim();
-  const agentName = call.callerName || 'Agent';
-
-  console.log(`[TelephonyPhotoDispatch] Auto-triggering SMS & Email photo upload link to ${agentName} (${recipientPhone}, ${recipientEmail}) for ${call.propertyAddress}`);
-
-  if (process.env.ALLOW_EXTERNAL_DISPATCH === 'false' && process.env.NODE_ENV !== 'test') {
-    console.log('[Dispatch Safety Gate] External communications suppressed (ALLOW_EXTERNAL_DISPATCH=false).');
-    return {
-      smsSent: false,
-      emailSent: false,
-      driveFolderUrl,
-      recipientPhone,
-      recipientEmail
-    };
-  }
-
-  // 1. Send automated SMS notification via Nest Voice Gateway with Safety Gate
-  const smsBody = `Hi ${agentName.split(' ')[0]}, Nora from Nest Realty here! We received your call requesting marketing materials for ${call.propertyAddress}. Please upload your photos here: ${driveFolderUrl}`;
-  const { isAllowedSmsRecipient, recordSmsDispatch } = await import('../security/smsWhitelistGate.js');
-  const safetyCheck = isAllowedSmsRecipient(recipientPhone, smsBody);
-
-  let smsSent = false;
-  if (safetyCheck.allowed) {
-    recordSmsDispatch(safetyCheck.cleanPhone, smsBody);
-    console.log(`[SMS Gateway] Dispatched SMS to ${safetyCheck.maskedPhone}: "${smsBody}"`);
-    smsSent = true;
-  } else {
-    console.warn(`[SMS Safety Gate] Suppressed photo request SMS to ${safetyCheck.maskedPhone}: ${safetyCheck.reason}`);
-  }
-
-  // 2. Send automated branded Email via asknora@nestrealty.com with Safety Gate
-  let emailSent = false;
-  try {
-    if (!recipientEmail) {
-      console.warn('[TelephonyPhotoDispatch] No recipient email; photo request was not sent.');
-    } else {
-      const emailRes = await sendPhotoUploadRequestEmail({
-        toEmail: recipientEmail,
-        agentName,
-        propertyAddress: call.propertyAddress,
-        driveUploadUrl: driveFolderUrl
-      });
-      const heldOrSuppressed = Boolean((emailRes as { suppressed?: boolean; held?: boolean }).suppressed || (emailRes as { held?: boolean }).held);
-      emailSent = Boolean(emailRes.success) && !heldOrSuppressed;
-    }
-  } catch (err) {
-    console.warn(`[TelephonyPhotoDispatch] Email dispatch notice for ${recipientEmail}:`, err);
-  }
-
+  const unavailable = () => Object.assign(new Error('No unique marketing request for this call in the current workspace.'), {
+    code: 'PHOTO_REQUEST_SCOPE_UNAVAILABLE',
+  });
+  if (!workspaceId || !call.id) throw unavailable();
+  const tasks = getAllCanonicalMarketingTasks().filter(t => t.workspaceId === workspaceId && !t.isArchived);
+  const requests = getAllCanonicalMarketingRequests().filter(r => r.workspaceId === workspaceId && !r.isArchived &&
+    (r.id === call.canonicalRequestId || r.telephonyCallId === call.id || (r as any).sourceCallId === call.id ||
+      tasks.some(t => t.requestId === r.id && (t.id === call.canonicalTaskId || t.telephonyCallId === call.id || t.callId === call.id))));
+  if (requests.length !== 1) throw unavailable();
+  const request = requests[0];
+  const task = tasks.find(t => t.requestId === request.id && t.id === call.canonicalTaskId) ||
+    tasks.find(t => t.requestId === request.id && t.category !== 'signage');
+  const recipientEmail = String(request.agentEmail || '').trim();
+  const callEmail = String(call.brokerDetails?.email || '').trim().toLowerCase();
+  if (!task || !recipientEmail || (callEmail && callEmail !== recipientEmail.toLowerCase())) throw unavailable();
+  const { enqueueMissingPhotoRequest, processOutboundEmailOutbox, getMissingPhotoRequestDispatchStatus } =
+    await import('../services/inboundEmailIngestionEngine.js');
+  await enqueueMissingPhotoRequest(request, task);
+  await processOutboundEmailOutbox();
+  const result = await getMissingPhotoRequestDispatchStatus(workspaceId, request.id);
   return {
-    smsSent,
-    emailSent,
-    driveFolderUrl,
-    recipientPhone,
-    recipientEmail
+    smsSent: false,
+    emailSent: result.emailSent,
+    status: result.status,
+    driveFolderUrl: request.driveFolderUrl || '',
+    recipientPhone: request.agentPhone || call.phone || '',
+    recipientEmail,
   };
 }
 

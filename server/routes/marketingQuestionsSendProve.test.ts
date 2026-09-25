@@ -15,7 +15,7 @@ import { memoryOutbox } from '../services/inboundEmailIngestionEngine.js';
 import { AskRequesterQuestionsModal } from '../../src/components/marketing/AskRequesterQuestionsModal.js';
 import { WorkspaceTaskDrawer } from '../../src/components/marketing/WorkspaceTaskDrawer.js';
 import { confirmRequesterWrite } from '../../src/lib/confirmRequesterWrite.js';
-import { DISPATCH_REASON, GOOGLE_DRIVE_NOT_CONNECTED, dispatchBlockCode, driveCreateFailureReason, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
+import { DISPATCH_REASON, dispatchBlockCode, driveCreateFailureReason, evaluateDispatch, setDispatchOutboundModeForTests } from '../services/evaluateDispatch.js';
 import { setDriveFilesListForTests } from '../services/googleDriveService.js';
 import {
   __setAskNoraDriveDepsForTests,
@@ -198,13 +198,13 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
     expect(created[0][1].recipient).toBe('marcus.aman@gmail.com');
   });
 
-  it('requires an https Drive folder and a file; an upload alone or a folder alone is blocked', async () => {
+  it('requires a scoped finished proof or a verified nonempty Drive folder', async () => {
     const beforeKeys = new Set(memoryOutbox.keys());
     const melissa = { 'x-user-email': 'melissa.gagliardi@nestrealty.com' };
     const empty = await post(payload({ proofUrl: undefined, driveFolderUrl: undefined }), melissa);
     expect(empty.status, JSON.stringify(empty.data)).toBe(400);
-    expect(empty.data.reason).toBe(GOOGLE_DRIVE_NOT_CONNECTED);
-    expect(empty.data.code).toBe('DRIVE_FOLDER_CREATE_FAILED');
+    expect(empty.data.reason).toBe(DISPATCH_REASON.durable);
+    expect(empty.data.code).toBe(dispatchBlockCode(DISPATCH_REASON.durable));
     expect(getCanonicalMarketingTaskById(TASK_ID)?.reviewState).toBe('awaiting_review');
     const emptyRows = [...memoryOutbox.entries()].filter(([key]) => !beforeKeys.has(key));
     expect(emptyRows.length).toBe(0);
@@ -215,8 +215,8 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
       attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png', filename: 'Test_marcusgmail.png' }],
     }), melissa);
     expect(uploadOnly.status, JSON.stringify(uploadOnly.data)).toBe(400);
-    expect(uploadOnly.data.reason).toBe(GOOGLE_DRIVE_NOT_CONNECTED);
-    expect(uploadOnly.data.code).toBe('DRIVE_FOLDER_CREATE_FAILED');
+    expect(uploadOnly.data.reason).toBe(DISPATCH_REASON.durable);
+    expect(uploadOnly.data.code).toBe(dispatchBlockCode(DISPATCH_REASON.durable));
 
     setDriveFilesListForTests(async () => ({ data: { files: [] } }));
     const folderOnly = await post(payload({
@@ -231,7 +231,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
 
     const fileOnly = await post(payload({ driveFolderUrl: undefined, proofUrl: HTTPS_PROOF }), melissa);
     expect(fileOnly.status, JSON.stringify(fileOnly.data)).toBe(400);
-    expect(fileOnly.data.reason).toBe(GOOGLE_DRIVE_NOT_CONNECTED);
+    expect(fileOnly.data.reason).toBe(DISPATCH_REASON.durable);
 
     const pasted = await post(payload({ driveFolderUrl: DRIVE_FOLDER, proofUrl: HTTPS_PROOF }), melissa);
     expect(pasted.status, JSON.stringify(pasted.data)).toBe(200);
@@ -346,7 +346,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
         headers: melissa,
         body: payload({ proofUrl: undefined, driveFolderUrl: undefined }),
         allowed: false,
-        reason: GOOGLE_DRIVE_NOT_CONNECTED,
+        reason: DISPATCH_REASON.durable,
         status: 400,
       },
       {
@@ -358,7 +358,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           attachments: [{ url: '/uploads/1789593612358_Test_marcusgmail.png' }],
         }),
         allowed: false,
-        reason: GOOGLE_DRIVE_NOT_CONNECTED,
+        reason: DISPATCH_REASON.durable,
         status: 400,
       },
       {
@@ -435,7 +435,7 @@ describe('POST /api/marketing/requests/send-questions Approve & Notify', () => {
           assetUrls: [],
         }),
         allowed: false,
-        reason: GOOGLE_DRIVE_NOT_CONNECTED,
+        reason: DISPATCH_REASON.durable,
         status: 400,
       },
       {
@@ -877,7 +877,7 @@ function stubPastedFolderList(mode: 'empty' | 'error' | 'one') {
       const failed = await postEnsure();
       expect(failed.status).toBe(400);
       expect(failed.data.reason).toBe(CREATE_FAILED);
-      await sameReason(payload({ proofUrl: undefined, driveFolderUrl: undefined, attachments: [], assetUrls: [] }), CREATE_FAILED);
+      await sameReason(payload({ proofUrl: undefined, driveFolderUrl: undefined, attachments: [], assetUrls: [] }), DISPATCH_REASON.durable);
     } finally {
       fs.rmSync(uploadPath, { force: true });
       __setAskNoraDriveDepsForTests(null);

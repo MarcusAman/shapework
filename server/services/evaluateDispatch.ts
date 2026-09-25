@@ -9,10 +9,9 @@ import {
   isAllowlistedProveRecipient,
   isProductionApp,
 } from '../../src/lib/outboundAllowlistGate.js';
-import { applyEnsuredFolder, ensureAskNoraDeliveryDrivePack, isDurableHttpsProofUrl, isRealGoogleDriveUrl } from './askNoraDriveDelivery.js';
+import { isDurableHttpsProofUrl, isRealGoogleDriveUrl, internalProofFilename, resolveDurableDeliveryAssets } from './askNoraDriveDelivery.js';
 import { resolveServerCanonicalRecipient } from './canonicalRecipientService.js';
 import { pastedDriveFolderId, resolveDispatchProofAndFolder } from '../../src/lib/proofPrecedence.js';
-import { saveCanonicalMarketingTask } from '../persistence/marketingCampaignsRepository.js';
 import { GoogleDriveService } from './googleDriveService.js';
 import { checkOutbound } from '../email/outboundGate.js';
 import { GOOGLE_DRIVE_NOT_CONNECTED } from './driveConnectionReason.js';
@@ -30,6 +29,7 @@ export const DISPATCH_REASON = {
   role: 'Only the task reviewer may approve and notify.',
   proof: 'Proof link must use https.',
   file: 'No Drive folder and no file to send.',
+  durable: 'The finished asset is missing or does not belong to this task and workspace.',
   emptyFolder: 'Drive folder is empty.',
   unreadFolder: "Can't read that Drive folder.",
   recipient: 'This recipient is not allowed.',
@@ -184,30 +184,6 @@ async function folderContentsReason(folderId: string, workspaceId?: string | nul
   }
 }
 
-/** No folder yet: create the AskNora address folder, copy intake files, then count what landed. */
-async function ensureFolderThenCount(input: EvaluateDispatchInput): Promise<string> {
-  const task = input.task || { id: 'dispatch' };
-  const attachments = [
-    ...(Array.isArray(task.attachments) ? task.attachments : []),
-    ...(Array.isArray(input.attachments) ? input.attachments : []),
-  ];
-  const pack = await ensureAskNoraDeliveryDrivePack(
-    { ...task, attachments, photos: task.photos },
-    { stagedAssets: (input.assetUrls || []).map((url) => ({ url })) }
-  );
-  if (!pack.driveFolderId || !isRealGoogleDriveUrl(pack.driveFolderUrl)) {
-    return driveCreateFailureReason(pack.error);
-  }
-  if (applyEnsuredFolder(task, pack.driveFolderUrl)) {
-    try {
-      saveCanonicalMarketingTask(task as any);
-    } catch (err: any) {
-      console.warn('[evaluateDispatch] could not persist drive folder:', err?.message || err);
-    }
-  }
-  return folderContentsReason(pack.driveFolderId, task.workspaceId);
-}
-
 export function dispatchBlockStatus(reason: string): number {
   return reason === DISPATCH_REASON.role ? 403 : 400;
 }
@@ -305,8 +281,7 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
   const pastedFolderId = pastedDriveFolderId(input.proofUrl);
   const explicitFolderId = folderUrl.match(/\/folders\/([a-zA-Z0-9_-]+)/)?.[1] || '';
 
-  // Fixed order: role, recipient, proof, Drive folder contents, kill switch.
-  // Auto-created and pasted folders both count files with the Drive list. Attachments never count.
+  // Internal proofs are verified against durable storage; Drive remains an optional source.
   let reason = '';
   if (full && !actorIsTaskReviewer(input.actor, input.task)) {
     reason = DISPATCH_REASON.role;
@@ -314,12 +289,16 @@ export async function evaluateDispatch(input: EvaluateDispatchInput): Promise<Di
     reason = DISPATCH_REASON.recipient;
   } else if (full && explicitBadProof(suppliedProof)) {
     reason = DISPATCH_REASON.proof;
+  } else if (full && internalProofFilename(suppliedProof)) {
+    reason = (await resolveDurableDeliveryAssets(input.task, suppliedProof)).length ? '' : DISPATCH_REASON.durable;
+  } else if (full && suppliedProof && !isRealGoogleDriveUrl(suppliedProof)) {
+    reason = DISPATCH_REASON.durable;
   } else if (full && pastedFolderId) {
     reason = await folderContentsReason(pastedFolderId, input.task?.workspaceId);
   } else if (full && isDriveFolderUrl(folderUrl) && explicitFolderId) {
     reason = await folderContentsReason(explicitFolderId, input.task?.workspaceId);
   } else if (full) {
-    reason = await ensureFolderThenCount(input);
+    reason = DISPATCH_REASON.durable;
   } else if (outboundBlocked) {
     reason = DISPATCH_REASON.outbound;
   }

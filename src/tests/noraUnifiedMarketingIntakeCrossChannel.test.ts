@@ -197,6 +197,7 @@ describe('Unified NORA Omnichannel Marketing Intake Suite', () => {
       const res1 = await orchestrator.evaluateMarketingIntake({
         channel: 'phone',
         requesterName: 'Chris Brown',
+        deliverables: ['1-Page Property Flyer (8.5x11)'],
         propertyAddress: 'Address Pending'
       });
       const p1 = await orchestrator.persistIntakeEvaluation(res1);
@@ -204,13 +205,18 @@ describe('Unified NORA Omnichannel Marketing Intake Suite', () => {
       const res2 = await orchestrator.evaluateMarketingIntake({
         channel: 'email',
         requesterEmail: 'chris.brown@nestrealty.com',
+        deliverables: ['1-Page Property Flyer (8.5x11)'],
         propertyAddress: 'Wilmington, NC Area Listing'
       });
       const p2 = await orchestrator.persistIntakeEvaluation(res2);
 
       expect(p1.request.id).not.toBe(p2.request.id);
-      expect(p1.request.status).toBe('needs_info');
-      expect(p2.request.status).toBe('needs_info');
+      expect(p1.request.status).toBe('request_received');
+      expect(p2.request.status).toBe('request_received');
+      for (const persisted of [p1, p2]) {
+        expect(persisted.tasks.length).toBeGreaterThan(0);
+        expect(persisted.tasks.every(task => task.status === 'request_received' && task.assignedTo === 'Melissa Gagliardi' && task.reviewOwnerName === 'Melissa Gagliardi')).toBe(true);
+      }
     });
   });
 
@@ -222,6 +228,7 @@ describe('Unified NORA Omnichannel Marketing Intake Suite', () => {
         channel: 'phone',
         requesterName: 'Matt Orr',
         propertyAddress: '550 Market St, Wilmington, NC 28401',
+        deliverables: ['1-Page Property Flyer (8.5x11)'],
         flexMlsStatus: 'pre_mls',
         price: 550000,
         squareFeet: 2100,
@@ -232,13 +239,16 @@ describe('Unified NORA Omnichannel Marketing Intake Suite', () => {
         // No photos provided on phone call
       });
       const voicePersistence = await orchestrator.persistIntakeEvaluation(voiceResult);
-      expect(voicePersistence.request.status).toBe('needs_info');
+      expect(voicePersistence.request.status).toBe('request_received');
+      expect(voicePersistence.tasks.length).toBeGreaterThan(0);
+      expect(voicePersistence.tasks.every(task => task.status === 'request_received' && task.assignedTo === 'Melissa Gagliardi' && task.reviewOwnerName === 'Melissa Gagliardi')).toBe(true);
 
       // Step 2: Broker emails photos referencing the same address
       const emailResult = await orchestrator.evaluateMarketingIntake({
         channel: 'email',
         requesterEmail: 'matt.orr@nestrealty.com',
         propertyAddress: '550 Market St, Wilmington, NC 28401',
+        deliverables: ['1-Page Property Flyer (8.5x11)'],
         photos: [{ url: '/uploads/550_market_front.jpg', name: 'front.jpg' }]
       });
       const emailPersistence = await orchestrator.persistIntakeEvaluation(emailResult);
@@ -246,6 +256,8 @@ describe('Unified NORA Omnichannel Marketing Intake Suite', () => {
       expect(emailPersistence.isMerged).toBe(true);
       expect(emailPersistence.request.id).toBe(voicePersistence.request.id);
       expect(emailPersistence.request.photos?.length).toBeGreaterThanOrEqual(1);
+      expect(emailPersistence.tasks.map(task => task.id)).toEqual(voicePersistence.tasks.map(task => task.id));
+      expect(emailPersistence.tasks.every(task => task.status === 'request_received' && task.assignedTo === 'Melissa Gagliardi' && task.reviewOwnerName === 'Melissa Gagliardi')).toBe(true);
     });
 
     it('10. Web uploads reconcile into existing email-created request container', async () => {

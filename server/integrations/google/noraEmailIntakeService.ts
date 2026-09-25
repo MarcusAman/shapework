@@ -15,29 +15,22 @@
 
 import { google } from 'googleapis';
 import { NORA_EMAIL_CONFIG } from '../../email/emailProvider.js';
-import { enqueueOutboundEmail, processOutboundEmailOutbox } from '../../services/inboundEmailIngestionEngine.js';
-import { generateMarketingTrackerToken } from '../../services/taskTrackerService.js';
-import {
-  getAllCanonicalMarketingTasks,
-  getAllCanonicalMarketingRequests,
-  saveCanonicalMarketingRequest,
-  saveCanonicalMarketingTask,
-  CanonicalMarketingRequest,
-  CanonicalMarketingTask
-} from '../../persistence/marketingCampaignsRepository.js';
-import { NEST_FULL_ROSTER_72 } from '../../persistence/nestRosterSeed.js';
+import { ingestInboundEmailToTask } from '../../services/inboundEmailIngestionEngine.js';
+import { getAllCanonicalMarketingRequests, getAllCanonicalMarketingTasks } from '../../persistence/marketingCampaignsRepository.js';
+import { findEmailReplyTarget } from '../../services/noraEmailReplyLifecycle.js';
 import { getOAuthClient, getGoogleAccessToken, getGoogleServiceAccountJWTClient } from './googleOAuth.js';
 import { isGoogleServiceAccountConfigured } from './googleConfig.js';
 import { getOAuthTokenRecord } from '../../persistence/oauthTokensRepository.js';
 import { decryptToken } from '../shared/integrationCredentialVault.js';
 import { IntegrationStateStore } from '../shared/integrationStateStore.js';
-import { buildCreativeTaskDraft } from '../../services/nora/creativeRequestTriage.js';
-import { coalesceRealDriveUrl, promoteAskNoraListingFolder } from '../../services/askNoraDriveDelivery.js';
-import { saveListingMediaAsset } from '../../services/listingMediaStorageService.js';
 
 export interface InboundAgentEmail {
   id: string;
   messageId: string;
+  workspaceId?: string;
+  threadId?: string;
+  inReplyTo?: string;
+  references?: string | string[];
   fromEmail: string;
   fromName: string;
   subject: string;
@@ -47,7 +40,10 @@ export interface InboundAgentEmail {
     filename: string;
     contentType: string;
     sizeBytes: number;
-    url: string;
+    url?: string;
+    content?: Buffer | string;
+    buffer?: Buffer;
+    base64Data?: string;
   }>;
 }
 
@@ -74,41 +70,12 @@ export interface EmailIntakeResult {
  */
 export const processedMessageIds = new Set<string>();
 
-/**
- * Fuzzy matches an address in an email against existing marketing tasks.
- */
-export function findMatchingExistingTask(address: string): {
-  task?: CanonicalMarketingTask;
-  request?: CanonicalMarketingRequest;
-} {
-  if (!address || address.length < 5 || address.toLowerCase().includes('unknown')) return {};
-
-  const cleanQuery = address.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-  const queryTokens = cleanQuery.split(/\s+/).filter(t => 
-    t.length > 2 && !['wilmington', 'nc', 'north', 'carolina', 'ave', 'avenue', 'st', 'street', 'rd', 'road', 'dr', 'drive', 'blvd', 'boulevard', 'way', 'lane', 'pkwy', 'parkway', 'court', 'ct', 'circle', 'cir', 'test'].includes(t)
-  );
-
-  const numberMatch = address.match(/\b\d{2,5}\b/);
-  const streetNum = numberMatch ? numberMatch[0] : '';
-
-  const allTasks = getAllCanonicalMarketingTasks();
-  const allRequests = getAllCanonicalMarketingRequests();
-
-  for (const task of allTasks) {
-    if (!task.propertyAddress) continue;
-    const taskAddr = task.propertyAddress.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-    
-    if (streetNum && taskAddr.includes(streetNum)) {
-      // If street number matches, check if any significant token (street name) matches
-      const matchesSignificant = queryTokens.length === 0 || queryTokens.some(token => taskAddr.includes(token));
-      if (matchesSignificant) {
-        const req = allRequests.find(r => r.id === task.requestId);
-        return { task, request: req };
-      }
-    }
-  }
-
-  return {};
+/** Compatibility lookup requires an explicit requester and tenant; unscoped matching is forbidden. */
+export function findMatchingExistingTask(address: string, scope?: { workspaceId: string; senderEmail: string }) {
+  if (!scope) return {};
+  const matched = findEmailReplyTarget({ ...scope, propertyAddress: address, subject: 'Re: Marketing request', text: '',
+    hasAttachments: true, requests: getAllCanonicalMarketingRequests(), tasks: getAllCanonicalMarketingTasks() });
+  return matched ? { task: matched.tasks[0], request: matched.request } : {};
 }
 
 /**
@@ -237,338 +204,27 @@ export function parseMarketingDeliverables(text: string): {
  * Processes a single inbound email to asknora@nestrealty.com.
  */
 export async function processInboundAgentEmail(email: InboundAgentEmail): Promise<EmailIntakeResult> {
-  const combined = `${email.subject} ${email.bodyText}`.toLowerCase();
-  
-  // 1. Check if email is marketing-related
-  const isMarketing = combined.includes('marketing') ||
-                      combined.includes('flyer') ||
-                      combined.includes('brochure') ||
-                      combined.includes('postcard') ||
-                      combined.includes('open house') ||
-                      combined.includes('social') ||
-                      combined.includes('just listed') ||
-                      combined.includes('photo') ||
-                      combined.includes('sheet') ||
-                      combined.includes('sign');
-
-  const propertyAddress = extractAddressFromEmail(`${email.subject}\n${email.bodyText}`, email.subject);
-  const { title: deliverableTitle, category, items } = parseMarketingDeliverables(`${email.subject} ${email.bodyText}`);
-
-  // Resolve agent name from Roster
-  let agentName = email.fromName;
-  const rosterMatch = NEST_FULL_ROSTER_72.find(a => a.email.toLowerCase() === email.fromEmail.toLowerCase());
-  if (rosterMatch) {
-    agentName = `${rosterMatch.displayName} (${rosterMatch.role || 'Broker'})`;
-  }
-
-  // Extract photo attachments (.jpg, .jpeg, .png, .webp)
-  const photoAttachments = email.attachments?.filter(a => 
-    a.contentType.startsWith('image/') || 
-    a.filename.toLowerCase().endsWith('.jpg') || 
-    a.filename.toLowerCase().endsWith('.jpeg') || 
-    a.filename.toLowerCase().endsWith('.png') || 
-    a.filename.toLowerCase().endsWith('.webp')
-  ) || [];
-
-  for (const att of (email.attachments || [])) {
-    if ((att as any).content || (att as any).buffer || (att as any).base64Data) {
-      let buf: Buffer | null = null;
-      if (Buffer.isBuffer((att as any).content)) buf = (att as any).content;
-      else if (Buffer.isBuffer((att as any).buffer)) buf = (att as any).buffer;
-      else if (typeof (att as any).content === 'string') {
-        try { buf = Buffer.from((att as any).content.replace(/^data:[^;]+;base64,/, ''), 'base64'); } catch {}
-      } else if (typeof (att as any).base64Data === 'string') {
-        try { buf = Buffer.from((att as any).base64Data.replace(/^data:[^;]+;base64,/, ''), 'base64'); } catch {}
-      }
-      if (buf) {
-        try {
-          const saved = await saveListingMediaAsset({
-            filename: att.filename,
-            contentType: att.contentType,
-            buffer: buf,
-            propertyAddress
-          });
-          if (saved?.url) att.url = saved.url;
-        } catch (mediaErr) {
-          console.warn('[EmailIntake] Failed to save media asset durably:', mediaErr);
-        }
-      }
-    }
-  }
-
-  const structuredPhotos = photoAttachments.map((p, idx) => ({
-    id: `photo_${email.id || 'att'}_${idx}`,
-    url: p.url || (p.filename ? `/uploads/${p.filename}` : '/images/properties/1916_wolcott_1004.jpg'),
-    name: p.filename,
-    type: p.contentType || 'image/jpeg',
-    sizeBytes: p.sizeBytes
-  }));
-
-  const structuredAttachments = (email.attachments || []).map(a => ({
-    filename: a.filename,
-    contentType: a.contentType,
-    sizeBytes: a.sizeBytes,
-    url: a.url || (a.filename ? `/uploads/${a.filename}` : '')
-  }));
-
-  const assignedLead = 'Melissa Gagliardi'; // Triage lead (Marketing Director)
-
-  if (!isMarketing) {
-    return {
-      isMarketingRequest: false,
-      propertyAddress,
-      deliverableTitle,
-      category,
-      agentName,
-      agentEmail: email.fromEmail,
-      extractedPhotosCount: photoAttachments.length,
-      driveFolderUrl: '',
-      assignedLead,
-      photos: structuredPhotos,
-      attachments: structuredAttachments
-    };
-  }
-
-  // 2. Check for Matching Existing Task (Smart Property Matching)
-  const existing = findMatchingExistingTask(propertyAddress);
-
-  // Create-at-intake: one real AskNora folder per address. Fail closed — no 1DRV_ stub.
-  let driveFolderUrl = '';
-  try {
-    const promoted = await promoteAskNoraListingFolder({
-      propertyAddress,
-      agentName,
-      agentEmail: email.fromEmail,
-      workspaceId: 'ws_wilmington',
-      existingFolderUrl: existing.task?.driveFolderUrl || existing.request?.driveFolderUrl,
-    });
-    driveFolderUrl = coalesceRealDriveUrl(promoted.driveFolderUrl, existing.task?.driveFolderUrl, existing.request?.driveFolderUrl);
-  } catch (driveErr: any) {
-    console.warn('[EmailIntake] AskNora Drive folder deferred:', driveErr?.message || driveErr);
-    driveFolderUrl = coalesceRealDriveUrl(existing.task?.driveFolderUrl, existing.request?.driveFolderUrl);
-  }
-
-  if (existing.task) {
-    const matchedTask = existing.task;
-    const timeStr = new Date(email.receivedAt || Date.now()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    
-    // Append photo drop note
-    matchedTask.notes = (matchedTask.notes ? matchedTask.notes + '\n\n' : '') + 
-      `[${timeStr}] Inbound email from ${email.fromName} (${email.fromEmail}): "${email.subject}" — ${photoAttachments.length} photos staged to Drive: ${driveFolderUrl}`;
-    
-    if (category) {
-      matchedTask.category = category;
-    }
-
-    // Attach photos and structured attachments to task
-    if (structuredPhotos.length > 0) {
-      matchedTask.photos = [...(matchedTask.photos || []), ...structuredPhotos];
-    }
-    if (structuredAttachments.length > 0) {
-      matchedTask.attachments = [...(matchedTask.attachments || []), ...structuredAttachments];
-    }
-    matchedTask.driveFolderUrl = coalesceRealDriveUrl(driveFolderUrl, matchedTask.driveFolderUrl);
-
-    // Photos stage onto the task but do NOT skip Intake Received.
-    // Melissa (or Ann for ops) must intentionally Start Work / route before in_progress.
-    matchedTask.updatedAt = new Date().toISOString();
-
-    saveCanonicalMarketingTask(matchedTask);
-
-    if (existing.request) {
-      existing.request.rawExcerpt = (existing.request.rawExcerpt ? existing.request.rawExcerpt + '\n\n---\n\n' : '') +
-        `From: ${email.fromName} <${email.fromEmail}>\nSubject: ${email.subject}\n\n${email.bodyText}`;
-      if (structuredPhotos.length > 0) {
-        existing.request.photos = [...(existing.request.photos || []), ...structuredPhotos];
-      }
-      if (structuredAttachments.length > 0) {
-        existing.request.attachments = [...(existing.request.attachments || []), ...structuredAttachments];
-      }
-      existing.request.driveFolderUrl = coalesceRealDriveUrl(driveFolderUrl, existing.request.driveFolderUrl);
-      saveCanonicalMarketingRequest(existing.request);
-    }
-
-    processedMessageIds.add(email.messageId);
-
-    console.log(`[EmailIntake] Matched existing task "${matchedTask.title}" (${matchedTask.id}) for ${propertyAddress} -> Staged ${photoAttachments.length} photos and updated status to ${matchedTask.status}`);
-
-    // Idempotent confirmation (one per request) via durable outbox
-    try {
-      const requestKey = existing.request?.id || matchedTask.requestId || matchedTask.id;
-      await enqueueOutboundEmail({
-        workspaceId: matchedTask.workspaceId || 'ws_wilmington',
-        messageType: 'intake_confirmed',
-        idempotencyKey: `ws_wilmington:agent:${String(email.fromEmail||"").toLowerCase()}:addr:${String(propertyAddress||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120)}:intake_confirmation:v2`,
-        recipient: email.fromEmail,
-        subject: `Marketing Intake Confirmed: ${propertyAddress}`,
-        payload: {
-          toEmail: email.fromEmail,
-          agentName: email.fromName,
-          propertyAddress,
-          deliverables: items,
-          assignedLead: matchedTask.assignedTo || assignedLead,
-          trackerUrl: `https://shapework.co/track/marketing/${generateMarketingTrackerToken(matchedTask.id)}`
-        }
-      });
-      await processOutboundEmailOutbox();
-    } catch (err) {
-      console.warn(`[EmailIntake] Notice enqueueing intake confirmation email to ${email.fromEmail}:`, err);
-    }
-
-    return {
-      isMarketingRequest: true,
-      isExistingTaskUpdated: true,
-      updatedTaskId: matchedTask.id,
-      createdRequestId: existing.request?.id,
-      propertyAddress,
-      deliverableTitle: matchedTask.title,
-      category: matchedTask.category,
-      agentName,
-      agentEmail: email.fromEmail,
-      extractedPhotosCount: photoAttachments.length,
-      driveFolderUrl,
-      assignedLead: matchedTask.assignedTo || assignedLead,
-      photos: matchedTask.photos,
-      attachments: matchedTask.attachments
-    };
-  }
-
-  // 3. Create New Canonical Request & Task in Repository
-  const requestId = `req_email_${email.id}_${Date.now()}`;
-  const taskId = `tsk_email_${email.id}_0`;
-
-  // Create Parent Request
-  const newRequest: CanonicalMarketingRequest = {
-    id: requestId,
-    title: email.subject || 'Email Intake Request',
-    sourceCallId: email.id,
-    telephonyCallId: undefined,
-    channel: 'email',
-    receivedAt: new Date(email.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' · Today',
-    status: 'request_received',
-    agentName,
-    propertyAddress,
-    requestExcerpt: `Email Intake (${email.fromEmail}): "${email.subject}" — ${email.bodyText.slice(0, 180)}...`,
-    rawExcerpt: `From: ${email.fromName} <${email.fromEmail}>\nSubject: ${email.subject}\n\n${email.bodyText}`,
-    taskIds: [taskId],
-    assignedTo: assignedLead,
-    photos: structuredPhotos,
-    attachments: structuredAttachments,
-    driveFolderUrl,
-    isArchived: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  saveCanonicalMarketingRequest(newRequest);
-
-  // Extract property specs (sqft, beds, baths, price, go-live date)
-  const specs: string[] = [];
-  const sqftMatch = email.bodyText.match(/(\d{3,5})\s*(?:sq(?:uare)?\s*(?:ft|feet)|sqft)/i);
-  if (sqftMatch) specs.push(`${parseInt(sqftMatch[1]).toLocaleString()} sq ft`);
-
-  const bedBathMatch = email.bodyText.match(/(\d+)\s*(?:bed|br).*?(\d+(?:\.\d+)?)\s*(?:bath|ba)/i);
-  if (bedBathMatch) specs.push(`${bedBathMatch[1]} Bed / ${bedBathMatch[2]} Bath`);
-
-  const priceMatch = email.bodyText.match(/\$[\d,]+(?:\.\d+)?|\b\d{3,4}k\b/i);
-  if (priceMatch) specs.push(priceMatch[0]);
-
-  if (combined.includes('full remodel') || combined.includes('fully remodel')) specs.push('Fully Remodeled');
-
-  const goLiveMatch = email.bodyText.match(/(?:going live|go-live|launch(?:ing)?)\s*([A-Za-z]+\s*\d{1,2}(?:st|nd|rd|th)?|\d{1,2}\/\d{1,2})/i);
-  if (goLiveMatch) specs.push(`Go-Live: ${goLiveMatch[1]}`);
-
-  const specsSummary = specs.length > 0 ? `\n[Property Specs]: ${specs.join(' • ')}` : '';
-
-  // Create Deliverable Task
-  const creativeDraft =
-    category === 'signage'
-      ? null
-      : buildCreativeTaskDraft({
-          source: 'email',
-          subject: email.subject,
-          text: email.bodyText,
-          propertyAddress,
-          agentName,
-        });
-
-  const newTask: CanonicalMarketingTask = {
-    id: taskId,
-    requestId,
-    title: deliverableTitle,
-    category,
-    status: 'request_received', // Always Intake Received — photos do not auto-start production
-    assignedTo: assignedLead, // Melissa for marketing triage; she routes / assigns next
-    assignedToId: 'dir_melissa_gagliardi_33',
-    assignedToRole: 'Marketing Director',
-    reviewOwner: assignedLead === 'Melissa Gagliardi' ? 'Melissa Gagliardi' : undefined,
-    reviewOwnerName: assignedLead === 'Melissa Gagliardi' ? 'Melissa Gagliardi' : undefined,
-    agentName,
-    propertyAddress,
-    photos: structuredPhotos,
-    attachments: structuredAttachments,
-    driveFolderUrl,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    dueAt: new Date(Date.now() + 86400000 * 2).toISOString(),
-    vendorName: category === 'signage' ? 'Coastal Sign Post Co.' : (category === 'print' ? 'Coastal Print Works' : undefined),
-    isArchived: false,
-    notes: creativeDraft
-      ? `${creativeDraft.notes}\n\nEmail received at asknora@nestrealty.com.${specsSummary}\n[Attachments]: ${photoAttachments.map(p => p.filename).join(', ') || '1004.jpg'} ${driveFolderUrl ? `Google Drive: ${driveFolderUrl}` : "Drive folder pending"}`
-      : `Email received at asknora@nestrealty.com.${specsSummary}\n[Attachments]: ${photoAttachments.map(p => p.filename).join(', ') || '1004.jpg'} ${driveFolderUrl ? `Google Drive: ${driveFolderUrl}` : "Drive folder pending"}`,
-    ...(creativeDraft
-      ? {
-          creativeBrief: creativeDraft.creativeBrief,
-          routingSnapshot: {
-            ...creativeDraft.routingSnapshot,
-            fulfillmentStaffName: 'Eduardo Lovo',
-          },
-        }
-      : {}),
-  } as CanonicalMarketingTask;
-
-  saveCanonicalMarketingTask(newTask);
-
+  // Gmail and IMAP share the same durable identity, lifecycle and outbox rules.
+  // New marketing tasks use status: 'request_received' and Melissa reviews every intake.
+  const result = await ingestInboundEmailToTask({
+    workspaceId: email.workspaceId || 'ws_wilmington', provider: 'gmail_api',
+    mailboxId: 'asknora@nestrealty.com', from: `${email.fromName} <${email.fromEmail}>`,
+    subject: email.subject, textContent: email.bodyText, messageId: email.messageId,
+    threadId: email.threadId, inReplyTo: email.inReplyTo, references: email.references,
+    attachments: (email.attachments || []).map(att => ({ ...att, content: att.content || att.buffer || att.base64Data })),
+  });
+  if (!result.success) throw new Error(result.error || result.message || 'Email intake failed');
   processedMessageIds.add(email.messageId);
-
-  console.log(`[EmailIntake] Successfully ingested marketing email from ${email.fromEmail} -> Created task "${deliverableTitle}" for ${propertyAddress} (Assigned to ${assignedLead}, with ${structuredPhotos.length} photos)`);
-
-  // 3. Idempotent confirmation (one per request) via durable outbox
-  try {
-    await enqueueOutboundEmail({
-      workspaceId: 'ws_wilmington',
-      messageType: 'intake_confirmed',
-      idempotencyKey: `ws_wilmington:agent:${String(agentEmail||"").toLowerCase()}:addr:${String(propertyAddress||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,120)}:intake_confirmation:v2`,
-      recipient: email.fromEmail,
-      subject: `Marketing Intake Confirmed: ${propertyAddress}`,
-      payload: {
-        toEmail: email.fromEmail,
-        agentName: email.fromName,
-        propertyAddress,
-        deliverables: items,
-        assignedLead,
-        trackerUrl: `https://shapework.co/track/marketing/${generateMarketingTrackerToken(taskId)}`
-      }
-    });
-    await processOutboundEmailOutbox();
-  } catch (err) {
-    console.warn(`[EmailIntake] Notice enqueueing intake confirmation email to ${email.fromEmail}:`, err);
-  }
-
+  const existing = result.actionTaken === 'reconciled_updated' || result.actionTaken === 'reconciled_merged';
   return {
-    isMarketingRequest: true,
-    propertyAddress,
-    deliverableTitle,
-    category,
-    agentName,
-    agentEmail: email.fromEmail,
-    extractedPhotosCount: photoAttachments.length,
-    driveFolderUrl,
-    createdRequestId: requestId,
-    createdTaskId: taskId,
-    assignedLead,
-    photos: structuredPhotos,
-    attachments: structuredAttachments
+    isMarketingRequest: Boolean(result.taskId && result.actionTaken !== 'already_processed'),
+    propertyAddress: result.propertyAddress || '', deliverableTitle: result.task?.title || email.subject,
+    category: result.task?.category, agentName: result.agentName || email.fromName, agentEmail: email.fromEmail,
+    extractedPhotosCount: result.photosCount || 0, driveFolderUrl: result.driveFolderUrl || '',
+    createdRequestId: result.requestId, createdTaskId: existing ? undefined : result.taskId,
+    isExistingTaskUpdated: existing ? true : undefined, updatedTaskId: existing ? result.taskId : undefined,
+    assignedLead: result.task?.assignedTo || result.assignedTo || 'Melissa Gagliardi',
+    photos: result.task?.photos, attachments: result.task?.attachments,
   };
 }
 
@@ -576,7 +232,7 @@ export async function processInboundAgentEmail(email: InboundAgentEmail): Promis
  * Synchronizes unread emails from asknora@nestrealty.com.
  * In development/test mode, only process explicit whitelisted test emails.
  */
-export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo'): Promise<{
+export async function syncNoraEmailInbox(workspaceId: string = 'ws_wilmington'): Promise<{
   syncedCount: number;
   newRequestsCount: number;
   results: EmailIntakeResult[];
@@ -617,9 +273,7 @@ export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo
       const effectiveDbState = (global as any).__SHAPEWORK_DB_STATE || {};
       const store = new IntegrationStateStore(effectiveDbState);
       let connection = await store.getConnection(workspaceId, 'google_workspace');
-      if (!connection && workspaceId !== 'nest-realty-demo') {
-        connection = await store.getConnection('nest-realty-demo', 'google_workspace');
-      }
+
       const oauthRec = getOAuthTokenRecord('google');
 
       if (connection && connection.status === 'connected' && connection.encryptedAccessToken) {
@@ -641,7 +295,7 @@ export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo
       const listRes = await gmail.users.messages.list({
         userId: 'me',
         maxResults: 15,
-        q: 'to:asknora@nestrealty.com OR to:me'
+        q: 'is:unread (to:asknora@nestrealty.com OR to:me)'
       });
 
       if (listRes.data.messages && listRes.data.messages.length > 0) {
@@ -660,8 +314,8 @@ export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo
             const subjectHeader = headers.find(h => h.name?.toLowerCase() === 'subject')?.value || '';
             const dateHeader = headers.find(h => h.name?.toLowerCase() === 'date')?.value || new Date().toISOString();
 
-            let fromEmail = 'matt.orr@nestrealty.com';
-            let fromName = 'Matt Orr';
+            let fromEmail = '';
+            let fromName = '';
             const emailMatch = fromHeader.match(/<([^>]+)>/) || [null, fromHeader];
             if (emailMatch[1]) {
               fromEmail = emailMatch[1].trim();
@@ -671,26 +325,35 @@ export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo
             let bodyText = msgDetail.data.snippet || '';
             const attachments: InboundAgentEmail['attachments'] = [];
 
-            const parts = msgDetail.data.payload?.parts || [];
-            for (const part of parts) {
-              if (part.filename) {
-                attachments.push({
-                  filename: part.filename,
-                  contentType: part.mimeType || 'image/jpeg',
-                  sizeBytes: part.body?.size || 1000000,
-                  url: `https://drive.google.com/file/d/${part.body?.attachmentId || 'attached'}`
-                });
+            if (!fromEmail) throw new Error('Inbound email has no sender');
+            const readParts = async (parts: any[]): Promise<void> => {
+              for (const part of parts) {
+                if (part.parts) await readParts(part.parts);
+                if (part.filename) {
+                  let data = part.body?.data;
+                  if (!data && part.body?.attachmentId) {
+                    const attachment = await gmail.users.messages.attachments.get({
+                      userId: 'me', messageId: msgRef.id!, id: part.body.attachmentId,
+                    });
+                    data = attachment.data.data;
+                  }
+                  if (!data) throw new Error(`Attachment bytes unavailable: ${part.filename}`);
+                  const content = Buffer.from(data, 'base64url');
+                  attachments.push({ filename: part.filename, contentType: part.mimeType || 'application/octet-stream',
+                    sizeBytes: content.length, content });
+                } else if (part.mimeType === 'text/plain' && part.body?.data) {
+                  bodyText = Buffer.from(part.body.data, 'base64url').toString('utf8');
+                }
               }
-              if (part.mimeType === 'text/plain' && part.body?.data) {
-                try {
-                  bodyText = Buffer.from(part.body.data, 'base64').toString('utf-8');
-                } catch {}
-              }
-            }
+            };
+            await readParts([msgDetail.data.payload]);
 
             const parsedEmail: InboundAgentEmail = {
               id: `gmail_${msgRef.id}`,
-              messageId: msgRef.id,
+              messageId: headers.find(h => h.name?.toLowerCase() === 'message-id')?.value || msgRef.id,
+              workspaceId, threadId: msgDetail.data.threadId || undefined,
+              inReplyTo: headers.find(h => h.name?.toLowerCase() === 'in-reply-to')?.value,
+              references: headers.find(h => h.name?.toLowerCase() === 'references')?.value,
               fromEmail,
               fromName,
               subject: subjectHeader,
@@ -700,6 +363,8 @@ export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo
             };
 
             const res = await processInboundAgentEmail(parsedEmail);
+            processedMessageIds.add(msgRef.id);
+            await gmail.users.messages.modify({ userId: 'me', id: msgRef.id, requestBody: { removeLabelIds: ['UNREAD'] } });
             results.push(res);
             if (res.isMarketingRequest) newRequestsCount++;
           } catch (e) {
@@ -713,7 +378,7 @@ export async function syncNoraEmailInbox(workspaceId: string = 'nest-realty-demo
   }
 
   // 2. Process seed/simulated inbox emails (including Matt Orr's Wolcott Ave request)
-  for (const email of SEED_INBOX_EMAILS) {
+  for (const email of process.env.NODE_ENV === 'test' ? SEED_INBOX_EMAILS : []) {
     if (!processedMessageIds.has(email.messageId)) {
       const res = await processInboundAgentEmail(email);
       results.push(res);

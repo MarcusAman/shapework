@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Runtime data is not template source; avoid scanning database files during builds. */
+@source not "../data";
+@source not "../server/data";
+@source not "../tmp";
+@source not "../var";
+
 @import "./styles/tokens.css";
 @import "./styles/app.css";
 @import "./styles/components.css";

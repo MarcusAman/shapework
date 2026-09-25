@@ -30,7 +30,7 @@ import {
 } from '../persistence/marketingCampaignsRepository.js';
 import { NEST_FULL_ROSTER_77, DirectorySeedPerson } from '../persistence/nestRosterSeed.js';
 import { canonicalTaskRoutingService } from './canonicalTaskRoutingService.js';
-import { coalesceRealDriveUrl, isRealGoogleDriveUrl, promoteAskNoraListingFolder } from './askNoraDriveDelivery.js';
+import { coalesceRealDriveUrl } from './askNoraDriveDelivery.js';
 
 
 export const NORA_POLICY_VERSION = 'nora_marketing_intake_v2.1';
@@ -638,8 +638,9 @@ export class NoraMarketingIntakeOrchestrator {
     let hasExistingOpenTask = false;
 
     if (normalizedPropertyKey) {
-      const allRequests = getAllCanonicalMarketingRequests();
-      const allTasks = getAllCanonicalMarketingTasks();
+      const requesterEmail = String(requester.email || '').trim().toLowerCase();
+      const allRequests = getAllCanonicalMarketingRequests().filter(r => r.workspaceId === workspaceId && requesterEmail && r.agentEmail?.toLowerCase() === requesterEmail);
+      const allTasks = getAllCanonicalMarketingTasks().filter(t => t.workspaceId === workspaceId && requesterEmail && t.agentEmail?.toLowerCase() === requesterEmail);
 
       existingOpenRequest = allRequests.find(r => {
         if (r.isArchived || r.status === 'completed' || r.status === 'merged' || r.status === 'archived') return false;
@@ -898,7 +899,10 @@ export class NoraMarketingIntakeOrchestrator {
     let isMerged = false;
 
     // 1. Check if we should merge into an existing open request for the confirmed address
-    if (evalResult.normalizedPropertyKey && evalResult.existingOpenRequest) {
+    if (evalResult.normalizedPropertyKey && evalResult.existingOpenRequest &&
+      evalResult.existingOpenRequest.workspaceId === evalResult.workspaceId &&
+      Boolean(evalResult.requester.email) &&
+      evalResult.existingOpenRequest.agentEmail?.toLowerCase() === evalResult.requester.email?.toLowerCase()) {
       targetRequest = evalResult.existingOpenRequest;
       isMerged = true;
       targetRequest.notes = `${targetRequest.notes || ''}\n\n[Reconciled Intake Update via ${evalResult.channel.toUpperCase()} from ${evalResult.requester.name}]: Updated marketing specs.`;
@@ -926,7 +930,7 @@ export class NoraMarketingIntakeOrchestrator {
         createdByName: evalResult.caller?.name || evalResult.requester.name,
         onBehalfOf: evalResult.onBehalfOf || undefined,
         channel: evalResult.channel === 'phone' ? 'phone' : evalResult.channel === 'email' ? 'email' : 'web',
-        status: evalResult.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info',
+        status: 'request_received',
         taskIds: [],
         photos: evalResult.extractedFields.photos.map((p, idx) => ({
           id: `p_${Date.now()}_${idx}`,
@@ -953,32 +957,11 @@ export class NoraMarketingIntakeOrchestrator {
     (targetRequest as any).propertyDescription = evalResult.extractedFields.description;
     (targetRequest as any).createdByName = evalResult.caller?.name || evalResult.requester.name;
     (targetRequest as any).onBehalfOf = evalResult.onBehalfOf || null;
-    targetRequest.status = evalResult.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info';
+    if (!isMerged || ['needs_info', 'request_received', 'ready_for_review'].includes(targetRequest.status)) targetRequest.status = 'request_received';
+    targetRequest.assignedTo = targetRequest.assignedTo || 'Melissa Gagliardi';
 
-    // Create-at-intake: one AskNora Drive folder named by address. Fail closed — no stub URL.
-    try {
-      const promoted = await promoteAskNoraListingFolder({
-        propertyAddress: targetRequest.propertyAddress,
-        agentName: targetRequest.agentName,
-        agentEmail: targetRequest.agentEmail,
-        workspaceId: targetRequest.workspaceId,
-        existingFolderUrl: targetRequest.driveFolderUrl,
-      });
-      const nextFolder = coalesceRealDriveUrl(promoted.driveFolderUrl, targetRequest.driveFolderUrl);
-      targetRequest.driveFolderUrl = nextFolder;
-      if (nextFolder) {
-        for (const sibling of allTasks) {
-          if (sibling.requestId === targetRequest.id && !isRealGoogleDriveUrl(sibling.driveFolderUrl)) {
-            sibling.driveFolderUrl = nextFolder;
-            sibling.updatedAt = new Date().toISOString();
-            saveCanonicalMarketingTask(sibling);
-          }
-        }
-      }
-    } catch (driveErr: any) {
-      console.warn('[Intake] AskNora Drive folder deferred:', driveErr?.message || driveErr);
-      if (!isRealGoogleDriveUrl(targetRequest.driveFolderUrl)) targetRequest.driveFolderUrl = '';
-    }
+    // External folders are optional references; intake never waits on Drive.
+    targetRequest.driveFolderUrl = coalesceRealDriveUrl(targetRequest.driveFolderUrl);
 
     saveCanonicalMarketingRequest(targetRequest);
 
@@ -995,6 +978,15 @@ export class NoraMarketingIntakeOrchestrator {
       : [];
     
     for (const [idx, delivTitle] of deliverablesList.entries()) {
+      const existingTask = allTasks.find(t => t.workspaceId === evalResult.workspaceId && t.requestId === targetRequest.id && t.title.trim().toLowerCase() === delivTitle.trim().toLowerCase() && !t.isArchived);
+      if (existingTask) {
+        const urls = new Set((existingTask.photos || []).map(p => p.url));
+        existingTask.photos = [...(existingTask.photos || []), ...(targetRequest.photos || []).filter(p => !urls.has(p.url))];
+        existingTask.updatedAt = new Date().toISOString();
+        saveCanonicalMarketingTask(existingTask);
+        tasks.push(existingTask);
+        continue;
+      }
       const taskId = `tsk_${targetRequest.id}_${idx}`;
         
         // Canonical Server-Side Routing Resolver
@@ -1020,14 +1012,17 @@ export class NoraMarketingIntakeOrchestrator {
           requestTitle: targetRequest.title,
           propertyAddress: targetRequest.propertyAddress,
           agentName: targetRequest.agentName,
+          agentEmail: targetRequest.agentEmail,
+          agentPhone: targetRequest.agentPhone,
+          photos: targetRequest.photos || [],
           title: delivTitle,
           category: routingDecision.departmentId || 'marketing_collateral',
-          assignedTo: isTriage ? undefined : routingDecision.assigneeName,
-          assignedToId: isTriage ? undefined : routingDecision.assigneeStaffId,
-          assignedToRole: isTriage ? 'Unassigned Review Queue' : (routingDecision.assigneeRole || 'Marketing Specialist'),
-          reviewOwner: routingDecision.reviewOwnerName,
-          reviewOwnerId: routingDecision.reviewOwnerStaffId,
-          reviewOwnerName: routingDecision.reviewOwnerName,
+          assignedTo: evalResult.intakeType === 'signage_only' ? routingDecision.assigneeName : 'Melissa Gagliardi',
+          assignedToId: evalResult.intakeType === 'signage_only' ? routingDecision.assigneeStaffId : 'dir_melissa_gagliardi_33',
+          assignedToRole: evalResult.intakeType === 'signage_only' ? routingDecision.assigneeRole : 'Marketing Director',
+          reviewOwner: evalResult.intakeType === 'signage_only' ? routingDecision.reviewOwnerName : 'Melissa Gagliardi',
+          reviewOwnerId: evalResult.intakeType === 'signage_only' ? routingDecision.reviewOwnerStaffId : 'dir_melissa_gagliardi_33',
+          reviewOwnerName: evalResult.intakeType === 'signage_only' ? routingDecision.reviewOwnerName : 'Melissa Gagliardi',
           coveringStaff: routingDecision.coveringStaffName,
           coveringStaffId: routingDecision.coveringStaffId,
           coveringStaffName: routingDecision.coveringStaffName,
@@ -1039,11 +1034,11 @@ export class NoraMarketingIntakeOrchestrator {
           departmentId: routingDecision.departmentId,
           primaryRoleId: routingDecision.primaryRoleId,
           reviewRoleId: routingDecision.reviewRoleId,
-          assigneeStaffId: routingDecision.assigneeStaffId,
+          assigneeStaffId: evalResult.intakeType === 'signage_only' ? routingDecision.assigneeStaffId : 'dir_melissa_gagliardi_33',
           routingState: routingDecision.routingState,
           routingReasons: routingDecision.reasonCodes,
           routingSnapshot: routingDecision.snapshot,
-          status: isTriage ? 'needs_info' : (evalResult.readinessStatus === 'ready_for_review' ? 'ready_for_review' : 'needs_info'),
+          status: 'request_received',
           dueAt: evalResult.extractedFields.neededByDate,
           driveFolderUrl: targetRequest.driveFolderUrl || '',
           notes: `${evalResult.onBehalfOf && !evalResult.caller?.isVerified ? `[Submitted by ${evalResult.caller?.name || 'Caller'} on behalf of ${evalResult.onBehalfOf}${evalResult.caller?.phone ? ` (${evalResult.caller.phone})` : ''}]\n` : ''}Policy Version: ${evalResult.policyVersion}${isTriage ? ` • Triage: ${routingDecision.triageReason}` : ''}`,
@@ -1068,6 +1063,9 @@ export class NoraMarketingIntakeOrchestrator {
         );
       }
       saveCanonicalMarketingRequest(targetRequest);
+      const { enqueueMissingPhotoRequest, processOutboundEmailOutbox } = await import('./inboundEmailIngestionEngine.js');
+      await enqueueMissingPhotoRequest(targetRequest, tasks[0]);
+      await processOutboundEmailOutbox();
 
     return { request: targetRequest, tasks, isMerged };
   }

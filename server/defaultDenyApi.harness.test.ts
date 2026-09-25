@@ -17,6 +17,11 @@ import {
 } from './auth/defaultDenyApi.js';
 
 const EXPECTED_PUBLIC = [
+  'GET /api/marketing/assets/download/:token',
+  'GET /api/track/marketing/:token/media/:index',
+  'GET /api/track/marketing/:token/deliverable',
+  'POST /api/track/marketing/:token/revisions',
+
   'GET /api/auth/:provider/callback',
   'GET /api/auth/invitations/validate',
   'GET /api/comps/share/:token',
